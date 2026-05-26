@@ -55,7 +55,8 @@ class YFinanceAdapter:
         # --- EXTRACT CASH FLOW DATA (Working Capital, SBC, Capex) ---
         try:
             cf = yt.cashflow
-            if not cf.empty:
+            # FIX: Added null check to prevent AttributeError if yfinance fails
+            if cf is not None and not cf.empty:
                 # 1. Working Capital Quality
                 if "Change In Working Capital" in cf.index:
                     wc_val = cf.loc["Change In Working Capital"].iloc[0]
@@ -68,9 +69,16 @@ class YFinanceAdapter:
 
                 # 3. Capital Expenditures (Used for Capex Authenticity check)
                 if "Capital Expenditure" in cf.index:
-                    # yfinance returns Capex as a negative number; we take absolute for the factor
+                    # yfinance returns Capex as a negative number; take absolute for the factor
                     capex_val = cf.loc["Capital Expenditure"].iloc[0]
                     f.capex_ttm = abs(float(capex_val)) if pd.notnull(capex_val) else None
+                
+                # 4. Accruals Ratio (Sloan Accruals Approximation)
+                # Formula: (Net Income - Operating Cash Flow) / Total Assets
+                # Here we simplify to (Net Income - FCF) / Revenue if assets are unavailable
+                if f.net_income_ttm and f.fcf_ttm and f.revenue_ttm:
+                    f.accruals_ratio = (f.net_income_ttm - f.fcf_ttm) / f.revenue_ttm
+                    
         except Exception as e:
             logger.warning(f"Failed to parse cash flow statement for {yt.ticker}: {e}")
             
