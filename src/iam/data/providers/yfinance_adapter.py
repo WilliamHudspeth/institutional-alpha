@@ -99,6 +99,38 @@ class YFinanceAdapter:
             except Exception as e:
                 logger.warning(f"Failed to parse historical financials: {e}")
 
+                try:
+            cf = yt.cashflow
+            if not cf.empty: # <--- CRASH HERE if cf is None
+        # --- EXTRACT CASH FLOW DATA (Working Capital, SBC, Capex) ---
+        try:
+            cf = yt.cashflow
+            # FIX: Check if cf is not None before accessing .empty
+            if cf is not None and not cf.empty:
+                # 1. Working Capital Quality
+                if "Change In Working Capital" in cf.index:
+                    wc_val = cf.loc["Change In Working Capital"].iloc[0]
+                    f.change_in_working_capital = float(wc_val) if pd.notnull(wc_val) else None
+
+                # 2. Stock Based Compensation
+                if "Stock Based Compensation" in cf.index:
+                    sbc_val = cf.loc["Stock Based Compensation"].iloc[0]
+                    f.sbc_ttm = float(sbc_val) if pd.notnull(sbc_val) else 0.0
+
+                # 3. Capital Expenditures
+                if "Capital Expenditure" in cf.index:
+                    capex_val = cf.loc["Capital Expenditure"].iloc[0]
+                    f.capex_ttm = abs(float(capex_val)) if pd.notnull(capex_val) else None
+
+                # 4. Accruals Ratio (New: Wiring this to your factor engine)
+                if f.net_income_ttm and f.fcf_ttm and f.revenue_ttm:
+                    # Simple proxy: (Net Income - FCF) / Revenue
+                    f.accruals_ratio = (f.net_income_ttm - f.fcf_ttm) / f.revenue_ttm
+
+        except Exception as e:
+            logger.warning(f"Failed to parse cash flow statement for {yt.ticker}: {e}")
+
+
         return f
 
     def _build_market_data(self, info: dict) -> MarketData:
