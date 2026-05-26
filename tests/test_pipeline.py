@@ -262,3 +262,38 @@ def test_v01_factor_scoring_still_works():
     result = score(Security(ticker="LEGACY"))
     assert result.composite is not None
     assert len(result.factor_breakdown) == 10
+
+
+# ---------------------------------------------------------------------------
+# SOTP (Stage 3b)
+# ---------------------------------------------------------------------------
+
+def test_pipeline_uses_sotp_when_segments_provided():
+    """Verify the orchestrator prioritizes SOTP over FCFE when segments exist."""
+    from iam.data.security import Segment
+    
+    sec = Security(
+        ticker="MULTI",
+        fundamentals=Fundamentals(
+            fcf_ttm=1000,
+            shares_outstanding=100,
+            cash_and_equivalents=500,
+            total_debt=1500,  # Net debt = 1000
+            segments=[
+                # Segment 1 EV = 5,000 * 10 = 50,000
+                Segment(name="Cloud", revenue_ttm=5000, multiple=10.0, multiple_type="ev_sales"),
+                # Segment 2 EV = 2,000 * 15 = 30,000
+                Segment(name="Retail", operating_income_ttm=2000, multiple=15.0, multiple_type="ev_ebitda")
+            ]
+        ),
+        market=MarketData(price=700),  # Arbitrary current price
+    )
+
+    report = ValuationPipeline().run(sec)
+    
+    # Total EV = 80,000. Less Net Debt (1,000) = 79,000 Equity Value.
+    # Divided by 100 shares = 790 fair value per share.
+    assert report.intrinsic.fair_value_per_share == 790.0
+    
+    # Ensure the method didn't fail and reduce confidence to 0
+    assert report.intrinsic.confidence > 0.0
