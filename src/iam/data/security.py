@@ -36,6 +36,9 @@ class Fundamentals:
     
     # NEW: Native segment support for SOTP
     segments: List[Segment] = field(default_factory=list)
+    
+    # NEW: Balance sheet flow data
+    change_in_working_capital: Optional[float] = None
 
 
 @dataclass
