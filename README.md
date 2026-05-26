@@ -1,0 +1,87 @@
+# Institutional Alpha Model (IAM)
+
+> A multi-factor equity scoring framework that goes beyond "cheap vs. expensive."
+
+Most public valuation models stop at DCF or relative multiples. Institutional discretionary and systematic funds implicitly price a much wider surface: **expectations difficulty, quality, reflexivity, crowding, regime fit, fragility, and capital allocation quality.**
+
+This repo is an open-source attempt to encode that surface as an orthogonal, weighted, auditable factor model — written in plain Python so it's easy to read, fork, and extend.
+
+## Status
+
+🚧 **Early scaffold.** Factor interfaces and the composite engine are implemented. Individual factor calculations are stubs returning sensible defaults — the design is finalized, the numbers aren't. Contributions welcome (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+
+## Core idea
+
+Instead of one number ("fair value"), the framework asks ten questions in parallel and combines them into a single composite score in `[-1, 1]`:
+
+| Factor | Question it answers |
+|---|---|
+| Intrinsic Value | What's the asset worth on cash flows? |
+| Expectations | What growth/ROIC does the price imply, and how hard is that? |
+| Quality | How durable and capital-efficient is the business? |
+| Relative Value | Cheap or expensive vs. peers and history? |
+| Sentiment | What does the market mood say? |
+| Reflexivity | Does the stock price *itself* improve the fundamentals? |
+| Runway | Can capital still be reinvested at attractive rates? |
+| Macro Regime | Does the current regime reward this style? |
+| Crowding | How positioned is the trade? |
+| Earnings Quality | Is the reported FCF real? |
+
+Then three **penalty factors** are subtracted:
+
+- **Fragility** — how much does the multiple compress on a small disappointment?
+- **Leverage** — balance sheet stress and refinancing risk
+- **Execution Risk** — operational, regulatory, geographic complexity
+
+See [`docs/framework.md`](docs/framework.md) for the conceptual writeup and [`docs/factors.md`](docs/factors.md) for each factor's definition.
+
+## Install
+
+```bash
+git clone https://github.com/YOUR_USERNAME/institutional-alpha.git
+cd institutional-alpha
+pip install -e .
+```
+
+Requires Python 3.10+. No heavy dependencies — just `numpy` and `pandas`.
+
+## Quick start
+
+```python
+from iam import Security, score
+
+aapl = Security(ticker="AAPL")  # add fundamentals as you wire data sources
+result = score(aapl)
+
+print(result.composite)          # e.g. 0.34
+print(result.factor_breakdown)   # per-factor contributions
+print(result.penalties)          # fragility / leverage / execution
+```
+
+See [`examples/`](examples/) for a runnable end-to-end demo.
+
+## Design principles
+
+1. **Orthogonal factors.** Each factor measures one thing. Valuation and quality are separate inputs, not one blended score.
+2. **Auditable.** Every composite score decomposes back into its factor contributions and penalty terms.
+3. **Pluggable data.** The model doesn't care where fundamentals come from — wire in your own provider.
+4. **Regime-aware.** The macro filter can re-weight other factors instead of just adding to them.
+5. **No magic.** Default factor weights are explicit, documented, and easy to override.
+
+## Roadmap
+
+- [x] Factor interfaces + composite engine
+- [x] Default weights + penalty system
+- [ ] Reference implementations for each factor (currently stubs)
+- [ ] Data provider adapters (yfinance, FMP, etc.)
+- [ ] Bayesian updating engine (priors → posterior on each earnings release)
+- [ ] Backtest harness
+- [ ] Cross-sectional ranking helpers
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+## Disclaimer
+
+This is a research framework, not investment advice. Nothing here is a recommendation to buy or sell any security. Past performance of any factor model does not guarantee future results.
