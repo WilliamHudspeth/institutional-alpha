@@ -8,7 +8,7 @@ This repo is an open-source attempt to encode that surface as an orthogonal, wei
 
 ## Status
 
-🚧 **Early scaffold.** Factor interfaces and the composite engine are implemented. Individual factor calculations are stubs returning sensible defaults — the design is finalized, the numbers aren't. Contributions welcome (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+🚧 **v0.2.0-alpha.** The factor-scoring engine from v0.1.0 still works (`iam.score(...)`), and v0.2.0-alpha adds the **valuation pipeline** — a sequential Reverse DCF → Relative → Intrinsic → Triangulation flow that produces a structured argument rather than a single composite score. See [`docs/pipeline.md`](docs/pipeline.md). Stages 5–7 (macro overlay, verdict, peer-relative ranking) coming in v0.2.0-beta and v0.2.0. Contributions welcome (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## Core idea
 
@@ -47,6 +47,10 @@ Requires Python 3.10+. No heavy dependencies — just `numpy` and `pandas`.
 
 ## Quick start
 
+Two entry points depending on what you want:
+
+**Factor scoring (v0.1.0):** cross-sectional ranking across many names.
+
 ```python
 from iam import Security, score
 
@@ -58,7 +62,21 @@ print(result.factor_breakdown)   # per-factor contributions
 print(result.penalties)          # fragility / leverage / execution
 ```
 
-See [`examples/`](examples/) for a runnable end-to-end demo.
+**Valuation pipeline (v0.2.0-alpha):** deep-dive on a single name.
+
+```python
+from iam import Security, ValuationPipeline
+
+sec = Security(ticker="HYPCO", ...)  # populate fundamentals + market
+report = ValuationPipeline().run(sec)
+print(report.explain())
+# Stage 1: market implies 21% FCFE growth — 117% of peak.
+# Stage 2: expensive vs peers/history (-44%).
+# Stage 3: intrinsic DCF says -34%.
+# Stage 4: TWO_OF_THREE — relative + intrinsic cluster; reverse DCF disagrees.
+```
+
+See [`examples/`](examples/) for runnable end-to-end demos of both.
 
 ## Design principles
 
@@ -70,13 +88,15 @@ See [`examples/`](examples/) for a runnable end-to-end demo.
 
 ## Roadmap
 
-- [x] Factor interfaces + composite engine
-- [x] Default weights + penalty system
-- [ ] Reference implementations for each factor (currently stubs)
+- [x] Factor interfaces + composite engine (v0.1.0)
+- [x] Default weights + penalty system (v0.1.0)
+- [x] Valuation pipeline: Reverse DCF → Relative → Intrinsic → Triangulation (v0.2.0-alpha)
+- [ ] Macro overlay with threshold-gated re-run (v0.2.0-beta)
+- [ ] Verdict + peer-relative ranking via Damodaran industries (v0.2.0)
+- [ ] Reference implementations for each v0.1.0 factor stub
 - [ ] Data provider adapters (yfinance, FMP, etc.)
 - [ ] Bayesian updating engine (priors → posterior on each earnings release)
 - [ ] Backtest harness
-- [ ] Cross-sectional ranking helpers
 
 ## License
 
