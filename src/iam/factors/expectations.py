@@ -67,8 +67,27 @@ class ExpectationsDifficultyFactor(Factor):
         return None
 
     def _roic_difficulty(self, security: Security) -> float | None:
-        """STUB: requires industry peak ROIC dataset."""
-        return None
+        """Compare implied ROIC to the industry's historical peak.
+
+        Requires 'implied_roic' and 'industry_peak_roic' to be passed via
+        security.qualitative.
+        
+        Inverted: low implied vs peak = easy expectations = high score.
+        """
+        q = security.qualitative
+        implied_roic = q.get("implied_roic")
+        peak_roic = q.get("industry_peak_roic")
+
+        if implied_roic is None or peak_roic is None or peak_roic <= 0:
+            return None
+
+        ratio = implied_roic / peak_roic
+        
+        # Mapping the difficulty:
+        # ratio <= 0.5 (demanding half of peak) -> +1.0 (easiest)
+        # ratio == 1.0 (demanding absolute peak) -> 0.0 (fair but tough)
+        # ratio >= 1.5 (demanding 50% above peak) -> -1.0 (heroic/impossible)
+        return self.clamp((1.0 - ratio) * 2.0)
 
     def _margin_difficulty(self, security: Security) -> float | None:
         """Uses peak historical operating margin as the ceiling.
