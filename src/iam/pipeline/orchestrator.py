@@ -14,10 +14,12 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from iam.data.security import Security
+from iam.data.macro import MacroConditions
 from iam.valuation import (
     ReverseDCF, RelativeValuation, FCFEDCF, FCFEAssumptions, SOTP,
     Triangulator, ValuationResult, TriangulationResult,
 )
+from iam.pipeline.macro import MacroOverlay
 
 
 @dataclass
@@ -83,11 +85,15 @@ class PipelineReport:
 
 
 class ValuationPipeline:
-    """Orchestrates Stages 1-4 of the pipeline.
+    """Orchestrates Stages 1-5 of the pipeline.
 
     Usage:
         report = ValuationPipeline().run(security)
         print(report.explain())
+
+    With macro:
+        macro = MacroConditions(real_rate_trend=1.0, pmi_direction=45)
+        report = ValuationPipeline().run(security, macro=macro)
     """
 
     def __init__(
@@ -97,6 +103,7 @@ class ValuationPipeline:
         intrinsic: Optional[FCFEDCF] = None,
         sotp: Optional[SOTP] = None,
         triangulator: Optional[Triangulator] = None,
+        macro_overlay: Optional[MacroOverlay] = None,
         use_sotp_when_segments_available: bool = True,
     ):
         self.reverse_dcf = reverse_dcf or ReverseDCF()
@@ -104,12 +111,14 @@ class ValuationPipeline:
         self.intrinsic_dcf = intrinsic or FCFEDCF()
         self.sotp = sotp or SOTP()
         self.triangulator = triangulator or Triangulator()
+        self.macro_overlay = macro_overlay or MacroOverlay()
         self.use_sotp = use_sotp_when_segments_available
 
     def run(
         self,
         security: Security,
         fcfe_assumptions: Optional[FCFEAssumptions] = None,
+        macro: Optional[MacroConditions] = None,
     ) -> PipelineReport:
         # Stage 1: what does the market expect?
         rev = self.reverse_dcf.compute(security)
@@ -118,7 +127,7 @@ class ValuationPipeline:
         rel = self.relative.compute(security)
 
         # Stage 3: independent intrinsic build-up.
-        # UPDATE: Check native fundamentals for segments
+        # Check native fundamentals for segments
         has_segments = bool(security.fundamentals.segments)
         
         if self.use_sotp and has_segments:
@@ -136,7 +145,7 @@ class ValuationPipeline:
         implied_move = tri.cluster_center
         summary = self._build_summary(rev, rel, intr, tri)
 
-        return PipelineReport(
+        report = PipelineReport(
             ticker=security.ticker,
             reverse_dcf=rev,
             relative=rel,
@@ -145,6 +154,12 @@ class ValuationPipeline:
             implied_move_pct=implied_move,
             summary=summary,
         )
+
+        # Stage 5: Apply macro overlay if provided
+        if macro:
+            report = self.macro_overlay.apply(report, security, macro)
+
+        return report
 
     @staticmethod
     def _build_summary(
