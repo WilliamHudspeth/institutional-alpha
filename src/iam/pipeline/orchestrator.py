@@ -118,8 +118,9 @@ class ValuationPipeline:
         rel = self.relative.compute(security)
 
         # Stage 3: independent intrinsic build-up.
-        # If the user provided segments, prefer SOTP over FCFE DCF.
-        has_segments = bool(security.qualitative.get("segments"))
+        # UPDATE: Check native fundamentals for segments
+        has_segments = bool(security.fundamentals.segments)
+        
         if self.use_sotp and has_segments:
             intr = self.sotp.compute(security)
             # If SOTP failed (returns 0 confidence), fall back to FCFE.
