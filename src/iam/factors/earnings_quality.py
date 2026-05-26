@@ -79,10 +79,10 @@ class EarningsQualityFactor(Factor):
             notes=notes,
         )
 
-    def _working_capital_quality(self, security: Security):
+    def _working_capital_quality(self, security: Security) -> float | None:
         """Penalizes FCF that is artificially inflated by draining working capital."""
         f = security.fundamentals
-        if f.change_in_working_capital is None or f.revenue_ttm is None or f.revenue_ttm == 0:
+        if f.change_in_working_capital is None or f.revenue_ttm is None or f.revenue_ttm <= 0:
             return None
 
         # Change in WC as a % of revenue
