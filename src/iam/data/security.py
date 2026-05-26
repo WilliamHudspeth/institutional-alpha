@@ -37,8 +37,13 @@ class Fundamentals:
     # NEW: Native segment support for SOTP
     segments: List[Segment] = field(default_factory=list)
     
-    # NEW: Balance sheet flow data
+    # NEW: Balance sheet flow data for Quality Factors
     change_in_working_capital: Optional[float] = None
+    sbc_ttm: Optional[float] = None                    # Added for Earnings Quality
+    capex_ttm: Optional[float] = None                  # Added for Earnings Quality
+    accruals_ratio: Optional[float] = None             # Added for Sloan Accruals
+    one_time_adjustments_count_5y: Optional[int] = 0    # Added for consistency check
+
 
 
 @dataclass
