@@ -31,15 +31,15 @@ class YFinanceAdapter:
             ticker=ticker.upper(),
             name=info.get("shortName", ticker.upper()),
             sector=info.get("sector", "Unknown"),
-            fundamentals=self._build_fundamentals(info, financials),
+            fundamentals=self._build_fundamentals(info, financials, yt),
             market=self._build_market_data(info),
             qualitative={}  # Left empty for the user to inject their thesis later
         )
 
-    def _build_fundamentals(self, info: dict, financials: pd.DataFrame) -> Fundamentals:
+    def _build_fundamentals(self, info: dict, financials: pd.DataFrame, yt: yf.Ticker) -> Fundamentals:
         f = Fundamentals()
         
-        # Current / TTM Metrics
+        # Basic TTM Metrics
         f.revenue_ttm = info.get("totalRevenue")
         f.fcf_ttm = info.get("freeCashflow")
         f.shares_outstanding = info.get("sharesOutstanding")
@@ -51,15 +51,35 @@ class YFinanceAdapter:
         # Operating Margin TTM
         if info.get("operatingMargins"):
             f.operating_margin = info.get("operatingMargins")
+
+        # --- EXTRACT CASH FLOW DATA (Working Capital, SBC, Capex) ---
+        try:
+            cf = yt.cashflow
+            if not cf.empty:
+                # 1. Working Capital Quality
+                if "Change In Working Capital" in cf.index:
+                    wc_val = cf.loc["Change In Working Capital"].iloc[0]
+                    f.change_in_working_capital = float(wc_val) if pd.notnull(wc_val) else None
+
+                # 2. Stock Based Compensation (Used for SBC/Revenue check)
+                if "Stock Based Compensation" in cf.index:
+                    sbc_val = cf.loc["Stock Based Compensation"].iloc[0]
+                    f.sbc_ttm = float(sbc_val) if pd.notnull(sbc_val) else 0.0
+
+                # 3. Capital Expenditures (Used for Capex Authenticity check)
+                if "Capital Expenditure" in cf.index:
+                    # yfinance returns Capex as a negative number; we take absolute for the factor
+                    capex_val = cf.loc["Capital Expenditure"].iloc[0]
+                    f.capex_ttm = abs(float(capex_val)) if pd.notnull(capex_val) else None
+        except Exception as e:
+            logger.warning(f"Failed to parse cash flow statement for {yt.ticker}: {e}")
             
-        # Parse History (yfinance returns most recent first, we want chronological for the engine if possible)
+        # Parse History
         if not financials.empty:
             try:
                 # Revenue History
                 if "Total Revenue" in financials.index:
                     rev_series = financials.loc["Total Revenue"].dropna()
-                    # Reverse to make it oldest-to-newest if needed, or keep as is. 
-                    # The framework expects history for peak calculations.
                     f.revenue_history = rev_series.tolist()
                     
                 # Operating Margin History
