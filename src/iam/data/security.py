@@ -9,6 +9,18 @@ from typing import Any, Dict, List, Optional
 
 
 @dataclass
+class Segment:
+    """A single business segment for SOTP purposes."""
+    name: str
+    revenue_ttm: Optional[float] = None
+    operating_income_ttm: Optional[float] = None
+    growth_rate: Optional[float] = None
+    multiple: Optional[float] = None          # e.g. EV/Sales for high-growth
+    multiple_type: str = "ev_sales"           # "ev_sales", "ev_ebit", "ev_ebitda"
+    notes: str = ""
+
+
+@dataclass
 class Fundamentals:
     """Core accounting and operating metrics."""
     revenue_ttm: Optional[float] = None
@@ -21,6 +33,9 @@ class Fundamentals:
     operating_margin_history: List[float] = field(default_factory=list)
     total_debt: Optional[float] = None
     cash_and_equivalents: Optional[float] = None
+    
+    # NEW: Native segment support for SOTP
+    segments: List[Segment] = field(default_factory=list)
 
 
 @dataclass
