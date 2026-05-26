@@ -46,8 +46,8 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Data files
+# Data files (root-level only, not src/iam/data/ package)
 *.csv
 *.parquet
 *.xlsx
-data/
+/data/
