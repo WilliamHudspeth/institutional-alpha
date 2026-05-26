@@ -297,3 +297,46 @@ def test_pipeline_uses_sotp_when_segments_provided():
     
     # Ensure the method didn't fail and reduce confidence to 0
     assert report.intrinsic.confidence > 0.0
+
+
+# ---------------------------------------------------------------------------
+# Macro Overlay (Stage 5)
+# ---------------------------------------------------------------------------
+
+def test_pipeline_applies_macro_overlay_headwinds():
+    """Verify Stage 5 Macro Overlay reduces confidence for high-duration names in rising rate regimes."""
+    from iam.data.macro import MacroConditions
+    
+    sec = Security(
+        ticker="DURATION_RISK",
+        fundamentals=Fundamentals(
+            fcf_ttm=1000, 
+            shares_outstanding=100,
+            revenue_history=[1200, 1100, 1000]
+        ),
+        market=MarketData(
+            price=1500, 
+            pe_ttm=85.0,  # High multiple, very duration-sensitive
+            ev_ebitda=40.0
+        ),
+        qualitative={
+            "forecast_growth": 0.20, 
+            "forecast_discount_rate": 0.09
+        }
+    )
+
+    # 1. Run without macro (baseline)
+    baseline_report = ValuationPipeline().run(sec)
+    base_confidence = baseline_report.triangulation.confidence
+
+    # 2. Run with rising real rates
+    macro_env = MacroConditions(real_rate_trend=1.0) # Positive = rising rates
+    macro_report = ValuationPipeline().run(sec, macro=macro_env)
+    
+    # 3. Assertions
+    assert macro_report.triangulation.confidence < base_confidence
+    
+    # Check that the specific note got appended
+    notes_text = " ".join(macro_report.triangulation.notes)
+    assert "Macro Headwind" in notes_text
+    assert "High-multiple duration risk" in notes_text
