@@ -1,8 +1,9 @@
-"""MacroConditions — the structured macro input for the pipeline macro overlay.
+"""MacroConditions — structured macro inputs for the pipeline's macro overlay.
 
-Distinct from the qualitative MacroContext on Security, which factors consume.
-MacroConditions is passed explicitly to ValuationPipeline.run() for
-Stage 5 / macro overlay logic.
+Distinct from MacroContext (which lives on Security and drives MacroRegimeFactor):
+  - MacroContext is a string-tagged snapshot attached to a security.
+  - MacroConditions is a numeric snapshot passed to ValuationPipeline.run()
+    for Stage 5 / macro overlay logic.
 
 real_rate_trend is a numeric delta so that pipeline logic can use
   ``if macro.real_rate_trend > 0`` (rising) rather than string comparison.

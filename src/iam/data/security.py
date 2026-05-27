@@ -106,6 +106,7 @@ class MarketData:
     ev_sales: Optional[float] = None
 
     # Peer comparisons
+    peer_ev_sales_median: Optional[float] = None
     peer_fcf_yields: list[float] = field(default_factory=list)
 
     # Positioning

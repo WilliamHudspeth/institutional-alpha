@@ -43,6 +43,13 @@ class RelativeValueFactor(Factor):
         else:
             confidence *= 0.85
 
+        # EV/Sales vs peers
+        if m.ev_sales is not None and m.peer_ev_sales_median is not None and m.peer_ev_sales_median > 0:
+            ratio = m.ev_sales / m.peer_ev_sales_median
+            components["ev_sales_vs_peers"] = self.clamp(-(ratio - 1.0))
+        else:
+            confidence *= 0.95
+
         value = self.weighted_average({
             "evebitda": (components.get("ev_ebitda_vs_sector"),  0.30),
             "pe_pct":   (components.get("pe_own_percentile"),    0.30),
