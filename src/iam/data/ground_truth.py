@@ -13,10 +13,11 @@ Architecture: The Data Firewall
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from dataclasses import dataclass, asdict
+from typing import TYPE_CHECKING, Dict, Tuple
 
 from iam.data.damodaran import DamodaranProvider, MacroBaselines
+from iam.data.provenance import attach_provenance
 
 if TYPE_CHECKING:
     from iam.data.security import Security
@@ -41,17 +42,27 @@ class EquityRiskProfile:
     1. Damodaran's monthly macro update changes ERP
     2. Company structure changes (new debt, new taxes)
     3. Company moves to different industry classification
+
+    For multi-region companies, erp_breakdown shows the weighted ERP
+    contribution by geography (useful for auditing international exposure).
     """
     erp: float
     risk_free_rate: float
     industry_unlevered_beta: float
+    levered_beta: float
     cost_of_equity: float
+    erp_breakdown: Dict[str, dict] = None
+
+    def __post_init__(self) -> None:
+        if self.erp_breakdown is None:
+            self.erp_breakdown = {}
 
     def __str__(self) -> str:
         return (
             f"Risk Profile: Rf={self.risk_free_rate*100:.2f}% "
             f"ERP={self.erp*100:.2f}% "
             f"U-Beta={self.industry_unlevered_beta:.2f} "
+            f"L-Beta={self.levered_beta:.2f} "
             f"CoE={self.cost_of_equity*100:.2f}%"
         )
 
@@ -76,6 +87,52 @@ class GroundTruthProvider:
         return DamodaranProvider.get_macro_state()
 
     @staticmethod
+    def get_blended_erp(security: Security) -> Tuple[float, Dict]:
+        """Calculate blended ERP from security's revenue_mix (geography weighting).
+
+        For multi-region companies, uses revenue distribution to weight ERPs
+        by geography. For single-region or no mix, falls back to country_iso.
+
+        Args:
+            security: Security with revenue_mix (optional)
+
+        Returns:
+            (blended_erp: float, breakdown: dict)
+            Where breakdown shows per-region ERP contributions
+
+        Example:
+            nvda = Security(ticker="NVDA", ..., revenue_mix={"US": 0.44, "CN": 0.25, ...})
+            erp, breakdown = GroundTruthProvider.get_blended_erp(nvda)
+            # erp ~ 0.058 (blended across regions)
+            # breakdown = {"us": {weight: 0.44, erp: 0.046, contrib: 0.020}, ...}
+        """
+        mix = security.normalized_mix()
+        if not mix:
+            # Fallback: use country_iso if no revenue mix
+            erp = DamodaranProvider.resolve_erp(security.country_iso or "US")
+            return erp, {
+                (security.country_iso or "US"): {
+                    "weight": 1.0,
+                    "erp": erp,
+                    "contrib": erp,
+                    "fallback": True,
+                }
+            }
+
+        breakdown = {}
+        weighted = 0.0
+        for token, weight in mix.items():
+            erp = DamodaranProvider.resolve_erp(token)
+            contrib = erp * weight
+            weighted += contrib
+            breakdown[token] = {
+                "weight": round(weight, 4),
+                "erp": erp,
+                "contrib": round(contrib, 5),
+            }
+        return round(weighted, 4), breakdown
+
+    @staticmethod
     def get_equity_risk_profile(security: Security) -> EquityRiskProfile:
         """
         Synthesizes macro data + industry-standard baselines into
@@ -85,32 +142,36 @@ class GroundTruthProvider:
         should be calculated using this profile.
 
         Args:
-            security: Security object with sector, industry, debt, market_cap
+            security: Security object with sector, industry, debt, market_cap, revenue_mix (optional)
 
         Returns:
-            EquityRiskProfile with institutional Cost of Equity
+            EquityRiskProfile with institutional Cost of Equity and erp_breakdown
 
         Algorithm:
-        1. Get macro baselines (ERP, Rf) from Damodaran
-        2. Get industry unlevered beta from Damodaran sector/industry lookup
-        3. Re-lever the beta using company's current D/E ratio
-        4. Calculate CoE = Rf + Beta * ERP (CAPM)
+        1. Get blended ERP from revenue_mix (geography weighting)
+        2. Get macro baselines (Rf) from Damodaran
+        3. Get industry unlevered beta from Damodaran sector/industry lookup
+        4. Re-lever the beta using company's current D/E ratio
+        5. Calculate CoE = Rf + Beta * ERP (CAPM)
 
         Example:
             >>> profile = GroundTruthProvider.get_equity_risk_profile(aapl)
             >>> print(f"AAPL Cost of Equity: {profile.cost_of_equity*100:.2f}%")
             AAPL Cost of Equity: 8.45%
         """
-        # 1. Macro Anchor (The 'Ground Truth')
+        # 1. Blended ERP from geography
+        blended_erp, erp_breakdown = GroundTruthProvider.get_blended_erp(security)
+
+        # 2. Macro Anchor (The 'Ground Truth')
         macro = DamodaranProvider.get_macro_state()
 
-        # 2. Industry Anchor (Sector-specific business risk)
+        # 3. Industry Anchor (Sector-specific business risk)
         u_beta = DamodaranProvider.get_industry_unlevered_beta(
             security.sector or "unknown",
             security.industry or "unknown"
         )
 
-        # 3. Calculate Cost of Equity (CAPM with institutional assumptions)
+        # 4. Calculate Cost of Equity (CAPM with institutional assumptions)
         # Re-lever the industry beta using the security's own D/E ratio
         # This is where the institutional "alpha" lives—using current leverage
         # instead of regression beta's average of 5 years of history
@@ -120,14 +181,41 @@ class GroundTruthProvider:
         tax_rate = 0.21  # US federal corporate tax rate
 
         levered_beta = DamodaranProvider.relever_beta(u_beta, de_ratio, tax_rate)
-        cost_of_equity = macro.risk_free_rate + (levered_beta * macro.implied_erp)
+        cost_of_equity = macro.risk_free_rate + (levered_beta * blended_erp)
 
         return EquityRiskProfile(
-            erp=macro.implied_erp,
+            erp=blended_erp,
             risk_free_rate=macro.risk_free_rate,
             industry_unlevered_beta=u_beta,
-            cost_of_equity=cost_of_equity,
+            levered_beta=round(levered_beta, 4),
+            cost_of_equity=round(cost_of_equity, 4),
+            erp_breakdown=erp_breakdown,
         )
+
+    @staticmethod
+    def get_risk_profile(security: Security) -> Dict:
+        """Get risk profile as dict with provenance for auditing.
+
+        This is the audit-friendly version of get_equity_risk_profile.
+        Returns the same data but as a plain dict with _provenance attached.
+
+        Args:
+            security: Security object with sector, industry, debt, market_cap, revenue_mix
+
+        Returns:
+            Dict with erp, risk_free_rate, industry_unlevered_beta, levered_beta,
+            cost_of_equity, erp_breakdown, and _provenance
+
+        Example:
+            >>> blk = Security(ticker="BLK", sector="...", industry="Asset Management", ...)
+            >>> p = GroundTruthProvider.get_risk_profile(blk)
+            >>> print(f"Blended ERP: {p['erp']:.2%}")
+            >>> print(f"Cost of Equity: {p['cost_of_equity']:.2%}")
+            >>> print(f"Source: {p['_provenance']['version']}")
+        """
+        profile = GroundTruthProvider.get_equity_risk_profile(security)
+        profile_dict = asdict(profile)
+        return attach_provenance(profile_dict)
 
     @staticmethod
     def get_wacc(

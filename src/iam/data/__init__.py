@@ -3,6 +3,7 @@
 from .security import Security, Fundamentals, MarketData, MacroContext, Assumption, Thesis, show_spread
 from .damodaran import DamodaranProvider, MacroBaselines
 from .ground_truth import GroundTruthProvider, EquityRiskProfile
+from .provenance import attach_provenance
 
 __all__ = [
     # Security models
@@ -18,4 +19,6 @@ __all__ = [
     "MacroBaselines",
     "GroundTruthProvider",
     "EquityRiskProfile",
+    # Auditing
+    "attach_provenance",
 ]

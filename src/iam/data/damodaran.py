@@ -16,7 +16,8 @@ your DCF valuations become immune to short-term market noise.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional
+from functools import lru_cache
+from typing import Dict, Optional, Tuple
 import logging
 
 logger = logging.getLogger(__name__)
@@ -44,6 +45,40 @@ class DamodaranProvider:
     Replace regression betas with bottom-up unlevered betas.
     Replace historical ERP with implied ERP.
     """
+
+    # Regional Equity Risk Premiums (Damodaran Jan 2026)
+    REGIONAL_ERPS = {
+        "north_america": 0.046,
+        "europe": 0.052,
+        "apac_developed": 0.048,
+        "emerging_markets": 0.075,
+        "latin_america": 0.085,
+        "middle_east": 0.065,
+    }
+
+    # Country ISO Codes to Regional Mapping
+    COUNTRY_ERPS = {
+        "US": 0.046, "CA": 0.046,
+        "GB": 0.052, "DE": 0.052, "FR": 0.052,
+        "JP": 0.048, "AU": 0.048, "SG": 0.048,
+        "CN": 0.075, "IN": 0.075, "KR": 0.048, "TW": 0.048,
+        "BR": 0.085, "MX": 0.085,
+    }
+
+    COUNTRY_TO_REGION = {
+        "US": "north_america", "CA": "north_america",
+        "GB": "europe", "DE": "europe", "FR": "europe",
+        "JP": "apac_developed", "AU": "apac_developed", "SG": "apac_developed",
+        "CN": "emerging_markets", "IN": "emerging_markets",
+        "BR": "latin_america", "MX": "latin_america",
+    }
+
+    REGION_ALIASES = {
+        "americas": "north_america", "na": "north_america",
+        "emea": "europe", "eu": "europe",
+        "apac": "apac_developed", "asia": "apac_developed",
+        "em": "emerging_markets", "latam": "latin_america",
+    }
 
     # Damodaran's Implied Equity Risk Premium (Updated Jan 2026)
     # This is the forward-looking market risk premium derived from current S&P 500 valuation
@@ -161,6 +196,36 @@ class DamodaranProvider:
             implied_erp=cls.CURRENT_IMPLIED_ERP,
             mature_market_premium=cls.CURRENT_IMPLIED_ERP,
         )
+
+    @classmethod
+    @lru_cache(maxsize=512)
+    def resolve_erp(cls, key: str) -> float:
+        """Resolve ERP from country code, region name, or alias.
+
+        Args:
+            key: Country code (US, CN), region (north_america, europe), or alias (NA, APAC)
+
+        Returns:
+            ERP as decimal (0.046 = 4.6%)
+
+        Examples:
+            >>> cls.resolve_erp("US")      # 0.046
+            >>> cls.resolve_erp("CN")      # 0.075
+            >>> cls.resolve_erp("north_america")  # 0.046
+            >>> cls.resolve_erp("na")      # 0.046 (alias)
+        """
+        # Try 2-letter country codes first
+        if len(key) == 2:
+            k = key.upper()
+            if k in cls.COUNTRY_ERPS:
+                return cls.COUNTRY_ERPS[k]
+            region = cls.COUNTRY_TO_REGION.get(k, "north_america")
+            return cls.REGIONAL_ERPS[region]
+
+        # Try region names and aliases
+        k = key.lower()
+        canon = cls.REGION_ALIASES.get(k, k)
+        return cls.REGIONAL_ERPS.get(canon, cls.REGIONAL_ERPS["north_america"])
 
     @classmethod
     def get_country_risk_premium(cls, country_name: str) -> float:

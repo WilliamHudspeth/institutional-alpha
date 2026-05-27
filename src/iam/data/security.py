@@ -165,17 +165,50 @@ class Security:
     belong in structured financial data: reflexivity scores, runway estimates,
     FCFE forecast assumptions, SOTP segments, etc. Keys are documented in
     docs/factors.md.
+
+    ``revenue_mix`` is optional: a dict mapping region/country codes to revenue
+    weights. Used by GroundTruthProvider for blended ERP calculation.
     """
 
     ticker: str
     name: Optional[str] = None
     sector: Optional[str] = None
     industry: Optional[str] = None
+    country_iso: str = "US"
     fundamentals: Fundamentals = field(default_factory=Fundamentals)
     market: MarketData = field(default_factory=MarketData)
     macro: Optional[MacroContext] = None
     qualitative: dict[str, Any] = field(default_factory=dict)
     theses: list[Thesis] = field(default_factory=list)
+    revenue_mix: dict[str, float] = field(default_factory=dict)
+
+    def normalized_mix(self) -> dict[str, float]:
+        """Return revenue_mix normalized to percentages that sum to 1.0.
+
+        Handles both decimal (0.64) and percentage (64) formats.
+        Accepts country codes (US, CN), region names (north_america, europe),
+        and region aliases (NA, APAC).
+
+        Returns:
+            Dict mapping normalized tokens to decimal weights (0-1)
+
+        Raises:
+            ValueError: If revenue_mix sums to zero
+        """
+        if not self.revenue_mix:
+            return {}
+
+        total = sum(self.revenue_mix.values())
+        if total == 0:
+            raise ValueError(f"{self.ticker}: revenue_mix sums to zero")
+
+        # Detect if user entered percentages (sum > 1.5) or decimals (sum <= 1.5)
+        scale = 100.0 if total > 1.5 else 1.0
+        scaled = {k.lower(): v / scale for k, v in self.revenue_mix.items()}
+
+        # Re-normalize to ensure sum = 1.0 (handles floating point errors)
+        scaled_sum = sum(scaled.values())
+        return {k: v / scaled_sum for k, v in scaled.items()}
 
 
 def show_spread(security: Security) -> str:
