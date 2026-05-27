@@ -47,8 +47,8 @@ def test_calculate_sensitivity_increases_fair_value():
     # Confirm perturbation actually increased the value
     assert perturbed_fv > base_fv
     
-    # Check state reversion: ensure qualitative state returns to None since it started as None
-    assert sec.qualitative is None
+    # Check state reversion: ensure qualitative state returns to empty dict since it started as empty
+    assert sec.qualitative == {}
 
     # Check that original assumption value wasn't permanently mutated
     assert sec.theses[0].assumptions[0].value == 0.20
