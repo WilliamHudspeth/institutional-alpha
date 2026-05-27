@@ -21,11 +21,10 @@ from iam.validation import parse_growth_rate, validate_all_assumptions
 
 def print_header() -> None:
     """Print the main welcome banner."""
-    print("\n" + "=" * 70)
-    print(" " * 15 + "INSTITUTIONAL ALPHA MODEL (IAM)")
-    print(" " * 10 + "Multi-Factor Equity Scoring Framework")
-    print("=" * 70)
-    print()
+    from iam.version import header, metadata
+    print(header())
+    meta = metadata()
+    print(f"Python {meta['python']} | Research Preview\n")
 
 
 def print_menu() -> None:

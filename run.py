@@ -28,10 +28,10 @@ def _print_security_header(security) -> None:
 
 
 def main() -> None:
-    print("=" * 60)
-    print("  Institutional Alpha — Multi-Lens Valuation Engine")
-    print("=" * 60)
-    print()
+    from iam.version import header, metadata
+    print(header())
+    meta = metadata()
+    print(f"Multi-Lens Valuation Engine | Python {meta['python']}\n")
 
     ticker = input("Ticker symbol: ").strip().upper()
     if not ticker:
