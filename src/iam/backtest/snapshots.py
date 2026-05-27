@@ -111,3 +111,22 @@ def load_snapshot(ticker: str, as_of: str, cache_dir: Path = Path("data/snapshot
         with open(cache_path, "rb") as f:
             return pickle.load(f)
     return None
+
+
+def load_sp100_tickers() -> list[str]:
+    """Load S&P 100 ticker list from universe file.
+
+    Returns:
+        List of tickers (e.g., ['AAPL', 'MSFT', ...])
+    """
+    import json
+
+    universe_path = Path(__file__).parent.parent.parent.parent / "data" / "universe" / "sp100.json"
+
+    if not universe_path.exists():
+        raise FileNotFoundError(f"S&P 100 universe file not found: {universe_path}")
+
+    with open(universe_path) as f:
+        config = json.load(f)
+
+    return config["tickers"]

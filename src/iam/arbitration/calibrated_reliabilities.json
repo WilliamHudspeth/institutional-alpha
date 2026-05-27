@@ -1,12 +1,16 @@
 {
-  "version": "backtest_v0_3_5",
-  "source": "Empirical Information Coefficient (Spearman rank)",
-  "universe": "S&P 100",
-  "period": "2018-01 to 2024-12 (84 months)",
+  "_meta": {
+    "version": "v0.3.5-synthetic-harness",
+    "data_source": "synthetic",
+    "status": "ARCHITECTURAL VALIDATION ONLY - NOT FOR PRODUCTION",
+    "generated_at": "2026-05-27T23:11:35.886195",
+    "note": "This is a synthetic backtest proving the pipeline works. Real calibration requires empirical backtest on real price data. See feature/empirical-calibration-real-data branch."
+  },
+  "source": "Synthetic IC (architectural validation)",
+  "universe": "S&P 100 (static)",
+  "period": "2018-01 to 2024-12 (84 months, synthetic)",
   "horizon_days": 63,
   "signal": "cost_of_equity",
-  "generated_at": "2026-05-27T23:11:35.886195",
-  "note": "Only promote to production after 36+ months of out-of-sample IC validation",
   "empirical_ic": {
     "mean": 0.033112111224222925,
     "std": 0.01715118290205262,

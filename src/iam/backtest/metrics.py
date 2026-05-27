@@ -56,3 +56,93 @@ def information_ratio(ic_series: pd.Series) -> float:
         return 0.0
 
     return mean_ic / std_ic
+
+
+def rolling_ic_stability(
+    ic_series: pd.Series, window: int = 12
+) -> pd.Series:
+    """Calculate rolling IC to detect regime shifts.
+
+    Args:
+        ic_series: Series of monthly IC values
+        window: Rolling window (months)
+
+    Returns:
+        Series of rolling correlation between time and IC
+    """
+    rolling = ic_series.rolling(window).apply(
+        lambda x: np.corrcoef(np.arange(len(x)), x)[0, 1], raw=False
+    )
+    return rolling
+
+
+def statistical_significance(
+    ic_mean: float, ic_std: float, n: int
+) -> dict:
+    """Calculate t-stat and p-value for IC.
+
+    Args:
+        ic_mean: Mean Information Coefficient
+        ic_std: Standard deviation of IC
+        n: Number of observations
+
+    Returns:
+        Dict with t-stat, p-value, and significance flag
+    """
+    from scipy import stats
+
+    if ic_std == 0 or n < 2:
+        return {
+            "t_stat": 0.0,
+            "p_value": 1.0,
+            "newey_west_se": ic_std,
+            "significant": False,
+        }
+
+    # Standard error (will be adjusted with Newey-West below)
+    se = ic_std / np.sqrt(n)
+    t_stat = ic_mean / se
+
+    # Two-tailed test
+    p_value = 2 * (1 - stats.t.cdf(abs(t_stat), n - 1))
+
+    # Newey-West adjustment for overlapping returns
+    nw_se = newey_west_se(ic_mean, ic_std, n, nlags=3)
+    nw_t_stat = ic_mean / nw_se if nw_se > 0 else 0.0
+
+    return {
+        "t_stat": t_stat,
+        "newey_west_t_stat": nw_t_stat,
+        "p_value": p_value,
+        "newey_west_se": nw_se,
+        "significant": abs(nw_t_stat) > 2.0,  # 95% confidence
+    }
+
+
+def newey_west_se(
+    ic_mean: float, ic_std: float, n: int, nlags: int = 3
+) -> float:
+    """Newey-West standard error for autocorrelated returns.
+
+    Corrects for autocorrelation from overlapping return windows
+    (63-day forward returns have built-in autocorrelation).
+
+    Args:
+        ic_mean: Mean IC
+        ic_std: Std dev of IC
+        n: Number of observations
+        nlags: Number of lags for autocorrelation adjustment
+
+    Returns:
+        Adjusted standard error
+    """
+    # Simplified: multiply by sqrt(1 + 2 * rho)
+    # where rho is average autocorrelation at each lag
+    # For 63-day overlapping windows, typical rho ~ 0.3-0.4
+    # Conservative estimate: assume rho ~ 0.35
+    rho_avg = 0.35 * nlags  # Simplified autocorrelation estimate
+
+    adjustment_factor = np.sqrt(1 + 2 * rho_avg)
+    base_se = ic_std / np.sqrt(n)
+
+    return base_se * adjustment_factor
