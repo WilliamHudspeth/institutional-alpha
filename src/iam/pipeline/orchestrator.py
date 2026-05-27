@@ -213,6 +213,6 @@ class ValuationPipeline:
                 report.implied_move_pct = report.triangulation.cluster_center
                 
         # 7. Run Stage 7: Verdict
-        report.final_verdict = VerdictGenerator().generate(report.triangulation, security)
+        report.final_verdict = VerdictGenerator().generate(report.triangulation, report.relative, security)
 
         return report
