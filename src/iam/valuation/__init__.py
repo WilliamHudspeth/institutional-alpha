@@ -15,10 +15,16 @@ from iam.valuation.triangulator import Triangulator
 from iam.valuation.multiples_regression import (
     RegressionInputs, predict_multiple, predict_all, REGRESSIONS,
 )
+from iam.valuation.beta import (
+    unlever_beta, relever_beta, market_value_of_debt,
+    get_yahoo_beta, get_custom_beta_for_intrinsic,
+)
 
 __all__ = [
     "Method", "ValuationResult", "ImpliedExpectations", "TriangulationResult",
     "ReverseDCF", "RelativeValuation", "FCFEDCF", "FCFEAssumptions",
     "SOTP", "Segment", "Triangulator",
     "RegressionInputs", "predict_multiple", "predict_all", "REGRESSIONS",
+    "unlever_beta", "relever_beta", "market_value_of_debt",
+    "get_yahoo_beta", "get_custom_beta_for_intrinsic",
 ]
