@@ -20,8 +20,9 @@ def initial_priors():
 def test_high_signal_strength_swings_posteriors(initial_priors):
     """Perfect signal strength allows aggressive probability updates."""
     evidence = Evidence(
+        type="EARNINGS_BEAT",
         description="Massive earnings beat directly confirming the Bull thesis.",
-        signal_strength=1.0,  # 100% confidence in the data
+        reliability=1.0,  # 100% confidence in the data
         likelihoods={
             "Bull": ScenarioLikelihood(0.90),
             "Base": ScenarioLikelihood(0.40),
@@ -41,8 +42,9 @@ def test_high_signal_strength_swings_posteriors(initial_priors):
 def test_low_signal_strength_dampens_swings(initial_priors):
     """Low signal strength mathematically shrinks likelihoods to prevent overfitting."""
     evidence = Evidence(
+        type="ALTERNATIVE_DATA",
         description="Sketchy alternative data suggests a Bull thesis beat.",
-        signal_strength=0.1,  # Only 10% confidence in the data
+        reliability=0.1,  # Only 10% confidence in the data
         likelihoods={
             "Bull": ScenarioLikelihood(0.90),
             "Base": ScenarioLikelihood(0.40),
@@ -62,8 +64,9 @@ def test_low_signal_strength_dampens_swings(initial_priors):
 def test_zero_signal_strength_ignores_evidence(initial_priors):
     """Zero signal strength means the evidence provides no new information."""
     evidence = Evidence(
+        type="RUMOR",
         description="Completely unverified rumor on a message board.",
-        signal_strength=0.0,
+        reliability=0.0,
         likelihoods={"Bull": ScenarioLikelihood(1.0), "Base": ScenarioLikelihood(0.0), "Bear": ScenarioLikelihood(0.0)}
     )
     updater = BayesianUpdater()

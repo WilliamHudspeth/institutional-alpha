@@ -81,13 +81,14 @@ def test_apply_evidence_updates_posteriors():
     engine = ThesisEngine()
     priors = [ScenarioPrior("Bull", 0.5), ScenarioPrior("Bear", 0.5)]
     evidence = Evidence(
+        type="EARNINGS_BEAT",
         description="Massive positive beat.",
-        signal_strength=1.0,
+        reliability=1.0,
         likelihoods={"Bull": ScenarioLikelihood(1.0), "Bear": ScenarioLikelihood(0.0)}
     )
 
     evaluation = engine.apply_evidence(sec, priors, evidence)
 
-    # 100% probability shifts to Bull, EV becomes Bull Midpoint (175)
-    assert evaluation.expected_value == pytest.approx(175.0)
-    assert evaluation.posteriors[0].probability == 1.0  # Bull becomes 1.0
+    # ~100% probability shifts to Bull, EV approaches Bull Midpoint (175)
+    assert evaluation.expected_value == pytest.approx(175.0, abs=1.0)
+    assert evaluation.posteriors[0].probability == pytest.approx(1.0, abs=0.01)

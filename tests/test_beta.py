@@ -270,7 +270,10 @@ class TestStage3CAPMWiring:
             market=MarketData(price=100.0),
         )
         result = FCFEDCF().compute(sec)
-        assert result.assumptions["discount_rate"] == pytest.approx(0.09)
+        # Now uses Damodaran institutional baseline (not generic 9%)
+        # For unknown sector/industry with no debt: 4.25% + 0.85 * 4.6% = 8.16%
+        assert result.assumptions["discount_rate"] == pytest.approx(0.0816, abs=0.001)
+        assert any("Damodaran" in n for n in result.notes)
 
     def test_audit_trail_written_after_capm_run(self):
         sec = _full_security()
