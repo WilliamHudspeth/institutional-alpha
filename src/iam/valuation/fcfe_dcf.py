@@ -67,8 +67,7 @@ class FCFEDCF:
         if assumptions is None and not self._has_explicit_assumptions(security):
             confidence *= 0.7
             notes.append(
-                "Using default growth assumptions — provide explicit forecasts "
-                "via security.qualitative for higher confidence."
+                "using model defaults — supply assumptions for a tailored estimate."
             )
 
         fcfe0 = f.fcf_ttm / f.shares_outstanding

@@ -37,6 +37,8 @@ class PipelineReport:
         lines.append("STAGE 3 — Intrinsic DCF (independent build-up)")
         lines.append(f"  {self.intrinsic.verdict_text}")
         lines.append(f"  confidence: {self.intrinsic.confidence:.2f}")
+        for note in self.intrinsic.notes:
+            lines.append(f"  • {note}")
         lines.append("")
         
         lines.append(f"STAGE 4 — Triangulation: {self.triangulation.verdict.upper()}")
