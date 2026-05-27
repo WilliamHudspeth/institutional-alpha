@@ -34,8 +34,6 @@ class Thesis:
     fair_value_high: Optional[float] = None
     narrative: str = ""
 
-<<<<<<< HEAD
-=======
     def __post_init__(self) -> None:
         if self.fair_value_low is not None and self.fair_value_high is not None:
             if self.fair_value_low > self.fair_value_high:
@@ -44,7 +42,6 @@ class Thesis:
                     f"must not exceed fair_value_high ({self.fair_value_high})"
                 )
 
->>>>>>> 1d0e8439f8b5b5c555ee7caa0de6186e2a60854e
 
 @dataclass
 class MacroContext:
@@ -205,11 +202,8 @@ def show_spread(security: Security) -> str:
         if highs and lows:
             top = max(highs)
             bottom = min(lows)
-<<<<<<< HEAD
-=======
             if top < bottom:
                 return "\n".join(lines)
->>>>>>> 1d0e8439f8b5b5c555ee7caa0de6186e2a60854e
             spread = top - bottom
             midpoint = (top + bottom) / 2
             lines.append("")
