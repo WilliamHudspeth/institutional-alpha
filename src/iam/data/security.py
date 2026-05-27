@@ -42,6 +42,7 @@ class Thesis:
                     f"must not exceed fair_value_high ({self.fair_value_high})"
                 )
 
+
 @dataclass
 class MacroContext:
     """Macro-environment inputs consumed by MacroRegimeFactor and MacroOverlay."""
@@ -146,6 +147,9 @@ class MarketData:
 
     # Options
     options_call_put_skew: Optional[float] = None
+
+    # Risk
+    beta: Optional[float] = None                           # equity beta vs market index
 
     # Sentiment & momentum
     analyst_revisions_breadth_30d: Optional[float] = None  # [-1, 1]

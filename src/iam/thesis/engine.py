@@ -115,7 +115,7 @@ class ThesisEngine:
         try:
             for thesis in security.theses:
                 target_asm = next((a for a in thesis.assumptions if a.name == assumption_name), None)
-                if not target_asm:
+                if not target_asm or not isinstance(target_asm.value, (int, float)):
                     continue
 
                 # Reset qualitative dictionary for this thesis
@@ -193,7 +193,7 @@ class ThesisEngine:
             
             # Actionable logic based on spread size relative to midpoint
             midpoint = (evaluation.worst_case + evaluation.best_case) / 2
-            if midpoint > 0 and (evaluation.spread / midpoint) > 0.30:
+            if midpoint != 0 and (evaluation.spread / abs(midpoint)) > 0.30:
                 lines.append("VERDICT: [HIGH DISPERSION] - Thesis range is wide; exercise caution.")
             else:
                 lines.append("VERDICT: [CONSOLIDATED] - Scenarios are tightly aligned.")
@@ -241,7 +241,7 @@ class ThesisEngine:
             if base_fv == 0:
                 continue
             
-            delta_pct = (perturbed_fv - base_fv) / base_fv
+            delta_pct = (perturbed_fv - base_fv) / abs(base_fv)
             # Scale: 1% impact = 2 blocks for visibility
             blocks = int(abs(delta_pct) * 100 * 2)
             bar = "█" * blocks
