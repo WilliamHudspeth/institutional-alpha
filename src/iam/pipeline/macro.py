@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from typing import TYPE_CHECKING
 from iam.data.security import Security
 from iam.data.macro import MacroConditions, MacroShock
