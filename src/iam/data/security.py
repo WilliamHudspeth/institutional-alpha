@@ -55,7 +55,7 @@ class Fundamentals:
     one_time_adjustments_count_5y: Optional[int] = None
 
     # --- Multi-segment data (used by SOTP) ---
-    segments: Optional[list] = None
+    segments: list = field(default_factory=list)
 
 
 @dataclass
