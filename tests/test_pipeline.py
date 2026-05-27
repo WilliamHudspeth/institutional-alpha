@@ -16,8 +16,8 @@ from iam.valuation.reverse_dcf import _present_value_two_stage, _solve_implied_g
 
 def test_pv_two_stage_at_zero_growth():
     """At zero high-growth and 0% terminal, PV reduces to a perpetuity."""
-    pv = _present_value_two_stage(base_fcfe=10, g_high=0.0, n=10, g_terminal=0.0, r=0.10)
-    # First 10 years: 10/1.1 + 10/1.1^2 + ... ~ 10 * (1 - 1.1^-10)/0.1 ~ 61.45
+    pv = _present_value_two_stage(base_ni=10, g_high=0.0, n=10, g_terminal=0.0, r=0.10, roe=0.15)
+    # Because g_high and g_terminal are 0, reinvestment is 0.
     # Terminal at end of year 10: 10/0.10 = 100, discounted back: 100/1.1^10 ~ 38.55
     # Sum ~ 100
     assert 95 < pv < 105
@@ -27,7 +27,7 @@ def test_pv_increases_with_growth():
     """Higher growth -> higher PV, monotonically."""
     pvs = []
     for g in [0.0, 0.05, 0.10, 0.15]:
-        pvs.append(_present_value_two_stage(10, g, 10, 0.025, 0.09))
+        pvs.append(_present_value_two_stage(10, g, 10, 0.025, 0.09, 0.20)) # High ROE to limit reinvestment penalty
     assert pvs == sorted(pvs)
     assert all(pvs[i] < pvs[i + 1] for i in range(len(pvs) - 1))
 
@@ -35,15 +35,15 @@ def test_pv_increases_with_growth():
 def test_solve_implied_growth_roundtrip():
     """Solve for g such that PV == target, then verify the solution."""
     target = 250.0
-    g = _solve_implied_growth(target_price=target, base_fcfe=10, n=10, g_terminal=0.025, r=0.09)
+    g = _solve_implied_growth(target_price=target, base_ni=10, n=10, g_terminal=0.025, r=0.09, roe=0.15)
     assert g is not None
-    pv = _present_value_two_stage(10, g, 10, 0.025, 0.09)
+    pv = _present_value_two_stage(10, g, 10, 0.025, 0.09, 0.15)
     assert abs(pv - target) / target < 0.01
 
 
 def test_reverse_dcf_implausibly_high_price_returns_none():
     """If the price requires >60% growth, the solver should fail gracefully."""
-    g = _solve_implied_growth(target_price=100_000, base_fcfe=1, n=10, g_terminal=0.025, r=0.09)
+    g = _solve_implied_growth(target_price=100_000, base_ni=1, n=10, g_terminal=0.025, r=0.09, roe=0.15)
     assert g is None
 
 
@@ -72,7 +72,7 @@ def test_reverse_dcf_basic_run():
 def test_reverse_dcf_negative_fcfe_skipped():
     sec = Security(
         ticker="LOSS",
-        fundamentals=Fundamentals(fcf_ttm=-500, shares_outstanding=100),
+        fundamentals=Fundamentals(net_income_ttm=-500, fcf_ttm=-500, shares_outstanding=100),
         market=MarketData(price=50),
     )
     result = ReverseDCF().compute(sec)

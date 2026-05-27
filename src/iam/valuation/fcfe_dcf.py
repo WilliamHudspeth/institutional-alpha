@@ -1,12 +1,13 @@
-"""Stage 3a: FCFE DCF (forward-built, independent of market price).
+"""Stage 3a: FCFE DCF (Probabilistic Valuation Matrix).
 
 Where reverse DCF takes price as given and solves for growth, this builds
 fair value bottom-up from forecast growth, margin, and reinvestment
-assumptions. Two-stage Gordon structure for parity with the reverse DCF.
+assumptions. Instead of a fragile single-point estimate, this engine natively
+computes a Probability-Weighted Expected Value (PWEV) across institutional
+scenarios (Bear 20%, Base 60%, Bull 20%) based on the user's anchor assumptions.
 
-The assumptions here should come from analyst estimates, management
-guidance, or the user's own thesis — *not* from the current price. The
-whole point is to have an independent triangulation point.
+The scenario matrix becomes the foundation for Bayesian updating when
+real-world evidence (earnings beats, margin shifts) arrives.
 """
 
 from __future__ import annotations
@@ -15,12 +16,14 @@ from dataclasses import dataclass
 from typing import Optional
 
 from iam.data.security import Security
+from iam.valuation.beta import get_custom_beta_for_intrinsic
+from iam.valuation.reverse_dcf import _present_value_two_stage
 from iam.valuation.types import Method, ValuationResult
 
 
 @dataclass
 class FCFEAssumptions:
-    """The explicit forecast inputs for the FCFE DCF.
+    """The explicit forecast inputs for the base case.
 
     These should come from outside the model — analyst consensus,
     management guidance, your own bottom-up. The model's job is to compute
@@ -30,16 +33,20 @@ class FCFEAssumptions:
     terminal_growth: float = 0.025
     high_growth_years: int = 10
     discount_rate: float = 0.09
+    roe: float = 0.15           # Return on Equity for reinvestment constraint
 
 
 class FCFEDCF:
-    """Stage 3a — independent FCFE-discount intrinsic value.
+    """Stage 3a — Probability-Weighted intrinsic value via FCFE DCF.
 
     If the security has analyst-provided or user-provided forecast assumptions
     on ``security.qualitative`` (keys: ``forecast_growth``,
-    ``forecast_terminal_growth``, ``forecast_discount_rate``), those are used.
-    Otherwise the model degrades gracefully with default assumptions and
-    a confidence penalty.
+    ``forecast_terminal_growth``, ``forecast_discount_rate``), those are used
+    as the BASE case. The engine then generates Bear (20%), Bull (20%) scenarios
+    and blends them probabilistically.
+
+    Output is Probability-Weighted Expected Value (PWEV), not a fragile
+    single-point estimate. The scenario matrix enables Bayesian updating.
     """
 
     def __init__(self, default_assumptions: Optional[FCFEAssumptions] = None):
@@ -50,6 +57,7 @@ class FCFEDCF:
         security: Security,
         assumptions: Optional[FCFEAssumptions] = None,
     ) -> ValuationResult:
+        """Compute intrinsic value via probabilistic scenario analysis."""
         m = security.market
         f = security.fundamentals
         notes: list[str] = []
@@ -57,94 +65,183 @@ class FCFEDCF:
 
         if m.price is None or f.fcf_ttm is None or f.shares_outstanding is None:
             return ValuationResult(
-                method=Method.INTRINSIC, confidence=0.0,
+                method=Method.INTRINSIC,
+                confidence=0.0,
                 notes=["FCFE DCF requires price, FCF TTM, and shares outstanding."],
                 verdict_text="Insufficient data for intrinsic DCF.",
             )
 
         # Resolve assumptions: explicit > qualitative dict > defaults.
-        assumed = assumptions or self._resolve_assumptions(security)
+        base_a = assumptions or self._resolve_assumptions(security)
         if assumptions is None and not self._has_explicit_assumptions(security):
             confidence *= 0.7
             notes.append(
-                "Using default growth assumptions — provide explicit forecasts "
-                "via security.qualitative for higher confidence."
+                "Using model defaults — supply assumptions for a tailored estimate."
             )
 
-        fcfe0 = f.fcf_ttm / f.shares_outstanding
-        if fcfe0 <= 0:
+        # CAPM discount rate (opt-in): if risk_free_rate and equity_risk_premium
+        # are supplied, compute cost of equity from the Damodaran relevered beta.
+        q = security.qualitative
+        rfr = q.get("risk_free_rate")
+        erp = q.get("equity_risk_premium")
+        if rfr is not None and erp is not None:
+            try:
+                beta = get_custom_beta_for_intrinsic(security)
+                base_a.discount_rate = float(rfr) + beta * float(erp)
+                notes.append(
+                    f"CAPM discount rate: {rfr:.3f} + {beta:.4f} × {erp:.3f} = {base_a.discount_rate:.4f} "
+                    f"(relevered beta, Stage 3)"
+                )
+            except Exception:
+                pass
+
+        # Base cash flow: use Net Income if available, else FCF TTM
+        ni = f.net_income_ttm if f.net_income_ttm and f.net_income_ttm > 0 else f.fcf_ttm
+        if ni is None or ni <= 0:
             return ValuationResult(
-                method=Method.INTRINSIC, confidence=0.3,
-                notes=["Base FCFE is non-positive; FCFE DCF unreliable."],
-                verdict_text="Base FCFE non-positive; method skipped.",
+                method=Method.INTRINSIC,
+                confidence=0.3,
+                notes=["Base Net Income/FCFE is non-positive; FCFE DCF unreliable."],
+                verdict_text="Base cash flow non-positive; method skipped.",
             )
 
-        if assumed.discount_rate <= assumed.terminal_growth:
+        ni_per_share = ni / f.shares_outstanding
+
+        if base_a.discount_rate <= base_a.terminal_growth:
             return ValuationResult(
-                method=Method.INTRINSIC, confidence=0.0,
+                method=Method.INTRINSIC,
+                confidence=0.0,
                 notes=["Discount rate must exceed terminal growth."],
                 verdict_text="Bad assumptions: r <= g_terminal.",
             )
 
-        # Two-stage PV
-        pv = 0.0
-        fcfe_t = fcfe0
-        for t in range(1, assumed.high_growth_years + 1):
-            fcfe_t = fcfe0 * ((1 + assumed.high_growth) ** t)
-            pv += fcfe_t / ((1 + assumed.discount_rate) ** t)
+        # ====================================================================
+        # Probabilistic Scenario Matrix
+        # ====================================================================
+        # Bear (20%):  -40% growth, +150bps WACC, -20% Terminal Growth
+        # Base (60%):  Anchor assumptions
+        # Bull (20%):  +30% growth, -100bps WACC, +20% Terminal Growth
+        scenarios = [
+            {
+                "name": "Bear Case",
+                "prob": 0.20,
+                "g": base_a.high_growth * 0.60,
+                "wacc": base_a.discount_rate + 0.015,
+                "tv_g": base_a.terminal_growth * 0.80,
+            },
+            {
+                "name": "Base Case",
+                "prob": 0.60,
+                "g": base_a.high_growth,
+                "wacc": base_a.discount_rate,
+                "tv_g": base_a.terminal_growth,
+            },
+            {
+                "name": "Bull Case",
+                "prob": 0.20,
+                "g": base_a.high_growth * 1.30,
+                "wacc": base_a.discount_rate - 0.010,
+                "tv_g": base_a.terminal_growth * 1.20,
+            },
+        ]
 
-        fcfe_n_plus_1 = fcfe_t * (1 + assumed.terminal_growth)
-        terminal_value = fcfe_n_plus_1 / (assumed.discount_rate - assumed.terminal_growth)
-        pv += terminal_value / ((1 + assumed.discount_rate) ** assumed.high_growth_years)
+        pwev_target = 0.0
+        matrix_results = {}
 
-        fair_value_to_price = (pv / m.price) - 1
-        # Clamp to avoid runaway numbers from bad inputs.
-        fair_value_to_price = max(-0.9, min(3.0, fair_value_to_price))
+        # Run the DCF math for each scenario
+        for s in scenarios:
+            try:
+                target = _present_value_two_stage(
+                    base_ni=ni_per_share,
+                    g_high=s["g"],
+                    g_terminal=s["tv_g"],
+                    n=base_a.high_growth_years,
+                    r=s["wacc"],
+                    roe=base_a.roe,
+                )
+                upside = (target / m.price) - 1 if m.price > 0 else 0
 
-        verdict = self._verdict_text(fair_value_to_price, assumed.high_growth)
+                matrix_results[s["name"]] = {
+                    "prob": s["prob"],
+                    "target": target,
+                    "upside": upside,
+                    "g": s["g"],
+                    "wacc": s["wacc"],
+                    "tv_g": s["tv_g"],
+                }
+
+                # Accumulate Probability-Weighted Expected Value
+                pwev_target += target * s["prob"]
+            except Exception as e:
+                notes.append(f"Scenario '{s['name']}' calculation failed: {e}")
+
+        if pwev_target <= 0:
+            return ValuationResult(
+                method=Method.INTRINSIC,
+                confidence=0.0,
+                notes=notes + ["All scenarios failed; PWEV invalid."],
+                verdict_text="Intrinsic DCF failed across all scenarios.",
+            )
+
+        # ====================================================================
+        # Final PWEV Synthesis
+        # ====================================================================
+        pwev_upside = (pwev_target / m.price) - 1 if m.price > 0 else 0
+
+        # Format the scenario matrix for output
+        verdict_lines = [
+            f"Probability-Weighted Fair Value (PWEV): ${pwev_target:.2f} ({pwev_upside * 100:+.1f}%)",
+            "  Scenario Matrix:",
+            f"    • Bear (20%): ${matrix_results['Bear Case']['target']:.2f} "
+            f"| Growth: {matrix_results['Bear Case']['g'] * 100:.1f}% "
+            f"| WACC: {matrix_results['Bear Case']['wacc'] * 100:.2f}%",
+            f"    • Base (60%): ${matrix_results['Base Case']['target']:.2f} "
+            f"| Growth: {matrix_results['Base Case']['g'] * 100:.1f}% "
+            f"| WACC: {matrix_results['Base Case']['wacc'] * 100:.2f}%",
+            f"    • Bull (20%): ${matrix_results['Bull Case']['target']:.2f} "
+            f"| Growth: {matrix_results['Bull Case']['g'] * 100:.1f}% "
+            f"| WACC: {matrix_results['Bull Case']['wacc'] * 100:.2f}%",
+        ]
 
         return ValuationResult(
             method=Method.INTRINSIC,
-            fair_value_per_share=pv,
-            fair_value_to_price=fair_value_to_price,
+            fair_value_per_share=pwev_target,
+            fair_value_to_price=pwev_upside,
             confidence=confidence,
             components={
-                "base_fcfe_per_share": fcfe0,
-                "terminal_value_per_share": terminal_value / ((1 + assumed.discount_rate) ** assumed.high_growth_years),
+                "pwev_target": pwev_target,
+                "scenarios": matrix_results,
+                "base_ni_per_share": ni_per_share,
             },
             assumptions={
-                "high_growth": assumed.high_growth,
-                "terminal_growth": assumed.terminal_growth,
-                "high_growth_years": float(assumed.high_growth_years),
-                "discount_rate": assumed.discount_rate,
+                "high_growth": base_a.high_growth,
+                "terminal_growth": base_a.terminal_growth,
+                "high_growth_years": float(base_a.high_growth_years),
+                "discount_rate": base_a.discount_rate,
+                "roe": base_a.roe,
             },
             notes=notes,
-            verdict_text=verdict,
+            verdict_text="\n".join(verdict_lines),
         )
 
     @staticmethod
     def _has_explicit_assumptions(security: Security) -> bool:
+        """Check if user provided explicit forecast assumptions."""
         return "forecast_growth" in security.qualitative
 
     def _resolve_assumptions(self, security: Security) -> FCFEAssumptions:
+        """Resolve assumptions from security qualitative dict or defaults."""
         q = security.qualitative
         return FCFEAssumptions(
-            high_growth=q.get("forecast_growth", self.defaults.high_growth),
-            terminal_growth=q.get("forecast_terminal_growth", self.defaults.terminal_growth),
-            high_growth_years=int(q.get("forecast_high_growth_years", self.defaults.high_growth_years)),
-            discount_rate=q.get("forecast_discount_rate", self.defaults.discount_rate),
+            high_growth=float(q.get("forecast_growth", self.defaults.high_growth)),
+            terminal_growth=float(
+                q.get("forecast_terminal_growth", self.defaults.terminal_growth)
+            ),
+            high_growth_years=int(
+                q.get("forecast_high_growth_years", self.defaults.high_growth_years)
+            ),
+            discount_rate=float(
+                q.get("forecast_discount_rate", self.defaults.discount_rate)
+            ),
+            roe=float(q.get("forecast_roe", self.defaults.roe)),
         )
-
-    @staticmethod
-    def _verdict_text(ratio: float, g: float) -> str:
-        pct = ratio * 100
-        g_pct = g * 100
-        if ratio > 0.30:
-            return f"Intrinsic DCF (assuming {g_pct:.0f}% growth) implies ~{pct:+.0f}% upside."
-        if ratio > 0.10:
-            return f"Intrinsic DCF (assuming {g_pct:.0f}% growth) implies modest upside ({pct:+.0f}%)."
-        if ratio > -0.10:
-            return f"Intrinsic DCF (assuming {g_pct:.0f}% growth) suggests fair value near current price ({pct:+.0f}%)."
-        if ratio > -0.30:
-            return f"Intrinsic DCF (assuming {g_pct:.0f}% growth) implies modest downside ({pct:+.0f}%)."
-        return f"Intrinsic DCF (assuming {g_pct:.0f}% growth) implies material downside ({pct:+.0f}%)."

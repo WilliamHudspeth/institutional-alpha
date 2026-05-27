@@ -6,36 +6,32 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-## [0.2.0a0] — v0.2.0-alpha
+## [0.2.0] — 2026-05-27
+
+The stable release. Completes the seven-stage pipeline, Bayesian updating, and adds the backtest harness for factor efficacy evaluation.
 
 ### Added
 
-- **Valuation pipeline** (`iam.ValuationPipeline`) — a sequential Stage 1–4 flow that produces a structured argument rather than a single composite score.
-  - **Stage 1: Reverse DCF** (`iam.valuation.ReverseDCF`). Two-stage Gordon-growth FCFE model. Bisects to find the implied growth rate the market is demanding, then compares to historical peak.
-  - **Stage 2: Relative valuation** (`iam.valuation.RelativeValuation`). Three signals: EV/EBITDA vs sector median, P/E vs own 10y history percentile, FCF yield vs peer set.
-  - **Stage 3: Intrinsic DCF** (`iam.valuation.FCFEDCF`) and **SOTP scaffold** (`iam.valuation.SOTP`). Independent fair-value build-up using user-supplied or default forecasts.
-  - **Stage 4: Triangulation** (`iam.valuation.Triangulator`). Closest-cluster-wins logic. Verdicts: `agree` / `two_of_three` / `disagree` / `single_method` / `no_data`.
-- `docs/pipeline.md` — design doc for the pipeline.
-- `examples/pipeline_one.py` — runnable end-to-end demo of the pipeline.
-- 17 new tests covering the math, each method, and the triangulation logic.
+- **Verdict generator** (`src/iam/pipeline/verdict.py`) — Stage 7 of the pipeline. Produces Buy/Hold/Sell ratings, conviction bands derived from triangulation spread, and penalty-triggered downgrades.
+- **Peer-relative ranking** — Damodaran sector multiples (EV/EBITDA, P/E) are now baked into the Stage 7 verdict, giving each name a within-sector rank.
+- **Bayesian updating** (`src/iam/thesis/bayesian/`) — Three modules: `priors.py` (ScenarioPrior), `evidence.py` (Evidence + ScenarioLikelihood with signal dampening), `updater.py` (BayesianUpdater). Signal dampening shrinks the likelihood toward 1.0 for noisy or stale signals, preventing overfitting.
+- **`ThesisEngine.apply_evidence()`** — Applies a Bayesian update to scenario priors and recalculates the probability-weighted expected value.
+- **Synthetic WACC** (`build_wacc`) — Dynamic cost of capital derived from Interest Coverage Ratio mapped to Damodaran synthetic debt ratings.
+- **Backtest harness** (`tests/harness.py`) — `BacktestHarness` class for historical factor performance evaluation. Methods: `run()` scores all securities and returns a decomposed DataFrame, `calculate_ic()` computes Spearman Information Coefficient per factor, `quantile_spread()` measures return spread between top/bottom quantiles.
 
 ### Changed
 
-- `iam.__version__` is now `"0.2.0a0"`.
-- README updated with two-entry-point quickstart and revised roadmap.
+- **Reinvestment rate constraint** — DCF engines now enforce `g / ROE` to accurately capture the capital cost of growth; previously growth could be assumed without a corresponding reinvestment drag.
+- **Valuation pipeline** — All seven stages are now integrated in the orchestrator. A `PipelineReport` includes `final_verdict` from Stage 7.
 
-### Notes
-
-- v0.1.0's factor-scoring engine (`iam.score`) is unchanged and fully backwards-compatible. All 9 original tests still pass.
-- Stages 5–7 (macro overlay, verdict, peer-relative ranking) ship in v0.2.0-beta and v0.2.0.
-
-## [0.1.0] — Initial scaffold
+## [0.2.0-beta] — 2026-05-27
 
 ### Added
 
-- 10 additive factors and 3 penalty factors.
-- Composite engine with confidence-weighted, decomposable scoring.
-- Conceptual framework (`docs/framework.md`) and per-factor definitions (`docs/factors.md`).
-- 9-test test suite.
-- `examples/score_one.py` runnable demo.
-- MIT license, CONTRIBUTING.md, pyproject.toml.
+- **Multi-lens valuation engine** (`src/iam/lenses/`) — Five independent valuation lenses, each encoding a different analytical framework:
+  - `RateSensitiveLens` — duration-adjusted fair value for rate-sensitive businesses
+  - `PlatformCompounderLens` — network-effects compounder lens
+  - `ExpectationsDifficultyLens` — how hard the current price is to justify
+  - `DamodaranBaseLens` — Damodaran-style base-case DCF
+  - `synthesize_lenses()` — weighted consensus across lenses
+- **Threshold-gated macro overlay** (`src/iam/pipeline/macro.py`) — Stage 5/6 gatekeeper. Forces an intrinsic DCF re-run only when an interest rate shock (>50bps by default) moves the cluster center beyond a materiality threshold.
