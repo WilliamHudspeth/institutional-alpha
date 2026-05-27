@@ -30,6 +30,7 @@ class FCFEAssumptions:
     terminal_growth: float = 0.025
     high_growth_years: int = 10
     discount_rate: float = 0.09
+    roe: float = 0.15           # Return on Equity for reinvestment constraint (g / ROE)
 
 
 class FCFEDCF:
@@ -70,13 +71,18 @@ class FCFEDCF:
                 "using model defaults — supply assumptions for a tailored estimate."
             )
 
-        fcfe0 = f.fcf_ttm / f.shares_outstanding
-        if fcfe0 <= 0:
+        # To enforce the Reinvestment Rate constraint (g = Reinvestment Rate * ROE),
+        # we base cash flows on Net Income, then subtract the reinvestment required
+        # to achieve the assumed growth rate.
+        ni = f.net_income_ttm if f.net_income_ttm and f.net_income_ttm > 0 else f.fcf_ttm
+        if ni is None or ni <= 0:
             return ValuationResult(
                 method=Method.INTRINSIC, confidence=0.3,
-                notes=["Base FCFE is non-positive; FCFE DCF unreliable."],
-                verdict_text="Base FCFE non-positive; method skipped.",
+                notes=["Base Net Income/FCFE is non-positive; FCFE DCF unreliable."],
+                verdict_text="Base cash flow non-positive; method skipped.",
             )
+            
+        ni_per_share = ni / f.shares_outstanding
 
         if assumed.discount_rate <= assumed.terminal_growth:
             return ValuationResult(
@@ -85,14 +91,23 @@ class FCFEDCF:
                 verdict_text="Bad assumptions: r <= g_terminal.",
             )
 
+        # Enforce Equity Reinvestment Rate (ERR) constraint: ERR = g / ROE
+        # Cap ERR at 1.0 (100%) to prevent negative cash flows in high growth
+        err_high = min(assumed.high_growth / assumed.roe, 1.0) if assumed.roe > 0 else 1.0
+        err_term = min(assumed.terminal_growth / assumed.roe, 1.0) if assumed.roe > 0 else 1.0
+
         # Two-stage PV
         pv = 0.0
-        fcfe_t = fcfe0
+        ni_t = ni_per_share
+        
         for t in range(1, assumed.high_growth_years + 1):
-            fcfe_t = fcfe0 * ((1 + assumed.high_growth) ** t)
+            ni_t = ni_t * (1 + assumed.high_growth)
+            fcfe_t = ni_t * (1 - err_high)
             pv += fcfe_t / ((1 + assumed.discount_rate) ** t)
 
-        fcfe_n_plus_1 = fcfe_t * (1 + assumed.terminal_growth)
+        ni_n_plus_1 = ni_t * (1 + assumed.terminal_growth)
+        fcfe_n_plus_1 = ni_n_plus_1 * (1 - err_term)
+        
         terminal_value = fcfe_n_plus_1 / (assumed.discount_rate - assumed.terminal_growth)
         pv += terminal_value / ((1 + assumed.discount_rate) ** assumed.high_growth_years)
 
@@ -108,7 +123,9 @@ class FCFEDCF:
             fair_value_to_price=fair_value_to_price,
             confidence=confidence,
             components={
-                "base_fcfe_per_share": fcfe0,
+                "base_ni_per_share": ni_per_share,
+                "reinvestment_rate_high": err_high,
+                "reinvestment_rate_term": err_term,
                 "terminal_value_per_share": terminal_value / ((1 + assumed.discount_rate) ** assumed.high_growth_years),
             },
             assumptions={
@@ -116,6 +133,7 @@ class FCFEDCF:
                 "terminal_growth": assumed.terminal_growth,
                 "high_growth_years": float(assumed.high_growth_years),
                 "discount_rate": assumed.discount_rate,
+                "roe": assumed.roe,
             },
             notes=notes,
             verdict_text=verdict,
@@ -132,6 +150,7 @@ class FCFEDCF:
             terminal_growth=q.get("forecast_terminal_growth", self.defaults.terminal_growth),
             high_growth_years=int(q.get("forecast_high_growth_years", self.defaults.high_growth_years)),
             discount_rate=q.get("forecast_discount_rate", self.defaults.discount_rate),
+            roe=q.get("forecast_roe", self.defaults.roe),
         )
 
     @staticmethod
