@@ -126,24 +126,20 @@ class ValuationPipeline:
         if not f or not m:
             return None
             
-        # 1. Derive EBIT (from Revenue * Margin or fallback to EBITDA)
         ebit = None
         if getattr(f, 'revenue_ttm', None) and getattr(f, 'operating_margin', None):
             ebit = f.revenue_ttm * f.operating_margin
         if ebit is None:
             ebit = getattr(f, 'ebitda_ttm', None) or 0.0
             
-        # 2. Derive Interest Expense
         interest = getattr(f, 'interest_expense_ttm', None) or 0.0
         
-        # 3. Derive D/E
         d_to_e = 0.0
         total_debt = getattr(f, 'total_debt', None) or 0.0
         market_cap = getattr(m, 'market_cap', None) or 0.0
         if total_debt > 0 and market_cap > 0:
             d_to_e = total_debt / market_cap
             
-        # Base assumptions
         ke = 0.09
         rf = 0.043
         tax_rate = 0.21
@@ -159,26 +155,23 @@ class ValuationPipeline:
             dynamic_wacc = wacc_info["wacc"]
             rating = wacc_info["rating"]
             
-            # Temporary override of Reverse DCF
             self.reverse_dcf.r = dynamic_wacc
             
             if security.qualitative is None:
                 security.qualitative = {}
-            # Inject into security qualitative for downstream intrinsic DCF
             security.qualitative["wacc_override"] = dynamic_wacc
             wacc_note = f"Dynamic WACC applied: {dynamic_wacc:.2%} (Rating: {rating})"
 
-        # 1. Run Stage 1: Reverse DCF
+        # Stage 1: Reverse DCF
         reverse_dcf_res = self.reverse_dcf.compute(security)
         
-        # Restore original r for reverse DCF if overridden
         if wacc_info:
             self.reverse_dcf.r = original_r
             
-        # 2. Run Stage 2: Relative Valuation
+        # Stage 2: Relative Valuation
         relative_res = self.relative.compute(security)
         
-        # 3. Run Stage 3: Intrinsic DCF / SOTP
+        # Stage 3: Intrinsic DCF / SOTP
         if self.use_sotp and security.fundamentals and getattr(security.fundamentals, 'segments', None):
             intrinsic_res = self.sotp.compute(security)
         else:
@@ -187,7 +180,7 @@ class ValuationPipeline:
         if wacc_info and wacc_note:
             intrinsic_res.notes.append(wacc_note)
             
-        # 4. Run Stage 4: Triangulation
+        # Stage 4: Triangulation
         triangulation_res = self.triangulator.triangulate(
             reverse_dcf_res, relative_res, intrinsic_res
         )
@@ -205,14 +198,13 @@ class ValuationPipeline:
         # Stages 5 & 6: Macro Overlay
         if macro:
             report = self.macro_overlay.apply(report, security, macro)
-            # Re-triangulate if the macro overlay altered the intrinsic valuation
             if report.intrinsic.fair_value_per_share != intrinsic_res.fair_value_per_share:
                 report.triangulation = self.triangulator.triangulate(
                     report.reverse_dcf, report.relative, report.intrinsic
                 )
                 report.implied_move_pct = report.triangulation.cluster_center
                 
-        # 7. Run Stage 7: Verdict
+        # Stage 7: Verdict
         report.final_verdict = VerdictGenerator().generate(report.triangulation, report.relative, security)
 
         return report

@@ -42,7 +42,7 @@ def test_macro_overlay_no_trigger_below_threshold():
     report.summary = "Initial Summary."
     original_intrinsic = report.intrinsic
 
-    # 25 bps — below the 50 bps threshold
+    # 25 bps -- below the 50 bps threshold
     macro = MacroConditions(rate_change=0.0025)
 
     overlay = MacroOverlay(intrinsic_dcf=MagicMock(), rate_shock_threshold_bps=50.0)
