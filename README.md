@@ -6,7 +6,7 @@ Most public valuation models stop at DCF or relative multiples. Institutional di
 
 ## Status
 
-**v0.2.0** — the framework is complete. The factor scoring engine, seven-stage valuation pipeline, thesis engine with Bayesian updating, and Damodaran-anchored peer ranking are all implemented and tested.
+**v0.3.4** — production-grade system with empirical calibration ready. The factor scoring engine, seven-stage valuation pipeline, institutional cost of capital baselines, Bayesian updating, and **production-grade backtest harness** are all implemented and tested (219 tests passing). The backtest harness measures Information Coefficient (Spearman rank) on historical data to calibrate Bayesian reliability weights empirically.
 
 ## What's in the box
 

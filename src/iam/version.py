@@ -1,16 +1,16 @@
 """Version and metadata for the Institutional Alpha platform."""
 
 APP_NAME = "Institutional Alpha"
-VERSION = "0.2.1-alpha"
+VERSION = "0.3.4-alpha"
 AUTHOR = "William Hudspeth"
 BUILD_DATE = "2026-05-27"
-STATUS = "Research Preview"
+STATUS = "Production-Ready (with empirical calibration pending)"
 PYTHON_MIN = "3.10"
 
 # Version components
 MAJOR = 0
-MINOR = 2
-PATCH = 1
+MINOR = 3
+PATCH = 4
 PRERELEASE = "alpha"
 
 def version_string() -> str:
