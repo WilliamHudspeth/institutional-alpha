@@ -37,6 +37,8 @@ class PipelineReport:
         lines.append("STAGE 3 — Intrinsic DCF (independent build-up)")
         lines.append(f"  {self.intrinsic.verdict_text}")
         lines.append(f"  confidence: {self.intrinsic.confidence:.2f}")
+        for note in self.intrinsic.notes:
+            lines.append(f"  • {note}")
         lines.append("")
         
         lines.append(f"STAGE 4 — Triangulation: {self.triangulation.verdict.upper()}")
@@ -65,23 +67,81 @@ class ValuationPipeline:
         self.triangulator = Triangulator()
         self.macro_overlay = MacroOverlay()
         self.use_sotp = use_sotp_when_segments_available
+        
+    @staticmethod
+    def _calculate_dynamic_wacc(security: Security) -> Optional[dict]:
+        from iam.valuation.damodaran_defaults import build_wacc
+        
+        f = security.fundamentals
+        m = security.market
+        if not f or not m:
+            return None
+            
+        # 1. Derive EBIT (from Revenue * Margin or fallback to EBITDA)
+        ebit = None
+        if getattr(f, 'revenue_ttm', None) and getattr(f, 'operating_margin', None):
+            ebit = f.revenue_ttm * f.operating_margin
+        if ebit is None:
+            ebit = getattr(f, 'ebitda_ttm', None) or 0.0
+            
+        # 2. Derive Interest Expense
+        interest = getattr(f, 'interest_expense_ttm', None) or 0.0
+        
+        # 3. Derive D/E
+        d_to_e = 0.0
+        total_debt = getattr(f, 'total_debt', None) or 0.0
+        market_cap = getattr(m, 'market_cap', None) or 0.0
+        if total_debt > 0 and market_cap > 0:
+            d_to_e = total_debt / market_cap
+            
+        # Base assumptions
+        ke = 0.09
+        rf = 0.043
+        tax_rate = 0.21
+        
+        return build_wacc(ke=ke, ebit=ebit, interest_expense=interest, rf=rf, d_to_e=d_to_e, tax_rate=tax_rate)
 
     def run(self, security: Security, fcfe_assumptions: Optional[FCFEAssumptions] = None, macro: Optional[MacroConditions] = None) -> PipelineReport:
-        rev = self.reverse_dcf.compute(security)
-        rel = self.relative.compute(security)
+        wacc_info = self._calculate_dynamic_wacc(security)
+        wacc_note = ""
+        original_r = self.reverse_dcf.r
         
-        has_segments = bool(security.fundamentals.segments)
-        if self.use_sotp and has_segments:
-            intr = self.sotp.compute(security)
-            if intr.confidence == 0.0:
-                intr = self.intrinsic_dcf.compute(security, fcfe_assumptions)
-        else:
-            intr = self.intrinsic_dcf.compute(security, fcfe_assumptions)
+        if wacc_info:
+            dynamic_wacc = wacc_info["wacc"]
+            rating = wacc_info["rating"]
             
-        tri = self.triangulator.triangulate(rev, rel, intr)
+            # Temporary override of Reverse DCF
+            self.reverse_dcf.r = dynamic_wacc
+            
+            if security.qualitative is None:
+                security.qualitative = {}
+            # Inject into security qualitative for Intrinsic DCF
+            if "forecast_discount_rate" not in security.qualitative:
+                security.qualitative["forecast_discount_rate"] = dynamic_wacc
+                
+            wacc_note = f"\n[WACC OVERRIDE]: Applied synthetic WACC of {dynamic_wacc:.1%} (Implied Rating: {rating})."
+            
+        try:
+            rev = self.reverse_dcf.compute(security)
+            rel = self.relative.compute(security)
+            
+            has_segments = bool(getattr(security.fundamentals, 'segments', []))
+            if self.use_sotp and has_segments:
+                intr = self.sotp.compute(security)
+                if intr.confidence == 0.0:
+                    intr = self.intrinsic_dcf.compute(security, fcfe_assumptions)
+            else:
+                intr = self.intrinsic_dcf.compute(security, fcfe_assumptions)
+                
+            tri = self.triangulator.triangulate(rev, rel, intr)
+        finally:
+            if wacc_info:
+                self.reverse_dcf.r = original_r
         
         implied_move = tri.cluster_center
         summary = self._build_summary(rev, rel, intr, tri)
+        if wacc_note:
+            summary += wacc_note
         
         report = PipelineReport(
             ticker=security.ticker,

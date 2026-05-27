@@ -8,7 +8,7 @@ This repo is an open-source attempt to encode that surface as an orthogonal, wei
 
 ## Status
 
-🚧 **v0.2.0-alpha.** The factor-scoring engine from v0.1.0 still works (`iam.score(...)`), and v0.2.0-alpha adds the **valuation pipeline** — a sequential Reverse DCF → Relative → Intrinsic → Triangulation flow that produces a structured argument rather than a single composite score. See [`docs/pipeline.md`](docs/pipeline.md). Stages 5–7 (macro overlay, verdict, peer-relative ranking) coming in v0.2.0-beta and v0.2.0. Contributions welcome (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+ **v0.2.0.** The framework is now fully realized with a Bayesian updating engine for adaptive inference, a threshold-gated Macro Overlay that dynamically recalculates intrinsic value during rate shocks, and a robust Valuation Pipeline that outputs actionable verdicts.
 
 ## Core idea
 
@@ -76,6 +76,28 @@ print(report.explain())
 # Stage 4: TWO_OF_THREE — relative + intrinsic cluster; reverse DCF disagrees.
 ```
 
+**Thesis scenarios (v0.2.0-alpha):** attach competing bull/bear views to a security.
+
+```python
+from iam.data.security import Assumption, Security, Thesis, show_spread
+
+sec = Security(
+    ticker="HYPCO",
+    theses=[
+        Thesis(label="Bull", fair_value_low=160.0, fair_value_high=200.0,
+               narrative="Margin expansion drives re-rating.",
+               assumptions=[Assumption("terminal_margin", 0.30, source="user")]),
+        Thesis(label="Bear", fair_value_low=80.0, fair_value_high=110.0,
+               narrative="Competition compresses margins.",
+               assumptions=[Assumption("terminal_margin", 0.15, source="user")]),
+    ],
+)
+print(show_spread(sec))
+# Thesis: Bull  —  Fair value range: 160.00 - 200.00
+# Thesis: Bear  —  Fair value range: 80.00 - 110.00
+# Spread: 120.00 (high 200.00 - low 80.00) [wide]
+```
+
 See [`examples/`](examples/) for runnable end-to-end demos of both.
 
 ## Design principles
@@ -88,15 +110,17 @@ See [`examples/`](examples/) for runnable end-to-end demos of both.
 
 ## Roadmap
 
-- [x] Factor interfaces + composite engine (v0.1.0)
-- [x] Default weights + penalty system (v0.1.0)
 - [x] Valuation pipeline: Reverse DCF → Relative → Intrinsic → Triangulation (v0.2.0-alpha)
-- [ ] Macro overlay with threshold-gated re-run (v0.2.0-beta)
-- [ ] Verdict + peer-relative ranking via Damodaran industries (v0.2.0)
-- [ ] Reference implementations for each v0.1.0 factor stub
-- [ ] Data provider adapters (yfinance, FMP, etc.)
-- [ ] Bayesian updating engine (priors → posterior on each earnings release)
+- [x] Core data layer + Yahoo Finance adapter (v0.2.0-alpha)
+- [x] Thesis Engine + Sensitivity Analysis (v0.2.0-alpha)
+- [x] Macro overlay with threshold-gated re-run (v0.2.0-beta)
+- [x] Verdict + peer-relative ranking via Damodaran industries (v0.2.0)
+- [x] Bayesian updating engine (priors → posterior on earnings releases)
 - [ ] Backtest harness
+
+## v0.2.0-beta Upgrade Notes
+
+**Note:** As of v0.2.0-beta, the Thesis Engine has been moved to `src/iam/thesis/`. If you are importing `ThesisEngine` from the root directory, please update your import statement to `from iam.thesis.engine import ThesisEngine`.
 
 ## License
 
