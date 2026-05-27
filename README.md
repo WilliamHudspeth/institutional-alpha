@@ -59,6 +59,18 @@ Requires Python 3.10+. Core dependencies are `numpy` and `pandas` only.
 
 ## Quick start
 
+### Interactive welcome screen
+
+```bash
+python main.py
+```
+
+A guided menu that lets you:
+- Value a single security (7-stage pipeline)
+- Score a security (10 factors + 3 penalties)
+- Analyze scenarios with the thesis engine
+- Evaluate historical factor performance
+
 ### Factor scoring
 
 ```python
