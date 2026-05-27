@@ -203,6 +203,29 @@ class DamodaranUniverse:
     us_erp: float                     # Damodaran US ERP, decimal
     region_erps: Dict[str, float]     # region -> ERP
     sector_beta_u: Dict[str, float]   # sector -> unlevered beta
+    
+    # NEW: Store sector median multiples
+    sector_multiples: Dict[str, Dict[str, float]] = field(default_factory=dict)
+
+# Damodaran Synthetic Rating Spreads (Large Cap, Non-Financial) based on Interest Coverage Ratio (EBIT / Interest)
+SYNTHETIC_RATING_SPREADS = [
+    (8.50, 0.0069, "AAA/Aaa"),
+    (6.50, 0.0085, "AA/Aa2"),
+    (5.50, 0.0107, "A+/A1"),
+    (4.25, 0.0118, "A/A2"),
+    (3.00, 0.0133, "A-/A3"),
+    (2.50, 0.0171, "BBB/Baa2"),
+    (2.25, 0.0231, "BB+/Ba1"),
+    (2.00, 0.0277, "BB/Ba2"),
+    (1.75, 0.0405, "B+/B1"),
+    (1.50, 0.0486, "B/B2"),
+    (1.25, 0.0594, "B-/B3"),
+    (0.80, 0.0946, "CCC/Caa"),
+    (0.65, 0.1335, "CC/Ca"),
+    (0.20, 0.1754, "C/C"),
+    (-100000.0, 0.2000, "D/D")  # Fallback for negative/abysmal coverage
+]
+
 
 def build_geographic_erp(profile: CompanyProfile, uni: DamodaranUniverse) -> float:
     """Revenue-weighted ERP. Missing region falls back to US ERP."""
@@ -229,6 +252,29 @@ def cost_of_equity(rf: float, beta_l: float, erp: float) -> float:
 def cap_terminal_growth(g: float, rf: float) -> float:
     # Enforce g_terminal <= rf
     return g if g <= rf else rf
+
+def get_synthetic_spread(ebit: float, interest_expense: float) -> tuple[float, str]:
+    """Calculates synthetic debt spread and rating based on Interest Coverage Ratio."""
+    if interest_expense <= 0:
+        return SYNTHETIC_RATING_SPREADS[0][1], SYNTHETIC_RATING_SPREADS[0][2]  # AAA if no interest
+        
+    icr = ebit / interest_expense
+    for threshold, spread, rating in SYNTHETIC_RATING_SPREADS:
+        if icr > threshold:
+            return spread, rating
+    return SYNTHETIC_RATING_SPREADS[-1][1], SYNTHETIC_RATING_SPREADS[-1][2]
+
+def build_wacc(ke: float, ebit: float, interest_expense: float, rf: float, d_to_e: float, tax_rate: float) -> dict:
+    """Calculates firm-specific WACC using synthetic debt ratings."""
+    spread, rating = get_synthetic_spread(ebit, interest_expense)
+    cost_of_debt = rf + spread
+    after_tax_kd = cost_of_debt * (1 - tax_rate)
+    
+    weight_debt = d_to_e / (1 + d_to_e)
+    weight_equity = 1 / (1 + d_to_e)
+    
+    wacc = (ke * weight_equity) + (after_tax_kd * weight_debt)
+    return {"wacc": wacc, "cost_of_equity": ke, "cost_of_debt": cost_of_debt, "rating": rating, "spread": spread}
 
 def build_ke_for_company(profile: CompanyProfile, uni: DamodaranUniverse) -> dict:
     erp = build_geographic_erp(profile, uni)
