@@ -30,11 +30,12 @@ def print_header() -> None:
 def print_menu() -> None:
     """Print the main menu options."""
     print("What would you like to do?\n")
-    print("  1. Value a single security (7-stage pipeline)")
-    print("  2. Score a security (10 factors + 3 penalties)")
-    print("  3. Scenario analysis with thesis engine")
-    print("  4. Backtest factor efficacy (historical analysis)")
-    print("  5. Exit")
+    print("  1. Quick recommendation (BUY/HOLD/SELL in 10 seconds)")
+    print("  2. Deep dive valuation (7-stage pipeline with details)")
+    print("  3. Factor scoring (10 factors + 3 penalties)")
+    print("  4. Scenario analysis with thesis engine")
+    print("  5. Backtest factor efficacy (historical analysis)")
+    print("  6. Exit")
     print()
 
 
@@ -282,6 +283,86 @@ def run_backtest_harness() -> None:
     print()
 
 
+def run_quick_recommendation(ticker: str) -> None:
+    """Run quick BUY/HOLD/SELL recommendation."""
+    print("\n" + "-" * 70)
+    print(f"  Quick Recommendation for {ticker}")
+    print("-" * 70)
+    print()
+
+    try:
+        from iam.data.yahoo import fetch_security
+        from iam.pipeline.orchestrator import ValuationPipeline
+
+        security = fetch_security(ticker)
+        print(f"  ✓ {security.name or ticker} loaded\n")
+
+        # Get forecast growth
+        growth_input = input(
+            "  Forecast growth [press Enter for 8%]: "
+        ).strip()
+        forecast_growth = 0.08
+        if growth_input:
+            try:
+                g = float(growth_input)
+                forecast_growth = g / 100 if g > 1 else g
+            except ValueError:
+                print("  ⚠ Invalid input, using 8%\n")
+
+        security.qualitative["forecast_growth"] = forecast_growth
+
+        # Run pipeline
+        print("  ⏳ Analyzing...\n")
+        pipeline = ValuationPipeline()
+        report = pipeline.run(security)
+
+        # Show recommendation box
+        if report.final_verdict:
+            rating = report.final_verdict.rating
+            confidence = report.final_verdict.confidence_band
+            upside = report.final_verdict.blended_upside or report.implied_move_pct or 0
+        else:
+            rating = "INCONCLUSIVE"
+            confidence = "LOW"
+            upside = 0
+
+        fair_value = (security.market.price or 0) * (1 + upside)
+
+        # Print recommendation
+        print("  " + "╔" + "═" * 68 + "╗")
+        print(f"  ║  {rating:20} │ Confidence: {confidence:15} ║")
+        print("  " + "║" + "─" * 68 + "║")
+        print(f"  ║  Current: ${security.market.price:>8.2f}  │  Fair Value: ${fair_value:>8.2f}  │  Upside: {upside:>6.1%}  ║")
+        print("  " + "╚" + "═" * 68 + "╝")
+        print()
+
+        # Interpretation
+        if rating == "BUY":
+            print("  🟢 Stock appears undervalued with >15% potential upside\n")
+        elif rating == "SELL":
+            print("  🔴 Stock appears overvalued with >10% potential downside\n")
+        else:
+            print("  🟡 Stock appears fairly valued within -10% to +15% range\n")
+
+        # Ask for details
+        print()
+        details = input("  View detailed analysis? (y/n): ").strip().lower()
+        if details == "y":
+            print("\n" + "-" * 70)
+            print("  DETAILED VALUATION PIPELINE")
+            print("-" * 70 + "\n")
+            print(report.explain(verbose=False))
+
+    except ImportError:
+        print("  ERROR: yfinance is not installed.")
+        print("  Install with: pip install -e '.[live]'")
+    except RuntimeError as e:
+        print(f"  ERROR: Could not fetch data for '{ticker}'.")
+        print(f"  Details: {e}")
+    except Exception as e:
+        print(f"  ERROR: {e}")
+
+
 def main() -> None:
     """Main interactive loop."""
     print_header()
@@ -291,24 +372,27 @@ def main() -> None:
 
     while True:
         print_menu()
-        choice = input("Enter your choice (1-5): ").strip()
+        choice = input("Enter your choice (1-6): ").strip()
 
         if choice == "1":
             ticker = get_security_input()
-            run_valuation_pipeline(ticker)
+            run_quick_recommendation(ticker)
         elif choice == "2":
             ticker = get_security_input()
-            run_factor_scoring(ticker)
+            run_valuation_pipeline(ticker)
         elif choice == "3":
             ticker = get_security_input()
-            run_thesis_engine(ticker)
+            run_factor_scoring(ticker)
         elif choice == "4":
-            run_backtest_harness()
+            ticker = get_security_input()
+            run_thesis_engine(ticker)
         elif choice == "5":
+            run_backtest_harness()
+        elif choice == "6":
             print("  Thank you for using IAM. Goodbye!")
             sys.exit(0)
         else:
-            print("  Invalid choice. Please enter 1-5.\n")
+            print("  Invalid choice. Please enter 1-6.\n")
             continue
 
         # Ask if user wants to analyze another security
