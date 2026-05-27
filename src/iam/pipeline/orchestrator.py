@@ -22,7 +22,56 @@ class PipelineReport:
     summary: str = ""
     final_verdict: Optional[VerdictResult] = None
 
-    def explain(self) -> str:
+    def explain(self, verbose: bool = False) -> str:
+        if verbose:
+            from iam.pipeline.verdict import (
+                EXPLAIN_STAGE_1, EXPLAIN_STAGE_2, EXPLAIN_STAGE_3, 
+                EXPLAIN_STAGE_4, EXPLAIN_STAGE_5, EXPLAIN_STAGE_6, EXPLAIN_STAGE_7
+            )
+            lines = [f"=== {self.ticker} | Valuation Pipeline Report ===", ""]
+            
+            lines.append(EXPLAIN_STAGE_1)
+            lines.append(f"> Verdict: {self.reverse_dcf.verdict_text}")
+            lines.append(f"> Confidence: {self.reverse_dcf.confidence:.2f}")
+            lines.append("")
+            
+            lines.append(EXPLAIN_STAGE_2)
+            lines.append(f"> Verdict: {self.relative.verdict_text}")
+            lines.append(f"> Confidence: {self.relative.confidence:.2f}")
+            lines.append("")
+            
+            lines.append(EXPLAIN_STAGE_3)
+            lines.append(f"> Verdict: {self.intrinsic.verdict_text}")
+            lines.append(f"> Confidence: {self.intrinsic.confidence:.2f}")
+            for note in self.intrinsic.notes:
+                lines.append(f"> • {note}")
+            lines.append("")
+            
+            lines.append(EXPLAIN_STAGE_4)
+            lines.append(f"> Verdict: {self.triangulation.verdict.upper()}")
+            lines.append(f"> Confidence: {self.triangulation.confidence:.2f}")
+            for note in self.triangulation.notes:
+                lines.append(f"> • {note}")
+            lines.append("")
+            
+            lines.append(EXPLAIN_STAGE_5)
+            lines.append("> (Macro check details are summarized below if triggered)")
+            lines.append("")
+            
+            lines.append(EXPLAIN_STAGE_6)
+            lines.append(f"> Summary: {self.summary}")
+            lines.append("")
+            
+            if self.final_verdict:
+                lines.append(EXPLAIN_STAGE_7)
+                lines.append(f"> VERDICT: {self.final_verdict.rating}")
+                lines.append(f"> Confidence Band: {self.final_verdict.confidence_band}")
+                for note in self.final_verdict.notes:
+                    lines.append(f"> • {note}")
+            
+            return "\n".join(lines)
+            
+        # Non-verbose (original) output
         lines = [f"=== {self.ticker} | Valuation Pipeline (Stages 1-4) ===", ""]
         lines.append("STAGE 1 — Reverse DCF (what does the market expect?)")
         lines.append(f"  {self.reverse_dcf.verdict_text}")

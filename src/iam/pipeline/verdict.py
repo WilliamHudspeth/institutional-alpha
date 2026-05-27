@@ -72,3 +72,38 @@ class VerdictGenerator:
                     notes.append("Conviction downgraded due to balance sheet risk.")
 
         return VerdictResult(rating=rating, confidence_band=band, notes=notes)
+
+EXPLAIN_STAGE_1 = """### Stage 1: Reverse DCF — What does the market expect?
+**What we do:** We take the current stock price and solve backwards for the growth rate the market is already pricing in. No opinions yet, just math.
+
+**Why it matters:** If the market expects 25% growth and the company has never done more than 10%, that is a red flag before we build any model."""
+
+EXPLAIN_STAGE_2 = """### Stage 2: Relative — Do peers and history support it?
+**What we do:** We check the stock against four independent yardsticks: (1) peers' EV/EBITDA, (2) its own 10-year P/E history, (3) FCF yield vs peers, and (4) Damodaran regression — what the multiple *should* be given its fundamentals.
+
+**Why it matters:** A great story that trades at 40x when peers trade at 20x needs a reason. This stage finds that reason or flags the gap."""
+
+EXPLAIN_STAGE_3 = """### Stage 3: Intrinsic — What is it worth bottom-up?
+**What we do:** We build a fresh DCF from your fundamentals only. We use your revenue, margins, reinvestment needs, and a WACC derived from the company's actual debt rating — not a market multiple.
+
+**Why it matters:** This is your independent anchor. It does not care what peers trade at."""
+
+EXPLAIN_STAGE_4 = """### Stage 4: Triangulation — Do the three answers agree?
+**What we do:** We put Stage 1, 2, and 3 on the same chart. We do not average them. We look for clustering.
+
+**Why it matters:** Agreement = high conviction. Disagreement = risk. If Reverse DCF says $180, Relative says $95, and Intrinsic says $98, the market is pricing something the fundamentals do not support."""
+
+EXPLAIN_STAGE_5 = """### Stage 5: Macro Outlier — What breaks under stress?
+**What we do:** We shock interest rates (+50 bps, +100 bps) and credit spreads. We do not re-run everything — we test which names move more than 10% on that shock.
+
+**Why it matters:** Some businesses are rate-sensitive by design. You want to know before the Fed moves."""
+
+EXPLAIN_STAGE_6 = """### Stage 6: Macro Re-overlay — Re-price only what matters
+**What we do:** If Stage 5 flagged a name, we re-run Stages 1-3 with the stressed WACC. If not flagged, we keep the original numbers. This saves time and avoids noise.
+
+**Why it matters:** You get a real stress-test verdict without re-pricing the whole universe."""
+
+EXPLAIN_STAGE_7 = """### Stage 7: Verdict — So what do we do?
+**What we do:** We combine everything into one action. We weight the three valuations by confidence, apply penalty factors (leverage, fragility), and rank the stock vs its Damodaran industry.
+
+**Why it matters:** This is the only line most users need."""

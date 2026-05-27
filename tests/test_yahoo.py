@@ -71,3 +71,28 @@ def test_fetch_security_ultimate_fcf_fallback(mock_yfinance):
 
     sec = fetch_security("MOCK")
     assert sec.fundamentals.fcf_ttm == 100.0             # Falls back to 1000 / 10
+
+
+def test_fetch_security_mostly_empty_info(mock_yfinance):
+    """Ensures that missing fundamental data gracefully results in None fields, not crashes."""
+    mock_info = {"currentPrice": 10.0}
+    mock_ticker = MagicMock()
+    mock_ticker.info = mock_info
+    mock_yfinance.Ticker.return_value = mock_ticker
+
+    sec = fetch_security("MOCK")
+
+    assert sec.market.price == 10.0
+    assert sec.market.market_cap is None
+    assert sec.fundamentals.fcf_ttm is None
+    assert sec.fundamentals.shares_outstanding is None
+
+
+def test_fetch_security_completely_missing_data_raises_error(mock_yfinance):
+    """Ensures a RuntimeError is raised if even the price is missing."""
+    mock_ticker = MagicMock()
+    mock_ticker.info = {}
+    mock_yfinance.Ticker.return_value = mock_ticker
+
+    with pytest.raises(RuntimeError, match="returned no price data"):
+        fetch_security("MOCK")
