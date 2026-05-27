@@ -167,7 +167,7 @@ Full conceptual documentation:
 - [x] Thesis Engine: scenario modeling, simulation, sensitivity analysis (v0.2.0-beta)
 - [x] Verdict generator + peer-relative ranking via Damodaran industries (v0.2.0)
 - [x] Bayesian updating engine (v0.2.0)
-- [ ] Backtest harness
+- [x] Backtest harness
 
 ## License
 
