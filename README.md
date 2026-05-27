@@ -8,9 +8,8 @@ This repo is an open-source attempt to encode that surface as an orthogonal, wei
 
 ## Status
 
-🚧 **v0.2.0-alpha.** The factor-scoring engine from v0.1.0 still works (`iam.score(...)`), and v0.2.0-alpha adds the **valuation pipeline** — a sequential Reverse DCF → Relative → Intrinsic → Triangulation flow that produces a structured argument rather than a single composite score. See [`docs/pipeline.md`](docs/pipeline.md).
 
-The **data layer is now complete**: `Security`, `Fundamentals`, `MarketData`, `MacroContext`, and `MacroConditions` are all wired and tested. The **Thesis Engine** is also live, allowing for dynamic simulation of bull/base/bear scenarios. Stages 5–7 (macro overlay, verdict, peer-relative ranking) are next. Contributions welcome (see CONTRIBUTING.md).
+ **v0.2.0.** The framework is now fully realized with a Bayesian updating engine for adaptive inference, a threshold-gated Macro Overlay that dynamically recalculates intrinsic value during rate shocks, and a robust Valuation Pipeline that outputs actionable verdicts.
 
 ## Core idea
 
@@ -115,18 +114,17 @@ See [`examples/`](examples/) for runnable end-to-end demos of both.
 
 ## Roadmap
 
-- [x] Factor interfaces + composite engine (v0.1.0)
-- [x] Default weights + penalty system (v0.1.0)
 - [x] Valuation pipeline: Reverse DCF → Relative → Intrinsic → Triangulation (v0.2.0-alpha)
-- [x] Core data layer: Security, Fundamentals, MarketData, MacroContext (v0.2.0-alpha)
-- [x] Assumption ledger and Thesis scaffolding (v0.2.0-alpha)
-- [x] Thesis Engine — bull/base/bear scenarios with full assumption ledger (v0.2.0-alpha)
-- [ ] Macro overlay with threshold-gated re-run (v0.2.0-beta)
-- [ ] Verdict + peer-relative ranking via Damodaran industries (v0.2.0)
-- [ ] Reference implementations for each v0.1.0 factor stub
-- [ ] Data provider adapters (yfinance, FMP, etc.)
-- [ ] Bayesian updating engine (priors → posterior on each earnings release)
+- [x] Core data layer + Yahoo Finance adapter (v0.2.0-alpha)
+- [x] Thesis Engine + Sensitivity Analysis (v0.2.0-alpha)
+- [x] Macro overlay with threshold-gated re-run (v0.2.0-beta)
+- [x] Verdict + peer-relative ranking via Damodaran industries (v0.2.0)
+- [x] Bayesian updating engine (priors → posterior on earnings releases)
 - [ ] Backtest harness
+
+## v0.2.0-beta Upgrade Notes
+
+**Note:** As of v0.2.0-beta, the Thesis Engine has been moved to `src/iam/thesis/`. If you are importing `ThesisEngine` from the root directory, please update your import statement to `from iam.thesis.engine import ThesisEngine`.
 
 ## License
 
@@ -135,3 +133,4 @@ MIT — see [LICENSE](LICENSE).
 ## Disclaimer
 
 This is a research framework, not investment advice. Nothing here is a recommendation to buy or sell any security. Past performance of any factor model does not guarantee future results.
+

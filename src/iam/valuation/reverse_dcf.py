@@ -27,28 +27,37 @@ from iam.valuation.types import Method, ValuationResult, ImpliedExpectations
 DEFAULT_DISCOUNT_RATE = 0.09          # generalist equity cost of capital
 DEFAULT_HIGH_GROWTH_YEARS = 10        # explicit forecast horizon
 DEFAULT_TERMINAL_GROWTH = 0.025       # GDP-ish steady state
+DEFAULT_ROE = 0.15                    # Return on Equity for reinvestment constraint (g / ROE)
 
 
 def _present_value_two_stage(
-    base_fcfe: float,
+    base_ni: float,
     g_high: float,
     n: int,
     g_terminal: float,
     r: float,
+    roe: float,
 ) -> float:
     """PV per share of a two-stage FCFE stream."""
     if r <= g_terminal:
         # Terminal growth must be below discount rate for the model to converge.
         return float("inf")
 
+    # Enforce Equity Reinvestment Rate (ERR) constraint: ERR = g / ROE
+    # Cap ERR at 1.0 (100%) to prevent negative cash flows in high growth
+    err_high = min(g_high / roe, 1.0) if roe > 0 else 1.0
+    err_term = min(g_terminal / roe, 1.0) if roe > 0 else 1.0
+
     pv = 0.0
-    fcfe_t = base_fcfe
+    ni_t = base_ni
     for t in range(1, n + 1):
-        fcfe_t = base_fcfe * ((1 + g_high) ** t)
+        ni_t = base_ni * ((1 + g_high) ** t)
+        fcfe_t = ni_t * (1 - err_high)
         pv += fcfe_t / ((1 + r) ** t)
 
     # Terminal value at end of year N
-    fcfe_n_plus_1 = fcfe_t * (1 + g_terminal)
+    ni_n_plus_1 = ni_t * (1 + g_terminal)
+    fcfe_n_plus_1 = ni_n_plus_1 * (1 - err_term)
     terminal_value = fcfe_n_plus_1 / (r - g_terminal)
     pv += terminal_value / ((1 + r) ** n)
 
@@ -57,10 +66,11 @@ def _present_value_two_stage(
 
 def _solve_implied_growth(
     target_price: float,
-    base_fcfe: float,
+    base_ni: float,
     n: int,
     g_terminal: float,
     r: float,
+    roe: float,
     lo: float = -0.20,
     hi: float = 0.60,
     tol: float = 1e-4,
@@ -68,8 +78,8 @@ def _solve_implied_growth(
 ) -> Optional[float]:
     """Bisection: find g_high such that PV(...) == target_price."""
 
-    pv_lo = _present_value_two_stage(base_fcfe, lo, n, g_terminal, r)
-    pv_hi = _present_value_two_stage(base_fcfe, hi, n, g_terminal, r)
+    pv_lo = _present_value_two_stage(base_ni, lo, n, g_terminal, r, roe)
+    pv_hi = _present_value_two_stage(base_ni, hi, n, g_terminal, r, roe)
 
     if pv_lo > target_price:
         # Even at the lowest growth, the model says the stock is worth more
@@ -82,7 +92,7 @@ def _solve_implied_growth(
 
     for _ in range(max_iter):
         mid = (lo + hi) / 2
-        pv_mid = _present_value_two_stage(base_fcfe, mid, n, g_terminal, r)
+        pv_mid = _present_value_two_stage(base_ni, mid, n, g_terminal, r, roe)
         if abs(pv_mid - target_price) / target_price < tol:
             return mid
         if pv_mid < target_price:
@@ -105,42 +115,47 @@ class ReverseDCF:
         discount_rate: float = DEFAULT_DISCOUNT_RATE,
         high_growth_years: int = DEFAULT_HIGH_GROWTH_YEARS,
         terminal_growth: float = DEFAULT_TERMINAL_GROWTH,
+        roe: float = DEFAULT_ROE,
     ):
         self.r = discount_rate
         self.n = high_growth_years
         self.g_terminal = terminal_growth
+        self.roe = roe
 
     def compute(self, security: Security) -> ValuationResult:
         m = security.market
         f = security.fundamentals
+        qualitative = security.qualitative or {}
         notes: list[str] = []
         confidence = 1.0
 
-        # Need a price and a current FCFE (using FCF as proxy here; full FCFE
-        # would adjust for net borrowing — see the FCFE module).
-        if m.price is None or f.fcf_ttm is None or f.shares_outstanding is None:
+        ni = f.net_income_ttm if f.net_income_ttm and f.net_income_ttm > 0 else f.fcf_ttm
+        roe = qualitative.get("forecast_roe", self.roe)
+
+        if m.price is None or ni is None or f.shares_outstanding is None:
             return ValuationResult(
                 method=Method.REVERSE_DCF,
                 confidence=0.0,
-                notes=["Reverse DCF requires price, FCF TTM, and shares outstanding."],
+                notes=["Reverse DCF requires price, Net Income (or FCF), and shares outstanding."],
                 verdict_text="Insufficient data for reverse DCF.",
             )
 
-        fcfe_per_share = f.fcf_ttm / f.shares_outstanding
-        if fcfe_per_share <= 0:
+        ni_per_share = ni / f.shares_outstanding
+        if ni_per_share <= 0:
             return ValuationResult(
                 method=Method.REVERSE_DCF,
                 confidence=0.3,
-                notes=["Negative or zero base FCFE — reverse DCF unreliable."],
-                verdict_text="Base FCFE non-positive; method skipped.",
+                notes=["Negative or zero base Net Income/FCFE — reverse DCF unreliable."],
+                verdict_text="Base cash flow non-positive; method skipped.",
             )
 
         implied_g = _solve_implied_growth(
             target_price=m.price,
-            base_fcfe=fcfe_per_share,
+            base_ni=ni_per_share,
             n=self.n,
             g_terminal=self.g_terminal,
             r=self.r,
+            roe=roe,
         )
 
         if implied_g is None:
@@ -190,7 +205,8 @@ class ReverseDCF:
                 "discount_rate": self.r,
                 "high_growth_years": float(self.n),
                 "terminal_growth": self.g_terminal,
-                "base_fcfe_per_share": fcfe_per_share,
+                "roe": roe,
+                "base_ni_per_share": ni_per_share,
             },
             components={"implied_growth": implied_g},
             notes=notes,

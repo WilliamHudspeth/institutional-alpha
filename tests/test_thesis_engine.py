@@ -4,6 +4,11 @@ import pytest
 
 from iam.data.security import Assumption, Security, Thesis
 from iam.thesis.engine import ThesisEngine
+<<<<<<< HEAD
+=======
+from iam.thesis.bayesian.priors import ScenarioPrior
+from iam.thesis.bayesian.evidence import Evidence, ScenarioLikelihood
+>>>>>>> main
 
 
 def mock_intrinsic_dcf(sec: Security) -> float:
@@ -45,8 +50,56 @@ def test_calculate_sensitivity_increases_fair_value():
     # Confirm perturbation actually increased the value
     assert perturbed_fv > base_fv
     
+<<<<<<< HEAD
     # Check state reversion: ensure qualitative state returns to None since it started as None
     assert sec.qualitative is None
 
     # Check that original assumption value wasn't permanently mutated
     assert sec.theses[0].assumptions[0].value == 0.20
+=======
+    # Check state reversion: ensure qualitative state returns to empty dict since it started as empty
+    assert sec.qualitative == {}
+
+    # Check that original assumption value wasn't permanently mutated
+    assert sec.theses[0].assumptions[0].value == 0.20
+
+
+def test_expected_value_calculation():
+    sec = Security(
+        ticker="TEST",
+        theses=[
+            Thesis(label="Bull", fair_value_low=150, fair_value_high=200),
+            Thesis(label="Bear", fair_value_low=50, fair_value_high=100),
+        ]
+    )
+    engine = ThesisEngine()
+    priors = [ScenarioPrior("Bull", 0.8), ScenarioPrior("Bear", 0.2)]
+    
+    # Bull mid = 175, Bear mid = 75
+    # EV = (175 * 0.8) + (75 * 0.2) = 140 + 15 = 155
+    ev = engine.calculate_expected_value(sec, priors)
+    assert ev == pytest.approx(155.0)
+
+
+def test_apply_evidence_updates_posteriors():
+    sec = Security(
+        ticker="TEST",
+        theses=[
+            Thesis(label="Bull", fair_value_low=150, fair_value_high=200),
+            Thesis(label="Bear", fair_value_low=50, fair_value_high=100),
+        ]
+    )
+    engine = ThesisEngine()
+    priors = [ScenarioPrior("Bull", 0.5), ScenarioPrior("Bear", 0.5)]
+    evidence = Evidence(
+        description="Massive positive beat.",
+        signal_strength=1.0,
+        likelihoods={"Bull": ScenarioLikelihood(1.0), "Bear": ScenarioLikelihood(0.0)}
+    )
+    
+    evaluation = engine.apply_evidence(sec, priors, evidence)
+    
+    # 100% probability shifts to Bull, EV becomes Bull Midpoint (175)
+    assert evaluation.expected_value == pytest.approx(175.0)
+    assert evaluation.posteriors[0].probability == 1.0  # Bull becomes 1.0
+>>>>>>> main

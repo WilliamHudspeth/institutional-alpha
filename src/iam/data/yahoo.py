@@ -66,21 +66,51 @@ def fetch_security(ticker: str) -> Security:
             "Check the ticker symbol and your internet connection."
         )
 
+    # 1. Extract base fields required for mathematical fallbacks
+    market_cap = _get(info, "marketCap")
+    pe_ttm = _get(info, "trailingPE")
+    ev = _get(info, "enterpriseValue")
+    ev_ebitda = _get(info, "enterpriseToEbitda")
+
+    # 2. Fetch primary values with expanded key fallbacks, then use math if keys fail
+    shares_outstanding = _get(info, "sharesOutstanding", "impliedSharesOutstanding", "floatShares")
+    if shares_outstanding is None and market_cap is not None and price > 0:
+        shares_outstanding = market_cap / price
+
+    net_income_ttm = _get(info, "netIncomeToCommon", "trailingNetIncome", "netIncome")
+    if net_income_ttm is None and market_cap is not None and pe_ttm is not None and pe_ttm > 0:
+        net_income_ttm = market_cap / pe_ttm
+
+    ebitda_ttm = _get(info, "ebitda", "trailingEbitda")
+    if ebitda_ttm is None and ev is not None and ev_ebitda is not None and ev_ebitda > 0:
+        ebitda_ttm = ev / ev_ebitda
+
+    # 3. Handle Free Cash Flow fallback (critical for DCF stages)
+    fcf_ttm = _get(info, "freeCashflow")
+    if fcf_ttm is None:
+        ocf = _get(info, "operatingCashflow")
+        if ocf is not None:
+            # Heuristic: FCF is typically ~80% of OCF for mature companies
+            fcf_ttm = ocf * 0.80
+        else:
+            # Ultimate fallback: Use Net Income as an Earnings Power proxy
+            fcf_ttm = net_income_ttm
+
     snap = MarketSnapshot(
         ticker=ticker.upper(),
         price=price,
-        market_cap=_get(info, "marketCap"),
-        enterprise_value=_get(info, "enterpriseValue"),
-        pe_ttm=_get(info, "trailingPE"),
+        market_cap=market_cap,
+        enterprise_value=ev,
+        pe_ttm=pe_ttm,
         pe_forward=_get(info, "forwardPE"),
-        ev_ebitda=_get(info, "enterpriseToEbitda"),
+        ev_ebitda=ev_ebitda,
         revenue_ttm=_get(info, "totalRevenue"),
-        net_income_ttm=_get(info, "netIncomeToCommon"),
-        ebitda_ttm=_get(info, "ebitda"),
-        fcf_ttm=_get(info, "freeCashflow"),
+        net_income_ttm=net_income_ttm,
+        ebitda_ttm=ebitda_ttm,
+        fcf_ttm=fcf_ttm,
         total_debt=_get(info, "totalDebt"),
         cash=_get(info, "totalCash"),
-        shares_outstanding=_get(info, "sharesOutstanding", "impliedSharesOutstanding"),
+        shares_outstanding=shares_outstanding,
         short_interest_pct=_get(info, "shortPercentOfFloat"),
         gross_margin=_get(info, "grossMargins"),
         operating_margin=_get(info, "operatingMargins"),

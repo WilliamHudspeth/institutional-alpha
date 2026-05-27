@@ -65,3 +65,29 @@ sensitivity_results = engine.calculate_sensitivity(
     perturbation=0.10
 )
 print(engine.render_sensitivity_report(sensitivity_results, "revenue_growth_5y", 0.10))
+
+print("\n=== Bayesian Updating Example ===")
+
+from iam.thesis.bayesian.priors import ScenarioPrior
+from iam.thesis.bayesian.evidence import Evidence, ScenarioLikelihood
+
+# 1. Establish Prior Beliefs
+priors = [
+    ScenarioPrior("Bull", 0.30),
+    ScenarioPrior("Bear", 0.70)
+]
+
+# 2. Receive New Evidence
+evidence = Evidence(
+    description="Competitor delays major product launch, relieving margin pressure.",
+    signal_strength=0.8,
+    likelihoods={
+        "Bull": ScenarioLikelihood(0.85),
+        "Bear": ScenarioLikelihood(0.15)
+    }
+)
+
+# 3. Apply Evidence and Generate Report
+evaluation = engine.apply_evidence(sec, priors, evidence)
+print(engine.render_report(evaluation, current_price=120.0))
+
