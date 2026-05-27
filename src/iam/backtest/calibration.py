@@ -37,6 +37,60 @@ def ic_to_reliability(ic: float, ic_std: float = 0.0) -> float:
     return max(0.50, min(0.95, raw))
 
 
+def ic_to_reliability_bayesian(
+    ic_mean: float,
+    ic_std: float,
+    n_obs: int,
+    prior_ic: float = 0.02,
+    prior_strength: int = 36,  # 3 years of monthly IC
+) -> dict:
+    """Convert IC to reliability using Bayesian shrinkage toward a neutral prior.
+
+    Posterior IC = (prior_strength * prior_ic + n_obs * empirical_ic) / (prior_strength + n_obs)
+
+    This regularizes empirical IC toward a conservative prior, preventing overfitting
+    on short-history backtests. After 36 months, prior and empirical have equal weight.
+
+    Args:
+        ic_mean: Empirical mean IC
+        ic_std: Empirical std dev of IC
+        n_obs: Number of observations (months)
+        prior_ic: Prior belief about IC (default 0.02, conservative)
+        prior_strength: Prior strength in months (default 36 = 3 years)
+
+    Returns:
+        Dict with:
+        - prior_ic: Prior assumption
+        - empirical_ic: Observed IC
+        - posterior_ic: Bayesian posterior after shrinkage
+        - posterior_std: Posterior uncertainty
+        - reliability: Final reliability weight [0.5, 0.95]
+        - shrinkage_factor: How much empirical data weighted (n / (n + prior_strength))
+    """
+    total_strength = n_obs + prior_strength
+
+    # Posterior mean (weighted average of prior and empirical)
+    posterior_ic = (prior_strength * prior_ic + n_obs * ic_mean) / total_strength
+
+    # Posterior std (simplified: harmonic mean of uncertainties)
+    posterior_std = np.sqrt((prior_strength * ic_std**2 + n_obs * ic_std**2) / (total_strength**2))
+
+    # Convert to reliability
+    reliability = max(0.50, min(0.95, 0.5 + posterior_ic * 5.0))
+
+    # Shrinkage factor: how much weight on empirical data
+    shrinkage_factor = n_obs / total_strength
+
+    return {
+        "prior_ic": prior_ic,
+        "empirical_ic": ic_mean,
+        "posterior_ic": posterior_ic,
+        "posterior_std": posterior_std,
+        "reliability": reliability,
+        "shrinkage_factor": shrinkage_factor,
+    }
+
+
 def write_calibration(
     ic_by_lens: Dict[str, float],
     output_path: Path = Path("src/iam/arbitration/calibrated_reliabilities.json"),

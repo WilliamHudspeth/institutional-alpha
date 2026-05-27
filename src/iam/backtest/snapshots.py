@@ -1,85 +1,232 @@
-"""Point-in-time (PIT) Security snapshots for backtesting.
+"""Point-in-time (PIT) security snapshots with diskcache and yfinance→Stooq fallback.
 
 Builds immutable Security objects as they existed on a specific date,
-freezing price and debt data. This prevents lookahead bias in the backtest.
-
-Known limitations:
-- Uses latest available quarterly debt (not exact PIT)
-- Price is market close on the date
-- Does not adjust for splits or dividends
+freezing price and debt data. Uses diskcache for persistence and implements
+automatic fallback from yfinance to Stooq if primary source fails.
 """
 
 from __future__ import annotations
 
-import pickle
 from dataclasses import replace
-from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-import yfinance as yf
+from diskcache import Cache
+from tenacity import retry, stop_after_attempt, wait_exponential
 
-from iam.data.security import Security, MarketData, Fundamentals
+from iam.data.security import Security, MarketData
+
+# Import data sources
+try:
+    import yfinance as yf
+    HAS_YFINANCE = True
+except ImportError:
+    HAS_YFINANCE = False
 
 
-def build_snapshot(
-    base: Security,
-    as_of: str,  # YYYY-MM-DD format
-    cache_dir: Path = Path("data/snapshots"),
-) -> Security:
-    """Build a point-in-time Security snapshot for a specific date.
-
-    Freezes the price as of the date and fetches the latest quarterly debt
-    that was reported on or before that date. This prevents lookahead bias.
+def _fetch_price_yfinance(ticker: str, as_of: pd.Timestamp, timeout: float = 10.0) -> float:
+    """Fetch price from yfinance for a specific date.
 
     Args:
-        base: Base Security with sector, industry, revenue_mix, shares_outstanding
-        as_of: Date string (YYYY-MM-DD)
-        cache_dir: Directory to cache snapshots
+        ticker: Stock ticker
+        as_of: Target date (will use close on or before this date)
+        timeout: Request timeout in seconds
 
     Returns:
-        New Security object with market_cap and total_debt set for as_of date
+        Close price on the date
 
     Raises:
-        ValueError: If price data not available for the date
+        ValueError: If price data not available
     """
-    ticker = base.ticker
-    as_of_dt = pd.Timestamp(as_of)
+    if not HAS_YFINANCE:
+        raise ImportError("yfinance required for primary data source")
 
-    # Check cache first
-    cache_path = cache_dir / ticker / f"{as_of_dt.year}-{as_of_dt.month:02d}.pkl"
-    if cache_path.exists():
-        with open(cache_path, "rb") as f:
-            return pickle.load(f)
-
-    # Fetch price data (close on or before as_of)
-    tk = yf.Ticker(ticker)
-    hist = tk.history(start=as_of_dt - pd.Timedelta(days=30), end=as_of_dt + pd.Timedelta(days=5))
-    hist = hist[hist.index.date <= as_of_dt.date()]
+    tk = yf.Ticker(ticker, session_kwargs={"timeout": timeout})
+    hist = tk.history(start=as_of - pd.Timedelta(days=30), end=as_of + pd.Timedelta(days=5))
+    hist = hist[hist.index.date <= as_of.date()]
 
     if hist.empty:
         raise ValueError(f"No price data for {ticker} on or before {as_of}")
 
     price = float(hist["Close"].iloc[-1])
+    return price
 
-    # Fetch latest quarterly debt on or before as_of
-    debt = 0.0
+
+def _fetch_price_stooq(ticker: str, as_of: pd.Timestamp, timeout: float = 15.0) -> float:
+    """Fetch price from Stooq as fallback.
+
+    Args:
+        ticker: Stock ticker
+        as_of: Target date
+        timeout: Request timeout in seconds
+
+    Returns:
+        Close price on the date
+
+    Raises:
+        ValueError: If price data not available
+    """
     try:
+        from iam.backtest.data_loader import StooqDataLoader
+    except ImportError:
+        raise ImportError("StooqDataLoader not available; fallback to yfinance")
+
+    loader = StooqDataLoader(timeout=timeout)
+    try:
+        df = loader.download_ticker_data(
+            ticker,
+            start=(as_of - pd.Timedelta(days=30)).strftime("%Y-%m-%d"),
+            end=(as_of + pd.Timedelta(days=5)).strftime("%Y-%m-%d"),
+        )
+        df = df[df.index.date <= as_of.date()]
+        if df.empty:
+            raise ValueError(f"No Stooq data for {ticker} on or before {as_of}")
+        price = float(df["Close"].iloc[-1])
+        return price
+    except Exception as e:
+        raise ValueError(f"Stooq fallback failed for {ticker}: {e}")
+
+
+def _fetch_debt_yfinance(ticker: str, as_of: pd.Timestamp, timeout: float = 10.0) -> float:
+    """Fetch latest quarterly debt on or before a date from yfinance.
+
+    Args:
+        ticker: Stock ticker
+        as_of: Target date (will use latest quarterly on or before this date)
+        timeout: Request timeout in seconds
+
+    Returns:
+        Total debt value (0.0 if not available)
+    """
+    if not HAS_YFINANCE:
+        return 0.0
+
+    try:
+        tk = yf.Ticker(ticker, session_kwargs={"timeout": timeout})
         bs = tk.quarterly_balance_sheet
-        if not bs.empty:
-            # Find columns with dates on or before as_of
-            cols = [c for c in bs.columns if c.date() <= as_of_dt.date()]
-            if cols and "Total Debt" in bs.index:
-                debt_value = bs.loc["Total Debt", cols[-1]]
-                if pd.notna(debt_value):
-                    debt = float(debt_value)
+
+        if bs.empty:
+            return 0.0
+
+        # Find latest quarterly report on or before as_of
+        cols = [c for c in bs.columns if pd.Timestamp(c).date() <= as_of.date()]
+        if not cols:
+            return 0.0
+
+        # Look for Total Debt column
+        if "Total Debt" in bs.index:
+            debt_value = bs.loc["Total Debt", cols[-1]]
+            if pd.notna(debt_value):
+                return float(debt_value)
     except Exception:
-        # If debt fetch fails, use 0 (conservative)
-        debt = 0.0
+        pass
+
+    return 0.0
+
+
+# Global cache for snapshots
+_snapshot_cache = None
+
+
+def get_snapshot_cache(cache_dir: Path) -> Cache:
+    """Get or create the global snapshot cache."""
+    global _snapshot_cache
+    if _snapshot_cache is None:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        _snapshot_cache = Cache(str(cache_dir))
+    return _snapshot_cache
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
+def _fetch_snapshot_data(
+    ticker: str,
+    as_of: pd.Timestamp,
+    yfinance_timeout: float = 10.0,
+    stooq_timeout: float = 15.0,
+) -> tuple[float, float]:
+    """Fetch price and debt, trying yfinance first then Stooq.
+
+    Args:
+        ticker: Stock ticker
+        as_of: Target date
+        yfinance_timeout: yfinance timeout in seconds
+        stooq_timeout: Stooq timeout in seconds
+
+    Returns:
+        Tuple of (price, debt)
+
+    Raises:
+        ValueError: If both sources fail
+    """
+    price = None
+    debt = 0.0
+
+    # Try yfinance first for both price and debt
+    try:
+        price = _fetch_price_yfinance(ticker, as_of, timeout=yfinance_timeout)
+        debt = _fetch_debt_yfinance(ticker, as_of, timeout=yfinance_timeout)
+        return price, debt
+    except Exception as e_yf:
+        pass
+
+    # Fallback to Stooq for price only
+    try:
+        price = _fetch_price_stooq(ticker, as_of, timeout=stooq_timeout)
+        debt = 0.0  # Stooq doesn't have balance sheet data
+        return price, debt
+    except Exception as e_stooq:
+        pass
+
+    raise ValueError(f"Both yfinance and Stooq failed for {ticker} on {as_of}")
+
+
+def build_snapshot(
+    base: Security,
+    as_of: str,  # YYYY-MM-DD format
+    cache_dir: Path = Path(".cache/snapshots"),
+    yfinance_timeout: float = 10.0,
+    stooq_timeout: float = 15.0,
+) -> Security:
+    """Build a point-in-time Security snapshot for a specific date.
+
+    Freezes the price as of the date and fetches the latest quarterly debt
+    that was reported on or before that date. Uses yfinance primarily,
+    falls back to Stooq for price if yfinance fails.
+
+    Args:
+        base: Base Security with sector, industry, revenue_mix, shares_outstanding
+        as_of: Date string (YYYY-MM-DD)
+        cache_dir: Directory for diskcache persistence
+        yfinance_timeout: yfinance timeout in seconds
+        stooq_timeout: Stooq timeout in seconds
+
+    Returns:
+        New Security object with market_cap and total_debt set for as_of date
+
+    Raises:
+        ValueError: If neither yfinance nor Stooq can provide price data
+    """
+    ticker = base.ticker
+    as_of_dt = pd.Timestamp(as_of)
+    cache_key = f"{ticker}_{as_of}"
+
+    # Check cache first
+    cache = get_snapshot_cache(cache_dir)
+    if cache_key in cache:
+        return cache[cache_key]
+
+    # Fetch price and debt with fallback logic
+    price, debt = _fetch_snapshot_data(
+        ticker,
+        as_of_dt,
+        yfinance_timeout=yfinance_timeout,
+        stooq_timeout=stooq_timeout,
+    )
 
     # Calculate market cap
-    market_cap = price * base.fundamentals.shares_outstanding if base.fundamentals.shares_outstanding else price
+    shares = base.fundamentals.shares_outstanding if base.fundamentals.shares_outstanding else 1_000_000_000
+    market_cap = price * shares
 
     # Create snapshot with frozen market data
     snapshot = replace(
@@ -95,38 +242,30 @@ def build_snapshot(
     )
 
     # Cache the snapshot
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(cache_path, "wb") as f:
-        pickle.dump(snapshot, f)
+    cache[cache_key] = snapshot
 
     return snapshot
 
 
-def load_snapshot(ticker: str, as_of: str, cache_dir: Path = Path("data/snapshots")) -> Optional[Security]:
-    """Load a cached snapshot if available."""
-    as_of_dt = pd.Timestamp(as_of)
-    cache_path = cache_dir / ticker / f"{as_of_dt.year}-{as_of_dt.month:02d}.pkl"
+def load_snapshot(
+    ticker: str,
+    as_of: str,
+    cache_dir: Path = Path(".cache/snapshots"),
+) -> Optional[Security]:
+    """Load a cached snapshot if available.
 
-    if cache_path.exists():
-        with open(cache_path, "rb") as f:
-            return pickle.load(f)
-    return None
-
-
-def load_sp100_tickers() -> list[str]:
-    """Load S&P 100 ticker list from universe file.
+    Args:
+        ticker: Stock ticker
+        as_of: Date string (YYYY-MM-DD)
+        cache_dir: Cache directory
 
     Returns:
-        List of tickers (e.g., ['AAPL', 'MSFT', ...])
+        Cached Security snapshot or None if not in cache
     """
-    import json
+    cache_key = f"{ticker}_{as_of}"
+    cache = get_snapshot_cache(cache_dir)
 
-    universe_path = Path(__file__).parent.parent.parent.parent / "data" / "universe" / "sp100.json"
+    if cache_key in cache:
+        return cache[cache_key]
 
-    if not universe_path.exists():
-        raise FileNotFoundError(f"S&P 100 universe file not found: {universe_path}")
-
-    with open(universe_path) as f:
-        config = json.load(f)
-
-    return config["tickers"]
+    return None

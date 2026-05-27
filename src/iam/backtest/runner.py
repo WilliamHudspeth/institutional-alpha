@@ -1,117 +1,136 @@
-"""Backtest runner: Monthly loop that evaluates value_ticker on historical snapshots.
+"""Backtest runner: Monthly loop with parallel scoring via ProcessPoolExecutor.
 
 This is the read-only consumer of the institutional alpha stack. It treats
-value_ticker() as a black box and never touches data or valuation internals.
+value_security() as a black box and never touches data or valuation internals.
 """
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Optional
+from concurrent.futures import ProcessPoolExecutor
 
 import pandas as pd
+from tqdm import tqdm
 
 from iam.api import value_security, Security
 from iam.backtest.calibration import summarize_backtest, write_calibration
 from iam.backtest.metrics import information_coefficient, hit_rate, information_ratio
-from iam.backtest.prices import get_price_block
 from iam.backtest.quantiles import decile_spread, quantile_spread_by_date
 from iam.backtest.snapshots import build_snapshot, load_snapshot
+
+
+def _score_security_worker(
+    base: Security,
+    as_of: str,
+    score_field: str,
+    cache_dir: Path = Path(".cache/snapshots"),
+) -> tuple[str, float, str]:
+    """Worker function for ProcessPoolExecutor to score one security at one date.
+
+    Args:
+        base: Base Security object
+        as_of: Evaluation date (YYYY-MM-DD)
+        score_field: Field to extract from value_security result
+        cache_dir: Cache directory for snapshots
+
+    Returns:
+        Tuple of (ticker, score, sector)
+    """
+    try:
+        # Try cached snapshot first
+        snapshot = load_snapshot(base.ticker, as_of, cache_dir=cache_dir)
+        if snapshot is None:
+            snapshot = build_snapshot(base, as_of, cache_dir=cache_dir)
+
+        # Evaluate using the full stack (black box)
+        result = value_security(snapshot)
+
+        # Extract score
+        if score_field in result:
+            score = result[score_field]
+        else:
+            score = result.get("model_result", {}).get("value", 0.0)
+
+        return base.ticker, score, base.sector
+
+    except Exception:
+        # Return NaN score on failure
+        return base.ticker, float("nan"), base.sector
 
 
 def run_backtest(
     universe: list[Security],
     dates: list[str],  # YYYY-MM-DD format, month-ends preferred
-    horizon_days: int = 63,
-    score_field: str = "cost_of_equity",  # or "blended_upside"
+    price_block: pd.DataFrame,  # Pre-loaded price block (date, ticker) MultiIndex
+    config: Optional[object] = None,
+    score_field: str = "cost_of_equity",
 ) -> pd.DataFrame:
-    """Run historical backtest on value_ticker.
-
-    Evaluates each security in the universe on each date, scores them,
-    and calculates Information Coefficient vs forward returns.
+    """Run historical backtest with parallel scoring.
 
     Args:
-        universe: List of base Security objects (with fundamentals, sector, etc.)
+        universe: List of base Security objects
         dates: List of evaluation dates (YYYY-MM-DD)
-        horizon_days: Forward return horizon
-        score_field: Which output to use as the signal
+        price_block: Pre-loaded price block DataFrame with (date, ticker) index
+        config: BacktestConfig with n_jobs_cpu and cache_dir
+        score_field: Field to extract from value_security result
 
     Returns:
-        DataFrame with columns:
-        - date: Evaluation date
-        - ic: Information Coefficient (Spearman rank)
-        - hit_rate: Fraction of positive returns where score > median
-        - spread: Decile spread (top 10% - bottom 10% average return)
-        - coverage: Fraction of tickers with decile assignments
+        DataFrame with columns: date, ic, ic_sector_neutral, hit_rate, spread, top, bottom, coverage, n_securities
     """
-    tickers = [s.ticker for s in universe]
-
-    # Download price block once (read-only)
-    print(f"Downloading prices for {len(tickers)} tickers from {dates[0]} to {dates[-1]}...")
-    price_block = get_price_block(
-        tickers,
-        dates[0],
-        dates[-1],
-        horizon_days=horizon_days,
-    )
+    n_jobs_cpu = getattr(config, "n_jobs_cpu", 4) if config else 4
+    cache_dir = getattr(config, "snapshot_cache", Path(".cache/snapshots")) if config else Path(".cache/snapshots")
 
     results = []
 
-    for date_idx, date in enumerate(dates, 1):
-        print(f"[{date_idx}/{len(dates)}] Evaluating {date}...")
+    for date in tqdm(dates, desc="Backtesting"):
+        try:
+            # Parallel scoring with ProcessPoolExecutor
+            with ProcessPoolExecutor(max_workers=n_jobs_cpu) as executor:
+                futures = [
+                    executor.submit(_score_security_worker, base, date, score_field, cache_dir)
+                    for base in universe
+                ]
 
-        scores = {}
+                scores = {}
+                sectors = {}
+                for future in futures:
+                    ticker, score, sector = future.result()
+                    scores[ticker] = score
+                    sectors[ticker] = sector
 
-        for base in universe:
-            try:
-                # Build PIT snapshot (cached)
-                snapshot = load_snapshot(base.ticker, date)
-                if snapshot is None:
-                    snapshot = build_snapshot(base, date)
-
-                # Evaluate using the full stack (black box)
-                result = value_security(snapshot)
-
-                # Extract score (could be cost_of_equity, blended_upside, etc.)
-                if score_field in result:
-                    score = result[score_field]
-                else:
-                    # Fallback: use the primary model result value
-                    score = result.get("model_result", {}).get("value", 0.0)
-
-                scores[base.ticker] = score
-
-            except Exception as e:
-                print(f"  Warning: {base.ticker} failed - {e}")
-                continue
+        except Exception as e:
+            print(f"Warning: Parallel scoring failed on {date}: {e}")
+            continue
 
         # Get forward returns for this date
         try:
             fwd = price_block.xs(date, level="date")["fwd_ret"]
         except KeyError:
-            print(f"  No price data for {date}")
             continue
 
-        # Build score/return dataframe
-        common_tickers = set(scores.keys()) & set(fwd.index)
+        # Build score/return dataframe with sector column
+        common_tickers = [t for t in scores.keys() if t in fwd.index and not pd.isna(scores[t])]
         if len(common_tickers) < 10:
-            print(f"  Insufficient overlap: {len(common_tickers)} tickers")
             continue
 
         df = pd.DataFrame({
-            "score": [scores[t] for t in sorted(common_tickers)],
-            "fwd": [fwd[t] for t in sorted(common_tickers)],
+            "ticker": common_tickers,
+            "score": [scores[t] for t in common_tickers],
+            "fwd": [fwd[t] for t in common_tickers],
+            "sector": [sectors[t] for t in common_tickers],
         })
 
         # Calculate metrics
         ic = information_coefficient(df)
+        ic_sn = information_coefficient(df, sector_col="sector") if "sector" in df.columns else ic
         hr = hit_rate(df)
         spreads = decile_spread(df)
 
         results.append({
             "date": date,
             "ic": ic,
+            "ic_sector_neutral": ic_sn,
             "hit_rate": hr,
             "spread": spreads["spread"],
             "top": spreads["top"],
