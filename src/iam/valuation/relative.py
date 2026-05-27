@@ -1,24 +1,38 @@
 from __future__ import annotations
 
 import statistics
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from iam.data.security import Security
 from iam.valuation.types import Method, ValuationResult
 from iam.valuation.damodaran_defaults import DamodaranUniverse
 
+if TYPE_CHECKING:
+    from iam.valuation.multiples_regression import RegressionInputs
+
 
 class RelativeValuation:
     """Stage 2: Relative Valuation.
-    
-    Combines Damodaran Sector Medians (if a universe is provided) with
-    historical and peer-relative market data.
+
+    Combines up to four independent signals:
+      1. Damodaran sector median multiples (EV/EBITDA, P/E)
+      2. Own P/E history percentile
+      3. FCF yield vs peer set
+      4. Damodaran Jan 2026 regression-predicted multiples (optional)
+
+    Signal 4 anchors the valuation to what the multiples *should* be given
+    the company's own fundamentals, independent of what peers happen to trade
+    at today.  Pass ``regression_inputs`` to activate it.
     """
-    
+
     def __init__(self, universe: Optional[DamodaranUniverse] = None):
         self.universe = universe
 
-    def compute(self, security: Security) -> ValuationResult:
+    def compute(
+        self,
+        security: Security,
+        regression_inputs: Optional[RegressionInputs] = None,
+    ) -> ValuationResult:
         m = security.market
         f = security.fundamentals
         notes: list[str] = []
@@ -89,6 +103,32 @@ class RelativeValuation:
         else:
             notes.append("FCF yield or peer set missing.")
             confidence *= 0.85
+
+        # 4. Damodaran regression-predicted multiples (optional)
+        if regression_inputs is not None:
+            from iam.valuation.multiples_regression import predict_all
+            predicted = predict_all(regression_inputs.region, regression_inputs.to_dict())
+            reg_signals = 0
+
+            if m.pe_ttm and m.pe_ttm > 0 and predicted.get("PE") and predicted["PE"] > 0:
+                impl_price = m.price * (predicted["PE"] / m.pe_ttm)
+                implied_prices.append(impl_price)
+                components["implied_price_regression_pe"] = impl_price
+                reg_signals += 1
+
+            if m.ev_ebitda and m.ev_ebitda > 0 and predicted.get("EV_EBITDA") and predicted["EV_EBITDA"] > 0:
+                impl_price = m.price * (predicted["EV_EBITDA"] / m.ev_ebitda)
+                implied_prices.append(impl_price)
+                components["implied_price_regression_ev_ebitda"] = impl_price
+                reg_signals += 1
+
+            if reg_signals:
+                notes.append(
+                    f"Regression anchor ({regression_inputs.region}): "
+                    f"{reg_signals} fundamentals-predicted multiple(s)."
+                )
+            else:
+                notes.append("Regression inputs provided but no matching market multiples available.")
 
         if not implied_prices:
             return ValuationResult(
