@@ -214,18 +214,27 @@ class DamodaranProvider:
             >>> cls.resolve_erp("north_america")  # 0.046
             >>> cls.resolve_erp("na")      # 0.046 (alias)
         """
-        # Try 2-letter country codes first
+        k_lower = key.lower()
+
+        # Try aliases first (including lowercase country names)
+        if k_lower in cls.REGION_ALIASES:
+            canon = cls.REGION_ALIASES[k_lower]
+            return cls.REGIONAL_ERPS[canon]
+
+        # Try 2-letter country codes
         if len(key) == 2:
-            k = key.upper()
-            if k in cls.COUNTRY_ERPS:
-                return cls.COUNTRY_ERPS[k]
-            region = cls.COUNTRY_TO_REGION.get(k, "north_america")
+            k_upper = key.upper()
+            if k_upper in cls.COUNTRY_ERPS:
+                return cls.COUNTRY_ERPS[k_upper]
+            region = cls.COUNTRY_TO_REGION.get(k_upper, "north_america")
             return cls.REGIONAL_ERPS[region]
 
-        # Try region names and aliases
-        k = key.lower()
-        canon = cls.REGION_ALIASES.get(k, k)
-        return cls.REGIONAL_ERPS.get(canon, cls.REGIONAL_ERPS["north_america"])
+        # Try region names as last resort
+        if k_lower in cls.REGIONAL_ERPS:
+            return cls.REGIONAL_ERPS[k_lower]
+
+        # Default to North America
+        return cls.REGIONAL_ERPS["north_america"]
 
     @classmethod
     def get_country_risk_premium(cls, country_name: str) -> float:
