@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import sys
 
+from iam.validation import parse_growth_rate, validate_all_assumptions
+
 
 def _print_security_header(security) -> None:
     print(f"  {security.name or security.ticker}")
@@ -59,14 +61,15 @@ def main() -> None:
 
     # Optional growth override
     g_input = input(
-        "Forecast growth for DCF lenses (e.g. 0.12 for 12%) [Enter for model default 8%]: "
+        "Forecast growth for DCF lenses (e.g. 13 or 0.13 for 13%) [Enter for model default 8%]: "
     ).strip()
     if g_input:
         try:
-            security.qualitative["forecast_growth"] = float(g_input)
-            print(f"  Using forecast growth: {float(g_input):.1%}")
-        except ValueError:
-            print("  Invalid — using model default.")
+            growth = parse_growth_rate(g_input, default=0.08)
+            security.qualitative["forecast_growth"] = growth
+            print(f"  Using forecast growth: {growth:.1%}")
+        except ValueError as e:
+            print(f"  Invalid input: {e} — using model default.")
     print()
 
     # -------------------------------------------------------------------------

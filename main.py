@@ -16,6 +16,8 @@ import json
 import urllib.parse
 import urllib.request
 
+from iam.validation import parse_growth_rate, validate_all_assumptions
+
 
 def print_header() -> None:
     """Print the main welcome banner."""
@@ -103,14 +105,15 @@ def run_valuation_pipeline(ticker: str) -> None:
 
         # Optional growth override
         g_input = input(
-            "  Forecast growth (e.g. 0.12 for 12%) [Enter for model default 8%]: "
+            "  Forecast growth (e.g. 13 or 0.13 for 13%) [Enter for model default 8%]: "
         ).strip()
         if g_input:
             try:
-                security.qualitative["forecast_growth"] = float(g_input)
-                print(f"  Using forecast growth: {float(g_input):.1%}\n")
-            except ValueError:
-                print("  Invalid — using model default.\n")
+                growth = parse_growth_rate(g_input, default=0.08)
+                security.qualitative["forecast_growth"] = growth
+                print(f"  Using forecast growth: {growth:.1%}\n")
+            except ValueError as e:
+                print(f"  Invalid input: {e} — using model default.\n")
 
         print("-" * 70)
         print("  RUNNING 7-STAGE VALUATION PIPELINE")
