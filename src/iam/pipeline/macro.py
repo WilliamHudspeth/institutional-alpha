@@ -16,32 +16,29 @@ class MacroOverlay:
         self.stress_engine = MacroStressEngine(intrinsic_dcf)
 
     def apply(self, report: PipelineReport, security: Security, macro: MacroConditions) -> PipelineReport:
-        # 1. Check if the threshold is breached
-        if abs(macro.rate_shock_bps) >= self.rate_shock_threshold_bps:
+        rate_shock_bps = macro.rate_change * 10000.0
+        if abs(rate_shock_bps) >= self.rate_shock_threshold_bps:
             shock = self._map_to_shock(macro)
-            
-            report.summary += f"\n[MACRO OVERLAY TRIGGERED]: Rate shock of {macro.rate_shock_bps} bps detected (exceeds {self.rate_shock_threshold_bps} bps threshold)."
+
+            report.summary += f"\n[MACRO OVERLAY TRIGGERED]: Rate shock of {rate_shock_bps:.1f} bps detected (exceeds {self.rate_shock_threshold_bps} bps threshold)."
             report.summary += f"\n  -> Applying {shock.name} scenario."
-            
-            # Recalculate intrinsic value under stress
+
             stressed_intrinsic = self.stress_engine.run_stress_test(security, shock)
-            
-            # Overwrite the report's intrinsic result
+
             report.intrinsic = stressed_intrinsic
             if not hasattr(report, 'notes'):
                 report.notes = []
             report.notes.append(f"Macro Overlay triggered: {shock.name} scenario applied.")
-            
+
         else:
-            report.summary += f"\n[MACRO OVERLAY]: Rate shift of {macro.rate_shock_bps} bps is within tolerance ({self.rate_shock_threshold_bps} bps). No recalculation triggered."
+            report.summary += f"\n[MACRO OVERLAY]: Rate shift of {rate_shock_bps:.1f} bps is within tolerance ({self.rate_shock_threshold_bps} bps). No recalculation triggered."
 
         return report
 
     def _map_to_shock(self, cond: MacroConditions) -> MacroShock:
         from iam.data.macro import STAGFLATION_SHOCK, RECESSION_SHOCK, RATE_HIKE_SHOCK
-        # Dynamic scenario selection based on macro inputs
-        if cond.rate_shock_bps > 0:
-            if cond.pmi_direction < 50.0:
+        if cond.rate_change > 0:
+            if cond.pmi < 50.0:
                 return STAGFLATION_SHOCK
             return RATE_HIKE_SHOCK
         return RECESSION_SHOCK
