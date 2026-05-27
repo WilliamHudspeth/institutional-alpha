@@ -1,10 +1,12 @@
 """Demonstrates attaching bull/bear theses to a Security and calling show_spread()."""
 
 from iam.data.security import Assumption, Security, Thesis, show_spread
+from iam.thesis.engine import ThesisEngine
 
 sec = Security(
     ticker="EXCO",
     name="Example Co.",
+    qualitative={"revenue_growth_5y": 0.12, "terminal_margin": 0.20},  # Base assumptions
     theses=[
         Thesis(
             label="Bull",
@@ -30,3 +32,36 @@ sec = Security(
 )
 
 print(show_spread(sec))
+
+print("\n--- Programmatic Thesis Engine Output ---")
+engine = ThesisEngine()
+evaluation = engine.evaluate(sec)
+
+print(engine.render_report(evaluation, current_price=120.0))
+
+print("\n--- Programmatic Simulation Engine Output ---")
+# Mock a valuation function that behaves like your Intrinsic DCF stage.
+# In the real app, you'd inject something like: 
+# `lambda s: FCFEDCF().compute(s).fair_value_per_share`
+def mock_intrinsic_dcf(s: Security) -> float:
+    qualitative = s.qualitative or {}
+    growth = qualitative.get("revenue_growth_5y", 0.10)
+    margin = qualitative.get("terminal_margin", 0.20)
+    # A simplistic valuation proxy: base * (1 + growth) * margin
+    return 1000 * (1 + growth) * margin
+
+simulated_evaluation = engine.simulate(sec, valuation_fn=mock_intrinsic_dcf, spread_pct=0.05)
+
+print("\n" + engine.render_report(simulated_evaluation, current_price=120.0))
+
+print("\nUpdated Security Theses values after simulation:")
+print(show_spread(sec))
+
+print("\n--- Sensitivity Analysis Output ---")
+sensitivity_results = engine.calculate_sensitivity(
+    sec, 
+    valuation_fn=mock_intrinsic_dcf, 
+    assumption_name="revenue_growth_5y", 
+    perturbation=0.10
+)
+print(engine.render_sensitivity_report(sensitivity_results, "revenue_growth_5y", 0.10))

@@ -13,7 +13,7 @@ The highest-value contributions right now:
 
 ## Stretch goals
 
-- **Bayesian updating engine** — Currently on the roadmap. Each earnings release should update a posterior over scenarios.
+- **Bayesian updating engine** — Currently on the roadmap. The newly added `ThesisEngine` lays the groundwork; now we need the logic to update a posterior over scenarios based on earnings releases.
 - **Cross-sectional ranking helpers** — Score a universe and rank/Z-score across it.
 - **Backtest harness** — Run the scoring framework over historical data and measure information coefficient by factor.
 

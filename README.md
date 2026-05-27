@@ -10,7 +10,7 @@ This repo is an open-source attempt to encode that surface as an orthogonal, wei
 
 🚧 **v0.2.0-alpha.** The factor-scoring engine from v0.1.0 still works (`iam.score(...)`), and v0.2.0-alpha adds the **valuation pipeline** — a sequential Reverse DCF → Relative → Intrinsic → Triangulation flow that produces a structured argument rather than a single composite score. See [`docs/pipeline.md`](docs/pipeline.md).
 
-The **data layer is now complete**: `Security`, `Fundamentals`, `MarketData`, `MacroContext`, and `MacroConditions` are all wired and tested. The **Thesis scaffolding** (`Assumption`, `Thesis`, `show_spread()`) is also live — the prerequisite for the Thesis Engine. Stages 5–7 (macro overlay, verdict, peer-relative ranking) and the Thesis Engine are next. Contributions welcome (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+The **data layer is now complete**: `Security`, `Fundamentals`, `MarketData`, `MacroContext`, and `MacroConditions` are all wired and tested. The **Thesis Engine** is also live, allowing for dynamic simulation of bull/base/bear scenarios. Stages 5–7 (macro overlay, verdict, peer-relative ranking) are next. Contributions welcome (see CONTRIBUTING.md).
 
 ## Core idea
 
@@ -81,7 +81,8 @@ print(report.explain())
 **Thesis scenarios (v0.2.0-alpha):** attach competing bull/bear views to a security.
 
 ```python
-from iam.data.security import Assumption, Security, Thesis, show_spread
+from iam.data.security import Assumption, Security, Thesis
+from iam.thesis.engine import ThesisEngine
 
 sec = Security(
     ticker="HYPCO",
@@ -94,10 +95,12 @@ sec = Security(
                assumptions=[Assumption("terminal_margin", 0.15, source="user")]),
     ],
 )
-print(show_spread(sec))
-# Thesis: Bull  —  Fair value range: 160.00 - 200.00
-# Thesis: Bear  —  Fair value range: 80.00 - 110.00
-# Spread: 120.00 (high 200.00 - low 80.00) [wide]
+
+engine = ThesisEngine()
+evaluation = engine.evaluate(sec)
+print(f"Consensus Range: {evaluation.worst_case} - {evaluation.best_case}")
+# You can also dynamically calculate fair values via pipeline injection:
+# engine.simulate(sec, valuation_fn=my_dcf_function)
 ```
 
 See [`examples/`](examples/) for runnable end-to-end demos of both.
@@ -115,9 +118,9 @@ See [`examples/`](examples/) for runnable end-to-end demos of both.
 - [x] Factor interfaces + composite engine (v0.1.0)
 - [x] Default weights + penalty system (v0.1.0)
 - [x] Valuation pipeline: Reverse DCF → Relative → Intrinsic → Triangulation (v0.2.0-alpha)
-- [x] Core data layer: `Security`, `Fundamentals`, `MarketData`, `MacroContext`, `MacroConditions` (v0.2.0-alpha)
-- [x] Assumption ledger and Thesis scaffolding with `show_spread()` (v0.2.0-alpha)
-- [ ] Thesis Engine — bull/base/bear scenarios with full assumption ledger
+- [x] Core data layer: Security, Fundamentals, MarketData, MacroContext (v0.2.0-alpha)
+- [x] Assumption ledger and Thesis scaffolding (v0.2.0-alpha)
+- [x] Thesis Engine — bull/base/bear scenarios with full assumption ledger (v0.2.0-alpha)
 - [ ] Macro overlay with threshold-gated re-run (v0.2.0-beta)
 - [ ] Verdict + peer-relative ranking via Damodaran industries (v0.2.0)
 - [ ] Reference implementations for each v0.1.0 factor stub
