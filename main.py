@@ -91,12 +91,17 @@ def get_security_input() -> str:
 
 
 def run_valuation_pipeline(ticker: str) -> None:
-    """Run the 7-stage valuation pipeline."""
+    """Run the 7-stage valuation pipeline with Master Arbitration Layer."""
     print("\n" + "-" * 70)
     print(f"  Fetching {ticker} from Yahoo Finance...")
     try:
         from iam.data.yahoo import fetch_security
-        from iam.pipeline.orchestrator import ValuationPipeline
+        from iam.pipeline.orchestrator import ValuationPipeline, print_assumption_table
+        from iam.lenses.rate_sensitive import RateSensitiveLens
+        from iam.lenses.platform_compounder import PlatformCompounderLens
+        from iam.lenses.expectations_difficulty import ExpectationsDifficultyLens
+        from iam.lenses.damodaran_base import DamodaranBaseLens
+        from iam.lenses.synthesis import synthesize_lenses
 
         security = fetch_security(ticker)
         print(f"  ✓ {security.name or ticker} loaded")
@@ -106,19 +111,42 @@ def run_valuation_pipeline(ticker: str) -> None:
         g_input = input(
             "  Forecast growth (e.g. 13 or 0.13 for 13%) [Enter for model default 8%]: "
         ).strip()
+        forecast_growth = 0.08
         if g_input:
             try:
-                growth = parse_growth_rate(g_input, default=0.08)
-                security.qualitative["forecast_growth"] = growth
-                print(f"  Using forecast growth: {growth:.1%}\n")
+                forecast_growth = parse_growth_rate(g_input, default=0.08)
+                security.qualitative["forecast_growth"] = forecast_growth
+                print(f"  Using forecast growth: {forecast_growth:.1%}\n")
             except ValueError as e:
                 print(f"  Invalid input: {e} — using model default.\n")
+
+        # Print Assumption Table
+        wacc = security.qualitative.get("wacc_override", 0.09)
+        terminal_growth = security.qualitative.get("forecast_terminal_growth", 0.025)
+        print_assumption_table(forecast_growth, wacc, terminal_growth)
 
         print("-" * 70)
         print("  RUNNING 7-STAGE VALUATION PIPELINE")
         print("-" * 70)
+
+        # Compute multi-lens synthesis for Master Arbitration Layer
+        synthesis_upside = None
+        try:
+            lens_results = [
+                RateSensitiveLens().compute(security),
+                PlatformCompounderLens().compute(security),
+                ExpectationsDifficultyLens().compute(security),
+                DamodaranBaseLens().compute(security),
+            ]
+            synthesis = synthesize_lenses(lens_results)
+            synthesis_upside = synthesis.weighted_implied_move_pct
+        except Exception:
+            # If synthesis fails, pipeline still works with traditional signals only
+            pass
+
+        # Run pipeline with arbitration layer
         pipeline = ValuationPipeline()
-        report = pipeline.run(security)
+        report = pipeline.run(security, synthesis_upside=synthesis_upside)
         print(report.explain())
 
     except ImportError:

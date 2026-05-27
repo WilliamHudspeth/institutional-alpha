@@ -73,22 +73,9 @@ def main() -> None:
     print()
 
     # -------------------------------------------------------------------------
-    # Valuation pipeline (Stages 1-7)
+    # Multi-lens analysis (compute first for Master Arbitration Layer)
     # -------------------------------------------------------------------------
-    print("-" * 60)
-    print("  VALUATION PIPELINE (Stages 1-7)")
-    print("-" * 60)
-    try:
-        from iam.pipeline.orchestrator import ValuationPipeline
-        report = ValuationPipeline().run(security)
-        print(report.explain())
-    except Exception as exc:
-        print(f"  Pipeline error: {exc}")
-    print()
-
-    # -------------------------------------------------------------------------
-    # Multi-lens analysis
-    # -------------------------------------------------------------------------
+    synthesis_upside = None
     print("-" * 60)
     print("  MULTI-LENS ANALYSIS")
     print("-" * 60)
@@ -115,6 +102,7 @@ def main() -> None:
             print(f"    {lr.narrative}")
 
         synthesis = synthesize_lenses(lens_results)
+        synthesis_upside = synthesis.weighted_implied_move_pct
         print()
         print("-" * 40)
         print("  WEIGHTED SYNTHESIS (pricing lenses only)")
@@ -129,6 +117,21 @@ def main() -> None:
 
     except Exception as exc:
         print(f"  Lens analysis error: {exc}")
+
+    # -------------------------------------------------------------------------
+    # Valuation pipeline (Stages 1-7) with Master Arbitration Layer
+    # -------------------------------------------------------------------------
+    print()
+    print("-" * 60)
+    print("  VALUATION PIPELINE (Stages 1-7)")
+    print("-" * 60)
+    try:
+        from iam.pipeline.orchestrator import ValuationPipeline
+        report = ValuationPipeline().run(security, synthesis_upside=synthesis_upside)
+        print(report.explain())
+    except Exception as exc:
+        print(f"  Pipeline error: {exc}")
+    print()
 
     print()
     print("Done.")

@@ -4,11 +4,39 @@ from typing import Optional
 from iam.data.security import Security
 from iam.data.macro import MacroConditions
 from iam.valuation import (
-    ReverseDCF, RelativeValuation, FCFEDCF, FCFEAssumptions, 
+    ReverseDCF, RelativeValuation, FCFEDCF, FCFEAssumptions,
     SOTP, Triangulator, ValuationResult, TriangulationResult
 )
 from iam.pipeline.macro import MacroOverlay
 from iam.pipeline.verdict import VerdictResult, VerdictGenerator
+from iam.pipeline.arbitration import ConsensusEngine
+
+
+def print_assumption_table(
+    forecast_growth: float,
+    wacc: float,
+    terminal_growth: float = 0.025,
+    horizon: int = 10,
+) -> None:
+    """Print a formalized, institutional-grade assumption summary.
+
+    Args:
+        forecast_growth: Explicit forecast growth rate (e.g., 0.12 for 12%)
+        wacc: Weighted average cost of capital (discount rate)
+        terminal_growth: Perpetuity growth rate (default 2.5%)
+        horizon: DCF projection horizon in years (default 10)
+    """
+    print("-" * 60)
+    print("  ASSUMPTIONS")
+    print("-" * 60)
+    print(f"  Forecast Growth:     {forecast_growth * 100:>5.1f}%")
+    print(f"  Terminal Growth:     {terminal_growth * 100:>5.1f}%")
+    print(f"  Discount Rate (WACC):{wacc * 100:>5.2f}%")
+    print(f"  DCF Horizon:         {horizon} years")
+    print(f"  Confidence Regime:   Moderate")
+    print("-" * 60)
+    print()
+
 
 @dataclass
 class PipelineReport:
@@ -21,6 +49,7 @@ class PipelineReport:
     implied_move_pct: Optional[float] = None
     summary: str = ""
     final_verdict: Optional[VerdictResult] = None
+    synthesis_upside: Optional[float] = None  # Multi-lens synthesis weighted implied move
 
     def explain(self, verbose: bool = False) -> str:
         if verbose:
@@ -146,7 +175,13 @@ class ValuationPipeline:
         
         return build_wacc(ke=ke, ebit=ebit, interest_expense=interest, rf=rf, d_to_e=d_to_e, tax_rate=tax_rate)
 
-    def run(self, security: Security, fcfe_assumptions: Optional[FCFEAssumptions] = None, macro: Optional[MacroConditions] = None) -> PipelineReport:
+    def run(
+        self,
+        security: Security,
+        fcfe_assumptions: Optional[FCFEAssumptions] = None,
+        macro: Optional[MacroConditions] = None,
+        synthesis_upside: Optional[float] = None,
+    ) -> PipelineReport:
         wacc_info = self._calculate_dynamic_wacc(security)
         wacc_note = ""
         original_r = self.reverse_dcf.r
@@ -204,7 +239,13 @@ class ValuationPipeline:
                 )
                 report.implied_move_pct = report.triangulation.cluster_center
                 
-        # Stage 7: Verdict
-        report.final_verdict = VerdictGenerator().generate(report.triangulation, report.relative, security)
+        # Stage 7: Verdict (with optional Master Arbitration Layer)
+        report.synthesis_upside = synthesis_upside
+        report.final_verdict = VerdictGenerator().generate(
+            report.triangulation,
+            report.relative,
+            security,
+            synthesis_upside=synthesis_upside,
+        )
 
         return report

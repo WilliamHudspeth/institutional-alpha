@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Optional
 
 from iam.data.security import Security
 from iam.valuation.types import TriangulationResult, ValuationResult
+from iam.pipeline.arbitration import ConsensusEngine, ArbitrationResult
 
 
 @dataclass
@@ -12,6 +14,8 @@ class VerdictResult:
     rating: str
     confidence_band: str
     notes: list[str] = field(default_factory=list)
+    arbitration: Optional[ArbitrationResult] = None
+    blended_upside: Optional[float] = None
 
 
 class VerdictGenerator:
@@ -21,25 +25,70 @@ class VerdictGenerator:
         self.buy_threshold = buy_threshold
         self.sell_threshold = sell_threshold
 
-    def generate(self, triangulation: TriangulationResult, relative: ValuationResult, security: Security) -> VerdictResult:
+    def generate(
+        self,
+        triangulation: TriangulationResult,
+        relative: ValuationResult,
+        security: Security,
+        synthesis_upside: Optional[float] = None,
+    ) -> VerdictResult:
+        """Generate verdict using Master Arbitration Layer if synthesis available.
+
+        Args:
+            triangulation: Stage 4 triangulation result (traditional pipeline)
+            relative: Stage 2 relative valuation result
+            security: Security object
+            synthesis_upside: Optional weighted upside from multi-lens synthesis
+        """
         notes = []
-        
-        # 1. Determine Rating
-        if triangulation.verdict in ("no_data", "disagree"):
-            rating = "INCONCLUSIVE"
-            notes.append("Triangulation failed to cluster; cannot issue a definitive rating.")
-        elif triangulation.cluster_center is None:
-            rating = "INCONCLUSIVE"
-            notes.append("No implied upside available to generate a rating.")
+        pipeline_upside = triangulation.cluster_center or 0.0
+        arbitration = None
+        blended_upside = None
+
+        # 1. Use Consensus Engine if synthesis data is available
+        if synthesis_upside is not None and triangulation.cluster_center is not None:
+            arbitration = ConsensusEngine.arbitrate_verdict(
+                pipeline_upside=triangulation.cluster_center,
+                synthesis_upside=synthesis_upside,
+                primary_confidence=triangulation.confidence,
+            )
+            rating = arbitration.rating
+            blended_upside = arbitration.blended_upside
+            notes.append(
+                f"Rating '{rating}' derived from Master Arbitration Layer (consensus engine)."
+            )
+            notes.append(
+                f"Blended Implied Move: {arbitration.blended_upside * 100:+.1f}%"
+            )
+            notes.append(
+                f"  ↳ Traditional Engine Weight: {arbitration.pipeline_weight_used * 100:.0f}%"
+            )
+            notes.append(
+                f"  ↳ Multi-Lens Synthesis Weight: {arbitration.synthesis_weight_used * 100:.0f}%"
+            )
+            if arbitration.confidence_regime != "HIGH":
+                notes.append(
+                    "Confidence band is MODERATE due to conflicting valuation methodologies."
+                )
         else:
-            upside = triangulation.cluster_center
-            if upside >= self.buy_threshold:
-                rating = "BUY"
-            elif upside <= self.sell_threshold:
-                rating = "SELL"
+            # Legacy single-lens verdict generation
+            if triangulation.verdict in ("no_data", "disagree"):
+                rating = "INCONCLUSIVE"
+                notes.append(
+                    "Triangulation failed to cluster; cannot issue a definitive rating."
+                )
+            elif triangulation.cluster_center is None:
+                rating = "INCONCLUSIVE"
+                notes.append("No implied upside available to generate a rating.")
             else:
-                rating = "HOLD"
-            notes.append(f"Rating '{rating}' derived from {upside:+.1%} triangulated upside.")
+                upside = triangulation.cluster_center
+                if upside >= self.buy_threshold:
+                    rating = "BUY"
+                elif upside <= self.sell_threshold:
+                    rating = "SELL"
+                else:
+                    rating = "HOLD"
+                notes.append(f"Rating '{rating}' derived from {upside:+.1%} triangulated upside.")
 
         # 2. Determine Base Confidence
         if triangulation.confidence >= 0.8:
@@ -71,7 +120,13 @@ class VerdictGenerator:
                     band = "MEDIUM"
                     notes.append("Conviction downgraded due to balance sheet risk.")
 
-        return VerdictResult(rating=rating, confidence_band=band, notes=notes)
+        return VerdictResult(
+            rating=rating,
+            confidence_band=band,
+            notes=notes,
+            arbitration=arbitration,
+            blended_upside=blended_upside,
+        )
 
 EXPLAIN_STAGE_1 = """### Stage 1: Reverse DCF — What does the market expect?
 **What we do:** We take the current stock price and solve backwards for the growth rate the market is already pricing in. No opinions yet, just math.
