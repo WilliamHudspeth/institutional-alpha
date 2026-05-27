@@ -4,7 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — 2026-05-27
+## [Unreleased]
+
+## [0.2.0] — 2026-05-27
+
+### Added
+- **Bayesian Updating Engine** (`src/iam/thesis/bayesian/`) — Adaptive inference engine with signal dampening to update thesis probabilities based on new evidence.
+- **Verdict Generator** (`src/iam/pipeline/verdict.py`) — Stage 7 of the pipeline producing actionable Buy/Hold/Sell ratings, conviction bands, and penalty downgrades.
+- **Peer-Relative Ranking** — Integrated Damodaran sector multiples directly into the final pipeline verdict.
+- **Synthetic WACC** — Dynamic cost of capital calculation (`build_wacc`) based on Interest Coverage Ratio mapping to Damodaran synthetic debt ratings.
+
+### Changed
+- **Reinvestment Rate Constraint** — DCF engines now enforce `g / ROE` capital constraints to accurately capture the cost of growth.
+- **Valuation Pipeline** — Completely integrated Stages 1-7 (Reverse DCF, Relative, Intrinsic, Triangulation, Macro Overlay, Verdict).
 
 ## [0.2.0-beta] — 2026-05-27
 
