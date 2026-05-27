@@ -51,3 +51,4 @@ Thumbs.db
 *.parquet
 *.xlsx
 /data/
+iam_cache.sqlite
