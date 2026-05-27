@@ -2,9 +2,83 @@
 
 ## Version History
 
-### v0.3.4 - Production-Grade Backtest Harness
-**Status:** Current Release  
+### v0.3.6 - Real-Data Backtest Infrastructure (In Progress)
+**Status:** Feature Branch (feature/empirical-calibration-real-data)  
+**Branch:** PR pending  
 **Test Coverage:** 219/219 tests passing ✓
+
+#### Scope
+Transition from synthetic architectural validation to empirical real-data backtest with institutional statistical rigor.
+
+#### What's New
+- **Stooq Data Loader** (`src/iam/backtest/data_loader.py`)
+  - Download S&P 100 OHLCV data (free, no API key required)
+  - Cache to parquet with SHA256 integrity tracking
+  - Manifest system for reproducibility and audit trail
+  - Works in sandboxed environments (no Yahoo Finance blocked)
+
+- **Statistical Rigor** (`src/iam/backtest/metrics.py`)
+  - `rolling_ic_stability()`: 12-month rolling correlation for drift detection
+  - `statistical_significance()`: t-stat, p-value, Newey-West adjusted SE
+  - `newey_west_se()`: Corrects for 63-day overlapping return autocorrelation
+  - Realistic: IR expected to compress from synthetic 1.93 to real 0.3–0.5
+
+- **Safe Reliability Loader** (`src/iam/arbitration/reliability_loader.py`)
+  - Detects synthetic vs empirical calibration at load time
+  - Prevents accidental production use of synthetic weights
+  - Clear warning logs if synthetic calibration loaded
+  - Falls back to institutional defaults (0.70 per signal)
+  - Audit trail: logs which source is active
+
+- **Strategy Document** (`REAL_DATA_BACKTEST_STRATEGY.md`)
+  - Phase 1 (3d): Download + verify data integrity
+  - Phase 2 (2d): Run backtest on real prices, compute statistics
+  - Phase 3 (3d): Factor attribution analysis
+  - Validation gates that must pass before production
+  - Expected timeline: ~2 weeks to completion
+
+#### Marked as Synthetic (v0.3.5)
+- Updated `calibrated_reliabilities.json` with `_meta.data_source: synthetic`
+- Added warning: "Architectural Validation Only - NOT FOR PRODUCTION"
+- `reliability_loader.py` will refuse to use synthetic weights
+- Prevents confusion between architecture proof and empirical proof
+
+#### Why This Matters
+v0.3.5 proved the pipeline is architecturally sound (clean dependencies, no lookahead bias, proper IC contract). But synthetic IC (0.0331, IR 1.93) is not credible:
+- Real equity IC std dev: 0.10–0.15 (synthetic: 0.017)
+- Real IR: 0.3–0.5 (synthetic: 1.93, false!)
+- Real markets have noise, regime shifts, survivorship effects
+
+This branch unblocks the honest test: Does cost_of_equity signal persist on real data?
+
+#### Files Added
+- `src/iam/backtest/data_loader.py` (273 lines)
+- `src/iam/arbitration/reliability_loader.py` (218 lines)
+- `REAL_DATA_BACKTEST_STRATEGY.md` (420 lines)
+
+#### Files Modified
+- `src/iam/backtest/metrics.py` (+67 lines)
+- `src/iam/backtest/snapshots.py` (+18 lines)
+- `src/iam/arbitration/calibrated_reliabilities.json` (marked synthetic)
+
+#### Test Status
+- 219/219 tests passing (no regressions)
+- New statistical functions untested (pending Phase 1 completion)
+- Integration tests pass on existing backtest infrastructure
+
+#### Next Steps
+1. Execute Phase 1: Download real price data from Stooq
+2. Execute Phase 2: Run backtest on real prices
+3. Execute Phase 3: Factor decomposition analysis
+4. All phases must pass validation gates
+5. Merge to main as v0.4.0-empirical if gates pass
+
+---
+
+### v0.3.5 - Production-Grade Backtest Harness (Synthetic Validation)
+**Status:** Current Release on main  
+**Test Coverage:** 219/219 tests passing ✓
+**Tag:** v0.3.5-synthetic-harness
 
 #### Scope
 Production-grade historical backtesting framework with Information Coefficient calibration for empirical Bayesian priors.
@@ -336,7 +410,9 @@ seed_cache.sqlite (if fresh)   OR   yfinance (if expired/miss)
 
 | Version | Focus | Tests | Key Files | Status |
 |---------|-------|-------|-----------|--------|
-| v0.3.4 | Backtest Harness & IC Calibration | 219/219 ✓ | backtest/*, calibration.py | **Current** |
+| v0.3.6 | Real-Data Backtest + Statistical Rigor | 219/219 ✓ | data_loader.py, metrics.py | **In Progress** (feature branch) |
+| v0.3.5 | Backtest Harness & IC Calibration (Synthetic) | 219/219 ✓ | backtest/*, calibration.py | **Current** (main) |
+| v0.3.4 | Documentation & Version Update | 219/219 ✓ | ARCHITECTURE.md, RELEASES.md | Stable |
 | v0.3.3 | Validation & Correctness | 159/159 ✓ | yahoo.py, tests/ | Stable |
 | v0.3.2 | Ground Truth Integration | All passing | ground_truth.py, fcfe_dcf.py | Stable |
 | v0.3.1 | Damodaran Provider | All passing | damodaran.py | Stable |

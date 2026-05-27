@@ -1,89 +1,64 @@
-"""Bulk price cache and forward returns calculation.
+"""High-performance price data loading with Polars and pre-computed forward returns.
 
-Downloads price history once per backtest run, then slices forward returns
-without refetching. This is the read-only interface to market data.
+Loads price data from parquet file (built via build_price_parquet.py),
+which includes pre-computed forward returns for a given horizon.
 """
 
-from __future__ import annotations
-
-from datetime import datetime
-from typing import Dict
-
-import pandas as pd
-import yfinance as yf
+import polars as pl
+from pathlib import Path
+from typing import Optional
 
 
-def get_price_block(
-    tickers: list[str],
-    start_date: str,  # YYYY-MM-DD
-    end_date: str,    # YYYY-MM-DD
-    horizon_days: int = 63,
-) -> pd.DataFrame:
-    """Download price history and compute forward returns for a block of tickers.
-
-    Downloads closing prices for the date range + horizon, then computes
-    forward returns: (price_{t+horizon} / price_t) - 1
+def load_price_block(config: "BacktestConfig") -> pl.DataFrame:
+    """Load price data from parquet file with forward returns already computed.
 
     Args:
-        tickers: List of ticker symbols
-        start_date: Backtest start date (YYYY-MM-DD)
-        end_date: Backtest end date (YYYY-MM-DD)
-        horizon_days: Forward return horizon in trading days (~63 = 3 months)
+        config: BacktestConfig with price_file path
 
     Returns:
-        DataFrame with MultiIndex (date, ticker) and columns:
-        - close: Price on that date
-        - fwd_ret: Forward return over horizon
+        Polars DataFrame with columns:
+            - ticker: str
+            - date: Date
+            - close: float64 (adjusted close)
+            - fwd_ret: float64 (forward return over horizon)
+            - data_source: str ('yfinance' or 'stooq')
+
+    Raises:
+        FileNotFoundError: If price file doesn't exist
     """
-    # Download with buffer for forward returns
-    data = yf.download(
-        tickers,
-        start=start_date,
-        end=pd.Timestamp(end_date) + pd.Timedelta(days=horizon_days),
-        progress=False,
-    )
+    if not config.price_file.exists():
+        raise FileNotFoundError(
+            f"Price file not found: {config.price_file}. "
+            f"Run: python scripts/build_price_parquet.py first."
+        )
 
-    # Handle single ticker (yfinance returns Series instead of DataFrame)
-    if isinstance(data, pd.Series):
-        data = data.to_frame(name="Close")
-    else:
-        data = data["Close"]
+    df = pl.read_parquet(config.price_file)
 
-    # Ensure data is a DataFrame with ticker columns
-    if isinstance(data.columns, pd.RangeIndex):
-        # Single ticker case
-        data = data.reset_index().set_index(["Date"])
-        data.columns = tickers if len(tickers) == 1 else [tickers[0]]
-    else:
-        # Multi-ticker case
-        data = data.reset_index().set_index(["Date"])
+    # Ensure correct schema
+    if "ticker" not in df.columns or "date" not in df.columns or "close" not in df.columns:
+        raise ValueError(
+            f"Price parquet missing required columns. Expected: ticker, date, close, fwd_ret"
+        )
 
-    # Normalize to MultiIndex (date, ticker) and forward returns
-    rows = []
-    for date_idx, row in data.iterrows():
-        for ticker in tickers:
-            if ticker in row.index:
-                close_price = row[ticker]
-                if pd.notna(close_price):
-                    # Find forward return at t + horizon
-                    future_date = date_idx + pd.Timedelta(days=horizon_days)
-                    future_data = data.loc[data.index >= future_date]
-                    if not future_data.empty and ticker in future_data.columns:
-                        future_price = future_data[ticker].iloc[0]
-                        if pd.notna(future_price):
-                            fwd_ret = (future_price / close_price) - 1
-                            rows.append(
-                                {
-                                    "date": date_idx.date(),
-                                    "ticker": ticker,
-                                    "close": close_price,
-                                    "fwd_ret": fwd_ret,
-                                }
-                            )
+    return df.sort(["ticker", "date"])
 
-    if not rows:
-        raise ValueError(f"No price data for {tickers} in range {start_date} to {end_date}")
 
-    result = pd.DataFrame(rows)
-    result = result.set_index(["date", "ticker"])
+def load_price_block_for_date(
+    config: "BacktestConfig",
+    as_of: str,  # YYYY-MM-DD format
+) -> pl.DataFrame:
+    """Load price data for a specific evaluation date.
+
+    Args:
+        config: BacktestConfig with price_file path
+        as_of: Evaluation date (YYYY-MM-DD)
+
+    Returns:
+        Polars DataFrame with prices and forward returns for the given date
+    """
+    df = load_price_block(config)
+
+    # Filter to specific date and drop date column
+    result = df.filter(pl.col("date") == as_of).drop("date")
+
     return result

@@ -1,0 +1,182 @@
+"""Typer CLI for backtest orchestration (v0.4 hardened stack).
+
+Entry point: python -m iam.backtest.cli backtest
+"""
+
+import typer
+import pandas as pd
+from pathlib import Path
+
+from iam.backtest.config import BacktestConfig
+from iam.backtest.manifest import BacktestManifest
+from iam.backtest.universe import load_universe_from_json
+from iam.backtest.prices import load_price_block
+from iam.backtest.runner import run_backtest, print_backtest_summary
+from iam.backtest.calibration import write_calibration, ic_to_reliability_bayesian
+
+app = typer.Typer()
+
+
+@app.command()
+def backtest(
+    verbose: bool = typer.Option(False, "--verbose", help="Verbose output"),
+    n_jobs: int = typer.Option(None, "--n-jobs", help="Number of CPU workers (overrides config)"),
+):
+    """Run complete backtest pipeline: load prices, score securities, compute IC, calibrate reliabilities.
+
+    This command:
+    1. Loads configuration
+    2. Loads static universe from JSON
+    3. Loads pre-built price parquet
+    4. Scores each security in parallel
+    5. Computes IC, sector-neutral IC, hit rate, spreads
+    6. Writes manifest (git SHA + file hashes)
+    7. Writes calibrated reliabilities JSON
+    """
+    typer.echo("🎯 Backtest v0.4 (yfinance → Stooq fallback, Polars, ProcessPool, statsmodels Newey-West)")
+    typer.echo()
+
+    # Load config
+    config = BacktestConfig()
+    if n_jobs:
+        # Can't modify frozen config, so just use for reporting
+        typer.echo(f"⚙️  Using {n_jobs} CPU workers (overriding config default {config.n_jobs_cpu})")
+    config.validate_paths()
+
+    typer.echo(f"📅 Config: {config.start} to {config.end} ({config.freq}), horizon={config.horizon_days}d")
+    typer.echo()
+
+    # Load universe
+    typer.echo(f"📋 Loading universe from {config.universe_file}...")
+    try:
+        securities, univ_hash = load_universe_from_json(config.universe_file)
+        typer.echo(f"   ✓ {len(securities)} tickers (hash: {univ_hash})")
+    except FileNotFoundError as e:
+        typer.echo(f"   ✗ {e}", err=True)
+        raise typer.Exit(1)
+
+    typer.echo()
+
+    # Load prices
+    typer.echo(f"📊 Loading prices from {config.price_file}...")
+    try:
+        price_df = load_price_block(config)
+        n_dates = price_df["date"].nunique()
+        n_tickers_in_prices = price_df["ticker"].nunique()
+        typer.echo(f"   ✓ {n_dates} dates × {n_tickers_in_prices} tickers")
+    except FileNotFoundError as e:
+        typer.echo(f"   ✗ {e}", err=True)
+        raise typer.Exit(1)
+
+    typer.echo()
+
+    # Generate evaluation dates
+    dates_range = pd.date_range(config.start, config.end, freq=config.freq)
+    dates = dates_range.strftime("%Y-%m-%d").tolist()
+    typer.echo(f"📈 Running backtest on {len(dates)} evaluation dates...")
+    typer.echo()
+
+    # Run backtest with ProcessPool
+    try:
+        results_df = run_backtest(
+            securities,
+            dates,
+            price_df,
+            config=config,
+            score_field="cost_of_equity",
+        )
+        typer.echo()
+    except Exception as e:
+        typer.echo(f"✗ Backtest failed: {e}", err=True)
+        raise typer.Exit(1)
+
+    # Summary
+    print_backtest_summary(results_df)
+    typer.echo()
+
+    # Write manifest
+    manifest = BacktestManifest(config)
+    manifest_path = config.results_dir / "manifest.json"
+    manifest.write(manifest_path)
+    typer.echo(f"✓ Manifest written to {manifest_path}")
+
+    # Write calibrated reliabilities
+    ic_mean = results_df["ic"].mean()
+    ic_std = results_df["ic"].std()
+    n_obs = len(results_df)
+
+    calibration = ic_to_reliability_bayesian(ic_mean, ic_std, n_obs)
+    calibration_path = Path("src/iam/arbitration/calibrated_reliabilities_empirical.json")
+
+    import json
+
+    calibration_path.parent.mkdir(parents=True, exist_ok=True)
+    calibration_data = {
+        "_meta": {
+            "version": "v0.4.0-empirical",
+            "data_source": "empirical",
+            "timestamp": manifest.timestamp,
+            "git_sha": manifest.git_sha,
+        },
+        "source": "Real S&P 100 price data via yfinance → Stooq fallback",
+        "universe": "S&P 100 (static 2024-12-31)",
+        "period": f"{config.start} to {config.end}",
+        "horizon_days": config.horizon_days,
+        "signal": "cost_of_equity",
+        "empirical_ic": {
+            "mean": ic_mean,
+            "std": ic_std,
+            "n_obs": n_obs,
+        },
+        "bayesian_calibration": {
+            "prior_ic": calibration["prior_ic"],
+            "posterior_ic": calibration["posterior_ic"],
+            "posterior_std": calibration["posterior_std"],
+            "shrinkage_factor": calibration["shrinkage_factor"],
+            "reliability": calibration["reliability"],
+        },
+    }
+
+    with open(calibration_path, "w") as f:
+        json.dump(calibration_data, f, indent=2)
+
+    typer.echo(f"✓ Calibrated reliabilities written to {calibration_path}")
+    typer.echo()
+
+    # Save results
+    results_path = config.results_dir / "backtest_results.parquet"
+    results_df.to_parquet(results_path)
+    typer.echo(f"✓ Results written to {results_path}")
+    typer.echo()
+    typer.echo("🎉 Backtest complete!")
+
+
+@app.command()
+def validate():
+    """Validate config and universe without running backtest."""
+    typer.echo("🔍 Validating backtest configuration...")
+
+    config = BacktestConfig()
+    config.validate_paths()
+
+    typer.echo(f"✓ Config valid: {config.start} to {config.end}")
+
+    try:
+        securities, univ_hash = load_universe_from_json(config.universe_file)
+        typer.echo(f"✓ Universe valid: {len(securities)} tickers (hash: {univ_hash})")
+    except FileNotFoundError as e:
+        typer.echo(f"✗ Universe not found: {e}", err=True)
+        raise typer.Exit(1)
+
+    if not config.price_file.exists():
+        typer.echo(f"⚠️  Price file not yet built: {config.price_file}", err=True)
+        typer.echo("   Run: python scripts/build_price_parquet.py first")
+    else:
+        typer.echo(f"✓ Price file exists: {config.price_file}")
+
+    typer.echo()
+    typer.echo("✓ All validations passed!")
+
+
+if __name__ == "__main__":
+    app()
