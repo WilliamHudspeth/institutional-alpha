@@ -63,6 +63,9 @@ class MacroContext:
 
     # Currency
     dxy_trend: Optional[str] = None                  # "falling" | "flat" | "rising"
+    
+    # Valuation
+    erp: Optional[float] = None                      # Equity Risk Premium (decimal)
 
 
 @dataclass
