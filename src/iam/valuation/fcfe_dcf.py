@@ -14,11 +14,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Optional
+import logging
 
 from iam.data.security import Security
+from iam.data.ground_truth import GroundTruthProvider
 from iam.valuation.beta import get_custom_beta_for_intrinsic
 from iam.valuation.reverse_dcf import _present_value_two_stage
 from iam.valuation.types import Method, ValuationResult
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -79,20 +83,37 @@ class FCFEDCF:
                 "Using model defaults — supply assumptions for a tailored estimate."
             )
 
-        # CAPM discount rate (opt-in): if risk_free_rate and equity_risk_premium
-        # are supplied, compute cost of equity from the Damodaran relevered beta.
+        # Cost of Equity Hierarchy:
+        # 1. Explicit risk_free_rate + equity_risk_premium (custom CAPM)
+        # 2. Institutional Damodaran baselines (GroundTruthProvider)
+        # 3. Forecast discount rate from qualitative
         q = security.qualitative
         rfr = q.get("risk_free_rate")
         erp = q.get("equity_risk_premium")
+
         if rfr is not None and erp is not None:
+            # Custom CAPM with explicit rates
             try:
                 beta = get_custom_beta_for_intrinsic(security)
                 base_a.discount_rate = float(rfr) + beta * float(erp)
                 notes.append(
                     f"CAPM discount rate: {rfr:.3f} + {beta:.4f} × {erp:.3f} = {base_a.discount_rate:.4f} "
-                    f"(relevered beta, Stage 3)"
+                    f"(custom CAPM, Stage 3)"
                 )
             except Exception:
+                pass
+        else:
+            # Institutional baseline: Damodaran unlevered beta + Implied ERP
+            try:
+                profile = GroundTruthProvider.get_equity_risk_profile(security)
+                base_a.discount_rate = profile.cost_of_equity
+                notes.append(
+                    f"Cost of Equity: {profile.risk_free_rate*100:.2f}% + {profile.industry_unlevered_beta:.2f} "
+                    f"(relevered) × {profile.erp*100:.2f}% = {profile.cost_of_equity*100:.2f}% "
+                    f"(Damodaran institutional baseline)"
+                )
+            except Exception as e:
+                logger.debug(f"GroundTruthProvider failed: {e}; using forecast discount rate")
                 pass
 
         # Base cash flow: use Net Income if available, else FCF TTM
