@@ -5,7 +5,7 @@ import hashlib
 from pathlib import Path
 from typing import Optional
 
-from iam.data.security import Security
+from iam.data.security import Fundamentals, Security
 
 
 def load_universe_from_json(path: Path) -> tuple[list[Security], str]:
@@ -48,7 +48,10 @@ def load_universe_from_json(path: Path) -> tuple[list[Security], str]:
     securities = []
     if "securities" in data:
         for sec_data in data["securities"]:
+            shares = sec_data.pop("shares_outstanding", None)
             sec = Security(**sec_data)
+            if shares is not None:
+                sec.fundamentals.shares_outstanding = shares
             securities.append(sec)
     elif "tickers" in data:
         # Minimal universe: just tickers, minimal Security objects
@@ -58,7 +61,7 @@ def load_universe_from_json(path: Path) -> tuple[list[Security], str]:
                 sector="Unknown",
                 industry="Unknown",
                 revenue_mix={},
-                shares_outstanding=1_000_000_000,  # placeholder
+                fundamentals=Fundamentals(shares_outstanding=1_000_000_000),
             )
             securities.append(sec)
     else:

@@ -60,13 +60,18 @@ class BacktestManifest:
 
     def to_dict(self) -> dict[str, Any]:
         """Export manifest as dictionary."""
+        # Pydantic model_dump() returns PosixPath objects; stringify for JSON
+        config_dict = self.config.model_dump()
+        config_dict = {
+            k: (str(v) if isinstance(v, Path) else v) for k, v in config_dict.items()
+        }
         return {
             "_meta": {
                 "version": "v0.4.0",
                 "git_sha": self.git_sha,
                 "timestamp": self.timestamp,
             },
-            "config": self.config.model_dump(),
+            "config": config_dict,
             "file_hashes": self.file_hashes,
         }
 
@@ -74,7 +79,7 @@ class BacktestManifest:
         """Write manifest to JSON file."""
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as f:
-            json.dump(self.to_dict(), f, indent=2)
+            json.dump(self.to_dict(), f, indent=2, default=str)
 
     @staticmethod
     def load(path: Path) -> dict[str, Any]:
