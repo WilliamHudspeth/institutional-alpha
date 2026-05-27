@@ -6,6 +6,7 @@ from .financial_guards import (
     validate_discount_rate,
     validate_growth_rate,
     validate_wacc,
+    validate_all_assumptions,
 )
 
 __all__ = [
@@ -15,4 +16,5 @@ __all__ = [
     "validate_discount_rate",
     "validate_growth_rate",
     "validate_wacc",
+    "validate_all_assumptions",
 ]
