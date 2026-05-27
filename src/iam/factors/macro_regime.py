@@ -21,6 +21,12 @@ class MacroRegimeFactor(Factor):
         confidence = 1.0
         mc = security.macro
 
+        if mc is None:
+            return FactorContribution(
+                name=self.name, value=0.0, confidence=0.0,
+                notes=["No macro context provided."],
+            )
+
         # Real rates — falling = supportive of duration; rising = headwind
         if mc.real_rate_trend:
             components["real_rate_regime"] = {
