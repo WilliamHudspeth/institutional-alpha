@@ -121,6 +121,59 @@ def fetch_security(ticker: str) -> Security:
     return _to_security(snap)
 
 
+def build_regression_inputs(
+    ticker: str,
+    region: str = "US",
+    g_eps: Optional[float] = None,
+    g: Optional[float] = None,
+) -> "RegressionInputs":
+    """Build Damodaran regression inputs from Yahoo Finance data.
+
+    ``g_eps`` and ``g`` override Yahoo's earningsGrowth / revenueGrowth when
+    you have analyst consensus estimates. All other inputs are pulled live.
+
+    Requires yfinance (pip install yfinance).
+    """
+    from iam.valuation.multiples_regression import RegressionInputs
+
+    try:
+        import yfinance as yf
+    except ImportError as exc:
+        raise ImportError(
+            "yfinance is required for live data. Install it with: pip install yfinance"
+        ) from exc
+
+    info = yf.Ticker(ticker).info or {}
+
+    beta = _get(info, "beta") or 1.0
+    payout = _get(info, "payoutRatio") or 0.0
+    roe = _get(info, "returnOnEquity") or 0.12
+    roic = _get(info, "returnOnAssets") or 0.10   # best available proxy
+    oper_margin = _get(info, "operatingMargins") or 0.15
+    tax_rate = _get(info, "effectiveTaxRate") or 0.21
+    market_cap = _get(info, "marketCap") or 1.0
+    total_debt = _get(info, "totalDebt") or 0.0
+    dfr = total_debt / (total_debt + market_cap)
+
+    if g_eps is None:
+        g_eps = _get(info, "earningsGrowth") or 0.10
+    if g is None:
+        g = _get(info, "revenueGrowth") or g_eps
+
+    return RegressionInputs(
+        region=region,  # type: ignore[arg-type]
+        beta=float(beta),
+        g_eps=float(g_eps),
+        payout=float(payout),
+        roe=float(roe),
+        g=float(g),
+        roic=float(roic),
+        dfr=float(dfr),
+        oper_margin=float(oper_margin),
+        tax_rate=float(tax_rate),
+    )
+
+
 def _get(info: dict, *keys: str) -> Optional[float]:
     for k in keys:
         v = info.get(k)

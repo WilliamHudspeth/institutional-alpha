@@ -1,61 +1,70 @@
 # Institutional Alpha Model (IAM)
 
-> A multi-factor equity scoring framework that goes beyond "cheap vs. expensive."
+> A multi-factor equity scoring framework that prices what elite funds actually price.
 
-Most public valuation models stop at DCF or relative multiples. Institutional discretionary and systematic funds implicitly price a much wider surface: **expectations difficulty, quality, reflexivity, crowding, regime fit, fragility, and capital allocation quality.**
-
-This repo is an open-source attempt to encode that surface as an orthogonal, weighted, auditable factor model — written in plain Python so it's easy to read, fork, and extend.
+Most public valuation models stop at DCF or relative multiples. Institutional discretionary and systematic funds implicitly price a much wider surface: **expectations difficulty, quality, reflexivity, crowding, regime fit, fragility, and capital allocation quality.** This repo is an open-source attempt to encode that surface as an orthogonal, weighted, auditable factor model — written in plain Python so it's easy to read, fork, and extend.
 
 ## Status
 
+**v0.2.0** — the framework is complete. The factor scoring engine, seven-stage valuation pipeline, thesis engine with Bayesian updating, and Damodaran-anchored peer ranking are all implemented and tested.
 
- **v0.2.0.** The framework is now fully realized with a Bayesian updating engine for adaptive inference, a threshold-gated Macro Overlay that dynamically recalculates intrinsic value during rate shocks, and a robust Valuation Pipeline that outputs actionable verdicts.
+## What's in the box
 
-## Core idea
+The framework has two complementary entry points.
 
-Instead of one number ("fair value"), the framework asks ten questions in parallel and combines them into a single composite score in `[-1, 1]`:
+**Factor scoring** (`iam.score`) — cross-sectional ranking across many names. Runs ten orthogonal factors plus three penalty terms to produce a composite score in `[-1, 1]`.
 
-| Factor | Question it answers |
-|---|---|
-| Intrinsic Value | What's the asset worth on cash flows? |
-| Expectations | What growth/ROIC does the price imply, and how hard is that? |
-| Quality | How durable and capital-efficient is the business? |
-| Relative Value | Cheap or expensive vs. peers and history? |
-| Sentiment | What does the market mood say? |
-| Reflexivity | Does the stock price *itself* improve the fundamentals? |
-| Runway | Can capital still be reinvested at attractive rates? |
-| Macro Regime | Does the current regime reward this style? |
-| Crowding | How positioned is the trade? |
-| Earnings Quality | Is the reported FCF real? |
+| Factor | Weight | Question |
+|---|---|---|
+| Expectations Difficulty | 0.22 | What does the price imply, and how hard is that to deliver? |
+| Intrinsic Value | 0.20 | What is the asset worth on its cash flows? |
+| Quality | 0.12 | How durable and capital-efficient is the business? |
+| Relative Value | 0.10 | Cheap or expensive vs. peers and own history? |
+| Sentiment | 0.08 | What does the market mood say? |
+| Reflexivity | 0.08 | Does the stock price itself improve the fundamentals? |
+| Reinvestment Runway | 0.07 | Can capital still be deployed at attractive rates? |
+| Macro Regime | 0.05 | Does the current regime reward this style? |
+| Crowding | 0.04 | How positioned is the trade? |
+| Earnings Quality | 0.04 | Is the reported FCF real? |
 
-Then three **penalty factors** are subtracted:
+Three **penalty factors** are then subtracted: **Fragility** (multiple compression on a small miss), **Leverage** (balance sheet stress and refinancing risk), and **Execution Risk** (operational, regulatory, and geographic complexity).
 
-- **Fragility** — how much does the multiple compress on a small disappointment?
-- **Leverage** — balance sheet stress and refinancing risk
-- **Execution Risk** — operational, regulatory, geographic complexity
+**Valuation pipeline** (`iam.ValuationPipeline`) — a seven-stage sequential deep-dive on a single name. Instead of averaging signals, each stage challenges the previous one. Disagreement between stages is the most important output, not a problem to smooth away.
 
-See [`docs/framework.md`](docs/framework.md) for the conceptual writeup and [`docs/factors.md`](docs/factors.md) for each factor's definition.
+```
+Stage 1: Reverse DCF       → What does the market expect?
+Stage 2: Relative          → Do peers/history support those expectations?
+Stage 3: Intrinsic         → What's fair value built bottom-up, independently?
+Stage 4: Triangulation     → Do the three answers cluster, or disagree?
+Stage 5: Macro Outlier     → Which conclusions move materially under macro stress?
+Stage 6: Macro Re-overlay  → Re-run only the names whose verdict actually changes.
+Stage 7: Verdict           → Buy/Hold/Sell + conviction band + peer-relative ranking.
+```
 
 ## Install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/institutional-alpha.git
+git clone https://github.com/WilliamHudspeth/institutional-alpha.git
 cd institutional-alpha
 pip install -e .
 ```
 
-Requires Python 3.10+. No heavy dependencies — just `numpy` and `pandas`.
+For live market data:
+
+```bash
+pip install -e ".[live]"
+```
+
+Requires Python 3.10+. Core dependencies are `numpy` and `pandas` only.
 
 ## Quick start
 
-Two entry points depending on what you want:
-
-**Factor scoring (v0.1.0):** cross-sectional ranking across many names.
+### Factor scoring
 
 ```python
 from iam import Security, score
 
-aapl = Security(ticker="AAPL")  # add fundamentals as you wire data sources
+aapl = Security(ticker="AAPL")  # populate fundamentals as you wire data sources
 result = score(aapl)
 
 print(result.composite)          # e.g. 0.34
@@ -63,25 +72,28 @@ print(result.factor_breakdown)   # per-factor contributions
 print(result.penalties)          # fragility / leverage / execution
 ```
 
-**Valuation pipeline (v0.2.0-alpha):** deep-dive on a single name.
+### Valuation pipeline
 
 ```python
 from iam import Security, ValuationPipeline
 
-sec = Security(ticker="HYPCO", ...)  # populate fundamentals + market
+sec = Security(ticker="HYPCO", ...)  # populate fundamentals + market data
 report = ValuationPipeline().run(sec)
 print(report.explain())
 # Stage 1: market implies 21% FCFE growth — 117% of peak.
 # Stage 2: expensive vs peers/history (-44%).
 # Stage 3: intrinsic DCF says -34%.
 # Stage 4: TWO_OF_THREE — relative + intrinsic cluster; reverse DCF disagrees.
+# Stage 7: HOLD | conviction: 0.52
 ```
 
-**Thesis scenarios (v0.2.0-alpha):** attach competing bull/bear views to a security.
+### Thesis engine with Bayesian updating
 
 ```python
 from iam.data.security import Assumption, Security, Thesis
 from iam.thesis.engine import ThesisEngine
+from iam.thesis.bayesian.priors import ScenarioPrior
+from iam.thesis.bayesian.evidence import Evidence, ScenarioLikelihood
 
 sec = Security(
     ticker="HYPCO",
@@ -96,35 +108,66 @@ sec = Security(
 )
 
 engine = ThesisEngine()
+
+# Static evaluation
 evaluation = engine.evaluate(sec)
-print(f"Consensus Range: {evaluation.worst_case} - {evaluation.best_case}")
-# You can also dynamically calculate fair values via pipeline injection:
-# engine.simulate(sec, valuation_fn=my_dcf_function)
+print(f"Range: {evaluation.worst_case} – {evaluation.best_case}")
+
+# Bayesian update on an earnings beat
+priors = [ScenarioPrior("Bull", 0.40), ScenarioPrior("Bear", 0.60)]
+evidence = Evidence(
+    description="Q2 earnings beat — margins expanded 200bps",
+    signal_strength=0.8,
+    likelihoods={
+        "Bull": ScenarioLikelihood(0.85),
+        "Bear": ScenarioLikelihood(0.25),
+    },
+)
+updated = engine.apply_evidence(sec, priors, evidence)
+print(updated.posteriors)   # posterior probabilities after the beat
+print(updated.expected_value)
 ```
 
-See [`examples/`](examples/) for runnable end-to-end demos of both.
+See [`examples/`](examples/) for runnable end-to-end demos.
+
+## Architecture
+
+```
+src/iam/
+├── factors/          # 10 orthogonal factors + 3 penalty factors
+├── engine/           # composite scoring (factor weighting + penalties)
+├── valuation/        # ReverseDCF, RelativeValuation, FCFEDCF, SOTP, Triangulator
+├── pipeline/         # 7-stage orchestrator, macro overlay, verdict generator
+├── thesis/           # ThesisEngine + Bayesian updater (priors, evidence, updater)
+├── lenses/           # alternative valuation lenses (rate-sensitive, platform, Damodaran)
+└── data/             # Security, Fundamentals, MarketData, MacroContext, Yahoo adapter
+```
+
+Full conceptual documentation:
+
+- [`docs/framework.md`](docs/framework.md) — why orthogonality matters, the composite formula, and factor design rationale
+- [`docs/factors.md`](docs/factors.md) — every factor's definition, sub-components, and default weights
+- [`docs/pipeline.md`](docs/pipeline.md) — the seven pipeline stages in depth
 
 ## Design principles
 
 1. **Orthogonal factors.** Each factor measures one thing. Valuation and quality are separate inputs, not one blended score.
-2. **Auditable.** Every composite score decomposes back into its factor contributions and penalty terms.
-3. **Pluggable data.** The model doesn't care where fundamentals come from — wire in your own provider.
-4. **Regime-aware.** The macro filter can re-weight other factors instead of just adding to them.
-5. **No magic.** Default factor weights are explicit, documented, and easy to override.
+2. **Auditable.** Every composite score decomposes back into its factor contributions and penalty terms. No black-box aggregations.
+3. **Pluggable data.** The model never assumes a specific data provider. Wire in your own fundamentals; use the Yahoo adapter for live data.
+4. **No magic.** Default factor weights are explicit, documented, and easy to override. No hidden constants, no silent defaults.
+5. **Regime-aware.** The macro overlay can re-weight factors or trigger a pipeline re-run, not just add noise to the composite.
 
 ## Roadmap
 
+- [x] Factor scoring engine: 10 factors + 3 penalties (v0.1.0)
 - [x] Valuation pipeline: Reverse DCF → Relative → Intrinsic → Triangulation (v0.2.0-alpha)
 - [x] Core data layer + Yahoo Finance adapter (v0.2.0-alpha)
-- [x] Thesis Engine + Sensitivity Analysis (v0.2.0-alpha)
-- [x] Macro overlay with threshold-gated re-run (v0.2.0-beta)
-- [x] Verdict + peer-relative ranking via Damodaran industries (v0.2.0)
-- [x] Bayesian updating engine (priors → posterior on earnings releases)
+- [x] Multi-lens valuation engine (v0.2.0-beta)
+- [x] Threshold-gated macro overlay (v0.2.0-beta)
+- [x] Thesis Engine: scenario modeling, simulation, sensitivity analysis (v0.2.0-beta)
+- [x] Verdict generator + peer-relative ranking via Damodaran industries (v0.2.0)
+- [x] Bayesian updating engine (v0.2.0)
 - [ ] Backtest harness
-
-## v0.2.0-beta Upgrade Notes
-
-**Note:** As of v0.2.0-beta, the Thesis Engine has been moved to `src/iam/thesis/`. If you are importing `ThesisEngine` from the root directory, please update your import statement to `from iam.thesis.engine import ThesisEngine`.
 
 ## License
 
@@ -133,4 +176,3 @@ MIT — see [LICENSE](LICENSE).
 ## Disclaimer
 
 This is a research framework, not investment advice. Nothing here is a recommendation to buy or sell any security. Past performance of any factor model does not guarantee future results.
-
