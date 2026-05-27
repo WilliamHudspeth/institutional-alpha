@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from iam.data.security import Security
+from iam.valuation.beta import get_custom_beta_for_intrinsic
 from iam.valuation.types import Method, ValuationResult
 
 
@@ -69,6 +70,20 @@ class FCFEDCF:
             confidence *= 0.7
             notes.append(
                 "using model defaults — supply assumptions for a tailored estimate."
+            )
+
+        # CAPM discount rate (opt-in): if risk_free_rate and equity_risk_premium
+        # are supplied, compute cost of equity from the Damodaran relevered beta.
+        # This overrides whatever discount_rate was resolved above.
+        q = security.qualitative
+        rfr = q.get("risk_free_rate")
+        erp = q.get("equity_risk_premium")
+        if rfr is not None and erp is not None:
+            beta = get_custom_beta_for_intrinsic(security)
+            assumed.discount_rate = float(rfr) + beta * float(erp)
+            notes.append(
+                f"CAPM discount rate: {rfr:.3f} + {beta:.4f} × {erp:.3f} = {assumed.discount_rate:.4f} "
+                f"(relevered beta, Stage 3)"
             )
 
         # To enforce the Reinvestment Rate constraint (g = Reinvestment Rate * ROE),

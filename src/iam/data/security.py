@@ -148,6 +148,9 @@ class MarketData:
     # Options
     options_call_put_skew: Optional[float] = None
 
+    # Risk
+    beta: Optional[float] = None                           # equity beta vs market index
+
     # Sentiment & momentum
     analyst_revisions_breadth_30d: Optional[float] = None  # [-1, 1]
     earnings_surprise_history: list[float] = field(default_factory=list)

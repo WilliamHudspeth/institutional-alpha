@@ -20,6 +20,7 @@ from __future__ import annotations
 from typing import Optional
 
 from iam.data.security import Security
+from iam.valuation.beta import get_yahoo_beta
 from iam.valuation.types import Method, ValuationResult, ImpliedExpectations
 
 
@@ -132,6 +133,20 @@ class ReverseDCF:
         ni = f.net_income_ttm if f.net_income_ttm and f.net_income_ttm > 0 else f.fcf_ttm
         roe = qualitative.get("forecast_roe", self.roe)
 
+        # CAPM discount rate (opt-in): if risk_free_rate and equity_risk_premium
+        # are supplied, compute cost of equity from Yahoo beta.  Otherwise use
+        # the flat rate passed at construction time.
+        r = self.r
+        rfr = qualitative.get("risk_free_rate")
+        erp = qualitative.get("equity_risk_premium")
+        if rfr is not None and erp is not None:
+            beta = get_yahoo_beta(security)
+            r = float(rfr) + beta * float(erp)
+            notes.append(
+                f"CAPM discount rate: {rfr:.3f} + {beta:.4f} × {erp:.3f} = {r:.4f} "
+                f"(Yahoo beta, Stage 1)"
+            )
+
         if m.price is None or ni is None or f.shares_outstanding is None:
             return ValuationResult(
                 method=Method.REVERSE_DCF,
@@ -154,7 +169,7 @@ class ReverseDCF:
             base_ni=ni_per_share,
             n=self.n,
             g_terminal=self.g_terminal,
-            r=self.r,
+            r=r,
             roe=roe,
         )
 
@@ -185,7 +200,7 @@ class ReverseDCF:
         implied = ImpliedExpectations(
             implied_revenue_growth=implied_g,
             implied_terminal_growth=self.g_terminal,
-            discount_rate_assumed=self.r,
+            discount_rate_assumed=r,
             growth_vs_history_max=growth_vs_max,
         )
 
@@ -202,7 +217,7 @@ class ReverseDCF:
             confidence=confidence,
             implied=implied,
             assumptions={
-                "discount_rate": self.r,
+                "discount_rate": r,
                 "high_growth_years": float(self.n),
                 "terminal_growth": self.g_terminal,
                 "roe": roe,

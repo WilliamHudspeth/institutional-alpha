@@ -33,6 +33,7 @@ class MarketSnapshot:
     short_interest_pct: Optional[float]
     gross_margin: Optional[float]
     operating_margin: Optional[float]
+    beta: Optional[float]
     name: Optional[str]
     sector: Optional[str]
     industry: Optional[str]
@@ -114,6 +115,7 @@ def fetch_security(ticker: str) -> Security:
         short_interest_pct=_get(info, "shortPercentOfFloat"),
         gross_margin=_get(info, "grossMargins"),
         operating_margin=_get(info, "operatingMargins"),
+        beta=_get(info, "beta"),
         name=info.get("longName") or info.get("shortName"),
         sector=info.get("sector"),
         industry=info.get("industryDisp") or info.get("industry"),
@@ -207,5 +209,6 @@ def _to_security(snap: MarketSnapshot) -> Security:
             pe_forward=snap.pe_forward,
             ev_ebitda=snap.ev_ebitda,
             short_interest_pct_float=snap.short_interest_pct,
+            beta=snap.beta,
         ),
     )
