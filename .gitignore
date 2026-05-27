@@ -50,4 +50,4 @@ Thumbs.db
 *.csv
 *.parquet
 *.xlsx
-data/
+/data/
