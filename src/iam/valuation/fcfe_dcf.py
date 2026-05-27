@@ -105,7 +105,8 @@ class FCFEDCF:
         else:
             # Institutional baseline: Damodaran unlevered beta + Implied ERP
             try:
-                profile = GroundTruthProvider.get_equity_risk_profile(security)
+                gt = GroundTruthProvider()
+                profile = gt.get_equity_risk_profile(security)
                 base_a.discount_rate = profile.cost_of_equity
                 notes.append(
                     f"Cost of Equity: {profile.risk_free_rate*100:.2f}% + {profile.industry_unlevered_beta:.2f} "

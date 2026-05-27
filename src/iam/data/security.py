@@ -12,7 +12,7 @@ Conventions:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Optional, Union
 
 
@@ -248,3 +248,41 @@ def show_spread(security: Security) -> str:
             lines.append(f"Spread: {spread:.2f} (high {top:.2f} - low {bottom:.2f}){flag}")
 
     return "\n".join(lines)
+
+
+def apply_scenario(base: Security, revenue_mix_delta: dict[str, float]) -> Security:
+    """Create a new Security with adjusted revenue mix for scenario analysis.
+
+    This function implements immutable scenario construction: it takes a base
+    Security and applies a delta to the revenue_mix, returning a new Security
+    object with the adjusted mix. The base is never mutated.
+
+    Args:
+        base: Base Security with existing revenue_mix
+        revenue_mix_delta: Dict with adjustments (e.g., {"US": +0.05, "CN": -0.05})
+
+    Returns:
+        New Security with updated revenue_mix (normalized to sum to 1.0)
+
+    Example:
+        >>> base = Security(ticker="NVDA", revenue_mix={"US": 0.44, "CN": 0.25})
+        >>> bull = apply_scenario(base, {"US": +0.10, "CN": -0.10})
+        >>> bull.normalized_mix()
+        {"us": 0.563, "cn": 0.154, ...}
+    """
+    current_mix = base.normalized_mix().copy()
+
+    # Apply delta
+    for key, delta in revenue_mix_delta.items():
+        key_lower = key.lower()
+        current_mix[key_lower] = max(0, current_mix.get(key_lower, 0) + delta)
+
+    # Re-normalize
+    total = sum(current_mix.values())
+    if total <= 0:
+        raise ValueError(f"Revenue mix sums to zero after scenario application: {current_mix}")
+
+    normalized = {k: v / total for k, v in current_mix.items()}
+
+    # Return new Security with updated revenue_mix
+    return replace(base, revenue_mix=normalized)

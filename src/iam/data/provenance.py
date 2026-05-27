@@ -25,5 +25,6 @@ def attach_provenance(data: Dict[str, Any], version: str = "damodaran_jan_2026")
         "version": version,
         "source": "Damodaran (NYU Stern)",
         "reference": "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/",
+        "stale": False,  # Mark as current vintage unless explicitly set
     }
     return result
