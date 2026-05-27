@@ -50,16 +50,12 @@ class MacroStressEngine:
     def run_stress_test(self, security: Security, shock: MacroShock) -> ValuationResult:
         qualitative = security.qualitative or {}
         
-        # 1. Capture original WACC and growth
         orig_wacc = qualitative.get('forecast_discount_rate', 0.09)
         orig_growth = qualitative.get('forecast_growth', 0.08)
         
-        # 2. Apply the shock
-        # Rate shock affects WACC; growth shock affects FCF projections
         stressed_wacc = orig_wacc + (shock.rate_shock_bps / 10000.0)
         stressed_growth = orig_growth + shock.growth_shock_pct
         
-        # 3. Recalculate DCF using existing FCFEAssumptions
         stressed_assumptions = FCFEAssumptions(
             discount_rate=stressed_wacc,
             high_growth=stressed_growth,
