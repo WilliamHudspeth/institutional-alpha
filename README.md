@@ -8,6 +8,7 @@ This repo is an open-source attempt to encode that surface as an orthogonal, wei
 
 ## Status
 
+
  **v0.2.0.** The framework is now fully realized with a Bayesian updating engine for adaptive inference, a threshold-gated Macro Overlay that dynamically recalculates intrinsic value during rate shocks, and a robust Valuation Pipeline that outputs actionable verdicts.
 
 ## Core idea
@@ -79,7 +80,8 @@ print(report.explain())
 **Thesis scenarios (v0.2.0-alpha):** attach competing bull/bear views to a security.
 
 ```python
-from iam.data.security import Assumption, Security, Thesis, show_spread
+from iam.data.security import Assumption, Security, Thesis
+from iam.thesis.engine import ThesisEngine
 
 sec = Security(
     ticker="HYPCO",
@@ -92,10 +94,12 @@ sec = Security(
                assumptions=[Assumption("terminal_margin", 0.15, source="user")]),
     ],
 )
-print(show_spread(sec))
-# Thesis: Bull  —  Fair value range: 160.00 - 200.00
-# Thesis: Bear  —  Fair value range: 80.00 - 110.00
-# Spread: 120.00 (high 200.00 - low 80.00) [wide]
+
+engine = ThesisEngine()
+evaluation = engine.evaluate(sec)
+print(f"Consensus Range: {evaluation.worst_case} - {evaluation.best_case}")
+# You can also dynamically calculate fair values via pipeline injection:
+# engine.simulate(sec, valuation_fn=my_dcf_function)
 ```
 
 See [`examples/`](examples/) for runnable end-to-end demos of both.
@@ -129,3 +133,4 @@ MIT — see [LICENSE](LICENSE).
 ## Disclaimer
 
 This is a research framework, not investment advice. Nothing here is a recommendation to buy or sell any security. Past performance of any factor model does not guarantee future results.
+
