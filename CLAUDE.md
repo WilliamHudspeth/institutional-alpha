@@ -34,12 +34,15 @@ making changes.
 
 ## Architecture map
 
+- `main.py` — primary interactive entry point (welcome screen + guided menu)
+- `run.py` — alternative interactive CLI for multi-lens valuation
+- `analyze.py` — command-line utility for single-ticker analysis
 - `src/iam/` — main package
 - `src/iam/factors/` — individual factor implementations
-- `src/iam/pipeline/` — valuation pipeline stages (Reverse DCF → Relative → Intrinsic → Triangulation, with macro overlay + verdict coming)
+- `src/iam/pipeline/` — valuation pipeline stages (Reverse DCF → Relative → Intrinsic → Triangulation, with macro overlay + verdict)
 - `docs/` — conceptual writeups (framework.md, factors.md, pipeline.md)
 - `examples/` — runnable end-to-end demos
-- `tests/` — pytest suite
+- `tests/` — pytest suite (including backtest harness)
 
 ## When unsure
 
@@ -48,12 +51,21 @@ making changes.
 - Ask before modifying factor weights or penalty formulas
 - Reference docs/framework.md and docs/factors.md when in doubt
 
-## Roadmap context
+## Status
 
-Currently working on v0.2.0-alpha → v0.2.0-beta:
-- Stages 5–7 (macro overlay, verdict, peer-relative ranking) still to come
-- Factor stubs in v0.1.0 need reference implementations
-- Data provider adapters (yfinance, FMP) on the roadmap
+v0.2.0 is complete and stable:
+- ✅ All 7 valuation pipeline stages implemented
+- ✅ 10 orthogonal factors + 3 penalty terms
+- ✅ Bayesian thesis engine with scenario analysis
+- ✅ BacktestHarness for historical factor evaluation
+- ✅ Interactive welcome screen and menu-driven UI
+- ✅ Damodaran-anchored peer ranking
+
+Future roadmap:
+- Advanced data provider adapters (FMP, other sources)
+- Machine learning-enhanced factor weightings
+- Portfolio-level optimization tools
+- Real-time monitoring and alerts
 
 ## My (William's) honest context
 

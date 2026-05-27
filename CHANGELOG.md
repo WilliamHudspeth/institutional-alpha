@@ -8,7 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [0.2.0] — 2026-05-27
 
-The stable release. Completes the seven-stage pipeline and wires Bayesian updating into the thesis engine.
+The stable release. Completes the seven-stage pipeline, Bayesian updating, and adds the backtest harness for factor efficacy evaluation.
 
 ### Added
 
@@ -17,6 +17,7 @@ The stable release. Completes the seven-stage pipeline and wires Bayesian updati
 - **Bayesian updating** (`src/iam/thesis/bayesian/`) — Three modules: `priors.py` (ScenarioPrior), `evidence.py` (Evidence + ScenarioLikelihood with signal dampening), `updater.py` (BayesianUpdater). Signal dampening shrinks the likelihood toward 1.0 for noisy or stale signals, preventing overfitting.
 - **`ThesisEngine.apply_evidence()`** — Applies a Bayesian update to scenario priors and recalculates the probability-weighted expected value.
 - **Synthetic WACC** (`build_wacc`) — Dynamic cost of capital derived from Interest Coverage Ratio mapped to Damodaran synthetic debt ratings.
+- **Backtest harness** (`tests/harness.py`) — `BacktestHarness` class for historical factor performance evaluation. Methods: `run()` scores all securities and returns a decomposed DataFrame, `calculate_ic()` computes Spearman Information Coefficient per factor, `quantile_spread()` measures return spread between top/bottom quantiles.
 
 ### Changed
 

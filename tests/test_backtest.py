@@ -1,7 +1,9 @@
 """Tests for the historical backtest harness."""
 
 import pytest
-import pandas as pd
+
+# Skip all tests in this module if pandas is not installed
+pd = pytest.importorskip("pandas")
 
 from iam.data.security import Security
 from tests.harness import BacktestHarness

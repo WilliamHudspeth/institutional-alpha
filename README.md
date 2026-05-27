@@ -10,7 +10,7 @@ Most public valuation models stop at DCF or relative multiples. Institutional di
 
 ## What's in the box
 
-The framework has two complementary entry points.
+The framework has three complementary entry points.
 
 **Factor scoring** (`iam.score`) — cross-sectional ranking across many names. Runs ten orthogonal factors plus three penalty terms to produce a composite score in `[-1, 1]`.
 
@@ -58,6 +58,18 @@ pip install -e ".[live]"
 Requires Python 3.10+. Core dependencies are `numpy` and `pandas` only.
 
 ## Quick start
+
+### Interactive welcome screen
+
+```bash
+python main.py
+```
+
+A guided menu that lets you:
+- Value a single security (7-stage pipeline)
+- Score a security (10 factors + 3 penalties)
+- Analyze scenarios with the thesis engine
+- Evaluate historical factor performance
 
 ### Factor scoring
 
@@ -128,6 +140,31 @@ print(updated.posteriors)   # posterior probabilities after the beat
 print(updated.expected_value)
 ```
 
+### Backtest harness
+
+```python
+from tests.harness import BacktestHarness
+from iam.data.security import Security
+
+# Point-in-time historical data: (Security, forward_return) pairs
+data = [
+    (Security(ticker="AAPL", fundamentals=..., market=...), 0.12),  # 12% 1M return
+    (Security(ticker="MSFT", fundamentals=..., market=...), -0.05),  # -5% return
+    # ... 50+ more securities
+]
+
+harness = BacktestHarness(data)
+results = harness.run()  # Score all securities, returns DataFrame
+
+# Factor performance metrics
+ics = harness.calculate_ic()           # Information Coefficient vs forward returns
+print(ics.head())  # Spearman correlation of each factor with out-of-sample returns
+
+# Quantile analysis
+spread = harness.quantile_spread(factor="composite", q=5)
+print(f"Top vs Bottom quintile spread: {spread:+.1%}")
+```
+
 See [`examples/`](examples/) for runnable end-to-end demos.
 
 ## Architecture
@@ -141,6 +178,10 @@ src/iam/
 ├── thesis/           # ThesisEngine + Bayesian updater (priors, evidence, updater)
 ├── lenses/           # alternative valuation lenses (rate-sensitive, platform, Damodaran)
 └── data/             # Security, Fundamentals, MarketData, MacroContext, Yahoo adapter
+
+tests/
+├── harness.py        # BacktestHarness: historical factor performance evaluation
+└── test_backtest.py  # BacktestHarness unit tests
 ```
 
 Full conceptual documentation:
@@ -167,7 +208,7 @@ Full conceptual documentation:
 - [x] Thesis Engine: scenario modeling, simulation, sensitivity analysis (v0.2.0-beta)
 - [x] Verdict generator + peer-relative ranking via Damodaran industries (v0.2.0)
 - [x] Bayesian updating engine (v0.2.0)
-- [x] Backtest harness
+- [x] Backtest harness: Information Coefficient and quantile spread analysis (v0.2.0)
 
 ## License
 
