@@ -51,4 +51,8 @@ Thumbs.db
 *.parquet
 *.xlsx
 /data/
+
+# Runtime cache (Seed Database Strategy)
+# iam_cache.sqlite: Runtime cache, updated daily with fresh ticker data (IGNORE in git)
+# seed_cache.sqlite: Permanent fallback with institutional blue-chip data (TRACK in git)
 iam_cache.sqlite

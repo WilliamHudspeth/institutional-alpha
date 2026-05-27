@@ -37,6 +37,12 @@ class DataProviderError(Exception):
 def _init_cache_db():
     """Initialize SQLite cache for normalized ticker data.
 
+    Seed Database Strategy:
+    - If iam_cache.sqlite doesn't exist, copy from seed_cache.sqlite
+    - This gives every developer a warm cache of institutional data
+    - Daily fetches update iam_cache.sqlite (which is .gitignore'd)
+    - seed_cache.sqlite stays in version control as the permanent fallback
+
     Stores normalized (validated) data, not raw HTTP responses.
     This is superior to HTTP-level caching because:
     1. Caches validated data (not raw Yahoo garbage)
@@ -44,8 +50,16 @@ def _init_cache_db():
     3. Simpler error handling and debugging
     """
     import sqlite3
+    import shutil
+    import os
 
     try:
+        # Seed initialization: if runtime cache missing, copy from seed
+        if not os.path.exists("iam_cache.sqlite") and os.path.exists("seed_cache.sqlite"):
+            shutil.copy2("seed_cache.sqlite", "iam_cache.sqlite")
+            logger.info("[CACHE] Initialized from seed_cache.sqlite (warm start)")
+
+        # Create/verify table structure
         conn = sqlite3.connect("iam_cache.sqlite")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS ticker_cache (
