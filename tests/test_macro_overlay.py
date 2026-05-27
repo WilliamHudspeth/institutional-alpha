@@ -14,7 +14,35 @@ def test_macro_overlay_triggers_on_shock():
         market=MarketData(price=100.0),
         qualitative={"forecast_discount_rate": 0.09, "forecast_growth": 0.08}
     )
+
+def test_macro_overlay_triggers_on_shock():
+    """Ensures that a rate shock > threshold triggers an intrinsic recalculation."""
+    sec = Security(
+        ticker="TEST",
+        fundamentals=Fundamentals(fcf_ttm=100.0, shares_outstanding=10.0),
+        market=MarketData(price=100.0),
+        qualitative={"forecast_discount_rate": 0.09, "forecast_growth": 0.08}
+    )
     
+    report = MagicMock()
+    report.summary = "Initial Summary."
+    
+    # FIX: Use 'rate_change' (in decimal, 75bps = 0.0075)
+    macro = MacroConditions(rate_change=0.0075) 
+    
+    # Initialize with the DCF engine required by your MacroOverlay
+    # Assuming you have a dummy or real DCF engine available
+    overlay = MacroOverlay(intrinsic_dcf=MagicMock(), rate_shock_threshold_bps=50.0)
+    updated_report = overlay.apply(report, sec, macro)
+    
+    # Check that the summary log captured the event
+    # Ensure your MacroOverlay.apply() adds these strings to updated_report.summary
+    assert "Macro Overlay triggered" in str(updated_report.notes)
+    
+    # Verify the valuation result is now present
+    assert updated_report.intrinsic is not None    
+
+
     # Mock a PipelineReport
     report = MagicMock()
     report.summary = "Initial Summary."

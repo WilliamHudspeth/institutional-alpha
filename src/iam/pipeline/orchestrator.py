@@ -114,7 +114,7 @@ class ValuationPipeline:
         self.intrinsic_dcf = FCFEDCF()
         self.sotp = SOTP()
         self.triangulator = Triangulator()
-        self.macro_overlay = MacroOverlay()
+        self.macro_overlay = MacroOverlay(self.intrinsic_dcf)
         self.use_sotp = use_sotp_when_segments_available
         
     @staticmethod
@@ -164,57 +164,55 @@ class ValuationPipeline:
             
             if security.qualitative is None:
                 security.qualitative = {}
-            # Inject into security qualitative for Intrinsic DCF
-            if "forecast_discount_rate" not in security.qualitative:
-                security.qualitative["forecast_discount_rate"] = dynamic_wacc
-                
-            wacc_note = f"\n[WACC OVERRIDE]: Applied synthetic WACC of {dynamic_wacc:.1%} (Implied Rating: {rating})."
-            
-        try:
-            rev = self.reverse_dcf.compute(security)
-            rel = self.relative.compute(security)
-            
-            has_segments = bool(getattr(security.fundamentals, 'segments', []))
-            if self.use_sotp and has_segments:
-                intr = self.sotp.compute(security)
-                if intr.confidence == 0.0:
-                    intr = self.intrinsic_dcf.compute(security, fcfe_assumptions)
-            else:
-                intr = self.intrinsic_dcf.compute(security, fcfe_assumptions)
-                
-            tri = self.triangulator.triangulate(rev, rel, intr)
-        finally:
-            if wacc_info:
-                self.reverse_dcf.r = original_r
+            # Inject into security qualitative for downstream intrinsic DCF
+            security.qualitative["wacc_override"] = dynamic_wacc
+            wacc_note = f"Dynamic WACC applied: {dynamic_wacc:.2%} (Rating: {rating})"
+
+        # 1. Run Stage 1: Reverse DCF
+        reverse_dcf_res = self.reverse_dcf.compute(security)
         
-        implied_move = tri.cluster_center
-        summary = self._build_summary(rev, rel, intr, tri)
-        if wacc_note:
-            summary += wacc_note
+        # Restore original r for reverse DCF if overridden
+        if wacc_info:
+            self.reverse_dcf.r = original_r
+            
+        # 2. Run Stage 2: Relative Valuation
+        relative_res = self.relative.compute(security)
+        
+        # 3. Run Stage 3: Intrinsic DCF / SOTP
+        if self.use_sotp and security.fundamentals and getattr(security.fundamentals, 'segments', None):
+            intrinsic_res = self.sotp.compute(security)
+        else:
+            intrinsic_res = self.intrinsic_dcf.compute(security, fcfe_assumptions)
+            
+        if wacc_info and wacc_note:
+            intrinsic_res.notes.append(wacc_note)
+            
+        # 4. Run Stage 4: Triangulation
+        triangulation_res = self.triangulator.triangulate(
+            reverse_dcf_res, relative_res, intrinsic_res
+        )
         
         report = PipelineReport(
             ticker=security.ticker,
-            reverse_dcf=rev,
-            relative=rel,
-            intrinsic=intr,
-            triangulation=tri,
-            implied_move_pct=implied_move,
-            summary=summary
+            reverse_dcf=reverse_dcf_res,
+            relative=relative_res,
+            intrinsic=intrinsic_res,
+            triangulation=triangulation_res,
+            implied_move_pct=triangulation_res.cluster_center,
+            summary=triangulation_res.verdict
         )
         
+        # Stages 5 & 6: Macro Overlay
         if macro:
             report = self.macro_overlay.apply(report, security, macro)
-            
-        verdict_gen = VerdictGenerator()
-        report.final_verdict = verdict_gen.generate(tri, rel, security)
-        
-        return report
+            # Re-triangulate if the macro overlay altered the intrinsic valuation
+            if report.intrinsic.fair_value_per_share != intrinsic_res.fair_value_per_share:
+                report.triangulation = self.triangulator.triangulate(
+                    report.reverse_dcf, report.relative, report.intrinsic
+                )
+                report.implied_move_pct = report.triangulation.cluster_center
+                
+        # 7. Run Stage 7: Verdict
+        report.final_verdict = VerdictGenerator().generate(report.triangulation, security)
 
-    @staticmethod
-    def _build_summary(rev: ValuationResult, rel: ValuationResult, intr: ValuationResult, tri: TriangulationResult) -> str:
-        if tri.verdict == "no_data":
-            return "Insufficient data across all methods — no verdict."
-        if tri.verdict == "single_method":
-            method = tri.cluster_members[0].value if tri.cluster_members else "single method"
-            return f"Only {method} produced a result — verdict is low confidence."
-        return "Verdict generated."
+        return report
