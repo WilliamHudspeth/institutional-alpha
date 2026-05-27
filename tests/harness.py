@@ -3,6 +3,8 @@
 Runs the scoring engine over a cross-section of point-in-time securities
 and calculates Information Coefficient (IC) and quantile spreads against
 forward returns.
+
+Note: Requires pandas. Install with: pip install -e ".[data]"
 """
 
 from typing import Sequence, Tuple
