@@ -17,6 +17,25 @@ from typing import Any, Optional
 
 
 @dataclass
+class Assumption:
+    """A single named assumption underpinning a valuation thesis."""
+    name: str
+    value: float | str
+    rationale: str = ""
+    source: str = "model"  # "model" | "consensus" | "user"
+
+
+@dataclass
+class Thesis:
+    """A labelled valuation scenario (e.g. bull, base, bear)."""
+    label: str
+    assumptions: list[Assumption] = field(default_factory=list)
+    fair_value_low: Optional[float] = None
+    fair_value_high: Optional[float] = None
+    narrative: str = ""
+
+
+@dataclass
 class MacroContext:
     """Macro-environment inputs consumed by MacroRegimeFactor and MacroOverlay."""
 
@@ -143,3 +162,41 @@ class Security:
     market: MarketData = field(default_factory=MarketData)
     macro: Optional[MacroContext] = None
     qualitative: dict[str, Any] = field(default_factory=dict)
+    theses: list[Thesis] = field(default_factory=list)
+
+
+def show_spread(security: Security) -> str:
+    """Return a plain-text summary of the theses attached to a Security.
+
+    Single thesis: shows label, fair-value range, and narrative.
+    Multiple theses: shows each, then appends a spread line. Flags the spread
+    as 'wide' when it exceeds 30% of the range midpoint.
+    """
+    theses = security.theses
+    if not theses:
+        return "No theses attached."
+
+    lines: list[str] = []
+    for t in theses:
+        lines.append(f"Thesis: {t.label}")
+        lo = f"{t.fair_value_low:.2f}" if t.fair_value_low is not None else "--"
+        hi = f"{t.fair_value_high:.2f}" if t.fair_value_high is not None else "--"
+        lines.append(f"  Fair value range: {lo} - {hi}")
+        if t.narrative:
+            lines.append(f"  {t.narrative}")
+
+    if len(theses) > 1:
+        highs = [t.fair_value_high for t in theses if t.fair_value_high is not None]
+        lows = [t.fair_value_low for t in theses if t.fair_value_low is not None]
+        if highs and lows:
+            top = max(highs)
+            bottom = min(lows)
+            spread = top - bottom
+            midpoint = (top + bottom) / 2
+            lines.append("")
+            flag = ""
+            if midpoint > 0 and spread > 0.30 * midpoint:
+                flag = " [wide]"
+            lines.append(f"Spread: {spread:.2f} (high {top:.2f} - low {bottom:.2f}){flag}")
+
+    return "\n".join(lines)
