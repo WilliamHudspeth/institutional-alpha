@@ -8,11 +8,92 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- **Institutional Analytics Layer** (`src/iam/analytics/`)
+  - `AttributionEngine`: Factor-by-factor alpha decomposition with `decompose()` returning `FactorContribution` objects
+  - `RegimeDetector`: Macro environment classification into 6 regimes (INFLATIONARY, DISINFLATIONARY, RECESSIONARY, EXPANSIONARY, RISK_OFF, RISK_ON) with dynamic factor weighting via `RegimeWeights`
+  - Regime-aware portfolio diagnostics for macro-adaptive factor exposures
+
+- **Portfolio Layer** (`src/iam/portfolio/`)
+  - `PortfolioAnalyzer`: VaR via variance-covariance, factor exposures, correlation matrix, diversification ratio, Herfindahl concentration
+  - `PositionSizer`: Conviction-based, risk-based, and return-based allocation with exposure balancing
+  - `Rebalancer`: Drift detection and portfolio rebalancing logic
+  - `FactorBalancer`: Exposure balancing across factors
+  - `PortfolioVerdictEngine`: Synthesize individual security verdicts to portfolio-level OVERWEIGHT/NEUTRAL/UNDERWEIGHT/RESTRUCTURE recommendations
+  - `Position` and `Portfolio` dataclasses with market-value and PnL tracking
+
+- **Enhanced Bayesian Thesis Framework** (`src/iam/thesis/bayesian/`)
+  - `InvestmentThesis` and `Scenario` dataclasses with probability tracking
+  - `ThesisBuilder`: Fluent API for constructing theses
+  - `BayesianUpdater`: Implements Bayes' theorem with evidence likelihood maps for 15+ evidence types
+  - `ThesisTimeline`: Historical probability tracking across evidence updates
+  - UI helpers: `format_scenario_migration()`, `format_confidence_delta()` for thesis visualization
+
+- **Modern Modular Terminal Architecture** (`src/iam/ui/`)
+  - `SecurityState` and `TerminalUIState`: Immutable state dataclasses with versioning
+  - `EventBus`: Pub/sub system with 6 event categories (SECURITY_LOADED, PIPELINE_COMPLETE, PRICE_TICK, BAYESIAN_UPDATE, PORTFOLIO_REBALANCE, ERROR)
+  - `BasePanel`: Abstract base class for composable UI panels
+  - Panel implementations: `HeaderPanel`, `DecisionSheetPanel`, `ForecastMetricsPanel`, `ScenarioMatrixPanel`, `DiagnosticSignalsPanel`
+  - `PanelComposer`: Layout orchestration system for panel composition
+  - `ModernTerminal`: Event-driven terminal with async data loading and progressive UI updates
+
+- **Async Data Layer** (`src/iam/data/async_loader.py`)
+  - `AsyncDataLoader`: ThreadPoolExecutor-based async data fetching
+  - `load_security_async()`: Non-blocking security loading with event emission
+  - `compute_pipeline_async()`: Parallel valuation pipeline execution
+  - `score_factors_async()`: Concurrent factor scoring
+
+- **ANSI Sparklines and Data Visualization** (`src/iam/ui/sparklines.py`)
+  - `Sparkline`: Line charts, trend indicators, volatility bars using block characters
+  - `ProgressBar`: Inline progress rendering
+  - `HeatmapColor`: ANSI color gradients for heatmaps
+  - `MiniChart`: Compact data visualization with zero external dependencies
+
+- **Configuration System** (`src/iam/config/`)
+  - Pydantic-based `TerminalSettings` with 6 sub-configs: `FactorWeightsConfig`, `DataSourceConfig`, `TerminalConfig`, `PipelineConfig`, `AsyncConfig`, `RiskLimitsConfig`
+  - `from_file()` and `from_env()` loaders for YAML/JSON configuration
+  - Environment variable override support
+
+- **Structured Logging** (`src/iam/config/logging_config.py`)
+  - `StructuredFormatter`: JSON-based logging with context preservation
+  - `PlainFormatter`: Human-readable logging for development
+  - Component-specific loggers: `LOGGER_PIPELINE`, `LOGGER_FACTORS`, `LOGGER_PORTFOLIO`, `LOGGER_ASYNC`, `LOGGER_BACKTEST`
+  - `PerformanceLogger`: Timing and profiling utilities
+
+- **Integration Bridges** (`src/iam/integration/async_bridge.py`)
+  - `AsyncPipelineAdapter`: Wraps existing blocking pipeline code for async execution
+  - `AsyncFactorAdapter`: Async wrapper for factor scoring
+  - `ParallelWorkflow`: Coordinates multi-step async workflows
+
+- **Comprehensive Documentation**
+  - `ARCHITECTURE.md` (499 lines): 6-layer architecture, phase roadmap, integration patterns, validation gates
+  - `PORTFOLIO_GUIDE.md` (458 lines): Portfolio usage, analytics methods, position sizing, rebalancing strategies
+  - `INTEGRATION_GUIDE.md` (438 lines): End-to-end workflows from individual securities to portfolio verdicts
+  - `README_SYSTEM.md` (469 lines): Quick start, architecture overview, component reference, configuration guide
+  - `config.example.yml`: Example configuration with factor weights, terminal settings, async parameters
+
+- **Working Examples** (6+ new examples)
+  - `examples/complete_workflow_example.py`: Full security-to-portfolio pipeline with portfolio verdict
+  - `examples/portfolio_example.py`: Portfolio analytics, VaR, correlation, diversification
+  - `examples/portfolio_integration_example.py`: Verdict generation and portfolio rebalancing
+  - `examples/bayesian_thesis_example.py`: Thesis construction and Bayesian updating with evidence
+  - `examples/sparklines_example.py`: ANSI visualization techniques
+  - `examples/modern_terminal_example.py`: Event-driven terminal with async data loading
+  - `examples/terminal_ui_example.py`: Modular panel composition
+
 - **Earnings Quality / Working Capital Quality Factor**: Fully implemented `_working_capital_quality` sub-component inside `EarningsQualityFactor` (`src/iam/factors/earnings_quality.py`). Centralized the `change_in_working_capital` property in the `Fundamentals` dataclass (`src/iam/data/security.py`) to native platform support.
 - **Expectations Difficulty / ROIC Difficulty Factor**: Fully implemented `_roic_difficulty` sub-component inside `ExpectationsDifficultyFactor` (`src/iam/factors/expectations_difficulty.py`).
 - **YFinance Live Data Adapter**: Integrated a fully robust, null-safe live Yahoo Finance data provider (`src/iam/data/providers/yfinance_adapter.py`) with clean error handling for quarterly balance sheet and income statement parsing.
 - **Local Platform Auditor (`scripts/verify.py`)**: Designed and integrated a local repository integrity validation tool to perform file-by-file syntax checking (handling U+FEFF BOM characters), detect git conflict markers, run ruff linter/formatting checks, verify mypy type safety, and verify pytest suites with a clean terminal status dashboard.
 - **AI Working Notes Onboarding (`AI.md`)**: Renamed and generalized the old `CLAUDE.md` to `AI.md` to establish universal guidelines for all AI coding assistants (specifically referencing both Claude and Antigravity) with dedicated audit instructions.
+
+### Changed
+
+- **Architecture**: Transitioned from monolithic terminal (1k+ LOC) to modular panel system (50–100 LOC per panel) with event-driven composition and immutable state management.
+- **Data loading**: Synchronous-only architecture replaced with `AsyncDataLoader` using ThreadPoolExecutor; UI shows progressive updates and loading states.
+- **Portfolio construction**: From subjective allocation to data-driven `PositionSizer` with conviction-based, risk-based, and return-based sizing tied to security verdicts.
+- **Thesis evolution**: Narrative-driven updates formalized via Bayesian theorem with evidence reliability weighting (0–1) preventing overfitting to noisy data.
+- **Factor weighting**: Fixed weights replaced with macro-regime-aware `RegimeWeights` applying 0.3x to 2.0x multipliers per factor per regime.
+- **Risk transparency**: Portfolio risk now quantifiable via VaR, correlations, concentration metrics, and factor exposures via `PortfolioAnalyzer`.
 
 ### Fixed
 
@@ -22,6 +103,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Test Assertion Cleanliness**: Fixed comment block formatting and assertions inside `tests/test_thesis_engine.py`.
 - **Formatting & Style Cleanliness**: Brought the entire 125-file codebase into 100% compliance with `ruff format` and `ruff check` (including `isort` import sorting), and fully formatted and lint-cleaned all platform utility scripts.
 - **Test Suite Standardization**: Re-anchored the test suite to 502 cleanly passing tests.
+- **Portfolio Verdict Enum Handling**: Fixed `PortfolioVerdictEngine.format_recommendation()` to support both enum and string verdict representations.
 
 ---
 
