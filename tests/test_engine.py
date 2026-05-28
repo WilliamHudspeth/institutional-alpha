@@ -1,6 +1,5 @@
 """End-to-end smoke and behavior tests for the scoring engine."""
 
-
 from iam import Fundamentals, MarketData, Security, score
 from iam.factors.base import FactorContribution
 

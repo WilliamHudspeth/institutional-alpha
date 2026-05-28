@@ -13,6 +13,7 @@ from iam.valuation.probabilistic_growth import GrowthEstimatorEngine, build_engi
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def make_engine(
     market_cap=1_000.0,
     free_cash_flow=80.0,
@@ -67,6 +68,7 @@ def make_engine(
 # DCF core
 # ---------------------------------------------------------------------------
 
+
 class TestDCFValue:
     def test_zero_growth_yields_finite_value(self):
         eng = make_engine(free_cash_flow=100.0, net_debt=0.0, wacc=0.09)
@@ -94,6 +96,7 @@ class TestDCFValue:
 # ---------------------------------------------------------------------------
 # Implied growth (reverse DCF with brentq)
 # ---------------------------------------------------------------------------
+
 
 class TestImpliedGrowth:
     def test_returns_estimate_for_positive_fcf(self):
@@ -137,6 +140,7 @@ class TestImpliedGrowth:
 # Historical CAGR
 # ---------------------------------------------------------------------------
 
+
 class TestHistoricalCAGR:
     def test_returns_median_of_lookbacks(self):
         eng = make_engine(growth_3y=0.10, growth_5y=0.08, growth_10y=0.06)
@@ -174,6 +178,7 @@ class TestHistoricalCAGR:
 # Sustainable growth (ROIC × reinvestment_rate)
 # ---------------------------------------------------------------------------
 
+
 class TestSustainableGrowth:
     def test_basic_formula(self):
         eng = make_engine(roic=0.20, reinvestment_rate=0.50)
@@ -210,6 +215,7 @@ class TestSustainableGrowth:
 # ---------------------------------------------------------------------------
 # Bottom-up growth
 # ---------------------------------------------------------------------------
+
 
 class TestBottomUpGrowth:
     def test_returns_none_without_revenue_growth(self):
@@ -249,7 +255,9 @@ class TestBottomUpGrowth:
         assert comp_est.value < flat_est.value
 
     def test_output_constrained_to_range(self):
-        eng = make_engine(revenue_growth_recent=5.0, gross_margin_current=0.99, gross_margin_lag=0.01)
+        eng = make_engine(
+            revenue_growth_recent=5.0, gross_margin_current=0.99, gross_margin_lag=0.01
+        )
         est = eng.bottom_up_growth()
         assert est is not None
         assert -0.10 <= est.value <= 0.40
@@ -258,6 +266,7 @@ class TestBottomUpGrowth:
 # ---------------------------------------------------------------------------
 # Sector prior
 # ---------------------------------------------------------------------------
+
 
 class TestSectorPrior:
     def test_always_returns_estimate(self):
@@ -277,6 +286,7 @@ class TestSectorPrior:
 # ---------------------------------------------------------------------------
 # Margin trajectory haircuts
 # ---------------------------------------------------------------------------
+
 
 class TestMarginPenalty:
     def test_stable_margins_give_minimal_haircut(self):
@@ -320,27 +330,36 @@ class TestMarginPenalty:
 # Weight computation
 # ---------------------------------------------------------------------------
 
+
 class TestWeights:
     def test_weights_sum_to_one(self):
         eng = make_engine()
-        estimates = [e for e in [
-            eng.implied_growth(),
-            eng.historical_cagr(),
-            eng.sustainable_growth(),
-            eng.bottom_up_growth(),
-            eng.sector_prior(),
-        ] if e is not None]
+        estimates = [
+            e
+            for e in [
+                eng.implied_growth(),
+                eng.historical_cagr(),
+                eng.sustainable_growth(),
+                eng.bottom_up_growth(),
+                eng.sector_prior(),
+            ]
+            if e is not None
+        ]
         weighted = eng.compute_weights(estimates)
         total = sum(e.weight for e in weighted)
         assert abs(total - 1.0) < 1e-9
 
     def test_lower_variance_gets_higher_weight(self):
         eng = make_engine()
-        estimates = [e for e in [
-            eng.implied_growth(),
-            eng.historical_cagr(),
-            eng.sector_prior(),
-        ] if e is not None]
+        estimates = [
+            e
+            for e in [
+                eng.implied_growth(),
+                eng.historical_cagr(),
+                eng.sector_prior(),
+            ]
+            if e is not None
+        ]
         weighted = eng.compute_weights(estimates)
         # Sector prior always has highest base variance → lowest weight
         sector = next(e for e in weighted if e.name == "sector")
@@ -351,6 +370,7 @@ class TestWeights:
 # ---------------------------------------------------------------------------
 # blended_growth (main output)
 # ---------------------------------------------------------------------------
+
 
 class TestBlendedGrowth:
     def test_returns_result(self):
@@ -403,6 +423,7 @@ class TestBlendedGrowth:
 # Growth persistence profile (moat decay)
 # ---------------------------------------------------------------------------
 
+
 class TestGrowthPersistence:
     def test_high_moat_decays_slowly(self):
         high_moat = make_engine(moat_durability=0.95)
@@ -435,6 +456,7 @@ class TestGrowthPersistence:
 # to_dict audit trail
 # ---------------------------------------------------------------------------
 
+
 class TestAuditTrail:
     def test_to_dict_has_required_keys(self):
         eng = make_engine()
@@ -460,6 +482,7 @@ class TestAuditTrail:
 # ---------------------------------------------------------------------------
 # Factory: build_engine_from_security
 # ---------------------------------------------------------------------------
+
 
 class TestFactory:
     def _make_security(self, ticker="AAPL", sector="Technology"):

@@ -390,9 +390,7 @@ class TestAdaptiveEngine:
         engine = AdaptiveValuationEngine()
 
         profiles = {
-            "KO": CompanyProfile(
-                "KO", 0.06, 0.052, 0.05, 0.0439, 0.06, 0.226, 0.15
-            ),
+            "KO": CompanyProfile("KO", 0.06, 0.052, 0.05, 0.0439, 0.06, 0.226, 0.15),
             "AMD": CompanyProfile(
                 "AMD",
                 0.25,
@@ -404,15 +402,9 @@ class TestAdaptiveEngine:
                 0.163,
                 mid_cycle_margin=0.12,
             ),
-            "BLK": CompanyProfile(
-                "BLK", 0.08, 0.027, 0.10, 0.06, 0.08, 0.445, 0.30, roe=0.11
-            ),
-            "GOOGL": CompanyProfile(
-                "GOOGL", 0.14, 0.177, 0.12, 0.12, 0.15, 0.286, 0.20
-            ),
-            "META": CompanyProfile(
-                "META", 0.15, 0.168, 0.15, 0.12, 0.15, 0.380, 0.20
-            ),
+            "BLK": CompanyProfile("BLK", 0.08, 0.027, 0.10, 0.06, 0.08, 0.445, 0.30, roe=0.11),
+            "GOOGL": CompanyProfile("GOOGL", 0.14, 0.177, 0.12, 0.12, 0.15, 0.286, 0.20),
+            "META": CompanyProfile("META", 0.15, 0.168, 0.15, 0.12, 0.15, 0.380, 0.20),
             "MPC": CompanyProfile(
                 "MPC",
                 0.05,
@@ -424,9 +416,7 @@ class TestAdaptiveEngine:
                 0.05,
                 mid_cycle_margin=0.08,
             ),
-            "WMT": CompanyProfile(
-                "WMT", 0.07, 0.08, 0.08, 0.045, 0.05, 0.0293, 0.04, roic=0.12
-            ),
+            "WMT": CompanyProfile("WMT", 0.07, 0.08, 0.08, 0.045, 0.05, 0.0293, 0.04, roic=0.12),
             "GS": CompanyProfile(
                 "GS",
                 0.06,

@@ -68,20 +68,29 @@ class TestPredefinedProfiles:
         """Conservative profile should be more pessimistic."""
         assert CONSERVATIVE_PROFILE.wacc > BASE_PROFILE.wacc
         assert CONSERVATIVE_PROFILE.near_term_growth < BASE_PROFILE.near_term_growth
-        assert CONSERVATIVE_PROFILE.quality_of_earnings_discount < BASE_PROFILE.quality_of_earnings_discount
+        assert (
+            CONSERVATIVE_PROFILE.quality_of_earnings_discount
+            < BASE_PROFILE.quality_of_earnings_discount
+        )
         assert CONSERVATIVE_PROFILE.max_pe_acceptable < BASE_PROFILE.max_pe_acceptable
 
     def test_base_profile(self):
         """Base profile should be balanced."""
         assert BASE_PROFILE.wacc > AGGRESSIVE_PROFILE.wacc
         assert BASE_PROFILE.near_term_growth < AGGRESSIVE_PROFILE.near_term_growth
-        assert BASE_PROFILE.quality_of_earnings_discount < AGGRESSIVE_PROFILE.quality_of_earnings_discount
+        assert (
+            BASE_PROFILE.quality_of_earnings_discount
+            < AGGRESSIVE_PROFILE.quality_of_earnings_discount
+        )
 
     def test_aggressive_profile(self):
         """Aggressive profile should be most optimistic."""
         assert AGGRESSIVE_PROFILE.near_term_growth > BASE_PROFILE.near_term_growth
         assert AGGRESSIVE_PROFILE.terminal_growth_rate > BASE_PROFILE.terminal_growth_rate
-        assert AGGRESSIVE_PROFILE.quality_of_earnings_discount > BASE_PROFILE.quality_of_earnings_discount
+        assert (
+            AGGRESSIVE_PROFILE.quality_of_earnings_discount
+            > BASE_PROFILE.quality_of_earnings_discount
+        )
 
     def test_profiles_have_metadata(self):
         """All profiles should have descriptive metadata."""
@@ -238,7 +247,14 @@ class TestSectorOverrides:
 
     def test_all_sectors_defined(self):
         """All major sectors should have overrides."""
-        expected_sectors = ["Technology", "Financials", "Healthcare", "Utilities", "Consumer", "Energy"]
+        expected_sectors = [
+            "Technology",
+            "Financials",
+            "Healthcare",
+            "Utilities",
+            "Consumer",
+            "Energy",
+        ]
         registry = AssumptionRegistry()
 
         for sector in expected_sectors:
