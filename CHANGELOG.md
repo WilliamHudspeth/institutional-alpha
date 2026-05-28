@@ -11,13 +11,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Earnings Quality / Working Capital Quality Factor**: Fully implemented `_working_capital_quality` sub-component inside `EarningsQualityFactor` (`src/iam/factors/earnings_quality.py`). Centralized the `change_in_working_capital` property in the `Fundamentals` dataclass (`src/iam/data/security.py`) to native platform support.
 - **Expectations Difficulty / ROIC Difficulty Factor**: Fully implemented `_roic_difficulty` sub-component inside `ExpectationsDifficultyFactor` (`src/iam/factors/expectations_difficulty.py`).
 - **YFinance Live Data Adapter**: Integrated a fully robust, null-safe live Yahoo Finance data provider (`src/iam/data/providers/yfinance_adapter.py`) with clean error handling for quarterly balance sheet and income statement parsing.
+- **Local Platform Auditor (`scripts/verify.py`)**: Designed and integrated a local repository integrity validation tool to perform file-by-file syntax checking (handling U+FEFF BOM characters), detect git conflict markers, run ruff linter/formatting checks, verify mypy type safety, and verify pytest suites with a clean terminal status dashboard.
+- **AI Working Notes Onboarding (`AI.md`)**: Renamed and generalized the old `CLAUDE.md` to `AI.md` to establish universal guidelines for all AI coding assistants (specifically referencing both Claude and Antigravity) with dedicated audit instructions.
 
 ### Fixed
 
 - **Yahoo Finance Indentation & Duplicate Blocks**: Removed duplicate and malformed cash flow parsing blocks in `yfinance_adapter.py`'s `except Exception` clause and formatted all code with strict 4-space indentation.
 - **Type Checking Compliance**: Resolved Mypy union and operand type-checking errors in `src/iam/valuation/fcfe_dcf.py` and `synthesis.py` by introducing explicit nullability handling and type annotations.
+- **Mypy Type-Safety Corrections**: Debugged and resolved type union errors and undefined name warnings inside `src/iam/thesis/bayesian/evidence.py` and `src/iam/backtest/manifest.py`.
 - **Test Assertion Cleanliness**: Fixed comment block formatting and assertions inside `tests/test_thesis_engine.py`.
-- **Formatting Standards**: Brought the entire 125-file codebase into 100% compliance with `ruff format` and `ruff check` (including `isort` import sorting).
+- **Formatting & Style Cleanliness**: Brought the entire 125-file codebase into 100% compliance with `ruff format` and `ruff check` (including `isort` import sorting), and fully formatted and lint-cleaned all platform utility scripts.
 - **Test Suite Standardization**: Re-anchored the test suite to 502 cleanly passing tests.
 
 ---
