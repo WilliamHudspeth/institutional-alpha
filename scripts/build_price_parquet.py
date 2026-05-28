@@ -11,21 +11,13 @@ Usage:
 import hashlib
 import json
 from datetime import datetime
-from pathlib import Path
 
 import pandas as pd
 import polars as pl
 import typer
 
-try:
-    import yfinance as yf
-
-    HAS_YFINANCE = True
-except ImportError:
-    HAS_YFINANCE = False
-
 from iam.backtest.config import BacktestConfig
-from iam.backtest.data_loader import StooqDataLoader
+from iam.backtest.sources import default_chain
 from iam.backtest.universe import load_universe_tickers
 
 app = typer.Typer()
@@ -56,77 +48,52 @@ def build_prices(
 
     typer.echo()
 
-    # Download prices (yfinance primary, Stooq fallback)
-    typer.echo(f"📊 Downloading {len(tickers)} tickers from {start} to {end}...")
-    end_with_horizon = (pd.Timestamp(end) + pd.Timedelta(days=horizon)).strftime("%Y-%m-%d")
+    # Download prices via the shared yfinance → Stooq fallback chain.
+    # Per-ticker so one ticker's failure can't abort the whole batch, and so
+    # each row's serving source is recorded for the provenance/audit trail.
+    chain = default_chain()
+    typer.echo(f"📊 Downloading {len(tickers)} tickers via {chain!r}...")
+    # Extend download window to cover all horizons, not just the primary one.
+    max_horizon = max(config.horizons_days + [horizon])
+    end_with_horizon = (pd.Timestamp(end) + pd.Timedelta(days=max_horizon)).strftime("%Y-%m-%d")
 
     rows = []
     errors = []
+    source_counts: dict[str, int] = {}
 
-    # Try yfinance first
-    if HAS_YFINANCE:
-        typer.echo("   Trying yfinance (primary)...")
+    for ticker in typer.progressbar(
+        tickers, label="Downloading", show_pos=True, show_percent=True
+    ):
         try:
-            data = yf.download(
-                tickers,
-                start=start,
-                end=end_with_horizon,
-                progress=not verbose,
-                auto_adjust=True,
-            )
-
-            # Handle single ticker case
-            if isinstance(data, pd.Series):
-                data = data.to_frame(name="Close")
-
-            if isinstance(data.columns, pd.MultiIndex):
-                # Multi-ticker case
-                closes = data["Close"]
-            else:
-                # Single ticker
-                closes = data[["Close"]]
-                closes.columns = tickers
-
-            # Reshape to long format
-            closes = closes.reset_index()
-            closes = closes.melt(id_vars=["Date"], var_name="ticker", value_name="close")
-            closes = closes.dropna(subset=["close"])
-            closes["date"] = closes["Date"].dt.date
-            closes = closes[["date", "ticker", "close"]].copy()
-
-            rows.extend(closes.to_dict("records"))
-            typer.echo(f"   ✓ yfinance succeeded: {len(rows)} records")
-            data_source = "yfinance"
-
+            df = chain.download_history(ticker, start, end_with_horizon)
         except Exception as e:
-            typer.echo(f"   ⚠️  yfinance failed: {e}")
-            data_source = "stooq"
-
-    # Fallback to Stooq if yfinance failed
-    if not rows or not HAS_YFINANCE:
-        typer.echo("   Trying Stooq (fallback)...")
-        loader = StooqDataLoader()
-
-        for ticker in typer.progressbar(
-            tickers, label="Downloading", show_pos=True, show_percent=True
-        ):
-            try:
-                df = loader.download_ticker_data(ticker, start, end_with_horizon)
-                df = df.reset_index()
-                df.columns = ["date", "open", "high", "low", "close", "volume"]
-                df["ticker"] = ticker
-                rows.extend(df[["date", "ticker", "close"]].to_dict("records"))
-            except Exception as e:
-                if verbose:
-                    typer.echo(f"      {ticker}: {e}")
-                errors.append((ticker, str(e)))
-
-        typer.echo(f"   ✓ Stooq succeeded: {len(rows)} records, {len(errors)} errors")
-        data_source = "stooq"
+            if verbose:
+                typer.echo(f"      {ticker}: {e}")
+            errors.append((ticker, f"unexpected error: {e}"))
+            continue
+        if df is None or df.empty or "Close" not in df.columns:
+            errors.append((ticker, "no data from any source"))
+            continue
+        used = chain.last_used or "unknown"
+        source_counts[used] = source_counts.get(used, 0) + 1
+        out = pd.DataFrame(
+            {
+                "date": df["Date"].dt.strftime("%Y-%m-%d"),
+                "ticker": ticker,
+                "close": df["Close"].astype(float),
+            }
+        ).dropna(subset=["close"])
+        rows.extend(out.to_dict("records"))
 
     if not rows:
-        typer.echo("✗ No price data downloaded", err=True)
+        typer.echo("✗ No price data downloaded from any source", err=True)
         raise typer.Exit(1)
+
+    data_source = "+".join(sorted(source_counts)) or "none"
+    typer.echo(
+        f"   ✓ {len(rows)} records from {data_source} "
+        f"(by source: {source_counts}); {len(errors)} tickers failed"
+    )
 
     typer.echo()
 
@@ -140,15 +107,22 @@ def build_prices(
     # Sort by ticker and date for computing returns
     df_pl = df_pl.sort(["ticker", "date"])
 
-    # Compute forward return: price[t+horizon] / price[t] - 1
-    df_pl = df_pl.with_columns(
+    # Compute one forward-return column per horizon.
+    # fwd_ret_{H}d = price[t+H] / price[t] - 1.
+    # fwd_ret is kept as an alias for the primary horizon.
+    all_horizons = sorted(set(config.horizons_days + [horizon]))
+    horizon_exprs = [
         pl.col("close")
-        .shift(-horizon)
+        .shift(-h)
         .over("ticker")
         .truediv(pl.col("close"))
         .sub(1)
-        .alias("fwd_ret")
-    )
+        .alias(f"fwd_ret_{h}d")
+        for h in all_horizons
+    ]
+    df_pl = df_pl.with_columns(horizon_exprs)
+    # Primary alias so existing consumers reading "fwd_ret" keep working.
+    df_pl = df_pl.with_columns(pl.col(f"fwd_ret_{horizon}d").alias("fwd_ret"))
 
     # Filter to evaluation period (exclude forward period)
     df_pl = df_pl.filter(pl.col("date") <= end)
@@ -176,11 +150,13 @@ def build_prices(
             "version": "v0.4.0",
             "timestamp": datetime.utcnow().isoformat(),
             "data_source": data_source,
+            "source_breakdown": source_counts,
         },
         "config": {
             "start": start,
             "end": end,
             "horizon_days": horizon,
+            "all_horizons_days": all_horizons,
         },
         "data": {
             "file_path": str(config.price_file),

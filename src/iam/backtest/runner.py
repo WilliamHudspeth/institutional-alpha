@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from iam.api import Security, value_security
 from iam.backtest.calibration import summarize_backtest
-from iam.backtest.metrics import hit_rate, information_coefficient
+from iam.backtest.metrics import hit_rate, ic_value_weighted, information_coefficient
 from iam.backtest.quantiles import decile_spread
 from iam.backtest.snapshots import build_snapshot, load_snapshot
 
@@ -34,13 +34,23 @@ def _score_security_worker(
         cache_dir: Cache directory for snapshots
 
     Returns:
-        Tuple of (ticker, score, sector)
+        Tuple of (ticker, score, sector, market_cap)
     """
     try:
         # Try cached snapshot first
         snapshot = load_snapshot(base.ticker, as_of, cache_dir=cache_dir)
         if snapshot is None:
             snapshot = build_snapshot(base, as_of, cache_dir=cache_dir)
+
+        market_cap = snapshot.market.market_cap if snapshot.market else None
+
+        # The composite multi-factor score is the alpha signal we validate.
+        # Other fields (e.g. cost_of_equity) are risk metrics, not signals.
+        if score_field == "composite":
+            from iam.engine.composite import score as composite_score
+
+            score = composite_score(snapshot).composite
+            return base.ticker, score, base.sector, market_cap
 
         # Evaluate using the full stack (black box)
         result = value_security(snapshot)
@@ -51,11 +61,11 @@ def _score_security_worker(
         else:
             score = result.get("model_result", {}).get("value", 0.0)
 
-        return base.ticker, score, base.sector
+        return base.ticker, score, base.sector, market_cap
 
     except Exception:
         # Return NaN score on failure
-        return base.ticker, float("nan"), base.sector
+        return base.ticker, float("nan"), base.sector, None
 
 
 def run_backtest(
@@ -63,7 +73,7 @@ def run_backtest(
     dates: list[str],  # YYYY-MM-DD format, month-ends preferred
     price_block: pd.DataFrame,  # Pre-loaded price block (date, ticker) MultiIndex
     config: object | None = None,
-    score_field: str = "cost_of_equity",
+    score_field: str = "composite",
 ) -> pd.DataFrame:
     """Run historical backtest with parallel scoring.
 
@@ -75,7 +85,9 @@ def run_backtest(
         score_field: Field to extract from value_security result
 
     Returns:
-        DataFrame with columns: date, ic, ic_sector_neutral, hit_rate, spread, top, bottom, coverage, n_securities
+        DataFrame with columns: date, ic, ic_vw, ic_sector_neutral, hit_rate, spread, top,
+        bottom, coverage, n_securities, plus ic_{H}d / ic_vw_{H}d columns for each horizon
+        column found in the price block (e.g. ic_21d, ic_63d, ic_126d, ic_252d).
     """
     n_jobs_cpu = getattr(config, "n_jobs_cpu", 4) if config else 4
     cache_dir = (
@@ -93,6 +105,12 @@ def run_backtest(
         price_block["date"] = pd.to_datetime(price_block["date"]).dt.strftime("%Y-%m-%d")
         price_block = price_block.set_index(["date", "ticker"])
 
+    # Discover which per-horizon columns are present (e.g. fwd_ret_21d).
+    horizon_cols = sorted(
+        [c for c in price_block.columns if c.startswith("fwd_ret_") and c.endswith("d")],
+        key=lambda c: int(c[len("fwd_ret_"):-1]),
+    )
+
     results = []
 
     with ProcessPoolExecutor(max_workers=n_jobs_cpu) as executor:
@@ -103,24 +121,25 @@ def run_backtest(
                     for base in universe
                 ]
 
-                scores = {}
-                sectors = {}
+                scores: dict[str, float] = {}
+                sectors: dict[str, str] = {}
+                mcaps: dict[str, float | None] = {}
                 for future in futures:
-                    ticker, score, sector = future.result()
+                    ticker, score, sector, market_cap = future.result()
                     scores[ticker] = score
                     sectors[ticker] = sector
+                    mcaps[ticker] = market_cap
 
             except Exception as e:
                 print(f"Warning: Parallel scoring failed on {date}: {e}")
                 continue
 
-            # Get forward returns for this date
+            # Get primary forward returns for this date
             try:
                 fwd = price_block.xs(date, level="date")["fwd_ret"]
             except KeyError:
                 continue
 
-            # Build score/return dataframe with sector column
             common_tickers = [t for t in scores.keys() if t in fwd.index and not pd.isna(scores[t])]
             if len(common_tickers) < 10:
                 continue
@@ -131,30 +150,55 @@ def run_backtest(
                     "score": [scores[t] for t in common_tickers],
                     "fwd": [fwd[t] for t in common_tickers],
                     "sector": [sectors[t] for t in common_tickers],
+                    "market_cap": [mcaps.get(t) for t in common_tickers],
                 }
             )
 
-            # Calculate metrics
+            # Primary-horizon metrics (backward-compatible columns)
             ic = information_coefficient(df)
+            ic_vw = ic_value_weighted(df)
             ic_sn = (
                 information_coefficient(df, sector_col="sector") if "sector" in df.columns else ic
             )
             hr = hit_rate(df)
             spreads = decile_spread(df)
 
-            results.append(
-                {
-                    "date": date,
-                    "ic": ic,
-                    "ic_sector_neutral": ic_sn,
-                    "hit_rate": hr,
-                    "spread": spreads["spread"],
-                    "top": spreads["top"],
-                    "bottom": spreads["bottom"],
-                    "coverage": spreads["coverage"],
-                    "n_securities": len(common_tickers),
-                }
-            )
+            row: dict = {
+                "date": date,
+                "ic": ic,
+                "ic_vw": ic_vw,
+                "ic_sector_neutral": ic_sn,
+                "hit_rate": hr,
+                "spread": spreads["spread"],
+                "top": spreads["top"],
+                "bottom": spreads["bottom"],
+                "coverage": spreads["coverage"],
+                "n_securities": len(common_tickers),
+            }
+
+            # Per-horizon IC columns: ic_21d, ic_vw_21d, ic_63d, ...
+            date_slice = price_block.xs(date, level="date") if date in price_block.index.get_level_values(0) else None
+            if date_slice is not None:
+                for hcol in horizon_cols:
+                    h_label = hcol[len("fwd_ret_"):]  # e.g. "21d"
+                    if hcol not in date_slice.columns:
+                        continue
+                    h_fwd = date_slice[hcol]
+                    h_tickers = [t for t in common_tickers if t in h_fwd.index and not pd.isna(h_fwd.get(t))]
+                    if len(h_tickers) < 10:
+                        continue
+                    h_df = pd.DataFrame(
+                        {
+                            "ticker": h_tickers,
+                            "score": [scores[t] for t in h_tickers],
+                            "fwd": [h_fwd[t] for t in h_tickers],
+                            "market_cap": [mcaps.get(t) for t in h_tickers],
+                        }
+                    )
+                    row[f"ic_{h_label}"] = information_coefficient(h_df)
+                    row[f"ic_vw_{h_label}"] = ic_value_weighted(h_df)
+
+            results.append(row)
 
     if not results:
         raise ValueError("No valid backtest results generated")
@@ -166,20 +210,45 @@ def run_backtest(
     return results_df
 
 
-def print_backtest_summary(results_df: pd.DataFrame) -> None:
-    """Print institutional backtest summary."""
+def print_backtest_summary(results_df: pd.DataFrame) -> dict:
+    """Print institutional backtest summary including multi-horizon IC table."""
+    from iam.backtest.metrics import information_ratio, newey_west_se_rigorous
+
     summary = summarize_backtest(results_df)
 
     print("\n" + "=" * 70)
-    print("BACKTEST SUMMARY")
+    print("BACKTEST SUMMARY — COMPOSITE SCORE")
     print("=" * 70)
     print(f"IC Mean:           {summary['ic_mean']:+.4f}")
+    print(f"IC VW:             {results_df['ic_vw'].mean():+.4f}" if "ic_vw" in results_df else "")
     print(f"IC Std:            {summary['ic_std']:.4f}")
     print(f"IC IR:             {summary['icir']:.2f}")
     print(f"Hit Rate:          {summary['hit_rate']:.1%}")
     print(f"Decile Spread:     {summary['spread_mean']:+.2%}")
     print(f"Top Decile Return: {summary['top_decile_mean']:+.2%}")
     print(f"Bot Decile Return: {summary['bottom_decile_mean']:+.2%}")
-    print("=" * 70)
 
+    # Multi-horizon table
+    horizon_cols = sorted(
+        [c for c in results_df.columns if c.startswith("ic_") and c.endswith("d") and "_vw_" not in c],
+        key=lambda c: int(c[len("ic_"):-1]),
+    )
+    if horizon_cols:
+        print()
+        print(f"  {'Horizon':>8}  {'Mean IC':>8}  {'IC VW':>8}  {'ICIR':>6}  {'NW t-stat':>10}  {'Sig':>4}")
+        print("  " + "-" * 54)
+        for hcol in horizon_cols:
+            h_label = hcol[len("ic_"):]
+            vw_col = f"ic_vw_{h_label}"
+            series = results_df[hcol].dropna()
+            if len(series) < 3:
+                continue
+            mean_ic = series.mean()
+            icir = information_ratio(series)
+            t_stat, _, _ = newey_west_se_rigorous(series, nlags=3)
+            vw_mean = results_df[vw_col].mean() if vw_col in results_df else float("nan")
+            sig = "**" if abs(t_stat) > 2.6 else ("*" if abs(t_stat) > 1.96 else "")
+            print(f"  {h_label:>8}  {mean_ic:>+8.4f}  {vw_mean:>+8.4f}  {icir:>6.2f}  {t_stat:>10.2f}  {sig:>4}")
+
+    print("=" * 70)
     return summary
