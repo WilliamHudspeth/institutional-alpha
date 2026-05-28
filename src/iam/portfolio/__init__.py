@@ -46,6 +46,11 @@ from iam.portfolio.ui import (
     format_factor_exposure_heatmap,
     format_holdings_table,
 )
+from iam.portfolio.verdicts import (
+    PortfolioRecommendation,
+    PortfolioVerdict,
+    PortfolioVerdictEngine,
+)
 
 __all__ = [
     # Data structures
@@ -60,6 +65,10 @@ __all__ = [
     "Rebalancer",
     "FactorBalancer",
     "OptimizationConstraints",
+    # Verdicts
+    "PortfolioVerdict",
+    "PortfolioRecommendation",
+    "PortfolioVerdictEngine",
     # UI
     "PortfolioHoldingsPanel",
     "PortfolioMetricsPanel",
