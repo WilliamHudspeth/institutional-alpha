@@ -156,6 +156,94 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
 
 ## Roadmap: Next Phases
 
+### Phase 0.5: Testing Excellence (Parallel to Phase 1)
+**Focus**: Overhaul testing infrastructure beyond pytest (mocking, fixtures, properties, performance)
+
+**Philosophy**: Great software is tested. The better the tests, the faster we can iterate and ship safely.
+
+#### Test Architecture Improvements
+
+- [ ] **Comprehensive Fixture Library**
+  - Shared fixtures: temp databases, mock API responses, sample data
+  - Fixture factories: generate tickers, dates, fundamentals on demand
+  - Context managers for resource cleanup (files, connections)
+  - Organized by concern (cache fixtures, source fixtures, integration fixtures)
+
+- [ ] **Mock API Strategy**
+  - Decorator library for mocking yfinance, SEC EDGAR, Stooq
+  - Realistic response data (match actual API schemas)
+  - Controllable failures (rate limits, timeouts, partial data)
+  - Request inspection (verify correct parameters sent)
+
+- [ ] **Parametrized Tests**
+  - Test multiple inputs per test (pytest.mark.parametrize)
+  - Reduce copy-paste test code
+  - Example: test all data sources with same assertions
+  - Example: test all cache TTLs (0s, 1s, 7d, 30d)
+
+- [ ] **Property-Based Testing (Hypothesis)**
+  - Generate random inputs, verify invariants hold
+  - Example: cache expiry always happens eventually
+  - Example: fallback chain always returns data or empty series
+  - Catch edge cases (timezone edge cases, leap years, etc.)
+
+- [ ] **Contract Testing**
+  - Verify all data sources implement the same interface
+  - Abstract base class with type hints (Protocol)
+  - Test that adapters can be swapped interchangeably
+  - Catches breaking changes early
+
+- [ ] **Performance Benchmarking**
+  - Benchmark critical paths (cache lookups, API fetches)
+  - Track performance regressions (pytest-benchmark)
+  - Set SLAs (cache lookup < 1ms, API fetch < 5s)
+  - Performance test suite runs on every commit
+
+- [ ] **Regression Test Suite**
+  - Capture bug reports as failing tests
+  - Once fixed, test stays to prevent re-regression
+  - Example: off-by-one in date filtering
+  - Example: cache TTL miscalculation
+
+- [ ] **Mutation Testing (Mutmut)**
+  - Intentionally break code, tests should fail
+  - Measures test quality (are you actually testing?)
+  - Example: change `>` to `>=`, tests should catch it
+  - Example: remove a fallback, tests should fail
+  - Target: >90% mutation kill rate
+
+- [ ] **Coverage Tracking & Enforcement**
+  - Minimum 85% line coverage (enforced on PR)
+  - Minimum 80% branch coverage
+  - Coverage report generated on every test run
+  - Gaps highlighted (unused code paths)
+
+- [ ] **Test Organization**
+  - `tests/fixtures/` — shared fixtures
+  - `tests/unit/` — single-unit tests (cache, individual sources)
+  - `tests/integration/` — full workflows (backtest, end-to-end)
+  - `tests/performance/` — benchmarks
+  - `tests/regression/` — bug reports turned tests
+
+- [ ] **Test Documentation**
+  - Each test has a docstring explaining what it tests and why
+  - Fixtures documented (what they set up, what they clean up)
+  - Test naming convention: `test_<unit>_<scenario>_<expected>`
+  - Example: `test_cache_ttl_expiry_returns_none`
+
+#### Success Criteria for Phase 0.5
+
+- 500+ tests passing (up from 502)
+- 85%+ coverage on new data layer
+- All data sources tested with parametrized tests + mocking
+- Property-based tests catch 5+ edge cases
+- Performance benchmarks < 1% regression
+- Mutation kill rate > 90%
+- Zero tests rely on external APIs (all mocked)
+- CI/CD runs full suite on every commit
+
+---
+
 ### Phase 1: Research Maturity (Next 4-6 weeks)
 **Focus**: Institutional polish & governance  
 **Dependency**: Phase 1.5 (Security Hardening) runs in parallel and gates API exposure

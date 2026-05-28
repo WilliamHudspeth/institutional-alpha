@@ -66,6 +66,62 @@ With `prior_ic = 0.02` and `prior_strength = 36` months, 36 months of data give 
 
 **Pluggable data sources.** Price and balance-sheet data flow through a `DataSource` contract (`src/iam/backtest/sources/base.py`). The default chain is yfinance → Stooq: yfinance is queried first (institutional-grade, includes quarterly debt); on any failure, Stooq is queried (free CSV export, sandbox-safe, price only). Every new source — FMP, Tiingo, custom CSV — implements three methods and slots in without touching `snapshots.py` or `runner.py`.
 
+### Data Architecture (Zero-Configuration, Redundant)
+
+The data layer is designed for **democratization**: no API keys, no vendor lock-in, offline-capable.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    Your Backtest / Analysis                       │
+└─────────────────────────────┬──────────────────────────────────────┘
+                              │
+                ┌─────────────▼──────────────┐
+                │  UnifiedDataAdapter        │
+                │  (get_fundamentals,        │
+                │   fetch_price_history,     │
+                │   fetch_macro)             │
+                └─────────────┬───────────────┘
+                              │
+                ┌─────────────▼───────────────────────────────┐
+                │    RedundantDataFetcher                     │
+                │  • Tries sources in priority order          │
+                │  • Exponential backoff on rate limits        │
+                │  • SQLite cache (TTL: 7 days default)       │
+                │  • Offline-first (prefetch once, works      │
+                │    offline forever)                          │
+                └─────────────┬───────────────────────────────┘
+                              │
+    ┌─────────────┬───────────┼────────────┬─────────────┬──────┐
+    ▼             ▼           ▼            ▼             ▼      ▼
+┌────────────┐ ┌────────┐ ┌─────────┐ ┌──────────┐ ┌─────────┐ ┌────────┐
+│ SEC EDGAR  │ │yfinance│ │  Stooq  │ │   FRED   │ │ Alpha   │ │ Custom │
+│            │ │        │ │ (free   │ │ (macro)  │ │Vantage  │ │  API   │
+│ Fundamentals
+│ Point-in-  │ │Prices  │ │fallback)│ │          │ │(paid    │ │(any    │
+│ time       │ │Latest  │ │         │ │GDP, CPI, │ │tier)    │ │format) │
+│ (Official)  │ │funds   │ │         │ │ unemp    │ │         │ │        │
+└────────────┘ └────────┘ └─────────┘ └──────────┘ └─────────┘ └────────┘
+     ✓NO KEY      ✓FREE     ✓FREE      ✓NO KEY    $API KEY   $API KEY
+                           FALLBACK
+```
+
+**How it works:**
+
+1. **User downloads repo** → `pip install` (one-time)
+2. **User runs prefetch** (optional) → `python data_fetcher.py --prefetch` downloads 20+ years of data to local SQLite cache
+3. **User runs backtest** → Uses cached data, only fetches missing dates (rare)
+4. **Network fails?** → No problem. Backtest still works offline with cached data.
+5. **Want real-time FRED?** → Add your API key, it becomes priority source. No code changes.
+6. **Want Bloomberg?** → Community can contribute `BloombergSource` adapter, plugs in seamlessly.
+
+**Key features:**
+
+- **Zero API keys required** — yfinance, Stooq, SEC EDGAR, macro CSV are all free/public
+- **Automatic fallback** — yfinance throttles? Stooq takes over. Both fail? Use cache.
+- **Offline-first** — prefetch once (20 tickers, 20 years ≈ 1 hour), backtest works forever without internet
+- **Community-extensible** — add data sources (Bloomberg, Refinitiv, proprietary) as drop-in adapters
+- **Institutional-grade** — redundant, rate-limited, cached, reproducible
+
 **Manifest.** Every backtest run writes a `manifest.json` capturing git SHA, file hashes for all backtest modules, and the full config dump. Two runs with the same manifest are guaranteed reproducible.
 
 ## What's in the box
@@ -120,6 +176,66 @@ For live market data:
 ```bash
 pip install -e ".[live]"
 ```
+
+## Quick Start
+
+### 1. Download Data (One-Time, Optional)
+
+For offline backtesting, download 20+ years of price and fundamental data:
+
+```bash
+# Downloads ~20GB to local cache, takes ~1-2 hours (one-time)
+python scripts/data_fetcher.py --prefetch --start_year 2015
+
+# After this, all backtests work offline — no internet required
+```
+
+No API keys needed. Uses free public APIs: yfinance, SEC EDGAR, Stooq.
+
+### 2. Run a Backtest
+
+```bash
+# Validate config and universe
+python -m iam.backtest.cli validate
+
+# Run multi-horizon IC backtest on composite score
+python -m iam.backtest.cli backtest
+
+# Output: Information Coefficient, Sharpe ratio, hit rate, sector-neutral IC
+```
+
+### 3. Score a Single Stock
+
+```python
+from iam.data import Security
+from iam.engine.composite import score
+
+nvda = Security(
+    ticker="NVDA",
+    sector="Semiconductors",
+    revenue_mix={"US": 0.50, "CN": 0.25, "TW": 0.15, "EU": 0.10}
+)
+
+result = score(nvda)
+print(f"Composite Score: {result.composite:+.3f}")
+print(f"Factors: {result.explain()}")
+```
+
+### 4. Run the Full Valuation Pipeline
+
+```python
+from iam.data import Security
+from iam.integration.orchestrator import Orchestrator
+
+nvda = Security(ticker="NVDA", sector="Semiconductors", ...)
+orch = Orchestrator()
+result = orch.value_security(nvda)
+
+print(f"Fair Value: ${result['model_result'].value:.2f}")
+print(f"Verdict: {result['recommendation']}")
+```
+
+See [`docs/`](docs/) for detailed examples.
 
 For the full backtest stack:
 
