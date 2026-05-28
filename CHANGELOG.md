@@ -10,9 +10,9 @@ Awaiting: empirical IC run on real S&P 100 data. Once it passes the validation g
 
 ---
 
-## [0.4.0-rc1] — 2026-05-27
+## [0.4.0-rc1] — 2026-05-27 / 2026-05-28
 
-Hardened backtest stack. Pluggable data sources, Polars-backed price block, ProcessPool parallel scoring, statsmodels Newey-West, sector-neutral IC, and Bayesian shrinkage calibration. **Test count: 355.**
+Hardened backtest stack with documentation, UI, and project-structure refinements. Pluggable data sources, Polars-backed price block, ProcessPool parallel scoring, statsmodels Newey-West, sector-neutral IC, Bayesian shrinkage calibration, typographic terminal UI, and a src-layout root cleanup. **Test count: 355.**
 
 ### Added
 
@@ -75,6 +75,86 @@ Hardened backtest stack. Pluggable data sources, Polars-backed price block, Proc
 - 355 tests passing (was 219; +136 net new)
 - One-way dependency rule preserved: `iam.backtest` imports only `iam.api.value_security()`
 - Three real bugs caught and fixed during test development (above)
+
+### Documentation
+
+- **README.md** rewrite. New "How it actually works" section in three layers (simple → complex):
+  - Layer 1 (plain English): the model scores, valuates, and tests itself
+  - Layer 2 (how pieces fit): composite formula, pipeline stages, thesis engine, backtest IC
+  - Layer 3 (math + audit trail): Bayesian shrinkage formula, Newey-West HAC, sector-neutral IC, the `DataSource` contract, manifest reproducibility
+- Updated architecture tree to surface `sources/`, `config.py`, `manifest.py`, `cli.py`. Added `pip install -e ".[backtest]"` and a CLI quick-start (`python -m iam.backtest.cli backtest`).
+- **RELEASES.md** rewrite. Release matrix at top showing current → stable history. v0.4.0-rc1 section documents what shipped, why, and the gates that promote it to v0.4.0. v0.3.6-rc marked as rolled into v0.4.0-rc1.
+- **CHANGELOG.md** rewrite to strict Keep-a-Changelog format with Added / Changed / Fixed sections. v0.4.0-rc1 Fixed section explicitly names the three bugs caught by testing.
+- **CLAUDE.md** architecture map expanded so an agent landing fresh in the repo immediately knows where everything lives: `scripts/`, `docs/`, `data/` subdirectories all enumerated with one-line purposes.
+- Cross-references updated everywhere to point at the new `docs/` and `scripts/` paths.
+
+### User interface (terminal)
+
+- **`src/iam/ui/institutional_terminal.py`** rewritten in the clean typographic style:
+  - Removed all `┌─┐│└┘` box-drawing characters
+  - Single `=` rule at top and bottom of each report; thin `-` separator after the executive summary
+  - Bracketed section headers (`[ CORE ASSUMPTIONS ]`, `[ PROBABILISTIC SCENARIO MATRIX ]`, `[ COMPONENT SIGNALS ]`)
+  - Executive-summary colons all align at one column
+  - Scenario matrix renders as a whitespace-aligned columnar grid (no vertical bars), survives long stock names without warping
+  - Header pulls `VERSION` from `iam.version` instead of hardcoding it
+  - `print_pipeline_summary()` and `print_bayesian_update_summary()` also rewritten in the new style
+  - All three public function signatures preserved — `examples/terminal_ui_example.py` works unchanged
+  - Added `_fmt_currency()` and `_fmt_pct_signed()` helpers with TypeError/ValueError fallbacks so malformed inputs render as `$—` / `—` instead of crashing
+
+- **`run.py`** rewritten to run engines silently and dispatch a single unified render:
+  - Four-step pipeline: input → silent fetch → silent engines → single `print_institutional_ui()` call
+  - New private helpers:
+    - `_classify_signal(upside)` maps fractional upside to `BULLISH (+X.X%)` / `NEUTRAL (+X.X%)` / `BEARISH (-X.X%)` using a ±5% threshold so noise doesn't look bullish
+    - `_build_scenarios(components)` extracts the probabilistic matrix from `report.intrinsic.components["scenarios"]` (Bear/Base/Bull at 20/60/20 from `FCFEDCF`)
+    - `_gather_lens_results(security)` runs all 4 lenses + `synthesize_lenses` inside try/except
+    - `_gather_pipeline_report(security, synthesis_upside)` runs `ValuationPipeline.run()` inside try/except
+    - `_build_ui_data(...)` pulls PWEV, WACC, terminal growth, verdict, and confidence from real `PipelineReport` attributes (no placeholders)
+  - Macro overlay status text-mined from `report.summary`
+  - Lens failure non-fatal; pipeline failure fatal with exit 1
+
+- **`src/iam/pipeline/orchestrator.py`** assumption table split:
+  - New `format_assumption_table()` returns a string in the typographic style with no side effects
+  - `print_assumption_table()` becomes a thin wrapper that prints the formatted string (backward-compatible — `main.py` keeps working)
+
+### Project structure (src-layout root cleanup)
+
+Root used to contain 3 markdown docs, 3 utility scripts, a results CSV, two SQLite caches at depth zero — anyone landing on the GitHub page had to guess what was config, what was code, what was an artifact. Re-applied the src-layout standard:
+
+**Moves** (all via `git mv`, history preserved 98–100%):
+
+| From | To |
+|---|---|
+| `analyze.py` | `scripts/analyze.py` |
+| `quick_recommend.py` | `scripts/quick_recommend.py` |
+| `backtest_runner.py` | `scripts/backtest_runner.py` |
+| `ARCHITECTURE.md` | `docs/ARCHITECTURE.md` |
+| `REAL_DATA_BACKTEST_STRATEGY.md` | `docs/REAL_DATA_BACKTEST_STRATEGY.md` |
+| `v0.3.5_BACKTEST_POST.md` | `docs/v0.3.5_BACKTEST_POST.md` |
+| `seed_cache.sqlite` | `data/cache/seed_cache.sqlite` (still tracked) |
+| `iam_cache.sqlite` | `data/cache/iam_cache.sqlite` (now gitignored) |
+| `backtest_results_v0.3.5.csv` | `data/results/backtest_results_v0.3.5.csv` |
+
+**`src/iam/data/yahoo.py`**: centralized cache locations into `SEED_CACHE_PATH` and `RUNTIME_CACHE_PATH` module constants. All four hardcoded `"iam_cache.sqlite"` strings replaced. `_init_cache_db()` now `os.makedirs` the cache directory on first run so a fresh checkout works automatically.
+
+**`.gitignore`** rewritten with a layered approach:
+
+```
+/data/**                                # ignore everything by default
+!/data/, !/data/cache/, !/data/results/, !/data/universe/  # re-allow dirs
+!/data/cache/seed_cache.sqlite          # explicit track
+!/data/results/backtest_results_v0.3.5.csv
+!/data/universe/*.json
+/*.csv, /*.parquet, /*.xlsx, /*.sqlite  # root-level dump guard
+.cache/                                  # diskcache working dir
+```
+
+This keeps the Seed Database Strategy (v0.3.0) intact — new clones still get a warm cache — while everything else under `data/` is local-only.
+
+**Root after cleanup** contains only project-config and onboarding:
+- Entries: `main.py`, `run.py`
+- Onboarding: `README.md`, `RELEASES.md`, `CHANGELOG.md`, `ROADMAP.md`, `CONTRIBUTING.md`, `CLAUDE.md`, `LICENSE`
+- Config: `pyproject.toml`, `.gitignore`
+- Code: `src/`, `tests/`, `scripts/`, `examples/`, `docs/`, `data/`
 
 ---
 
