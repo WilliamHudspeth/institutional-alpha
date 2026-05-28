@@ -15,7 +15,10 @@ import re
 
 from src.iam.data.yahoo import fetch_security
 from src.iam.valuation.adaptive import AdaptiveValuationEngine
-from src.iam.valuation.profile_builder import build_company_profile
+from src.iam.valuation.profile_builder import (
+    build_company_profile,
+    triangulate_growth_for_security,
+)
 
 
 def print_banner() -> None:
@@ -92,12 +95,18 @@ def show_recommendation(ticker: str) -> None:
         print(f"  ✓ {security.name} loaded")
         print(f"  ✓ Sector: {security.sector}\n")
 
-        # Build company profile
+        # Run growth triangulation (5 independent estimators)
+        triangulation = triangulate_growth_for_security(security)
+
+        # Build company profile (uses triangulation internally)
         profile = build_company_profile(security)
 
         # Run adaptive valuation engine
         engine = AdaptiveValuationEngine()
         result = engine.run(profile)
+
+        # Attach triangulation audit trail
+        result["triangulation"] = triangulation.to_dict()
 
         # Extract results
         rating = rating_from_confidence(result["confidence"])
@@ -149,6 +158,22 @@ def show_recommendation(ticker: str) -> None:
                 print(f"  Ticker:              {result['ticker']}")
                 print(f"  Business Type:       {result['type']}")
                 print(f"  Confidence:          {result['confidence']}\n")
+
+                # Triangulation audit trail
+                tri = result["triangulation"]
+                print(f"  GROWTH TRIANGULATION (5 estimators):")
+                print(f"    Blended Growth:    {tri['blended_growth']:>+7.1%}")
+                print(f"    Raw Growth:        {tri['raw_growth']:>+7.1%}")
+                print(f"    Margin Adjustment: {tri['margin_adjustment']:>+7.2%}pp")
+                print(f"    Disagreement σ:    {tri['method_disagreement']:>7.1%}")
+                print(f"    Dominant Method:   {tri['dominant_method']}\n")
+                print(f"    {'Method':<14} {'Growth':>8} {'Conf':>6} {'Weight':>8}")
+                for e in tri["estimates"]:
+                    print(
+                        f"    {e['method']:<14} {e['value']:>+8.1%} {e['confidence']:>6.2f} {e['weight']:>8.1f}"
+                    )
+                print()
+
                 print(f"  Phase 2 (Divergence):")
                 p2 = result["phase2"]
                 print(
