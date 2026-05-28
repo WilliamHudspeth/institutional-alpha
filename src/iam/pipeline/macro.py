@@ -26,9 +26,7 @@ class MacroOverlay:
             stressed_intrinsic = self.stress_engine.run_stress_test(security, shock)
 
             report.intrinsic = stressed_intrinsic
-            if not hasattr(report, 'notes'):
-                report.notes = []
-            report.notes.append(f"Macro Overlay triggered: {shock.name} scenario applied.")
+            report.intrinsic.notes.append(f"Macro Overlay triggered: {shock.name} scenario applied.")
 
         else:
             report.summary += f"\n[MACRO OVERLAY]: Rate shift of {rate_shock_bps:.1f} bps is within tolerance ({self.rate_shock_threshold_bps} bps). No recalculation triggered."

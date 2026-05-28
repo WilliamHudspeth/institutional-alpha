@@ -83,6 +83,8 @@ def run_backtest(
 
     if hasattr(price_block, "to_pandas"):
         price_block = price_block.to_pandas()
+    if isinstance(price_block.index, pd.MultiIndex):
+        price_block = price_block.reset_index()
     if "date" in price_block.columns:
         price_block = price_block.copy()
         price_block["date"] = pd.to_datetime(price_block["date"]).dt.strftime("%Y-%m-%d")

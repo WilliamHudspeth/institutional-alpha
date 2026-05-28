@@ -17,16 +17,25 @@ def test_macro_overlay_triggers_on_shock():
 
     report = MagicMock()
     report.summary = "Initial Summary."
-    report.notes = []  # must be a real list so .append() is captured
+
+    # Mock the stressed intrinsic valuation result with a notes list
+    stressed_intrinsic = MagicMock()
+    stressed_intrinsic.notes = []
+
+    # Mock the stress engine to return the stressed intrinsic
+    mock_dcf = MagicMock()
+    mock_stress_engine = MagicMock()
+    mock_stress_engine.run_stress_test.return_value = stressed_intrinsic
 
     # 75 bps expressed as a decimal (0.0075); threshold is 50 bps
     macro = MacroConditions(rate_change=0.0075)
 
-    overlay = MacroOverlay(intrinsic_dcf=MagicMock(), rate_shock_threshold_bps=50.0)
+    overlay = MacroOverlay(intrinsic_dcf=mock_dcf, rate_shock_threshold_bps=50.0)
+    overlay.stress_engine = mock_stress_engine
     updated_report = overlay.apply(report, sec, macro)
 
-    assert "Macro Overlay triggered" in str(updated_report.notes)
-    assert updated_report.intrinsic is not None
+    assert "Macro Overlay triggered" in str(updated_report.intrinsic.notes)
+    assert updated_report.intrinsic is stressed_intrinsic
 
 
 def test_macro_overlay_no_trigger_below_threshold():
