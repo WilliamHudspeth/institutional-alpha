@@ -1,14 +1,18 @@
 # Institutional Alpha Roadmap
 
-**Version**: 0.2.1-alpha  
-**Status**: Research Preview  
+**Version**: 0.4.0-rc1  
+**Status**: Release Candidate  
 **Author**: William Hudspeth
 
 ---
 
 ## Platform Philosophy
 
-Institutional Alpha is a **multi-lens equity research engine** designed for rigorous fundamental analysis. The platform combines:
+Institutional Alpha is a **probabilistic institutional equity reasoning engine** — not a stock screener. A screener runs `financials → ratios → score → recommendation`. This platform instead treats valuation as **competing interpretations of reality under uncertainty**, and asks the question institutional investors actually ask:
+
+> *Why does the market disagree with intrinsic value, and whose belief system is right?*
+
+To answer that, the platform combines:
 
 - **Orthogonal factors** (10 independent quality/value/sentiment dimensions)
 - **Multi-perspective valuation** (DCF, Relative, Expectations-based, Triangulation)
@@ -20,7 +24,56 @@ Unlike black-box ML approaches, every output decomposes to its factor components
 
 ---
 
-## Current Capabilities (v0.2.1-alpha)
+## The Reasoning-Engine Direction (v0.5+)
+
+The current pipeline already runs four valuation perspectives and triangulates them. The next evolution deepens the **thought process** that drives those perspectives — moving from static formulas to **theory-first reasoning that works for any stock**. The platform's edge is not better numbers, but **better decision structure**: each valuation method reasons independently, their disagreement reveals hidden assumptions, and we re-weight those assumptions under stress based on how *durable* the underlying business is.
+
+The theory: Apply **Mauboussin's expectations-investing framework** (what does the market expect?) in sequence with **Damodaran's intrinsic DCF rigor** (what is it worth?), using the disagreement between them to spot which assumptions are fragile.
+
+### Seven-Engine Architecture (Target for v0.5)
+
+| # | Engine | Question | Status | Theory |
+|---|--------|----------|--------|--------|
+| 1 | **Data Integrity** | Normalized inputs, segment accounting, cycle detection | ✅ Partial | Clean accounting is foundational |
+| 2 | **Market Expectations** | What growth, margins, ROIC, moat duration is the price implying? | ✅ | Reverse DCF (Mauboussin) |
+| 3 | **Business Reality** | Revenue durability, cash-flow quality, capital efficiency, management discipline | ⬜ New | Business logic layer (Damodaran) |
+| 4 | **Relative Reality** | Justified premium/discount based on competitive durability, not just multiples | Partial → enhance | "Does it *deserve* this premium?" |
+| 5 | **Intrinsic Valuation** | Fair value from bottom-up DCF, independent of market | ✅ | Damodaran DCF with bottom-up risk |
+| 6 | **Macro Stress** | Fair value swing when rates move / growth contracts, calibrated by business durability | Partial → enhance | Elasticity-aware, not flat shocks |
+| 7 | **Synthesis** | Weight competing theses by durability and disagreement; output verdict + confidence drift | Partial → refine | Valuation Battlefield + Drift Detection |
+
+### Damodaran Laws — Theory-First Consistency Checks
+
+These become consistency checks that **flag fragile analyses** rather than inventing numbers:
+
+- **LAW 1 — Narrative must match numbers.** High growth + shrinking margins = reinvestment story (probably valid). High growth + expanding margins = competitive moat (needs explanation). Flag if narrative doesn't match the math.
+- **LAW 2 — Growth requires reinvestment.** `g = ROIC × retention_rate` is a law. If the model predicts 15% growth but ROIC/retention can't support it, flag.
+- **LAW 3 — Terminal growth ≤ risk-free rate.** ✅ Enforced.
+- **LAW 4 — Excess returns fade.** High ROIC today attracts competition → margin pressure → ROIC mean-reversion. Model should assume explicit fade (5-10 year glide path).
+- **LAW 5 — Risk is not double-counted.** Risk lives in cash flows OR discount rate, never both.
+
+### The Core Enhancement: Theory-First Stress Testing
+
+**Current state:** Macro overlay applies uniform rate/growth shocks. Gates on large moves ("this name is rate-sensitive") but doesn't reason about *why*.
+
+**Target (v0.5):** Build a **Durability + Elasticity Scoring Layer** that decodes how a *specific* business responds to macro stress, then applies those response functions to re-price the three valuations.
+
+**Theory:**
+- **Durability score** (0–1): What % of cash flows persist if growth stalls? Asset managers: low (unless fees are sticky). Software with subscriptions: high. Cyclicals: very low. Comes from analyzing revenue mix, customer stickiness, recurring vs transactional.
+- **Elasticity to growth shocks** (0–2): How much does FCFE contract if growth drops 5pp? Fixed-cost-heavy business (OpEx = 60% of revenue) → FCFE → 0 if growth → 0. Pure-variable-cost → FCFE falls proportionally. (Damodaran's "operating leverage"; Mauboussin's "reflexivity.")
+- **Rate elasticity** (0–3): How much does terminal value change per 50bps rate move? Long-duration cash flows → 20–30% swings. Short-lived flows → <10%.
+
+The insight: **Build the reasoning, not the numbers.** "How would an analyst think about this business under stress?" then apply that to re-weight and re-run the three valuations.
+
+### Headline Outputs (Target for v0.5)
+
+- **Valuation Battlefield** — surface Bull / Bear / Market-Implied / Intrinsic theses side-by-side. Call out the **key disagreement**. Example: "Market prices 35% FCFE growth (peak). Intrinsic assumes 8%. Relative says 12% (peer-justified). **Key disagreement: moat durability & excess-return fade** — is 5-year moat durable?"
+- **Thesis Drift Detection** — register assumptions that **must** remain true. Monitor weekly. When assumptions drift (margins fall, ROIC drops), conviction falls and verdict re-ranks. Example: "Bull thesis requires 25% ROIC. Q1 ROIC = 22% → conviction 80% → 60%. Re-run valuation."
+- **Elasticity-Aware Stress Report** — not "price drops 5% if rates rise 50bps" but "**this business is duration-bound**; rate moves have 3× impact of baseline DCF. Conviction collapses on >75bp move."
+
+---
+
+## Current Capabilities (v0.4.0-rc1)
 
 ### ✅ Core Engine
 - [x] **7-Stage Valuation Pipeline**
@@ -135,6 +188,38 @@ Unlike black-box ML approaches, every output decomposes to its factor components
   - Assumption dependency mapping
   - Sensitivity analysis (one-way, two-way)
   - Scenario branching logic
+
+### Phase 2.5: Reasoning-Engine Evolution (Weeks 10-18)
+**Focus**: Turn the valuation pipeline into a disagreement-first reasoning engine (see "The Reasoning-Engine Direction" above)
+
+- [ ] **Damodaran Laws constraint layer**
+  - Enforce `g = ROIC × reinvestment_rate` (growth requires reinvestment)
+  - Narrative-vs-numbers consistency check (reject impossible narratives)
+  - ROIC decay / excess-return fade curves
+  - Risk double-counting guard (cash flows OR discount rate, not both)
+  - Terminal-growth ≤ Rf (already enforced — fold into the law registry)
+
+- [ ] **Business Reality Engine** (`iam.reasoning` / new lens)
+  - Revenue-quality classification (recurring / transactional / cyclical / regulated)
+  - Cash-flow durability scoring (stable / mean-reverting / capital-markets-dependent)
+  - Growth-quality decomposition (organic vs acquisition, marginal ROIC, TAM realism)
+  - Capital-allocation / management-behavior signals (dilution, buyback discipline)
+
+- [ ] **Relative Reality: justified premium**
+  - Estimate the premium/discount a name *deserves* vs sector (not just observed)
+  - Drivers: relative margins, ROIC, durability, cyclicality, optionality
+  - Output justified-vs-actual premium gap
+
+- [ ] **Valuation Battlefield output**
+  - Surface Bull / Bear / Market-implied / Intrinsic theses side-by-side
+  - Identify and label the single key disagreement per name
+  - Replace "one fair value" framing with a structured disagreement map
+
+- [ ] **Thesis Drift Detection**
+  - Register assumptions that must remain true for each active thesis
+  - Monitor margins, ROIC, reinvestment, balance sheet, macro regime
+  - Degrade conviction and re-rank verdict when assumptions drift
+  - Emit a per-name fragility score
 
 ### Phase 3: Operational Excellence (Weeks 12-24)
 **Focus**: Reproducibility, governance, institutional adoption
@@ -327,6 +412,6 @@ Proprietary Research Platform. See LICENSE for details.
 
 ---
 
-**Last Updated**: 2026-05-27  
-**Status**: Research Preview (v0.2.1-alpha)  
-**Next Review**: 2026-06-27
+**Last Updated**: 2026-05-28  
+**Status**: Release Candidate (v0.4.0-rc1)  
+**Next Review**: 2026-06-28

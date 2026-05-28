@@ -4,6 +4,8 @@
 
 Most public valuation models stop at DCF or relative multiples. Institutional discretionary and systematic funds implicitly price a much wider surface: **expectations difficulty, quality, reflexivity, crowding, regime fit, fragility, and capital allocation quality.** This repo is an open-source attempt to encode that surface as an orthogonal, weighted, auditable factor model — written in plain Python so it's easy to read, fork, and extend.
 
+It is built as a **probabilistic equity reasoning engine**, not a screener. A screener runs `financials → ratios → score → recommendation`. IAM instead treats valuation as **competing interpretations of reality under uncertainty** — market-implied expectations, business reality, peer-relative economics, and bottom-up intrinsic value are run independently, and their *disagreement* is the primary output. The question is not "is the DCF higher than the price?" but "**why** does the market disagree with intrinsic value, and whose belief system holds up?" The next phase formalizes this into independent reasoning engines, a Damodaran-laws consistency layer, and a Valuation Battlefield view — see the [roadmap](#roadmap) and [`ROADMAP.md`](ROADMAP.md).
+
 ## Status
 
 [![CI/CD Pipeline](https://github.com/WilliamHudspeth/institutional-alpha/actions/workflows/python-package.yml/badge.svg)](https://github.com/WilliamHudspeth/institutional-alpha/actions)
@@ -371,6 +373,14 @@ Full conceptual documentation:
 - [ ] Additional data sources (FMP, Tiingo) via `DataSource` contract
 - [ ] International expansion (country risk premium calculations)
 - [ ] Cognitive research layer: research paper ingestion, insights generation
+
+**Reasoning-engine evolution (v0.5+)** — reframe the pipeline as disagreement-first reasoning engines:
+
+- [ ] Damodaran-laws constraint layer: enforce `g = ROIC × reinvestment_rate`, narrative-vs-numbers consistency, ROIC fade, no risk double-counting
+- [ ] Business Reality Engine: revenue-quality, cash-flow durability, growth-quality, and capital-allocation interrogation
+- [ ] Relative Reality: estimate the *justified* premium/discount vs sector, not just the observed one
+- [ ] Valuation Battlefield output: Bull / Bear / Market-implied / Intrinsic theses side-by-side with the key disagreement labeled
+- [ ] Thesis Drift Detection: register assumptions that must hold, monitor drift, and degrade conviction with a per-name fragility score
 
 ## License
 
