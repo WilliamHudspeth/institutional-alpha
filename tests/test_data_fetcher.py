@@ -26,11 +26,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-# Import the fetcher (will be at src/iam/data/fetcher.py after Phase 3.1)
-# For now, use the reference implementation
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
-from data_fetcher_reference import (
+from iam.data.fetcher import (
     SQLiteCache,
     SecEdgarSource,
     YFinanceSource,
@@ -284,13 +280,13 @@ class TestStooqSource:
         # Mock CSV response
         dates = pd.date_range('2024-01-01', '2024-12-31', freq='D')
         mock_read_csv.return_value = pd.DataFrame({
-            'Date': dates,
+            'Date': dates.strftime('%Y%m%d'),
             'Open': 100.0,
             'High': 105.0,
             'Low': 95.0,
             'Close': 102.0,
             'Volume': 1000000,
-        }).set_index('Date')
+        })
 
         source = StooqSource()
         start, end = sample_start_end
@@ -470,6 +466,14 @@ except ImportError:
 # PERFORMANCE TESTS (benchmarks)
 # =====================================================================
 
+try:
+    import pytest_benchmark
+    has_benchmark = True
+except ImportError:
+    has_benchmark = False
+
+
+@pytest.mark.skipif(not has_benchmark, reason="pytest-benchmark not installed")
 class TestPerformance:
     """Test performance characteristics."""
 

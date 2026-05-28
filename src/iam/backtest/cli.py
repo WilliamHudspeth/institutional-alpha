@@ -74,7 +74,10 @@ def backtest(
     try:
         price_df = load_price_block(config)
         if hasattr(price_df, "to_pandas"):
-            price_df = price_df.to_pandas()
+            try:
+                price_df = price_df.to_pandas()
+            except Exception:
+                price_df = pd.DataFrame(price_df.to_dicts())
         n_dates = price_df["date"].nunique()
         n_tickers_in_prices = price_df["ticker"].nunique()
         typer.echo(f"   ✓ {n_dates} dates × {n_tickers_in_prices} tickers")

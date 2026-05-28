@@ -1,12 +1,5 @@
-#!/usr/bin/env python3
 """
-[REFERENCE IMPLEMENTATION - For Phase 3 Integration]
-
 data_fetcher.py – Zero‑configuration, redundant data fetching for backtesting.
-
-This is a reference implementation of the zero-configuration data layer designed for
-Phase 3 (Operational Excellence). Do not use in production yet. When Phase 3.1 is
-scheduled, this will be refactored, tested, and integrated into src/iam/data/.
 
 Features:
 - No API keys required – uses only free, public APIs.
@@ -15,27 +8,6 @@ Features:
 - Point‑in‑time fundamentals from SEC EDGAR (official, no key).
 - Price history from yfinance, with fallback to Stooq.
 - Macro data bundled as CSV (GDP, CPI, unemployment) – no FRED key needed.
-- Optional pre‑download script for entire price universe.
-
-Usage (when integrated):
-    # Download and cache 20 years of data for SP500
-    python data_fetcher.py --prefetch
-
-    # Then run backtest — uses cached data, only fetches missing dates
-    python -m iam.backtest.cli backtest
-
----
-
-Philosophy: "Users should never have to manage API keys or data sources.
-Download institutional-alpha, run one prefetch, backtest works offline forever."
-
-This enables:
-- Retail investors to backtest without vendor lock-in
-- Researchers to validate on real historical data
-- Hedge funds to have resilient, redundant data pipeline
-- Community to contribute data adapters (Bloomberg, Refinitiv connectors)
-
----
 """
 
 import json
@@ -123,8 +95,9 @@ class SQLiteCache:
         self._init_db()
 
     def _init_db(self):
-        conn = sqlite3.connect(self.db_path)
+        conn = None
         try:
+            conn = sqlite3.connect(self.db_path)
             with conn:
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS cache (
@@ -137,11 +110,13 @@ class SQLiteCache:
                 """)
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON cache(timestamp)")
         finally:
-            conn.close()
+            if conn:
+                conn.close()
 
     def get(self, key: str, source: Optional[str] = None) -> Optional[Any]:
-        conn = sqlite3.connect(self.db_path)
+        conn = None
         try:
+            conn = sqlite3.connect(self.db_path)
             cur = conn.execute(
                 "SELECT value, timestamp FROM cache WHERE key = ? AND (source = ? OR ? IS NULL)",
                 (key, source, source)
@@ -155,19 +130,22 @@ class SQLiteCache:
                     except:
                         return value
         finally:
-            conn.close()
+            if conn:
+                conn.close()
         return None
 
     def set(self, key: str, value: Any, source: str):
-        conn = sqlite3.connect(self.db_path)
+        conn = None
         try:
+            conn = sqlite3.connect(self.db_path)
             with conn:
                 conn.execute(
                     "INSERT OR REPLACE INTO cache (key, value, timestamp, source) VALUES (?, ?, ?, ?)",
                     (key, json.dumps(value, default=str), time.time(), source)
                 )
         finally:
-            conn.close()
+            if conn:
+                conn.close()
 
 # ----------------------------------------------------------------------
 # SEC EDGAR Source (No key, official fundamentals)
@@ -423,79 +401,3 @@ class RedundantDataFetcher:
 
     def fetch_macro(self, series_name: str, start: datetime, end: datetime) -> pd.Series:
         return self.macro.get_series(series_name, start, end)
-
-# ----------------------------------------------------------------------
-# Pre‑fetch Script
-# ----------------------------------------------------------------------
-def prefetch_data(universe_file: str = None, start_year: int = 2000, end_year: int = 2026):
-    """
-    Download and cache all necessary data for the backtest.
-    Run this once before the backtest for offline use.
-    """
-    logger.info("Starting prefetch of all data. This may take a while...")
-    fetcher = RedundantDataFetcher()
-
-    # Get universe
-    if universe_file and Path(universe_file).exists():
-        df = pd.read_csv(universe_file)
-        tickers = df.iloc[:,0].tolist()
-    else:
-        # Default: SP500 current constituents (approx 500)
-        logger.info("Fetching SP500 constituents from Wikipedia...")
-        sp500 = pd.read_html("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies")[0]
-        tickers = sp500['Symbol'].tolist()
-
-    start = datetime(start_year, 1, 1)
-    end = datetime(end_year, 12, 31)
-
-    for i, ticker in enumerate(tickers):
-        logger.info(f"Prefetching {ticker} ({i+1}/{len(tickers)})")
-        # Price history
-        fetcher.fetch_price_history(ticker, start, end)
-        # Fundamentals for key dates (e.g., each year end)
-        for year in range(start_year, end_year+1):
-            as_of = datetime(year, 12, 31)
-            fetcher.fetch_fundamentals(ticker, as_of)
-        # Be gentle to APIs
-        time.sleep(0.2)
-
-    logger.info("Prefetch complete. Data cached in ./data_cache")
-
-# ----------------------------------------------------------------------
-# CLI
-# ----------------------------------------------------------------------
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser(
-        description="Zero-configuration data fetcher with redundant fallbacks."
-    )
-    parser.add_argument(
-        "--prefetch",
-        action="store_true",
-        help="Download and cache all data for backtesting"
-    )
-    parser.add_argument(
-        "--universe",
-        type=str,
-        help="CSV file with ticker column (default: SP500)"
-    )
-    parser.add_argument(
-        "--start_year",
-        type=int,
-        default=2000,
-        help="Start year for historical data (default: 2000)"
-    )
-    parser.add_argument(
-        "--end_year",
-        type=int,
-        default=2026,
-        help="End year for historical data (default: 2026)"
-    )
-    args = parser.parse_args()
-
-    if args.prefetch:
-        prefetch_data(args.universe, args.start_year, args.end_year)
-    else:
-        print(__doc__)
-        print("\nRun with --prefetch to download all required data first.")
-        print("Example: python data_fetcher.py --prefetch --start_year 2015")
