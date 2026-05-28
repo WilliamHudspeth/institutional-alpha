@@ -178,11 +178,17 @@ Unlike black-box ML approaches, every output decomposes to its factor components
   - Macro hedge recommendations
   - Risk parity weighting
 
-- [ ] **Dashboard & Terminal UI**
-  - Real-time factor scorecards
-  - Valuation range visualization
-  - Macro regime display
-  - Performance analytics
+- [x] **Interactive ANSI Terminal UI**
+  - [x] Pure ANSI escape-sequence renderer (no heavy library dependency)
+  - [x] Interactive side-panel layout with custom grid alignments
+  - [x] Live fluctuating portfolio watchlist with dynamic sparklines
+  - [x] Solid block factor scorecard meters & custom animation engines
+
+- [ ] **Desktop Integration: C# ASP.NET Micro-Widget**
+  - [ ] Standalone C# .NET 8 desktop webview/window container
+  - [ ] Compact side-panel view (occupies 1/4 of screen)
+  - [ ] Real-time local API sync to the Python valuation engine
+  - [ ] Glowing glassmorphic widgets & real-time visual alerts
 
 - [ ] **Plugin Architecture**
   - Custom lens registration
@@ -201,7 +207,7 @@ Each factor measures one independent dimension. No mixing of valuation with qual
 Composite scores decompose to factor contributions. No black-box aggregations. Every output traceable to inputs.
 
 ### 3. **Pluggable Data Sources**
-The model accepts fundamentals as inputs. Never assumes a specific data provider. Easy to adapt to Bloomberg, Refinitiv, etc.
+The model accepts fundamentals as inputs. Never assumes a specific data provider. Easy to adapt to major market data providers.
 
 ### 4. **No Magic Numbers**
 All default weights, bounds, and assumptions are explicit and documented. Silent defaults are forbidden.
@@ -258,7 +264,7 @@ Core engine uses only: pandas, numpy. Financial theory, not ML dependencies. Eas
 
 ### If Commercialized
 - Multi-user platform (authentication, permissions)
-- Real-time data feeds (Bloomberg, FactSet)
+- Real-time enterprise data feeds
 - Institutional API (REST endpoints)
 - Portfolio management layer
 - Risk reporting (VaR, stress testing)
