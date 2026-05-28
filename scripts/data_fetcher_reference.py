@@ -123,19 +123,24 @@ class SQLiteCache:
         self._init_db()
 
     def _init_db(self):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS cache (
-                    key TEXT PRIMARY KEY,
-                    value TEXT,
-                    timestamp REAL,
-                    source TEXT
-                )
-            """)
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON cache(timestamp)")
+        conn = sqlite3.connect(self.db_path)
+        try:
+            with conn:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS cache (
+                        key TEXT PRIMARY KEY,
+                        value TEXT,
+                        timestamp REAL,
+                        source TEXT
+                    )
+                """)
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON cache(timestamp)")
+        finally:
+            conn.close()
 
     def get(self, key: str, source: Optional[str] = None) -> Optional[Any]:
-        with sqlite3.connect(self.db_path) as conn:
+        conn = sqlite3.connect(self.db_path)
+        try:
             cur = conn.execute(
                 "SELECT value, timestamp FROM cache WHERE key = ? AND (source = ? OR ? IS NULL)",
                 (key, source, source)
@@ -148,14 +153,20 @@ class SQLiteCache:
                         return json.loads(value)
                     except:
                         return value
+        finally:
+            conn.close()
         return None
 
     def set(self, key: str, value: Any, source: str):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                "INSERT OR REPLACE INTO cache (key, value, timestamp, source) VALUES (?, ?, ?, ?)",
-                (key, json.dumps(value, default=str), time.time(), source)
-            )
+        conn = sqlite3.connect(self.db_path)
+        try:
+            with conn:
+                conn.execute(
+                    "INSERT OR REPLACE INTO cache (key, value, timestamp, source) VALUES (?, ?, ?, ?)",
+                    (key, json.dumps(value, default=str), time.time(), source)
+                )
+        finally:
+            conn.close()
 
 # ----------------------------------------------------------------------
 # SEC EDGAR Source (No key, official fundamentals)
@@ -334,7 +345,7 @@ class MacroSource:
 
     def _create_default_data(self):
         # Generate dummy data for 2000-2026 so backtest doesn't fail
-        dates = pd.date_range('2000-01-01', '2026-12-31', freq='M')
+        dates = pd.date_range('2000-01-01', '2026-12-31', freq='ME', name='date')
         self._data = pd.DataFrame({
             'gdp_growth': np.random.normal(0.02, 0.01, len(dates)),
             'cpi': np.random.normal(0.02, 0.005, len(dates)),
