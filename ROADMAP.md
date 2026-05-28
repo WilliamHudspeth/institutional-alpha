@@ -26,34 +26,50 @@ Unlike black-box ML approaches, every output decomposes to its factor components
 
 ## The Reasoning-Engine Direction (v0.5+)
 
-The current pipeline already runs four valuation perspectives and triangulates them. The next evolution reframes those perspectives as **independent reasoning engines** whose *disagreement* is the primary product, governed by a set of hard-coded valuation laws. The edge is not better math — it is **structuring uncertainty, disagreement, and narrative consistency correctly.**
+The current pipeline already runs four valuation perspectives and triangulates them. The next evolution deepens the **thought process** that drives those perspectives — moving from static formulas to **theory-first reasoning that works for any stock**. The platform's edge is not better numbers, but **better decision structure**: each valuation method reasons independently, their disagreement reveals hidden assumptions, and we re-weight those assumptions under stress based on how *durable* the underlying business is.
 
-### Seven-Engine Architecture (target)
+The theory: Apply **Mauboussin's expectations-investing framework** (what does the market expect?) in sequence with **Damodaran's intrinsic DCF rigor** (what is it worth?), using the disagreement between them to spot which assumptions are fragile.
 
-| # | Engine | Question | Status |
-|---|--------|----------|--------|
-| 1 | **Data Integrity** | Are the inputs normalized, segment-aware, cycle-aware? | Partial (`validation/`, `data/`) |
-| 2 | **Market Expectations** | What does the price *imply* — growth, margins, ROIC, moat duration? | ✅ Reverse DCF |
-| 3 | **Business Reality** | What actually drives this business (revenue quality, cash-flow durability, capital allocation)? | ⬜ New |
-| 4 | **Relative Reality** | Does this company *deserve* its premium, and by how much? | Partial → add **justified premium** |
-| 5 | **Intrinsic Valuation** | What is it worth on cash flows alone, market ignored? | ✅ FCFE DCF, SOTP, bottom-up β, geo-ERP |
-| 6 | **Macro Stress** | How does fair value move under regime shocks? | ✅ Macro overlay |
-| 7 | **Synthesis** | Weight competing realities (not average them) into a verdict + disagreement map | Partial → add **Valuation Battlefield** |
+### Seven-Engine Architecture (Target for v0.5)
 
-### Damodaran Laws — narrative-consistency constraint layer (target)
+| # | Engine | Question | Status | Theory |
+|---|--------|----------|--------|--------|
+| 1 | **Data Integrity** | Normalized inputs, segment accounting, cycle detection | ✅ Partial | Clean accounting is foundational |
+| 2 | **Market Expectations** | What growth, margins, ROIC, moat duration is the price implying? | ✅ | Reverse DCF (Mauboussin) |
+| 3 | **Business Reality** | Revenue durability, cash-flow quality, capital efficiency, management discipline | ⬜ New | Business logic layer (Damodaran) |
+| 4 | **Relative Reality** | Justified premium/discount based on competitive durability, not just multiples | Partial → enhance | "Does it *deserve* this premium?" |
+| 5 | **Intrinsic Valuation** | Fair value from bottom-up DCF, independent of market | ✅ | Damodaran DCF with bottom-up risk |
+| 6 | **Macro Stress** | Fair value swing when rates move / growth contracts, calibrated by business durability | Partial → enhance | Elasticity-aware, not flat shocks |
+| 7 | **Synthesis** | Weight competing theses by durability and disagreement; output verdict + confidence drift | Partial → refine | Valuation Battlefield + Drift Detection |
 
-These become enforced framework laws that can *reject* an internally inconsistent valuation rather than silently computing one:
+### Damodaran Laws — Theory-First Consistency Checks
 
-- **LAW 1 — Narrative must match numbers.** High growth must be backed by reinvestment, TAM, and (usually) early margin compression.
-- **LAW 2 — Growth requires reinvestment.** Enforce `g = ROIC × reinvestment_rate`; flag narratives where growth is "free."
-- **LAW 3 — Terminal growth ≤ risk-free rate.** ✅ Already enforced.
-- **LAW 4 — Excess returns fade.** Model explicit ROIC decay / margin mean-reversion curves; high ROIC attracts competition.
-- **LAW 5 — Risk is not double-counted.** Risk lives in the cash flows *or* the discount rate, never both.
+These become consistency checks that **flag fragile analyses** rather than inventing numbers:
 
-### Headline outputs (target)
+- **LAW 1 — Narrative must match numbers.** High growth + shrinking margins = reinvestment story (probably valid). High growth + expanding margins = competitive moat (needs explanation). Flag if narrative doesn't match the math.
+- **LAW 2 — Growth requires reinvestment.** `g = ROIC × retention_rate` is a law. If the model predicts 15% growth but ROIC/retention can't support it, flag.
+- **LAW 3 — Terminal growth ≤ risk-free rate.** ✅ Enforced.
+- **LAW 4 — Excess returns fade.** High ROIC today attracts competition → margin pressure → ROIC mean-reversion. Model should assume explicit fade (5-10 year glide path).
+- **LAW 5 — Risk is not double-counted.** Risk lives in cash flows OR discount rate, never both.
 
-- **Valuation Battlefield** — instead of a single fair value, surface the Bull / Bear / Market-implied / Intrinsic theses side-by-side with the **key disagreement** (e.g. "duration of excess returns") called out explicitly.
-- **Thesis Drift Detection** — register the assumptions that *must remain true*, then monitor margins, ROIC, reinvestment, balance sheet, and macro regime. When assumptions drift, conviction falls and the verdict is re-ranked — turning static valuation into a living, fragility-aware signal.
+### The Core Enhancement: Theory-First Stress Testing
+
+**Current state:** Macro overlay applies uniform rate/growth shocks. Gates on large moves ("this name is rate-sensitive") but doesn't reason about *why*.
+
+**Target (v0.5):** Build a **Durability + Elasticity Scoring Layer** that decodes how a *specific* business responds to macro stress, then applies those response functions to re-price the three valuations.
+
+**Theory:**
+- **Durability score** (0–1): What % of cash flows persist if growth stalls? Asset managers: low (unless fees are sticky). Software with subscriptions: high. Cyclicals: very low. Comes from analyzing revenue mix, customer stickiness, recurring vs transactional.
+- **Elasticity to growth shocks** (0–2): How much does FCFE contract if growth drops 5pp? Fixed-cost-heavy business (OpEx = 60% of revenue) → FCFE → 0 if growth → 0. Pure-variable-cost → FCFE falls proportionally. (Damodaran's "operating leverage"; Mauboussin's "reflexivity.")
+- **Rate elasticity** (0–3): How much does terminal value change per 50bps rate move? Long-duration cash flows → 20–30% swings. Short-lived flows → <10%.
+
+The insight: **Build the reasoning, not the numbers.** "How would an analyst think about this business under stress?" then apply that to re-weight and re-run the three valuations.
+
+### Headline Outputs (Target for v0.5)
+
+- **Valuation Battlefield** — surface Bull / Bear / Market-Implied / Intrinsic theses side-by-side. Call out the **key disagreement**. Example: "Market prices 35% FCFE growth (peak). Intrinsic assumes 8%. Relative says 12% (peer-justified). **Key disagreement: moat durability & excess-return fade** — is 5-year moat durable?"
+- **Thesis Drift Detection** — register assumptions that **must** remain true. Monitor weekly. When assumptions drift (margins fall, ROIC drops), conviction falls and verdict re-ranks. Example: "Bull thesis requires 25% ROIC. Q1 ROIC = 22% → conviction 80% → 60%. Re-run valuation."
+- **Elasticity-Aware Stress Report** — not "price drops 5% if rates rise 50bps" but "**this business is duration-bound**; rate moves have 3× impact of baseline DCF. Conviction collapses on >75bp move."
 
 ---
 
