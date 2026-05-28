@@ -228,6 +228,15 @@ class TestYFinanceSource:
 # -----------------------------------------------------------------------------
 
 
+def _urlopen_returning(csv_text: str) -> MagicMock:
+    """Build a urllib.request.urlopen mock that yields a response with given CSV bytes."""
+    response = MagicMock()
+    response.read.return_value = csv_text.encode("utf-8")
+    urlopen = MagicMock()
+    urlopen.return_value.__enter__.return_value = response
+    return urlopen
+
+
 class TestStooqSource:
     def test_name(self):
         assert StooqSource().name == "stooq"
@@ -249,78 +258,68 @@ class TestStooqSource:
         src = StooqSource()
         assert src.fetch_debt("AAPL", pd.Timestamp("2024-01-15")) == 0.0
 
-    @patch("iam.backtest.sources.stooq_source.pd.read_csv")
-    def test_download_history_success(self, mock_read_csv):
-        df = pd.DataFrame(
-            {
-                "Date": ["2024-01-01", "2024-01-02", "2024-01-03"],
-                "Open": [100, 101, 102],
-                "High": [102, 103, 104],
-                "Low": [99, 100, 101],
-                "Close": [101, 102, 103],
-                "Volume": [1_000_000, 1_100_000, 1_200_000],
-            }
+    def test_download_history_success(self):
+        csv = (
+            "Date,Open,High,Low,Close,Volume\n"
+            "2024-01-01,100,102,99,101,1000000\n"
+            "2024-01-02,101,103,100,102,1100000\n"
+            "2024-01-03,102,104,101,103,1200000\n"
         )
-        mock_read_csv.return_value = df
-
-        src = StooqSource()
-        result = src.download_history("AAPL", "2024-01-01", "2024-01-31")
+        with patch("iam.backtest.sources.stooq_source.urllib.request.urlopen", _urlopen_returning(csv)):
+            src = StooqSource()
+            result = src.download_history("AAPL", "2024-01-01", "2024-01-31")
 
         assert result is not None
         assert len(result) == 3
         assert list(result.columns) == ["Date", "Open", "High", "Low", "Close", "Volume"]
         assert pd.api.types.is_datetime64_any_dtype(result["Date"])
 
-    @patch("iam.backtest.sources.stooq_source.pd.read_csv")
-    def test_download_history_returns_none_on_empty(self, mock_read_csv):
-        mock_read_csv.return_value = pd.DataFrame()
-
-        src = StooqSource()
-        result = src.download_history("AAPL", "2024-01-01", "2024-01-31")
+    def test_download_history_returns_none_on_empty(self):
+        # Header only, no data rows → pd.read_csv returns an empty DataFrame.
+        with patch("iam.backtest.sources.stooq_source.urllib.request.urlopen", _urlopen_returning("Date,Open,High,Low,Close,Volume\n")):
+            src = StooqSource()
+            result = src.download_history("AAPL", "2024-01-01", "2024-01-31")
         assert result is None
 
-    @patch("iam.backtest.sources.stooq_source.pd.read_csv")
-    def test_download_history_returns_none_on_missing_columns(self, mock_read_csv):
+    def test_download_history_returns_none_on_missing_columns(self):
         # Missing some required columns
-        mock_read_csv.return_value = pd.DataFrame({"Date": ["2024-01-01"], "Close": [100]})
-
-        src = StooqSource()
-        result = src.download_history("AAPL", "2024-01-01", "2024-01-31")
+        with patch("iam.backtest.sources.stooq_source.urllib.request.urlopen", _urlopen_returning("Date,Close\n2024-01-01,100\n")):
+            src = StooqSource()
+            result = src.download_history("AAPL", "2024-01-01", "2024-01-31")
         assert result is None
 
-    @patch("iam.backtest.sources.stooq_source.pd.read_csv")
-    def test_download_history_returns_none_on_exception(self, mock_read_csv):
-        mock_read_csv.side_effect = RuntimeError("network blip")
-
-        src = StooqSource()
-        result = src.download_history("AAPL", "2024-01-01", "2024-01-31")
+    def test_download_history_returns_none_on_exception(self):
+        urlopen = MagicMock(side_effect=RuntimeError("network blip"))
+        with patch("iam.backtest.sources.stooq_source.urllib.request.urlopen", urlopen):
+            src = StooqSource()
+            result = src.download_history("AAPL", "2024-01-01", "2024-01-31")
         assert result is None
 
-    @patch("iam.backtest.sources.stooq_source.pd.read_csv")
-    def test_fetch_price_picks_close_on_or_before_as_of(self, mock_read_csv):
-        df = pd.DataFrame(
-            {
-                "Date": ["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04"],
-                "Open": [100, 101, 102, 103],
-                "High": [102, 103, 104, 105],
-                "Low": [99, 100, 101, 102],
-                "Close": [100.5, 101.5, 102.5, 103.5],
-                "Volume": [1, 1, 1, 1],
-            }
+    def test_fetch_price_picks_close_on_or_before_as_of(self):
+        csv = (
+            "Date,Open,High,Low,Close,Volume\n"
+            "2024-01-01,100,102,99,100.5,1\n"
+            "2024-01-02,101,103,100,101.5,1\n"
+            "2024-01-03,102,104,101,102.5,1\n"
+            "2024-01-04,103,105,102,103.5,1\n"
         )
-        mock_read_csv.return_value = df
-
-        src = StooqSource()
-        price = src.fetch_price("AAPL", pd.Timestamp("2024-01-02"))
+        with patch("iam.backtest.sources.stooq_source.urllib.request.urlopen", _urlopen_returning(csv)):
+            src = StooqSource()
+            price = src.fetch_price("AAPL", pd.Timestamp("2024-01-02"))
         assert price == pytest.approx(101.5)
 
-    @patch("iam.backtest.sources.stooq_source.pd.read_csv")
-    def test_fetch_price_raises_on_no_data(self, mock_read_csv):
-        mock_read_csv.return_value = pd.DataFrame()
+    def test_fetch_price_raises_on_no_data(self):
+        with patch("iam.backtest.sources.stooq_source.urllib.request.urlopen", _urlopen_returning("Date,Open,High,Low,Close,Volume\n")):
+            src = StooqSource()
+            with pytest.raises(DataSourceError):
+                src.fetch_price("AAPL", pd.Timestamp("2024-01-02"))
 
-        src = StooqSource()
-        with pytest.raises(DataSourceError):
-            src.fetch_price("AAPL", pd.Timestamp("2024-01-02"))
+    def test_download_history_passes_timeout_to_urlopen(self):
+        urlopen = _urlopen_returning("Date,Open,High,Low,Close,Volume\n2024-01-01,1,1,1,1,1\n")
+        with patch("iam.backtest.sources.stooq_source.urllib.request.urlopen", urlopen):
+            StooqSource(timeout=7.5).download_history("AAPL", "2024-01-01", "2024-01-31")
+        # urlopen was called once with timeout kwarg
+        assert urlopen.call_args.kwargs["timeout"] == 7.5
 
 
 # -----------------------------------------------------------------------------

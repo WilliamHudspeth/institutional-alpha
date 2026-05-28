@@ -61,6 +61,8 @@ def backtest(
     typer.echo(f"📊 Loading prices from {config.price_file}...")
     try:
         price_df = load_price_block(config)
+        if hasattr(price_df, "to_pandas"):
+            price_df = price_df.to_pandas()
         n_dates = price_df["date"].nunique()
         n_tickers_in_prices = price_df["ticker"].nunique()
         typer.echo(f"   ✓ {n_dates} dates × {n_tickers_in_prices} tickers")

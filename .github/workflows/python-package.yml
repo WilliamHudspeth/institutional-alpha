@@ -24,10 +24,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: Install package with dev extras
+      - name: Install package with test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[dev,data,live,backtest]"
 
       - name: Run tests
         run: pytest -v

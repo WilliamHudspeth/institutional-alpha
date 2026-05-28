@@ -8,6 +8,8 @@ Limitations:
 
 from __future__ import annotations
 
+import io
+import urllib.request
 from typing import Optional
 
 import pandas as pd
@@ -63,7 +65,9 @@ class StooqSource(DataSource):
     ) -> Optional[pd.DataFrame]:
         try:
             url = self._url(ticker, start, end)
-            df = pd.read_csv(url)
+            with urllib.request.urlopen(url, timeout=self.timeout) as response:
+                csv_data = response.read().decode("utf-8")
+            df = pd.read_csv(io.StringIO(csv_data))
 
             if df is None or df.empty:
                 return None
