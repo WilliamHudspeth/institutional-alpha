@@ -100,6 +100,7 @@ class Fundamentals:
 
     # Stock-based compensation
     sbc_ttm: float | None = None
+    change_in_working_capital: float | None = None
 
     # Balance sheet
     total_debt: float | None = None

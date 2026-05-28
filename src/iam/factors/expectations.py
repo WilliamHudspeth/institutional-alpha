@@ -51,9 +51,9 @@ class ExpectationsDifficultyFactor(Factor):
 
         value = self.weighted_average(
             {
-                "g": (components.get("growth_difficulty"), 0.40),
-                "r": (components.get("roic_difficulty"), 0.35),
-                "m": (components.get("margin_difficulty"), 0.25),
+                "g": (components.get("growth_difficulty"), 0.40),  # type: ignore[dict-item]
+                "r": (components.get("roic_difficulty"), 0.35),  # type: ignore[dict-item]
+                "m": (components.get("margin_difficulty"), 0.25),  # type: ignore[dict-item]
             }
         )
 
@@ -88,9 +88,28 @@ class ExpectationsDifficultyFactor(Factor):
             return 1.0
         return self.clamp((1.0 - vs_max) * 1.5)
 
-    def _roic_difficulty(self, security: Security):
-        """STUB: requires industry peak ROIC dataset."""
-        return None
+    def _roic_difficulty(self, security: Security) -> float | None:
+        """Compare implied ROIC to the industry's historical peak.
+
+        Requires 'implied_roic' and 'industry_peak_roic' to be passed via
+        security.qualitative.
+
+        Inverted: low implied vs peak = easy expectations = high score.
+        """
+        q = security.qualitative
+        implied_roic = q.get("implied_roic")
+        peak_roic = q.get("industry_peak_roic")
+
+        if implied_roic is None or peak_roic is None or peak_roic <= 0:
+            return None
+
+        ratio = implied_roic / peak_roic
+
+        # Mapping the difficulty:
+        # ratio <= 0.5 (demanding half of peak) -> +1.0 (easiest)
+        # ratio == 1.0 (demanding absolute peak) -> 0.0 (fair but tough)
+        # ratio >= 1.5 (demanding 50% above peak) -> -1.0 (heroic/impossible)
+        return self.clamp((1.0 - ratio) * 2.0)
 
     def _margin_difficulty(self, security: Security):
         """Uses peak historical operating margin as the ceiling."""

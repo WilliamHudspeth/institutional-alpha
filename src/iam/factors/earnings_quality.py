@@ -57,13 +57,24 @@ class EarningsQualityFactor(Factor):
                 -(f.one_time_adjustments_count_5y - 2) * 0.3
             )
 
+        # --- NEW: Working Capital Quality ---
+        wc_score = self._working_capital_quality(security)
+        if wc_score is not None:
+            components["wc_quality"] = wc_score
+            if wc_score < 0:
+                notes.append("Negative working capital trends detected — potential FCF inflation.")
+        else:
+            confidence *= 0.90
+
+        # Updated weights to include Working Capital (assigned 15% weight)
         value = self.weighted_average(
             {
-                "acc": (components.get("accruals_ratio"), 0.20),
-                "sbc": (components.get("sbc_pct_revenue"), 0.20),
-                "conv": (components.get("cash_conversion"), 0.20),
-                "capex": (components.get("capex_authenticity"), 0.15),
-                "ot": (components.get("one_time_adjustments"), 0.10),
+                "acc": (components.get("accruals_ratio"), 0.20),  # type: ignore[dict-item]
+                "sbc": (components.get("sbc_pct_revenue"), 0.15),  # type: ignore[dict-item]
+                "conv": (components.get("cash_conversion"), 0.20),  # type: ignore[dict-item]
+                "capex": (components.get("capex_authenticity"), 0.15),  # type: ignore[dict-item]
+                "ot": (components.get("one_time_adjustments"), 0.15),  # type: ignore[dict-item]
+                "wc": (components.get("wc_quality"), 0.15),  # type: ignore[dict-item]
             }
         )
 
@@ -74,3 +85,22 @@ class EarningsQualityFactor(Factor):
             components=components,
             notes=notes,
         )
+
+    def _working_capital_quality(self, security: Security) -> float | None:
+        """Penalizes FCF that is artificially inflated by draining working capital."""
+        f = security.fundamentals
+        if f.change_in_working_capital is None or f.revenue_ttm is None or f.revenue_ttm <= 0:
+            return None
+
+        # Change in WC as a % of revenue
+        wc_margin = f.change_in_working_capital / f.revenue_ttm
+
+        if wc_margin < -0.05:
+            # Draining WC by >5% of revenue is a massive red flag
+            return -1.0
+        elif wc_margin < 0.0:
+            return -0.5
+        elif wc_margin < 0.05:
+            return 0.5
+        else:
+            return 1.0
