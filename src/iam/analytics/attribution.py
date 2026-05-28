@@ -78,10 +78,16 @@ class AttributionAnalysis:
         lines.append("")
 
         # Sort by absolute contribution
-        sorted_contribs = sorted(self.contributions, key=lambda x: abs(x.contribution), reverse=True)
+        sorted_contribs = sorted(
+            self.contributions, key=lambda x: abs(x.contribution), reverse=True
+        )
 
         for contrib in sorted_contribs:
-            pct_of_alpha = (contrib.contribution / abs(self.composite_alpha) * 100) if self.composite_alpha else 0
+            pct_of_alpha = (
+                (contrib.contribution / abs(self.composite_alpha) * 100)
+                if self.composite_alpha
+                else 0
+            )
             direction = "↑" if contrib.contribution > 0 else "↓"
             lines.append(
                 f"  {direction} {contrib.factor_name:<25} {contrib.contribution:+6.2f}% "

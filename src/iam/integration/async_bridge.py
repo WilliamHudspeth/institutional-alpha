@@ -12,7 +12,8 @@ Allows existing blocking code to run asynchronously without modification.
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from iam.data.async_loader import get_async_loader
 from iam.ui.events import EventType, emit_event

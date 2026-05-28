@@ -107,7 +107,9 @@ class PortfolioAnalyzer:
 
         for position in portfolio.positions:
             if position.sector:
-                sector_weights[position.sector] = sector_weights.get(position.sector, 0.0) + position.weight
+                sector_weights[position.sector] = (
+                    sector_weights.get(position.sector, 0.0) + position.weight
+                )
 
         return sector_weights
 

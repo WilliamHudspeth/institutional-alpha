@@ -107,7 +107,7 @@ class Sparkline:
             window_values = values[i : i + window]
             mean = sum(window_values) / len(window_values)
             variance = sum((v - mean) ** 2 for v in window_values) / len(window_values)
-            volatility = variance ** 0.5
+            volatility = variance**0.5
             volatilities.append(volatility)
 
         # Render
@@ -124,7 +124,9 @@ class Sparkline:
         for i in range(width):
             idx = min(int(i * step), len(volatilities) - 1)
             normalized = volatilities[idx] / max_vol
-            level_idx = min(int(normalized * (len(Sparkline.LEVELS) - 1)), len(Sparkline.LEVELS) - 1)
+            level_idx = min(
+                int(normalized * (len(Sparkline.LEVELS) - 1)), len(Sparkline.LEVELS) - 1
+            )
             bars += Sparkline.LEVELS[level_idx]
 
         return bars
@@ -200,7 +202,9 @@ class HeatmapColor:
             return "🟢"  # Green (high)
 
     @staticmethod
-    def ascii_indicator(value: float, threshold_low: float = 0.33, threshold_mid: float = 0.67) -> str:
+    def ascii_indicator(
+        value: float, threshold_low: float = 0.33, threshold_mid: float = 0.67
+    ) -> str:
         """Get ASCII indicator (no emoji).
 
         Args:
@@ -376,7 +380,9 @@ if __name__ == "__main__":
     print(f"\nProgress bar (75%): {ProgressBar.bar_with_label(0.75, 1.0, width=20)}")
 
     # Intraday
-    print(f"\nIntraday OHLC (open=100, high=105, low=98, close=103): {MiniChart.intraday(100, 105, 98, 103)}")
+    print(
+        f"\nIntraday OHLC (open=100, high=105, low=98, close=103): {MiniChart.intraday(100, 105, 98, 103)}"
+    )
 
     # Price movement
     print(

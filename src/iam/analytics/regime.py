@@ -160,7 +160,10 @@ class RegimeDetector:
             return MacroRegime.INFLATIONARY
 
         # Disinflationary if inflation falling
-        if indicators.inflation_trend == "falling" and indicators.rate_trend in ("falling", "stable"):
+        if indicators.inflation_trend == "falling" and indicators.rate_trend in (
+            "falling",
+            "stable",
+        ):
             return MacroRegime.DISINFLATIONARY
 
         # Recessionary if negative growth or deteriorating earnings
