@@ -12,29 +12,41 @@ from iam.pipeline.verdict import VerdictResult, VerdictGenerator
 from iam.pipeline.arbitration import ConsensusEngine
 
 
-def print_assumption_table(
+def format_assumption_table(
     forecast_growth: float,
     wacc: float,
     terminal_growth: float = 0.025,
     horizon: int = 10,
-) -> None:
-    """Print a formalized, institutional-grade assumption summary.
+) -> str:
+    """Build a typographic assumption summary as a string (no printing).
 
     Args:
         forecast_growth: Explicit forecast growth rate (e.g., 0.12 for 12%)
         wacc: Weighted average cost of capital (discount rate)
         terminal_growth: Perpetuity growth rate (default 2.5%)
         horizon: DCF projection horizon in years (default 10)
+
+    Returns:
+        Formatted string with bracketed section header and aligned colons.
     """
-    print("-" * 60)
-    print("  ASSUMPTIONS")
-    print("-" * 60)
-    print(f"  Forecast Growth:     {forecast_growth * 100:>5.1f}%")
-    print(f"  Terminal Growth:     {terminal_growth * 100:>5.1f}%")
-    print(f"  Discount Rate (WACC):{wacc * 100:>5.2f}%")
-    print(f"  DCF Horizon:         {horizon} years")
-    print(f"  Confidence Regime:   Moderate")
-    print("-" * 60)
+    lines = [
+        " [ CORE ASSUMPTIONS ]",
+        f"   • Forecast Growth : {forecast_growth * 100:.1f}%",
+        f"   • Terminal Growth : {terminal_growth * 100:.1f}%",
+        f"   • Discount Rate   : {wacc * 100:.2f}%",
+        f"   • DCF Horizon     : {horizon} years",
+    ]
+    return "\n".join(lines)
+
+
+def print_assumption_table(
+    forecast_growth: float,
+    wacc: float,
+    terminal_growth: float = 0.025,
+    horizon: int = 10,
+) -> None:
+    """Print the typographic assumption summary (delegates to format_assumption_table)."""
+    print(format_assumption_table(forecast_growth, wacc, terminal_growth, horizon))
     print()
 
 
