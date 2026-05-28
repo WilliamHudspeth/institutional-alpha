@@ -296,6 +296,44 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
   - [ ] Separate keys for dev/test/prod (use different data sources)
   - [ ] Key escrow procedure (if employee leaves, revoke all their keys)
 
+#### Auto-Update & Silent Deployment (Never Breaks User Workflow)
+
+The user should never manually update. Security patches, factor improvements, data source changes — all roll out transparently.
+
+- [ ] **Client-Side Update Mechanism**
+  - Embedded auto-update checker (similar to Chrome, Electron)
+  - Background download of new version during idle time (no performance impact)
+  - Automatic restart on next app launch (not forced mid-session)
+  - Version manifest (current vs. latest, with changelog)
+  - Rollback button (if new version breaks workflow, revert in one click)
+
+- [ ] **Version Tagging & Changelogs**
+  - Semantic versioning (MAJOR.MINOR.PATCH)
+  - Automated release notes from commit messages
+  - Breaking changes highlighted (e.g., "factor weights updated — re-run backtest")
+  - Beta releases (users can opt-in to test new features before stable)
+  - Security patch priority (critical CVE fixes deployed within 24 hours)
+
+- [ ] **Zero-Downtime Deployment**
+  - API versioning (v1, v2) — old clients still work
+  - Blue-green deployments (test on green, cut over when stable)
+  - Staged rollout (10% → 25% → 50% → 100% of users, watch for errors)
+  - Health checks at every stage (abort if error rate spikes)
+  - Canary monitoring (catch regressions before they hit all users)
+
+- [ ] **Backward Compatibility**
+  - Old API clients keep working (with deprecation warnings, sunset date)
+  - Old model versions available (so past backtests remain reproducible)
+  - Config file format migrations (auto-convert old format on load)
+  - Data artifact versioning (parquet schema versioning, fallback readers)
+
+- [ ] **Transparency Without Noise**
+  - Changelog in-app (one-click to see what changed, why)
+  - Email digest (monthly, unless security patch → immediate notification)
+  - No "update nag" popups during critical work
+  - Metrics dashboard (how many users on each version, adoption rate)
+  - Feedback loop (users report issues → prioritize fixes in next patch)
+
 #### Success Criteria for Phase 1.5
 
 - All user input validated & sanitized (no injection attacks possible)
@@ -305,6 +343,191 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
 - Bandit + pip-audit runs on every PR, must pass before merge
 - Security design review completed before any API release
 - Incident response plan documented & tested
+- Auto-update mechanism deployed & tested (users never manually patch)
+- Zero critical vulnerabilities remain unfixed for >24 hours
+
+---
+
+### Phase 1.5b: Legal & Compliance Roadmap (Parallel to Phase 1.5)
+**Focus**: Financial/investment regulatory, data protection, liability, institutional trust
+
+**Scope**: Everything a financial advisory platform must do to operate legally. This is not "optional nice-to-have" — it's the framework that lets you commercialize without exposing yourself to SEC enforcement, data breach lawsuits, or user claims.
+
+#### Investment Adviser Regulatory (If Providing Advice/Rankings)
+
+- [ ] **Regulatory Classification & Registration**
+  - [ ] Determine if you need SEC Form ADV (investment adviser registration)
+    - If: scoring tickers or producing rankings that people use for investing → likely **yes**
+    - If: pure research (no recommendations, users do their own research) → gray area
+  - [ ] State registration (each state with clients may require separate registration)
+  - [ ] FINRA compliance (if you hold client funds, custody rules apply — unlikely here)
+  - [ ] Alternative: Claim exemption (e.g., "research only, not advice") — but must be rigorous
+
+- [ ] **Disclosure & Disclaimers**
+  - [ ] **Form ADV Part 2A**: Brochure disclosing fees, conflicts, investment strategy, risks
+    - Required even if you're exempt from registration
+  - [ ] **Disclaimers in all output**:
+    - "This is not investment advice. Past performance does not guarantee future results."
+    - "Consult a financial advisor before making investment decisions."
+    - "Model outputs are subject to model error and data limitations."
+  - [ ] **Conflict of interest disclosure**:
+    - Do you profit if users follow your recommendations? Disclose it.
+    - Do you use alternative data you sell separately? Disclose it.
+  - [ ] **Methodology disclosure** (required, but can be summary-level):
+    - What factors are you using? High-level description.
+    - What data sources? How current?
+    - What are the known limitations?
+  - [ ] **Performance track record** (if you claim to beat a benchmark):
+    - Must be audited by GIPS standards or at least reproducible
+    - Cannot cherry-pick periods or securities
+    - Must disclose how many strategies, how many were winners (survivorship bias)
+
+- [ ] **Suitability & Appropriateness**
+  - [ ] Suitability questionnaire (if giving personalized advice):
+    - Investor age, risk tolerance, time horizon, net worth
+    - Investment experience, goals
+  - [ ] Appropriateness check (model output appropriate for this investor's profile?)
+  - [ ] Unsuitability flag (e.g., recommending leveraged bets to a 70-year-old = NOT suitable)
+  - [ ] Documentation (save suitability assessment so you can defend if sued)
+
+- [ ] **Fiduciary Duty Compliance** (if registered as advisor)
+  - [ ] Duty of care: use reasonable care in analysis
+  - [ ] Duty of loyalty: act in client's best interest, not your own
+  - [ ] Duty of disclosure: tell clients about risks, conflicts, limitations
+  - [ ] Document your process (can defend in court: "we did reasonable due diligence")
+
+#### Data Protection & Privacy (Global)
+
+- [ ] **Privacy Policy**
+  - [ ] What data do you collect? (ticker queries, portfolio holdings, user profiles, IP logs)
+  - [ ] Why? (service delivery, analytics, abuse prevention)
+  - [ ] How long retained? (backtest data: 7 years for audit, user logs: 2 years for compliance)
+  - [ ] Who has access? (only staff with legitimate need; contractors?)
+  - [ ] User rights: download their data, delete their data, opt-out of analytics
+  - [ ] Third-party sharing: do you share data with yfinance, Stooq, analytics vendors?
+
+- [ ] **GDPR Compliance** (if any EU users)
+  - [ ] Legal basis for processing (legitimate interest, user consent, contractual necessity)
+  - [ ] Data Processing Agreement (if using third-party vendors like AWS, yfinance)
+  - [ ] Right to be forgotten (user can demand deletion; implement purge process)
+  - [ ] Data breach notification (notify users within 72 hours if personal data compromised)
+  - [ ] DPA clause in ToS (users can't sue in EU courts if they agree to jurisdiction clause)
+  - [ ] Pseudonymization (can you anonymize user behavior for analytics? Reduces risk)
+
+- [ ] **CCPA/CPRA Compliance** (if California users)
+  - [ ] Right to access: user can download all their data
+  - [ ] Right to delete: user can ask you to delete (except legal hold)
+  - [ ] Right to opt-out: "Do not sell my data" — honor it
+  - [ ] Opt-in for minors (under 13 needs parental consent)
+  - [ ] Privacy notice at point of collection (not hidden in terms)
+
+- [ ] **Data Minimization**
+  - [ ] Collect only what you need (ticker queries, not full portfolio unless necessary)
+  - [ ] Don't retain longer than necessary (delete old backtest runs after 7 years)
+  - [ ] Pseudo-anonymize (can you score by sector instead of ticker name?)
+
+#### Liability & Risk Management
+
+- [ ] **Terms of Service**
+  - [ ] No guarantee of accuracy (model outputs may be wrong)
+  - [ ] No liability for user losses (if user loses money, they can't sue you)
+    - Exception: gross negligence or fraud (can't waive those)
+  - [ ] Limitation of liability cap (e.g., "liability capped at fees paid")
+  - [ ] Indemnification: user indemnifies you for third-party claims (rare but possible)
+  - [ ] Dispute resolution: binding arbitration or small-claims court (faster than litigation)
+  - [ ] Governing law: choose favorable jurisdiction (e.g., Delaware)
+
+- [ ] **Errors & Omissions Insurance**
+  - [ ] If commercialized, get E&O insurance (covers negligence, fraud claims)
+  - [ ] Coverage limit: typically 1-5M (depends on AUM if advisory)
+  - [ ] Carrier: insurers specializing in financial advisors (Chubb, Ironshore, etc.)
+
+- [ ] **Intellectual Property**
+  - [ ] Ownership clause: your code, factor definitions, weights are YOUR property
+  - [ ] User license: users get limited license to use your output, not copy/resell
+  - [ ] Patent considerations: should you file provisional patent on composite score formula?
+
+#### Audit & Institutional Readiness
+
+- [ ] **SOC 2 Type II** (if SaaS)
+  - [ ] Security: access controls, encryption, logging
+  - [ ] Availability: uptime SLA (e.g., 99.5%), incident response
+  - [ ] Processing integrity: data accuracy, completeness
+  - [ ] Confidentiality: data segregation, vendor management
+  - [ ] 6-month audit with external auditor (costs 10-30K)
+
+- [ ] **Internal Audit Trail**
+  - [ ] Who accessed what data, when, why (immutable log, 2-year retention)
+  - [ ] Model changes: when were factor weights updated, who approved, impact analysis
+  - [ ] User complaints: log all issues, resolution, root cause
+  - [ ] Conflicts of interest: flag if you benefit from certain outputs
+
+- [ ] **Model Governance**
+  - [ ] Change control: any model update requires documentation, testing, approval
+  - [ ] Model validation: independent backtest before deployment
+  - [ ] Model monitoring: track factor performance, IC, valuation accuracy
+  - [ ] Model review: annual formal review by independent committee
+  - [ ] Override log: if human overrides model output, log it + rationale
+
+- [ ] **Regulatory Filings** (if applicable)
+  - [ ] Form ADV Part 1 & 2 (SEC registration)
+  - [ ] Form 4 (if insider trades — N/A unless you manage clients' portfolios)
+  - [ ] Annual compliance certification (sign off that you follow your own policies)
+
+#### Institutional Communications
+
+- [ ] **Educational Materials**
+  - [ ] Explainer: what is the composite score? How is it computed?
+  - [ ] Limitations: where does the model break? (high-debt cyclicals, pre-revenue tech, etc.)
+  - [ ] Validation: show backtested IC, Sharpe ratio, hit rate
+  - [ ] Comparison: how does this compare to Bloomberg, Refinitiv, other providers?
+
+- [ ] **Client Onboarding**
+  - [ ] Suitability questionnaire (if personalizing advice)
+  - [ ] Acknowledgment of disclaimers (they've read and understood)
+  - [ ] Model risk briefing (what can go wrong? How do you monitor for failures?)
+  - [ ] Data privacy briefing (what data you collect, how it's protected)
+
+- [ ] **Ongoing Reporting**
+  - [ ] Monthly model performance report (IC, hit rate, worst predictions)
+  - [ ] Quarterly model update newsletter (factor weights changed? Why?)
+  - [ ] Annual governance report (model reviews, complaints, regulatory filings)
+  - [ ] Incident notifications (data breach? Immediately notify, full transparency)
+
+#### Legal Documentation Checklist
+
+- [ ] **Contracts**
+  - [ ] Terms of Service (for end users)
+  - [ ] Data Processing Agreement (for EU/GDPR)
+  - [ ] Third-party vendor agreements (yfinance, AWS, if using)
+  - [ ] Employee/contractor NDAs (protect factor weights, models, client data)
+
+- [ ] **Disclaimers (Embed in Every Output)**
+  - [ ] "Not investment advice"
+  - [ ] "Past performance ≠ future results"
+  - [ ] "Model subject to error"
+  - [ ] "Consult a fiduciary advisor"
+  - [ ] "No warranty of accuracy or timeliness"
+
+- [ ] **Regulatory Filings** (varies by jurisdiction)
+  - [ ] SEC Form ADV (if advisory)
+  - [ ] State registrations (if operating in regulated states)
+  - [ ] Industry certifications (CFA, CFP if personal advice)
+
+#### Success Criteria for Phase 1.5b
+
+- Privacy policy drafted & reviewed by counsel
+- Terms of Service drafted (limitation of liability, disclaimers)
+- All disclaimers embedded in every score/report
+- Form ADV Part 2 (or exemption memo) prepared
+- Data Processing Agreement ready (if EU users)
+- E&O insurance quote obtained
+- Model governance policy documented
+- Audit trail logs all model changes & access
+- Annual model review process defined
+- Incident response plan includes user notification (72 hours)
+
+---
 
 ### Phase 2: Core Intelligence (Weeks 6-12)
 **Focus**: Financial rigor & scenario sophistication
@@ -492,8 +715,11 @@ Input validation, immutable audit logs, encrypted secrets, and rate limiting are
 ### Institutional Readiness
 - Peer-reviewed assumptions (sector experts)
 - Governance audit trail (who changed what, when)
-- Regulatory-ready disclaimers
+- Regulatory-ready disclaimers (Phase 1.5b complete)
 - Professional reporting formats
+- Legal review by securities counsel (if advisory)
+- SOC 2 Type II certification (if SaaS)
+- E&O insurance in place (if commercialized)
 
 ---
 
