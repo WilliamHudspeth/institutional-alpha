@@ -8,11 +8,15 @@ Most public valuation models stop at DCF or relative multiples. Institutional di
 
 [![CI/CD Pipeline](https://github.com/WilliamHudspeth/institutional-alpha/actions/workflows/python-package.yml/badge.svg)](https://github.com/WilliamHudspeth/institutional-alpha/actions)
 
-**v0.4.0-rc1** — release candidate. The factor scoring engine, seven-stage valuation pipeline, Bayesian thesis engine, and a hardened backtest stack are all implemented and tested. Awaiting one empirical IC run on real market data before the v0.4.0 promotion.
+**v0.4.0-rc1** — release candidate. The factor scoring engine, seven-stage valuation pipeline, Bayesian thesis engine, hardened backtest stack, institutional portfolio analytics, and modern modular terminal are all implemented and tested. Awaiting one empirical IC run on real market data before the v0.4.0 promotion.
 
-- 401 tests passing (with enhanced CI/CD coverage)
+- 502 tests passing (with enhanced CI/CD coverage)
 - 13 orthogonal factors (10 additive + 3 penalty)
 - 7-stage valuation pipeline
+- **Institutional portfolio layer** (analytics, position sizing, verdict generation)
+- **Bayesian thesis framework** (scenario probability tracking, evidence-based updating)
+- **Modern modular terminal** (event-driven panels, async data loading, ANSI visualization)
+- **Institutional analytics** (factor attribution, 6-regime macro detection)
 - Pluggable data sources (yfinance primary, Stooq fallback)
 - Bayesian shrinkage calibration with sector-neutral IC
 - Comprehensive CI/CD with linting, type checking, and security scanning
@@ -94,6 +98,12 @@ Stage 7: Verdict           → Buy/Hold/Sell + conviction band + peer-relative r
 ```
 
 **Backtest harness** (`iam.backtest`) — production-grade evaluation infrastructure. Pluggable data sources (yfinance → Stooq fallback), Polars-based price block, diskcache PIT snapshots, ProcessPool scoring, statsmodels Newey-West, sector-neutral IC, Bayesian shrinkage calibration. See [`docs/pipeline.md`](docs/pipeline.md) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+**Portfolio analytics** (`iam.portfolio`) — institutional risk and allocation framework. `PortfolioAnalyzer` computes VaR via variance-covariance, correlations, factor exposures, and concentration metrics. `PositionSizer` allocates conviction- or risk-based position weights tied to security verdicts. `PortfolioVerdictEngine` synthesizes individual verdicts into OVERWEIGHT/NEUTRAL/UNDERWEIGHT portfolio recommendations. See [`PORTFOLIO_GUIDE.md`](PORTFOLIO_GUIDE.md).
+
+**Institutional analytics** (`iam.analytics`) — macro-aware factor analysis. `AttributionEngine` decomposes returns into factor contributions. `RegimeDetector` classifies macro environment into 6 regimes (INFLATIONARY, DISINFLATIONARY, RECESSIONARY, EXPANSIONARY, RISK_OFF, RISK_ON) and applies dynamic factor weights (0.3x to 2.0x multipliers per regime).
+
+**Modern modular terminal** (`iam.ui`) — event-driven, asynchronous rendering. Immutable state management (`SecurityState`, `TerminalUIState`), pub/sub event bus, composable panel architecture (`BasePanel` with 5 implementations), and ANSI sparklines. `ModernTerminal` accepts async data sources and progressively renders updates. See [`README_SYSTEM.md`](README_SYSTEM.md).
 
 ## Install
 
@@ -196,6 +206,47 @@ print(updated.posteriors)    # posterior probabilities after the beat
 print(updated.expected_value)
 ```
 
+### Portfolio analytics
+
+```python
+from iam.portfolio.analytics import PortfolioAnalyzer
+from iam.portfolio.types import Portfolio, Position
+
+# Build portfolio from list of positions
+portfolio = Portfolio(
+    positions=[
+        Position(ticker="AAPL", shares=100, entry_price=150.0),
+        Position(ticker="GOOGL", shares=50, entry_price=2000.0),
+        Position(ticker="MSFT", shares=75, entry_price=300.0),
+    ],
+)
+
+analyzer = PortfolioAnalyzer(portfolio)
+
+# Compute key metrics
+var_95 = analyzer.compute_portfolio_var(confidence=0.95)
+factor_exposures = analyzer.compute_factor_exposures()
+correlation_matrix = analyzer.compute_correlation_matrix()
+diversification_ratio = analyzer.compute_diversification_ratio()
+
+print(f"VaR (95%): ${var_95:,.2f}")
+print(f"Factor exposures: {factor_exposures}")
+print(f"Diversification ratio: {diversification_ratio:.2f}")
+```
+
+### Portfolio verdicts and rebalancing
+
+```python
+from iam.portfolio.verdicts import PortfolioVerdictEngine
+
+engine = PortfolioVerdictEngine()
+verdict = engine.generate_verdict(portfolio_securities=[sec_aapl, sec_googl, sec_msft])
+
+print(f"Portfolio verdict: {verdict.recommendation}")  # e.g., "OVERWEIGHT"
+print(f"Confidence: {verdict.confidence}")             # 0.0 to 1.0
+print(f"Factor exposures: {verdict.factor_exposures}")
+```
+
 ### Backtest
 
 Build the price parquet once, then run the backtest. The data source automatically falls back from yfinance to Stooq if yfinance is unavailable.
@@ -242,10 +293,16 @@ src/iam/
 ├── valuation/       # ReverseDCF, RelativeValuation, FCFEDCF, SOTP, Triangulator
 ├── pipeline/        # 7-stage orchestrator, macro overlay, verdict generator
 ├── thesis/          # ThesisEngine + Bayesian updater (priors, evidence, updater)
+│   └── bayesian/    # Scenario modeling, Bayes' theorem, evidence reliability
 ├── lenses/          # Rate-sensitive, platform compounder, Damodaran base, synthesis
 ├── data/            # Security, Fundamentals, MarketData, MacroContext, Damodaran
+│   └── async_loader.py # ThreadPoolExecutor-based async data fetching
 ├── arbitration/     # Signal blending and reliability calibration
-├── integration/     # Adapters and orchestrator
+├── analytics/       # Factor attribution, 6-regime macro detection
+├── portfolio/       # Risk analytics, position sizing, verdict generation
+├── ui/              # Modular terminal, state, events, panels, sparklines
+├── config/          # Pydantic settings, structured logging
+├── integration/     # Adapters and async orchestration
 ├── validation/      # Input parser and financial guards
 └── backtest/        # Production backtest harness (v0.4 hardened stack)
     ├── sources/     # Pluggable data sources (yfinance, stooq, composite)
@@ -262,10 +319,18 @@ src/iam/
 
 Full conceptual documentation:
 
+**Core model:**
 - [`docs/framework.md`](docs/framework.md) — why orthogonality matters, the composite formula, and factor design rationale
 - [`docs/factors.md`](docs/factors.md) — every factor's definition, sub-components, and default weights
 - [`docs/pipeline.md`](docs/pipeline.md) — the seven pipeline stages in depth
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — full module map, dependency rules, validation gates
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — 6-layer architecture, phase roadmap, integration patterns (499 lines)
+
+**Institutional features:**
+- [`PORTFOLIO_GUIDE.md`](PORTFOLIO_GUIDE.md) — portfolio analytics, position sizing, rebalancing, risk metrics (458 lines)
+- [`INTEGRATION_GUIDE.md`](INTEGRATION_GUIDE.md) — end-to-end workflows from securities to portfolio (438 lines)
+- [`README_SYSTEM.md`](README_SYSTEM.md) — modern terminal, configuration, async data layer, logging (469 lines)
+
+**Infrastructure & releases:**
 - [`docs/REAL_DATA_BACKTEST_STRATEGY.md`](docs/REAL_DATA_BACKTEST_STRATEGY.md) — empirical validation plan and gates
 - [`RELEASES.md`](RELEASES.md) — release-by-release notes
 - [`CHANGELOG.md`](CHANGELOG.md) — Keep-a-Changelog format
@@ -276,8 +341,10 @@ Full conceptual documentation:
 2. **Auditable.** Every composite score decomposes back into its factor contributions and penalty terms. No black-box aggregations.
 3. **Pluggable data.** The model never assumes a specific data provider. Backtest data flows through the `DataSource` contract; add new sources by implementing three methods.
 4. **No magic.** Default factor weights are explicit, documented, and easy to override. No hidden constants, no silent defaults.
-5. **Regime-aware.** The macro overlay can re-weight factors or trigger a pipeline re-run, not just add noise to the composite.
+5. **Regime-aware.** Macro state is classified into 6 regimes with dynamic factor weights. The overlay can re-weight factors or trigger a pipeline re-run, not just add noise.
 6. **Empirically grounded.** Bayesian reliability weights are calibrated from historical IC, not heuristically assigned. Until the empirical run completes, the model uses conservative defaults clearly marked as such.
+7. **Portfolio-aware.** Individual security verdicts feed into portfolio-level analytics: VaR, correlations, factor exposures, position sizing, rebalancing.
+8. **Asynchronous-first.** Modern terminal and data layer use ThreadPoolExecutor for non-blocking operations. UI remains responsive during data fetches and pipeline runs.
 
 ## Roadmap
 
@@ -294,10 +361,16 @@ Full conceptual documentation:
 - [x] Synthetic backtest validation (v0.3.5)
 - [x] Real-data infrastructure: Stooq loader, Newey-West, safe reliability loader (v0.3.6)
 - [x] Hardened backtest stack v2: pluggable sources, Polars, ProcessPool, sector-neutral IC, Bayesian shrinkage (v0.4.0-rc1)
+- [x] **Institutional portfolio layer**: analytics, position sizing, verdicts (v0.4.0-rc1)
+- [x] **Bayesian thesis enhancements**: scenario probability tracking, evidence reliability (v0.4.0-rc1)
+- [x] **Modern modular terminal**: event-driven panels, async data, ANSI visualization (v0.4.0-rc1)
+- [x] **Institutional analytics**: factor attribution, 6-regime macro detection (v0.4.0-rc1)
+- [x] **Configuration system**: Pydantic settings, structured logging (v0.4.0-rc1)
 - [ ] Empirical IC run on real S&P 100 data (v0.4.0)
 - [ ] Multi-horizon IC measurement (21d / 63d / 126d / 252d)
 - [ ] Additional data sources (FMP, Tiingo) via `DataSource` contract
 - [ ] International expansion (country risk premium calculations)
+- [ ] Cognitive research layer: research paper ingestion, insights generation
 
 ## License
 
