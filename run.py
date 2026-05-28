@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Interactive CLI for the multi-lens valuation engine.
 
+Gathers all results from the lenses + pipeline silently, then renders
+them through the typographic institutional UI in one clean pass.
+
 Run from the repo root:
     python run.py
 """
@@ -8,77 +11,51 @@ Run from the repo root:
 from __future__ import annotations
 
 import sys
+from typing import Any, Optional
 
-from iam.validation import parse_growth_rate, validate_all_assumptions
-
-
-def _print_security_header(security) -> None:
-    print(f"  {security.name or security.ticker}")
-    if security.sector:
-        print(f"  Sector: {security.sector}  |  Industry: {security.industry or 'n/a'}")
-    if security.market.price is not None:
-        print(f"  Current price: {security.market.price:.2f}")
-    missing = []
-    if security.fundamentals.fcf_ttm is None:
-        missing.append("FCF TTM")
-    if security.fundamentals.shares_outstanding is None:
-        missing.append("shares outstanding")
-    if missing:
-        print(f"  WARNING: missing data — {', '.join(missing)}. DCF lenses will be skipped.")
+from iam.validation import parse_growth_rate
 
 
-def main() -> None:
-    from iam.version import header, metadata
-    print(header())
-    meta = metadata()
-    print(f"Multi-Lens Valuation Engine | Python {meta['python']}\n")
+def _classify_signal(upside: Optional[float], threshold: float = 0.05) -> str:
+    """Map a fractional upside to BULLISH / NEUTRAL / BEARISH."""
+    if upside is None:
+        return "N/A"
+    if upside > threshold:
+        return f"BULLISH ({upside * 100:+.1f}%)"
+    if upside < -threshold:
+        return f"BEARISH ({upside * 100:+.1f}%)"
+    return f"NEUTRAL ({upside * 100:+.1f}%)"
 
-    ticker = input("Ticker symbol: ").strip().upper()
-    if not ticker:
-        print("No ticker entered. Exiting.")
-        sys.exit(0)
 
-    # -------------------------------------------------------------------------
-    # Fetch live data
-    # -------------------------------------------------------------------------
-    print(f"\nFetching {ticker} from Yahoo Finance...")
-    try:
-        from iam.data.yahoo import fetch_security
-        security = fetch_security(ticker)
-    except ImportError as exc:
-        print(f"\nERROR: {exc}")
-        sys.exit(1)
-    except RuntimeError as exc:
-        print(f"\nERROR: {exc}")
-        sys.exit(1)
-    except Exception as exc:
-        print(f"\nUnexpected error: {exc}")
-        sys.exit(1)
+def _build_scenarios(intrinsic_components: dict) -> list[dict]:
+    """Extract the probabilistic scenario matrix from the intrinsic DCF result."""
+    raw = intrinsic_components.get("scenarios", {}) or {}
+    formatted: list[dict] = []
+    for name, data in raw.items():
+        formatted.append(
+            {
+                "name": name,
+                "prob": f"{data['prob'] * 100:.0f}%",
+                "target": data["target"],
+                "upside": f"{data['upside'] * 100:+.1f}%",
+                "thesis": _scenario_thesis(name),
+            }
+        )
+    return formatted
 
-    print()
-    _print_security_header(security)
-    print()
 
-    # Optional growth override
-    g_input = input(
-        "Forecast growth for DCF lenses (e.g. 13 or 0.13 for 13%) [Enter for model default 8%]: "
-    ).strip()
-    if g_input:
-        try:
-            growth = parse_growth_rate(g_input, default=0.08)
-            security.qualitative["forecast_growth"] = growth
-            print(f"  Using forecast growth: {growth:.1%}")
-        except ValueError as e:
-            print(f"  Invalid input: {e} — using model default.")
-    print()
+def _scenario_thesis(name: str) -> str:
+    """Short label per scenario (mirrors fcfe_dcf scenario definitions)."""
+    name_lower = name.lower()
+    if "bear" in name_lower:
+        return "Stressed execution"
+    if "bull" in name_lower:
+        return "Platform leverage"
+    return "Anchor assumptions"
 
-    # -------------------------------------------------------------------------
-    # Multi-lens analysis (compute first for Master Arbitration Layer)
-    # -------------------------------------------------------------------------
-    synthesis_upside = None
-    print("-" * 60)
-    print("  MULTI-LENS ANALYSIS")
-    print("-" * 60)
+
+def _gather_lens_results(security) -> tuple[Optional[float], Optional[str]]:
+    """Run the multi-lens engine silently. Returns (synthesis_upside, error)."""
     try:
         from iam.lenses.rate_sensitive import RateSensitiveLens
         from iam.lenses.platform_compounder import PlatformCompounderLens
@@ -92,49 +69,131 @@ def main() -> None:
             ExpectationsDifficultyLens().compute(security),
             DamodaranBaseLens().compute(security),
         ]
-
-        for lr in lens_results:
-            lo = f"{lr.fair_value_low:.2f}" if lr.fair_value_low is not None else "—"
-            hi = f"{lr.fair_value_high:.2f}" if lr.fair_value_high is not None else "—"
-            move = f"{lr.implied_move_pct:+.1%}" if lr.implied_move_pct is not None else "diagnostic only"
-            print(f"\n  [{lr.lens_name}]  conf: {lr.confidence:.2f}")
-            print(f"    Range: {lo} – {hi}   Implied move: {move}")
-            print(f"    {lr.narrative}")
-
         synthesis = synthesize_lenses(lens_results)
-        synthesis_upside = synthesis.weighted_implied_move_pct
-        print()
-        print("-" * 40)
-        print("  WEIGHTED SYNTHESIS (pricing lenses only)")
-        if synthesis.weighted_fair_value_low is not None:
-            print(f"    Low:  {synthesis.weighted_fair_value_low:.2f}")
-            print(f"    High: {synthesis.weighted_fair_value_high:.2f}")
-        if synthesis.weighted_implied_move_pct is not None:
-            direction = "upside" if synthesis.weighted_implied_move_pct >= 0 else "downside"
-            print(f"    Implied move: {synthesis.weighted_implied_move_pct:+.1%} ({direction})")
-        else:
-            print("    No pricing lenses produced a result.")
-
+        return synthesis.weighted_implied_move_pct, None
     except Exception as exc:
-        print(f"  Lens analysis error: {exc}")
+        return None, str(exc)
 
-    # -------------------------------------------------------------------------
-    # Valuation pipeline (Stages 1-7) with Master Arbitration Layer
-    # -------------------------------------------------------------------------
-    print()
-    print("-" * 60)
-    print("  VALUATION PIPELINE (Stages 1-7)")
-    print("-" * 60)
+
+def _gather_pipeline_report(security, synthesis_upside: Optional[float]):
+    """Run the 7-stage pipeline silently. Returns (report, error)."""
     try:
         from iam.pipeline.orchestrator import ValuationPipeline
-        report = ValuationPipeline().run(security, synthesis_upside=synthesis_upside)
-        print(report.explain())
-    except Exception as exc:
-        print(f"  Pipeline error: {exc}")
-    print()
 
-    print()
-    print("Done.")
+        report = ValuationPipeline().run(security, synthesis_upside=synthesis_upside)
+        return report, None
+    except Exception as exc:
+        return None, str(exc)
+
+
+def _build_ui_data(
+    security,
+    growth: float,
+    synthesis_upside: Optional[float],
+    report,
+) -> dict[str, Any]:
+    """Assemble the dict consumed by print_institutional_ui()."""
+    # PWEV + scenarios come from intrinsic DCF components
+    intrinsic_components = report.intrinsic.components if report else {}
+    intrinsic_assumptions = report.intrinsic.assumptions if report else {}
+
+    pwev = float(intrinsic_components.get("pwev_target", 0.0) or 0.0)
+    wacc_value = intrinsic_assumptions.get("discount_rate")
+    terminal_value = intrinsic_assumptions.get("terminal_growth")
+
+    # Verdict + confidence
+    verdict_text = "—"
+    confidence_band = "MODERATE"
+    if report and report.final_verdict:
+        verdict_text = report.final_verdict.rating
+        confidence_band = report.final_verdict.confidence_band
+
+    # Macro overlay status (text-mined from report.summary)
+    summary_lower = (report.summary or "").lower() if report else ""
+    if "macro trigger" in summary_lower or "rate shock" in summary_lower:
+        macro_signal = "TRIGGERED"
+    elif "macro check" in summary_lower:
+        macro_signal = "PASS"
+    else:
+        macro_signal = "PASS"
+
+    return {
+        "ticker": security.ticker,
+        "name": security.name or security.ticker,
+        "price": security.market.price or 0.0,
+        "verdict": verdict_text,
+        "growth": f"{growth * 100:.1f}%",
+        "wacc": f"{wacc_value * 100:.2f}%" if wacc_value else "—",
+        "terminal": f"{terminal_value * 100:.1f}%" if terminal_value else "2.5%",
+        "pwev": pwev,
+        "synthesis": (
+            f"{synthesis_upside * 100:+.1f}%" if synthesis_upside is not None else None
+        ),
+        "confidence": confidence_band,
+        "scenarios": _build_scenarios(intrinsic_components),
+        "signals": {
+            "reverse_dcf": _classify_signal(report.reverse_dcf.fair_value_to_price)
+            if report
+            else "N/A",
+            "platform_compounder": _classify_signal(synthesis_upside),
+            "relative_valuation": _classify_signal(report.relative.fair_value_to_price)
+            if report
+            else "N/A",
+            "macro_overlay": macro_signal,
+        },
+    }
+
+
+def main() -> None:
+    from iam.ui.institutional_terminal import print_institutional_ui
+
+    # ----- Input -----
+    ticker = input("Ticker symbol: ").strip().upper()
+    if not ticker:
+        print("No ticker entered. Exiting.")
+        sys.exit(0)
+
+    g_input = input(
+        "Forecast growth (e.g. 13 or 0.13 for 13%) [Enter for default 8%]: "
+    ).strip()
+
+    # ----- Silent data fetch -----
+    try:
+        from iam.data.yahoo import fetch_security
+
+        security = fetch_security(ticker)
+    except (ImportError, RuntimeError) as exc:
+        print(f"\nERROR: {exc}")
+        sys.exit(1)
+    except Exception as exc:
+        print(f"\nUnexpected error: {exc}")
+        sys.exit(1)
+
+    # Apply optional growth override
+    growth = 0.08
+    if g_input:
+        try:
+            growth = parse_growth_rate(g_input, default=0.08)
+            security.qualitative["forecast_growth"] = growth
+        except ValueError as exc:
+            print(f"Invalid growth input: {exc} — using default 8%.")
+
+    # ----- Silent engine runs -----
+    synthesis_upside, lens_error = _gather_lens_results(security)
+    report, pipeline_error = _gather_pipeline_report(security, synthesis_upside)
+
+    if report is None:
+        # The pipeline is mandatory; if it failed, show why and stop.
+        print(f"\nPipeline error: {pipeline_error}")
+        sys.exit(1)
+
+    if lens_error:
+        # Lens failure is non-fatal; just note it before rendering.
+        print(f"(Lens analysis unavailable: {lens_error})")
+
+    # ----- Single unified render -----
+    ui_data = _build_ui_data(security, growth, synthesis_upside, report)
+    print_institutional_ui(ui_data)
 
 
 if __name__ == "__main__":

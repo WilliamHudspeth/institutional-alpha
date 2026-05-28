@@ -67,7 +67,7 @@ Unlike black-box ML approaches, every output decomposes to its factor components
 ### ✅ User Interface
 - [x] Interactive welcome screen (main.py)
 - [x] Multi-lens valuation CLI (run.py)
-- [x] Single-ticker analysis (analyze.py)
+- [x] Single-ticker analysis (scripts/analyze.py)
 - [x] Backtest harness (test historical factor returns)
 - [x] Professional headers + versioning
 

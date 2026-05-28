@@ -36,11 +36,25 @@ making changes.
 
 - `main.py` — primary interactive entry point (welcome screen + guided menu)
 - `run.py` — alternative interactive CLI for multi-lens valuation
-- `analyze.py` — command-line utility for single-ticker analysis
 - `src/iam/` — main package
 - `src/iam/factors/` — individual factor implementations
 - `src/iam/pipeline/` — valuation pipeline stages (Reverse DCF → Relative → Intrinsic → Triangulation, with macro overlay + verdict)
-- `docs/` — conceptual writeups (framework.md, factors.md, pipeline.md)
+- `src/iam/backtest/` — production backtest harness (sources, metrics, calibration, runner, cli)
+- `scripts/` — utility scripts
+  - `scripts/analyze.py` — command-line utility for single-ticker analysis
+  - `scripts/quick_recommend.py` — fast BUY/HOLD/SELL recommendation
+  - `scripts/backtest_runner.py` — empirical backtest orchestrator
+  - `scripts/build_price_parquet.py` — one-shot price parquet builder
+- `docs/` — conceptual writeups + architecture
+  - `docs/framework.md`, `docs/factors.md`, `docs/pipeline.md` — design rationale
+  - `docs/ARCHITECTURE.md` — full system audit
+  - `docs/REAL_DATA_BACKTEST_STRATEGY.md` — empirical validation plan
+  - `docs/v0.3.5_BACKTEST_POST.md` — historical synthetic backtest writeup
+- `data/` — runtime artifacts (mostly gitignored)
+  - `data/cache/seed_cache.sqlite` — tracked warm-start cache
+  - `data/cache/iam_cache.sqlite` — gitignored runtime cache
+  - `data/universe/sp100.json` — static S&P 100 universe
+  - `data/results/`, `data/prices/`, `data/snapshots/` — gitignored outputs
 - `examples/` — runnable end-to-end demos
 - `tests/` — pytest suite (including backtest harness)
 
