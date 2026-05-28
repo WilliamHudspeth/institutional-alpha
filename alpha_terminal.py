@@ -1073,7 +1073,7 @@ class AlphaTerminal:
         "Exit",
     ]
 
-    DEFAULT_WATCHLIST = ["AAPL", "MSFT", "NVDA", "TSLA", "AMD"]
+    DEFAULT_WATCHLIST = ["TSLA", "MSFT", "AAPL", "NVDA", "META"]
 
     def __init__(self) -> None:
         self._active = "AAPL"
