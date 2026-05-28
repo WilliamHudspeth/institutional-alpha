@@ -53,7 +53,9 @@ def build_prices(
     # each row's serving source is recorded for the provenance/audit trail.
     chain = default_chain()
     typer.echo(f"📊 Downloading {len(tickers)} tickers via {chain!r}...")
-    end_with_horizon = (pd.Timestamp(end) + pd.Timedelta(days=horizon)).strftime("%Y-%m-%d")
+    # Extend download window to cover all horizons, not just the primary one.
+    max_horizon = max(config.horizons_days + [horizon])
+    end_with_horizon = (pd.Timestamp(end) + pd.Timedelta(days=max_horizon)).strftime("%Y-%m-%d")
 
     rows = []
     errors = []
@@ -105,15 +107,22 @@ def build_prices(
     # Sort by ticker and date for computing returns
     df_pl = df_pl.sort(["ticker", "date"])
 
-    # Compute forward return: price[t+horizon] / price[t] - 1
-    df_pl = df_pl.with_columns(
+    # Compute one forward-return column per horizon.
+    # fwd_ret_{H}d = price[t+H] / price[t] - 1.
+    # fwd_ret is kept as an alias for the primary horizon.
+    all_horizons = sorted(set(config.horizons_days + [horizon]))
+    horizon_exprs = [
         pl.col("close")
-        .shift(-horizon)
+        .shift(-h)
         .over("ticker")
         .truediv(pl.col("close"))
         .sub(1)
-        .alias("fwd_ret")
-    )
+        .alias(f"fwd_ret_{h}d")
+        for h in all_horizons
+    ]
+    df_pl = df_pl.with_columns(horizon_exprs)
+    # Primary alias so existing consumers reading "fwd_ret" keep working.
+    df_pl = df_pl.with_columns(pl.col(f"fwd_ret_{horizon}d").alias("fwd_ret"))
 
     # Filter to evaluation period (exclude forward period)
     df_pl = df_pl.filter(pl.col("date") <= end)
@@ -147,6 +156,7 @@ def build_prices(
             "start": start,
             "end": end,
             "horizon_days": horizon,
+            "all_horizons_days": all_horizons,
         },
         "data": {
             "file_path": str(config.price_file),

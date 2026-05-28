@@ -129,7 +129,7 @@ def backtest(
         "universe": "S&P 100 (static 2024-12-31)",
         "period": f"{config.start} to {config.end}",
         "horizon_days": config.horizon_days,
-        "signal": "cost_of_equity",
+        "signal": "composite",
         "empirical_ic": {
             "mean": ic_mean,
             "std": ic_std,
@@ -150,10 +150,22 @@ def backtest(
     typer.echo(f"✓ Calibrated reliabilities written to {calibration_path}")
     typer.echo()
 
-    # Save results
+    # Save full results parquet
     results_path = config.results_dir / "backtest_results.parquet"
     results_df.to_parquet(results_path)
     typer.echo(f"✓ Results written to {results_path}")
+
+    # Save a tidy per-horizon IC CSV for easy inspection
+    horizon_ic_cols = [c for c in results_df.columns if (c.startswith("ic_") and c.endswith("d"))]
+    if horizon_ic_cols:
+        keep = ["ic", "ic_vw", "ic_sector_neutral"] + horizon_ic_cols + [
+            c for c in results_df.columns if c.startswith("ic_vw_") and c.endswith("d")
+        ]
+        keep = [c for c in keep if c in results_df.columns]
+        horizon_csv = config.results_dir / "ic_by_horizon.csv"
+        results_df[keep].to_csv(horizon_csv)
+        typer.echo(f"✓ Per-horizon IC written to {horizon_csv}")
+
     typer.echo()
     typer.echo("🎉 Backtest complete!")
 
