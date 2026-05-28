@@ -8,14 +8,13 @@ Information Coefficient measures the predictive power of a signal:
 
 from __future__ import annotations
 
-from typing import Optional
 import numpy as np
 import pandas as pd
-from scipy.stats import spearmanr, norm
 import statsmodels.api as sm
+from scipy.stats import norm, spearmanr
 
 
-def information_coefficient(df: pd.DataFrame, sector_col: Optional[str] = None) -> float:
+def information_coefficient(df: pd.DataFrame, sector_col: str | None = None) -> float:
     """Calculate Spearman rank correlation between scores and forward returns.
 
     Can compute global IC or sector-neutral IC (averaged across sectors).
@@ -66,9 +65,7 @@ def information_ratio(ic_series: pd.Series) -> float:
     return mean_ic / std_ic
 
 
-def rolling_ic_stability(
-    ic_series: pd.Series, window: int = 12
-) -> pd.Series:
+def rolling_ic_stability(ic_series: pd.Series, window: int = 12) -> pd.Series:
     """Calculate rolling IC to detect regime shifts.
 
     Args:
@@ -84,9 +81,7 @@ def rolling_ic_stability(
     return rolling
 
 
-def statistical_significance(
-    ic_mean: float, ic_std: float, n: int
-) -> dict:
+def statistical_significance(ic_mean: float, ic_std: float, n: int) -> dict:
     """Calculate t-stat and p-value for IC.
 
     Args:
@@ -127,9 +122,7 @@ def statistical_significance(
     }
 
 
-def newey_west_se(
-    ic_mean: float, ic_std: float, n: int, nlags: int = 3
-) -> float:
+def newey_west_se(ic_mean: float, ic_std: float, n: int, nlags: int = 3) -> float:
     """Newey-West standard error for autocorrelated returns.
 
     Corrects for autocorrelation from overlapping return windows
@@ -156,9 +149,7 @@ def newey_west_se(
     return base_se * adjustment_factor
 
 
-def newey_west_se_rigorous(
-    ic_series: pd.Series, nlags: int = 3
-) -> tuple[float, float, float]:
+def newey_west_se_rigorous(ic_series: pd.Series, nlags: int = 3) -> tuple[float, float, float]:
     """Compute rigorous Newey-West standard error using statsmodels HAC covariance.
 
     Args:

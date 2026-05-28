@@ -1,7 +1,5 @@
 """Financial sanity checks and assumption validation."""
 
-from typing import Optional
-
 
 # Constants: Financial guardrails
 MAX_FORECAST_GROWTH = 0.40  # 40% growth is extremely aggressive
@@ -58,14 +56,12 @@ def validate_discount_rate(wacc: float) -> None:
     """
     if wacc < MIN_WACC:
         raise ValueError(
-            f"WACC {wacc:.1%} is below minimum {MIN_WACC:.1%} "
-            "(unrealistically low cost of capital)"
+            f"WACC {wacc:.1%} is below minimum {MIN_WACC:.1%} (unrealistically low cost of capital)"
         )
 
     if wacc > MAX_WACC:
         raise ValueError(
-            f"WACC {wacc:.1%} exceeds maximum {MAX_WACC:.1%} "
-            "(extremely high risk assumption)"
+            f"WACC {wacc:.1%} exceeds maximum {MAX_WACC:.1%} (extremely high risk assumption)"
         )
 
 
@@ -90,8 +86,7 @@ def validate_margin(margin: float, margin_type: str = "operating") -> None:
 
     if margin > MAX_MARGIN:
         raise ValueError(
-            f"Margin {margin:.1%} exceeds {MAX_MARGIN:.1%} "
-            "(exceptional but proceed with caution)"
+            f"Margin {margin:.1%} exceeds {MAX_MARGIN:.1%} (exceptional but proceed with caution)"
         )
 
 
@@ -150,7 +145,7 @@ def validate_all_assumptions(
     growth_rate: float,
     terminal_growth: float,
     wacc: float,
-    forecast_margin: Optional[float] = None,
+    forecast_margin: float | None = None,
 ) -> list[str]:
     """
     Run comprehensive assumption validation.

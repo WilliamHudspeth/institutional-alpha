@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass
 class CycleWeights:
     expansion: float = 0.50
@@ -11,6 +12,7 @@ class CycleWeights:
         if abs(sum([self.expansion, self.contraction, self.distress, self.recovery]) - 1.0) > 1e-6:
             raise ValueError("CycleWeights must sum to 1.0")
 
+
 def normalize_through_cycle(
     peak_value: float,
     weights: CycleWeights = CycleWeights(),
@@ -21,12 +23,13 @@ def normalize_through_cycle(
     """Generic through-cycle normalizer. Defaults reproduce BLK HPS: 360M -> 288M."""
     weights.validate()
     factor = (
-        weights.expansion * 1.0 +
-        weights.contraction * contraction_factor +
-        weights.distress * distress_factor +
-        weights.recovery * recovery_factor
+        weights.expansion * 1.0
+        + weights.contraction * contraction_factor
+        + weights.distress * distress_factor
+        + weights.recovery * recovery_factor
     )
     return peak_value * factor
+
 
 def apply_distributable_haircut(fcfe: float, haircut: float) -> float:
     """haircut as decimal, e.g. 0.08 = 8 percent non-distributable capital."""
@@ -34,11 +37,15 @@ def apply_distributable_haircut(fcfe: float, haircut: float) -> float:
         raise ValueError("haircut must be in [0, 1)")
     return fcfe * (1 - haircut)
 
-def fragility_penalty(model_elasticity: float, empirical_elasticity: float, scale: float = 0.5) -> float:
+
+def fragility_penalty(
+    model_elasticity: float, empirical_elasticity: float, scale: float = 0.5
+) -> float:
     """Map operating-leverage gap to IAM Fragility penalty in [-1, 0]."""
     gap = model_elasticity - empirical_elasticity
     penalty = -scale * gap
     return max(-1.0, min(0.0, penalty))
+
 
 if __name__ == "__main__":
     # BLK HPS: peak 360M -> normalized 288M
@@ -59,7 +66,7 @@ if __name__ == "__main__":
         distress_factor=0.25,
         recovery_factor=0.70,
     )
-    
+
     print(f"HPS normalized: {hps_norm:,.0f}")
     print(f"iShares distributable: {ishares_dist:,.0f}")
     print(f"Fragility penalty: {frag:.2f}")

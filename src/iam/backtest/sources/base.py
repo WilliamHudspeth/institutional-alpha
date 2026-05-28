@@ -10,7 +10,6 @@ Any data source plugged into the backtest must implement:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional
 
 import pandas as pd
 
@@ -65,7 +64,7 @@ class DataSource(ABC):
         ticker: str,
         start: str,
         end: str,
-    ) -> Optional[pd.DataFrame]:
+    ) -> pd.DataFrame | None:
         """Download bulk historical OHLCV data for a single ticker.
 
         Args:

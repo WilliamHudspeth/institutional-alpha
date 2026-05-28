@@ -5,9 +5,9 @@ Zero external dependencies.
 """
 
 from .institutional_terminal import (
+    print_bayesian_update_summary,
     print_institutional_ui,
     print_pipeline_summary,
-    print_bayesian_update_summary,
 )
 
 __all__ = [

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict
 
 import numpy as np
 import pandas as pd
@@ -92,7 +91,7 @@ def ic_to_reliability_bayesian(
 
 
 def write_calibration(
-    ic_by_lens: Dict[str, float],
+    ic_by_lens: dict[str, float],
     output_path: Path = Path("src/iam/arbitration/calibrated_reliabilities.json"),
 ) -> None:
     """Write calibrated reliability weights to JSON for the arbitrator.
@@ -101,10 +100,7 @@ def write_calibration(
         ic_by_lens: Dict mapping lens names to their empirical IC values
         output_path: Path to write calibrated_reliabilities.json
     """
-    calibrated = {
-        lens: ic_to_reliability(ic)
-        for lens, ic in ic_by_lens.items()
-    }
+    calibrated = {lens: ic_to_reliability(ic) for lens, ic in ic_by_lens.items()}
 
     # Add metadata
     output = {
@@ -129,7 +125,7 @@ def write_calibration(
         print(f"  {lens:30} IC={ic:+.4f} → reliability={rel:.2f}")
 
 
-def summarize_backtest(results_df: pd.DataFrame) -> Dict[str, float]:
+def summarize_backtest(results_df: pd.DataFrame) -> dict[str, float]:
     """Summarize backtest results into key metrics.
 
     Args:

@@ -6,8 +6,8 @@ Convention here: *less* crowded scores higher.
 
 from __future__ import annotations
 
-from iam.factors.base import Factor, FactorContribution
 from iam.data.security import Security
+from iam.factors.base import Factor, FactorContribution
 
 
 class CrowdingFactor(Factor):
@@ -22,7 +22,9 @@ class CrowdingFactor(Factor):
         # Hedge fund ownership — high = crowded
         if m.hedge_fund_ownership_pct is not None:
             # 5% = neutral, 15%+ = very crowded, <2% = uncrowded
-            components["hedge_fund_ownership"] = self.clamp(-(m.hedge_fund_ownership_pct - 0.05) * 10)
+            components["hedge_fund_ownership"] = self.clamp(
+                -(m.hedge_fund_ownership_pct - 0.05) * 10
+            )
         else:
             confidence *= 0.85
 
@@ -50,15 +52,19 @@ class CrowdingFactor(Factor):
         # Passive ownership concentration
         if m.passive_index_ownership_pct is not None:
             # >25% passive = fragile to flows
-            components["passive_concentration"] = self.clamp(-(m.passive_index_ownership_pct - 0.20) * 5)
+            components["passive_concentration"] = self.clamp(
+                -(m.passive_index_ownership_pct - 0.20) * 5
+            )
 
-        value = self.weighted_average({
-            "hf":    (components.get("hedge_fund_ownership"),  0.30),
-            "ret":   (components.get("retail_positioning"),    0.20),
-            "si":    (components.get("short_interest"),        0.20),
-            "opts":  (components.get("options_skew"),          0.15),
-            "passv": (components.get("passive_concentration"), 0.15),
-        })
+        value = self.weighted_average(
+            {
+                "hf": (components.get("hedge_fund_ownership"), 0.30),
+                "ret": (components.get("retail_positioning"), 0.20),
+                "si": (components.get("short_interest"), 0.20),
+                "opts": (components.get("options_skew"), 0.15),
+                "passv": (components.get("passive_concentration"), 0.15),
+            }
+        )
 
         return FactorContribution(
             name=self.name,

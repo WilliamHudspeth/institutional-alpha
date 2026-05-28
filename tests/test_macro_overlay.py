@@ -1,8 +1,7 @@
-import pytest
 from unittest.mock import MagicMock
 
-from iam.data.security import Security, Fundamentals, MarketData
 from iam.data.macro import MacroConditions
+from iam.data.security import Fundamentals, MarketData, Security
 from iam.pipeline.macro import MacroOverlay
 
 
@@ -12,7 +11,7 @@ def test_macro_overlay_triggers_on_shock():
         ticker="TEST",
         fundamentals=Fundamentals(fcf_ttm=100.0, shares_outstanding=10.0),
         market=MarketData(price=100.0),
-        qualitative={"forecast_discount_rate": 0.09, "forecast_growth": 0.08}
+        qualitative={"forecast_discount_rate": 0.09, "forecast_growth": 0.08},
     )
 
     report = MagicMock()
@@ -44,7 +43,7 @@ def test_macro_overlay_no_trigger_below_threshold():
         ticker="TEST",
         fundamentals=Fundamentals(fcf_ttm=100.0, shares_outstanding=10.0),
         market=MarketData(price=100.0),
-        qualitative={"forecast_discount_rate": 0.09, "forecast_growth": 0.08}
+        qualitative={"forecast_discount_rate": 0.09, "forecast_growth": 0.08},
     )
 
     report = MagicMock()

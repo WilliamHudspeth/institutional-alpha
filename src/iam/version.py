@@ -22,10 +22,10 @@ def version_string() -> str:
 def header() -> str:
     """Return professional header."""
     return f"""
-{'='*70}
-{' '*18}INSTITUTIONAL ALPHA
-{' '*15}Multi-Lens Equity Research Engine
-{'='*70}
+{"=" * 70}
+{" " * 18}INSTITUTIONAL ALPHA
+{" " * 15}Multi-Lens Equity Research Engine
+{"=" * 70}
 
 Developed by {AUTHOR}
 Proprietary Research Platform
@@ -35,13 +35,14 @@ Build: {BUILD_DATE}
 For research and educational purposes only.
 Not investment advice.
 
-{'='*70}
+{"=" * 70}
 """
 
 
 def metadata() -> dict:
     """Return runtime metadata."""
     import sys
+
     return {
         "platform": APP_NAME,
         "version": VERSION,

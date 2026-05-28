@@ -12,17 +12,15 @@ expectations vector into a [-1, 1] cross-sectional score.
 
 from __future__ import annotations
 
-from typing import Optional
-
-from iam.factors.base import Factor, FactorContribution
 from iam.data.security import Security
+from iam.factors.base import Factor, FactorContribution
 from iam.valuation import ReverseDCF
 
 
 class ExpectationsDifficultyFactor(Factor):
     name = "expectations_difficulty"
 
-    def __init__(self, reverse_dcf: Optional[ReverseDCF] = None):
+    def __init__(self, reverse_dcf: ReverseDCF | None = None):
         self._reverse_dcf = reverse_dcf or ReverseDCF()
 
     def compute(self, security: Security) -> FactorContribution:
@@ -51,15 +49,20 @@ class ExpectationsDifficultyFactor(Factor):
         else:
             components["margin_difficulty"] = margin_score
 
-        value = self.weighted_average({
-            "g": (components.get("growth_difficulty"), 0.40),
-            "r": (components.get("roic_difficulty"),   0.35),
-            "m": (components.get("margin_difficulty"), 0.25),
-        })
+        value = self.weighted_average(
+            {
+                "g": (components.get("growth_difficulty"), 0.40),
+                "r": (components.get("roic_difficulty"), 0.35),
+                "m": (components.get("margin_difficulty"), 0.25),
+            }
+        )
 
         return FactorContribution(
-            name=self.name, value=self.clamp(value),
-            confidence=confidence, components=components, notes=notes,
+            name=self.name,
+            value=self.clamp(value),
+            confidence=confidence,
+            components=components,
+            notes=notes,
         )
 
     def _growth_difficulty(self, security: Security):

@@ -28,8 +28,8 @@ class FactorContribution:
     """The output of a single factor or penalty calculation."""
 
     name: str
-    value: float                       # normalized score
-    confidence: float = 1.0            # [0, 1]
+    value: float  # normalized score
+    confidence: float = 1.0  # [0, 1]
     components: dict[str, float] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
 
@@ -48,7 +48,7 @@ class Factor(ABC):
     is_penalty: bool = False
 
     @abstractmethod
-    def compute(self, security: "Security") -> FactorContribution:
+    def compute(self, security: Security) -> FactorContribution:
         """Compute this factor for the given security.
 
         Implementations should:

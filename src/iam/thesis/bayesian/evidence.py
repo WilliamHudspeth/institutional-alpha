@@ -14,12 +14,12 @@ gets dampened much more than a macro shock with 95% reliability.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Union
 
 
 @dataclass
 class ScenarioLikelihood:
     """P(Evidence | Scenario) - How likely is this evidence if the scenario is true?"""
+
     probability: float
 
     def __post_init__(self):
@@ -39,12 +39,13 @@ class Evidence:
             reliability=0.70  # FY24 accuracy was 70%
         )
     """
+
     type: str  # e.g., "EARNINGS_BEAT", "CREDIT_WIDENING", "AUM_INFLOW"
     description: str  # Human-readable summary
 
     # How likely is this evidence under each scenario?
     # Maps scenario name (e.g., "Bull Case") to P(Evidence | Scenario)
-    likelihoods: Dict[str, Union[float, ScenarioLikelihood]] = field(default_factory=dict)
+    likelihoods: dict[str, float | ScenarioLikelihood] = field(default_factory=dict)
 
     # 0.0 = Pure noise (unreliable), 1.0 = Absolute truth
     # Directly prevents overfitting by dampening Bayesian updates
@@ -72,15 +73,13 @@ class Evidence:
         - If reliability=0.5 (noisy), shrink the update halfway to neutral (1.0)
         - If reliability=0.0 (unreliable), the update is neutral regardless
         """
-        raw_prob = self.likelihoods.get(
-            scenario_label, ScenarioLikelihood(1.0)
-        ).probability
+        raw_prob = self.likelihoods.get(scenario_label, ScenarioLikelihood(1.0)).probability
 
         # Shrink toward 1.0 based on unreliability
         dampened_val = 1.0 + (raw_prob - 1.0) * self.reliability
         return max(0.01, dampened_val)  # Prevent zero-probability trap
 
-    def get_dampened_likelihoods(self) -> Dict[str, float]:
+    def get_dampened_likelihoods(self) -> dict[str, float]:
         """Return all likelihoods, dampened by reliability."""
         return {
             scenario_label: self.get_dampened_likelihood(scenario_label)

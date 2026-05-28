@@ -12,7 +12,6 @@ from iam.backtest.quantiles import (
     spread_after_costs,
 )
 
-
 # -----------------------------------------------------------------------------
 # spread_after_costs
 # -----------------------------------------------------------------------------
@@ -102,9 +101,7 @@ class TestIntegration:
         df = pd.DataFrame({"score": score, "fwd": fwd})
 
         result = decile_spread(df)
-        adjusted = spread_after_costs(
-            result["spread"], turnover=0.5, cost_bps=5.0
-        )
+        adjusted = spread_after_costs(result["spread"], turnover=0.5, cost_bps=5.0)
 
         # Adjusted spread should be lower but still positive (strong signal)
         assert adjusted < result["spread"]

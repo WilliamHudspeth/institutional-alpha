@@ -9,10 +9,6 @@ Covers:
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Optional
-
-import pandas as pd
 import pytest
 
 from iam.backtest.snapshots import (
@@ -31,7 +27,9 @@ class _StubSource(DataSource):
 
     name = "stub"
 
-    def __init__(self, price: float = 100.0, debt: float = 1_000_000.0, raise_on_price: bool = False):
+    def __init__(
+        self, price: float = 100.0, debt: float = 1_000_000.0, raise_on_price: bool = False
+    ):
         self._price = price
         self._debt = debt
         self._raise = raise_on_price

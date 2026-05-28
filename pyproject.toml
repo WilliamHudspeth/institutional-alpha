@@ -50,3 +50,43 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+addopts = [
+    "--strict-markers",
+    "--tb=short",
+]
+markers = [
+    "slow: marks tests as slow",
+    "integration: marks tests as integration tests",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = [".git", "__pycache__", "venv", "build", "dist"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "I",      # isort
+    "UP",     # pyupgrade
+]
+ignore = [
+    "E501",   # line-too-long (handled by formatter)
+    "E741",   # ambiguous-variable-name (existing codebase issue)
+    "W191",   # indentation-contains-tabs
+    "E402",   # module-level import not at top (existing codebase issue)
+    "F",      # pyflakes (forward refs and unused vars - existing issues)
+    "B",      # flake8-bugbear (too strict for existing codebase)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["iam"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+exclude = ["tests/"]

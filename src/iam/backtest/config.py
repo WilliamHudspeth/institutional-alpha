@@ -1,14 +1,17 @@
 """Typed, frozen backtest configuration (source of truth for all paths and parameters)."""
 
-from pydantic import BaseModel, Field, ConfigDict
 from pathlib import Path
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class BacktestConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
     """Immutable backtest configuration with validation and computed properties."""
 
-    universe_name: str = Field("sp100", description="Universe identifier (matches data/universe/*.json)")
+    universe_name: str = Field(
+        "sp100", description="Universe identifier (matches data/universe/*.json)"
+    )
     start: str = Field("2018-01-31", description="Start date (YYYY-MM-DD)")
     end: str = Field("2024-12-31", description="End date (YYYY-MM-DD)")
     freq: str = Field("ME", description="Evaluation frequency (ME=month-end, D=daily)")

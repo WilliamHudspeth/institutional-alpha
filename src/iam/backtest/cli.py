@@ -3,16 +3,17 @@
 Entry point: python -m iam.backtest.cli backtest
 """
 
-import typer
-import pandas as pd
 from pathlib import Path
 
+import pandas as pd
+import typer
+
+from iam.backtest.calibration import ic_to_reliability_bayesian
 from iam.backtest.config import BacktestConfig
 from iam.backtest.manifest import BacktestManifest
-from iam.backtest.universe import load_universe_from_json
 from iam.backtest.prices import load_price_block
-from iam.backtest.runner import run_backtest, print_backtest_summary
-from iam.backtest.calibration import write_calibration, ic_to_reliability_bayesian
+from iam.backtest.runner import print_backtest_summary, run_backtest
+from iam.backtest.universe import load_universe_from_json
 
 app = typer.Typer()
 
@@ -33,7 +34,9 @@ def backtest(
     6. Writes manifest (git SHA + file hashes)
     7. Writes calibrated reliabilities JSON
     """
-    typer.echo("🎯 Backtest v0.4 (yfinance → Stooq fallback, Polars, ProcessPool, statsmodels Newey-West)")
+    typer.echo(
+        "🎯 Backtest v0.4 (yfinance → Stooq fallback, Polars, ProcessPool, statsmodels Newey-West)"
+    )
     typer.echo()
 
     # Load config
@@ -43,7 +46,9 @@ def backtest(
         typer.echo(f"⚙️  Using {n_jobs} CPU workers (overriding config default {config.n_jobs_cpu})")
     config.validate_paths()
 
-    typer.echo(f"📅 Config: {config.start} to {config.end} ({config.freq}), horizon={config.horizon_days}d")
+    typer.echo(
+        f"📅 Config: {config.start} to {config.end} ({config.freq}), horizon={config.horizon_days}d"
+    )
     typer.echo()
 
     # Load universe

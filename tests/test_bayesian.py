@@ -2,8 +2,8 @@
 
 import pytest
 
-from iam.thesis.bayesian.priors import ScenarioPrior
 from iam.thesis.bayesian.evidence import Evidence, ScenarioLikelihood
+from iam.thesis.bayesian.priors import ScenarioPrior
 from iam.thesis.bayesian.updater import BayesianUpdater
 
 
@@ -27,7 +27,7 @@ def test_high_signal_strength_swings_posteriors(initial_priors):
             "Bull": ScenarioLikelihood(0.90),
             "Base": ScenarioLikelihood(0.40),
             "Bear": ScenarioLikelihood(0.05),
-        }
+        },
     )
     updater = BayesianUpdater()
     posteriors = updater.update(initial_priors, evidence)
@@ -49,7 +49,7 @@ def test_low_signal_strength_dampens_swings(initial_priors):
             "Bull": ScenarioLikelihood(0.90),
             "Base": ScenarioLikelihood(0.40),
             "Bear": ScenarioLikelihood(0.05),
-        }
+        },
     )
     updater = BayesianUpdater()
     posteriors = updater.update(initial_priors, evidence)
@@ -67,7 +67,11 @@ def test_zero_signal_strength_ignores_evidence(initial_priors):
         type="RUMOR",
         description="Completely unverified rumor on a message board.",
         reliability=0.0,
-        likelihoods={"Bull": ScenarioLikelihood(1.0), "Base": ScenarioLikelihood(0.0), "Bear": ScenarioLikelihood(0.0)}
+        likelihoods={
+            "Bull": ScenarioLikelihood(1.0),
+            "Base": ScenarioLikelihood(0.0),
+            "Bear": ScenarioLikelihood(0.0),
+        },
     )
     updater = BayesianUpdater()
     posteriors = updater.update(initial_priors, evidence)

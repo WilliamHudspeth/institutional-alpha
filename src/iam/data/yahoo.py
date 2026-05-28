@@ -17,16 +17,16 @@ that returns the same normalized dictionary structure.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import timedelta
-from typing import Optional, Dict, Any
 import logging
+from dataclasses import dataclass
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class DataProviderError(Exception):
     """Raised when data provider fails or returns invalid data."""
+
     pass
 
 
@@ -49,9 +49,9 @@ def _init_cache_db():
 
     Both caches live under data/cache/ (src-layout convention).
     """
-    import sqlite3
-    import shutil
     import os
+    import shutil
+    import sqlite3
 
     try:
         # Ensure the cache directory exists
@@ -82,21 +82,20 @@ def _init_cache_db():
 _cache_initialized = _init_cache_db()
 
 
-def _get_cached_data(ticker: str) -> Optional[Dict[str, Any]]:
+def _get_cached_data(ticker: str) -> dict[str, Any] | None:
     """Retrieve cached normalized data if fresh (< 24 hours)."""
     if not _cache_initialized:
         return None
 
     try:
-        import sqlite3
         import json
+        import sqlite3
         from datetime import datetime
 
         conn = sqlite3.connect(RUNTIME_CACHE_PATH)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT data, timestamp FROM ticker_cache WHERE ticker = ?",
-            (ticker.upper(),)
+            "SELECT data, timestamp FROM ticker_cache WHERE ticker = ?", (ticker.upper(),)
         )
         row = cursor.fetchone()
         conn.close()
@@ -117,21 +116,21 @@ def _get_cached_data(ticker: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def _save_cached_data(ticker: str, data: Dict[str, Any]) -> None:
+def _save_cached_data(ticker: str, data: dict[str, Any]) -> None:
     """Save normalized data to cache."""
     if not _cache_initialized:
         return
 
     try:
-        import sqlite3
         import json
+        import sqlite3
         from datetime import datetime
 
         conn = sqlite3.connect(RUNTIME_CACHE_PATH)
         cursor = conn.cursor()
         cursor.execute(
             "INSERT OR REPLACE INTO ticker_cache (ticker, data, timestamp) VALUES (?, ?, ?)",
-            (ticker.upper(), json.dumps(data), int(datetime.now().timestamp()))
+            (ticker.upper(), json.dumps(data), int(datetime.now().timestamp())),
         )
         conn.commit()
         conn.close()
@@ -145,26 +144,26 @@ class MarketSnapshot:
     """Raw numbers from Yahoo Finance (before normalization)."""
 
     ticker: str
-    price: Optional[float]
-    market_cap: Optional[float]
-    enterprise_value: Optional[float]
-    pe_ttm: Optional[float]
-    pe_forward: Optional[float]
-    ev_ebitda: Optional[float]
-    revenue_ttm: Optional[float]
-    net_income_ttm: Optional[float]
-    ebitda_ttm: Optional[float]
-    fcf_ttm: Optional[float]
-    total_debt: Optional[float]
-    cash: Optional[float]
-    shares_outstanding: Optional[float]
-    short_interest_pct: Optional[float]
-    gross_margin: Optional[float]
-    operating_margin: Optional[float]
-    beta: Optional[float]
-    name: Optional[str]
-    sector: Optional[str]
-    industry: Optional[str]
+    price: float | None
+    market_cap: float | None
+    enterprise_value: float | None
+    pe_ttm: float | None
+    pe_forward: float | None
+    ev_ebitda: float | None
+    revenue_ttm: float | None
+    net_income_ttm: float | None
+    ebitda_ttm: float | None
+    fcf_ttm: float | None
+    total_debt: float | None
+    cash: float | None
+    shares_outstanding: float | None
+    short_interest_pct: float | None
+    gross_margin: float | None
+    operating_margin: float | None
+    beta: float | None
+    name: str | None
+    sector: str | None
+    industry: str | None
 
 
 class YahooAdapter:
@@ -178,7 +177,7 @@ class YahooAdapter:
     """
 
     @staticmethod
-    def fetch_and_normalize(ticker: str) -> Dict[str, Any]:
+    def fetch_and_normalize(ticker: str) -> dict[str, Any]:
         """Fetch ticker data from Yahoo and return normalized dict.
 
         Args:
@@ -253,9 +252,7 @@ class YahooAdapter:
                     info, "netIncomeToCommon", "trailingNetIncome", "netIncome"
                 ),
                 "total_debt": YahooAdapter._get(info, "totalDebt"),
-                "cash_and_equivalents": YahooAdapter._get(
-                    info, "totalCash", "cash"
-                ),
+                "cash_and_equivalents": YahooAdapter._get(info, "totalCash", "cash"),
                 "ebitda_ttm": YahooAdapter._get(info, "ebitda", "trailingEbitda"),
                 "fcf_ttm": YahooAdapter._get(info, "freeCashflow"),
                 "revenue_ttm": YahooAdapter._get(info, "totalRevenue"),
@@ -279,12 +276,10 @@ class YahooAdapter:
         except DataProviderError:
             raise  # Re-raise validation errors
         except Exception as e:
-            raise DataProviderError(
-                f"Failed to fetch data for {ticker}: {str(e)}"
-            ) from e
+            raise DataProviderError(f"Failed to fetch data for {ticker}: {str(e)}") from e
 
     @staticmethod
-    def _get(info: Dict, *keys: str) -> Optional[float]:
+    def _get(info: dict, *keys: str) -> float | None:
         """Try multiple key paths and return first valid float value.
 
         Example:
@@ -305,7 +300,7 @@ class YahooAdapter:
 # ============================================================================
 
 
-def fetch_security(ticker: str) -> "Security":
+def fetch_security(ticker: str) -> Security:
     """Fetch a security from Yahoo Finance with caching and math fallbacks.
 
     Args:
@@ -336,9 +331,7 @@ def fetch_security(ticker: str) -> "Security":
     try:
         info = yf.Ticker(ticker).info or {}
     except Exception as exc:
-        raise RuntimeError(
-            f"Yahoo Finance returned an error for '{ticker}': {exc}"
-        ) from exc
+        raise RuntimeError(f"Yahoo Finance returned an error for '{ticker}': {exc}") from exc
 
     # Get price - required field
     price = _get_price(info, "currentPrice", "regularMarketPrice", "previousClose")
@@ -355,7 +348,9 @@ def fetch_security(ticker: str) -> "Security":
     ev_ebitda = _get_price(info, "enterpriseToEbitda")
 
     # Math fallbacks: compute missing values from available ones
-    shares_outstanding = _get_price(info, "sharesOutstanding", "impliedSharesOutstanding", "floatShares")
+    shares_outstanding = _get_price(
+        info, "sharesOutstanding", "impliedSharesOutstanding", "floatShares"
+    )
     if shares_outstanding is None and market_cap is not None and price > 0:
         shares_outstanding = market_cap / price
 
@@ -405,7 +400,7 @@ def fetch_security(ticker: str) -> "Security":
     )
 
 
-def _get_price(info: Dict, *keys: str) -> Optional[float]:
+def _get_price(info: dict, *keys: str) -> float | None:
     """Get first non-None float value from info dict (mimics YahooAdapter._get)."""
     for key in keys:
         value = info.get(key)
@@ -419,12 +414,13 @@ def _get_price(info: Dict, *keys: str) -> Optional[float]:
 # BACKWARDS COMPATIBILITY: Old fetch_security API
 # ============================================================================
 
+
 def build_regression_inputs(
     ticker: str,
     region: str = "US",
-    g_eps: Optional[float] = None,
-    g: Optional[float] = None,
-) -> "RegressionInputs":
+    g_eps: float | None = None,
+    g: float | None = None,
+) -> RegressionInputs:
     """Build Damodaran regression inputs from Yahoo Finance data.
 
     Args:

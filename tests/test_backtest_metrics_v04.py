@@ -25,7 +25,6 @@ from iam.backtest.metrics import (
     statistical_significance,
 )
 
-
 # -----------------------------------------------------------------------------
 # Sector-neutral IC
 # -----------------------------------------------------------------------------
@@ -38,21 +37,25 @@ class TestICSectorNeutral:
 
     def test_averages_ic_across_sectors(self):
         # Two sectors, each with strong positive IC
-        df = pd.DataFrame({
-            "score": list(range(10)) + list(range(10)),
-            "fwd": [x * 0.01 for x in range(10)] + [x * 0.01 for x in range(10)],
-            "sector": ["Tech"] * 10 + ["Finance"] * 10,
-        })
+        df = pd.DataFrame(
+            {
+                "score": list(range(10)) + list(range(10)),
+                "fwd": [x * 0.01 for x in range(10)] + [x * 0.01 for x in range(10)],
+                "sector": ["Tech"] * 10 + ["Finance"] * 10,
+            }
+        )
         ic = ic_sector_neutral(df)
         assert ic == pytest.approx(1.0)  # Perfect correlation in each sector
 
     def test_skips_sectors_with_too_few_securities(self):
         # Tech: 10 securities (counted); Finance: 3 (skipped < 5)
-        df = pd.DataFrame({
-            "score": list(range(10)) + [1, 2, 3],
-            "fwd": [x * 0.01 for x in range(10)] + [0.5, 0.1, 0.9],
-            "sector": ["Tech"] * 10 + ["Finance"] * 3,
-        })
+        df = pd.DataFrame(
+            {
+                "score": list(range(10)) + [1, 2, 3],
+                "fwd": [x * 0.01 for x in range(10)] + [0.5, 0.1, 0.9],
+                "sector": ["Tech"] * 10 + ["Finance"] * 3,
+            }
+        )
         ic = ic_sector_neutral(df)
         # Only Tech contributes
         assert ic == pytest.approx(1.0)
@@ -60,28 +63,34 @@ class TestICSectorNeutral:
     def test_weighted_average_by_sector_size(self):
         # Sector A: 20 securities, IC=1.0; Sector B: 10 securities, IC=-1.0
         # Weighted average should be (20*1 + 10*-1) / 30 = 10/30 ≈ 0.333
-        df = pd.DataFrame({
-            "score": list(range(20)) + list(range(10)),
-            "fwd": [x * 0.01 for x in range(20)] + [-x * 0.01 for x in range(10)],
-            "sector": ["A"] * 20 + ["B"] * 10,
-        })
+        df = pd.DataFrame(
+            {
+                "score": list(range(20)) + list(range(10)),
+                "fwd": [x * 0.01 for x in range(20)] + [-x * 0.01 for x in range(10)],
+                "sector": ["A"] * 20 + ["B"] * 10,
+            }
+        )
         ic = ic_sector_neutral(df)
         assert ic == pytest.approx((20 * 1.0 + 10 * -1.0) / 30, abs=0.01)
 
     def test_returns_nan_when_no_sector_has_enough_data(self):
-        df = pd.DataFrame({
-            "score": [1, 2, 3],
-            "fwd": [0.1, 0.2, 0.3],
-            "sector": ["A", "B", "C"],
-        })
+        df = pd.DataFrame(
+            {
+                "score": [1, 2, 3],
+                "fwd": [0.1, 0.2, 0.3],
+                "sector": ["A", "B", "C"],
+            }
+        )
         assert np.isnan(ic_sector_neutral(df))
 
     def test_custom_sector_col_name(self):
-        df = pd.DataFrame({
-            "score": list(range(10)),
-            "fwd": [x * 0.01 for x in range(10)],
-            "industry": ["Tech"] * 10,
-        })
+        df = pd.DataFrame(
+            {
+                "score": list(range(10)),
+                "fwd": [x * 0.01 for x in range(10)],
+                "industry": ["Tech"] * 10,
+            }
+        )
         ic = ic_sector_neutral(df, sector_col="industry")
         assert ic == pytest.approx(1.0)
 
@@ -93,28 +102,34 @@ class TestICSectorNeutral:
 
 class TestInformationCoefficientWithSector:
     def test_falls_back_to_global_when_no_sector_col(self):
-        df = pd.DataFrame({
-            "score": list(range(10)),
-            "fwd": [x * 0.01 for x in range(10)],
-        })
+        df = pd.DataFrame(
+            {
+                "score": list(range(10)),
+                "fwd": [x * 0.01 for x in range(10)],
+            }
+        )
         ic = information_coefficient(df, sector_col="sector")
         # Falls back since 'sector' not in columns
         assert np.isnan(ic) or ic == pytest.approx(1.0, abs=0.01)
 
     def test_global_ic_when_sector_col_none(self):
-        df = pd.DataFrame({
-            "score": list(range(10)),
-            "fwd": [x * 0.01 for x in range(10)],
-        })
+        df = pd.DataFrame(
+            {
+                "score": list(range(10)),
+                "fwd": [x * 0.01 for x in range(10)],
+            }
+        )
         ic = information_coefficient(df, sector_col=None)
         assert ic == pytest.approx(1.0)
 
     def test_sector_neutral_when_provided(self):
-        df = pd.DataFrame({
-            "score": list(range(10)) + list(reversed(range(10))),
-            "fwd": [x * 0.01 for x in range(10)] + [x * 0.01 for x in range(10)],
-            "sector": ["A"] * 10 + ["B"] * 10,
-        })
+        df = pd.DataFrame(
+            {
+                "score": list(range(10)) + list(reversed(range(10))),
+                "fwd": [x * 0.01 for x in range(10)] + [x * 0.01 for x in range(10)],
+                "sector": ["A"] * 10 + ["B"] * 10,
+            }
+        )
         # Without sector: should be 0 (offsetting)
         global_ic = information_coefficient(df)
         # With sector: A has IC=1, B has IC=-1, weighted avg should be 0

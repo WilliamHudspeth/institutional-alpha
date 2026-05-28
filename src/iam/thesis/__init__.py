@@ -5,10 +5,11 @@ Two main components:
 2. Bayesian Updating: Probability updates based on evidence with dampening
 """
 
-from .engine import ThesisEngine as ThesisEvaluator, ThesisEvaluation
-from .scenarios import ScenarioAssumptions, ValuationScenario, ScenarioMatrix
 from .bayesian.evidence import Evidence, ScenarioLikelihood
 from .bayesian.updater import BayesianUpdater, ThesisEngine
+from .engine import ThesisEngine as ThesisEvaluator
+from .engine import ThesisEvaluation
+from .scenarios import ScenarioAssumptions, ScenarioMatrix, ValuationScenario
 
 __all__ = [
     # Legacy

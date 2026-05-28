@@ -16,9 +16,9 @@ and empirical backtesting. As of v0.3.4, the project includes:
     Measures Information Coefficient to calibrate Bayesian reliability weights empirically.
 """
 
-from iam.data.security import Security, Fundamentals, MarketData, MacroContext
-from iam.engine.composite import score, ScoreResult, DEFAULT_WEIGHTS
-from iam.pipeline import ValuationPipeline, PipelineReport
+from iam.data.security import Fundamentals, MacroContext, MarketData, Security
+from iam.engine.composite import DEFAULT_WEIGHTS, ScoreResult, score
+from iam.pipeline import PipelineReport, ValuationPipeline
 
 __version__ = "0.2.0a0"
 

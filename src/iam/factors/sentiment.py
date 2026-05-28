@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import statistics
 
-from iam.factors.base import Factor, FactorContribution
 from iam.data.security import Security
+from iam.factors.base import Factor, FactorContribution
 
 
 class SentimentFactor(Factor):
@@ -35,7 +35,7 @@ class SentimentFactor(Factor):
                     for i in range(min(125, len(m.price_history) - 1))
                     if m.price_history[i + 1] > 0
                 ]
-                vol = statistics.pstdev(daily_returns) * (252 ** 0.5) if daily_returns else 0.3
+                vol = statistics.pstdev(daily_returns) * (252**0.5) if daily_returns else 0.3
                 vol_adj = ret / max(vol, 0.05)
                 components["momentum_6m"] = self.clamp(vol_adj)
         else:
@@ -51,12 +51,14 @@ class SentimentFactor(Factor):
         if m.news_sentiment_delta is not None:
             components["news_sentiment"] = self.clamp(m.news_sentiment_delta)
 
-        value = self.weighted_average({
-            "rev":  (components.get("analyst_revisions"),     0.30),
-            "mom":  (components.get("momentum_6m"),           0.30),
-            "surp": (components.get("surprise_persistence"),  0.20),
-            "news": (components.get("news_sentiment"),        0.20),
-        })
+        value = self.weighted_average(
+            {
+                "rev": (components.get("analyst_revisions"), 0.30),
+                "mom": (components.get("momentum_6m"), 0.30),
+                "surp": (components.get("surprise_persistence"), 0.20),
+                "news": (components.get("news_sentiment"), 0.20),
+            }
+        )
 
         return FactorContribution(
             name=self.name,

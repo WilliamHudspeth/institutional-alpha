@@ -8,7 +8,7 @@ interface for blending disparate signals.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass
@@ -27,12 +27,13 @@ class ModelResult:
         distribution: Shape of uncertainty {"mean": X, "std": Y} or None
         meta: Additional metadata (e.g., erp_breakdown for GroundTruth)
     """
+
     name: str
     value: float
     reliability: float = 0.70
-    provenance: Dict[str, Any] = field(default_factory=dict)
-    distribution: Optional[Dict[str, float]] = None
-    meta: Dict[str, Any] = field(default_factory=dict)
+    provenance: dict[str, Any] = field(default_factory=dict)
+    distribution: dict[str, float] | None = None
+    meta: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not (0.0 <= self.reliability <= 1.0):

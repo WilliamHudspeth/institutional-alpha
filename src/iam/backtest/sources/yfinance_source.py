@@ -8,8 +8,6 @@ Provides:
 
 from __future__ import annotations
 
-from typing import Optional
-
 import pandas as pd
 
 from .base import DataSource, DataSourceError
@@ -77,9 +75,7 @@ class YFinanceSource(DataSource):
             # Find columns dated on or before as_of, sorted ascending so the
             # most recent quarterly report is cols[-1] regardless of yfinance's
             # column ordering (which is descending, latest-first).
-            cols = sorted(
-                c for c in bs.columns if pd.Timestamp(c).date() <= as_of.date()
-            )
+            cols = sorted(c for c in bs.columns if pd.Timestamp(c).date() <= as_of.date())
             if not cols:
                 return 0.0
             latest_col = cols[-1]
@@ -100,7 +96,7 @@ class YFinanceSource(DataSource):
         ticker: str,
         start: str,
         end: str,
-    ) -> Optional[pd.DataFrame]:
+    ) -> pd.DataFrame | None:
         if not HAS_YFINANCE:
             return None
 
@@ -123,7 +119,9 @@ class YFinanceSource(DataSource):
             df = df.rename(columns={"Date": "Date"})
 
             # Keep standard columns
-            keep = [c for c in ["Date", "Open", "High", "Low", "Close", "Volume"] if c in df.columns]
+            keep = [
+                c for c in ["Date", "Open", "High", "Low", "Close", "Volume"] if c in df.columns
+            ]
             df = df[keep]
             df["Date"] = pd.to_datetime(df["Date"])
             df = df.sort_values("Date").reset_index(drop=True)

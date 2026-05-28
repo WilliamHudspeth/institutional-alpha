@@ -14,12 +14,11 @@ Architecture invariants:
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 from iam.data.ground_truth import GroundTruthProvider
 from iam.data.security import Security
 from iam.integration.adapter import from_ground_truth
-from iam.integration.types import ModelResult
 
 
 class Orchestrator:
@@ -29,7 +28,7 @@ class Orchestrator:
         """Initialize with optional Damodaran provider (for testing)."""
         self.ground_truth = GroundTruthProvider(damodaran=damodaran_provider)
 
-    def value_security(self, security: Security) -> Dict[str, Any]:
+    def value_security(self, security: Security) -> dict[str, Any]:
         """Complete valuation of a security with institutional baselines.
 
         This is the primary entry point. It:

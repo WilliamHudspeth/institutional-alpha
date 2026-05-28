@@ -7,8 +7,8 @@ Data Layer → Adapter → Orchestrator → Result
 import pytest
 
 from iam.api import Security, value_security
-from iam.data import apply_scenario, GroundTruthProvider, DamodaranProvider
-from iam.integration import from_ground_truth, ModelResult, Orchestrator
+from iam.data import GroundTruthProvider, apply_scenario
+from iam.integration import ModelResult, Orchestrator, from_ground_truth
 
 
 class TestApplyScenario:
@@ -54,9 +54,7 @@ class TestFromGroundTruth:
             "industry_unlevered_beta": 0.59,
             "levered_beta": 0.62,
             "cost_of_equity": 0.0711,
-            "erp_breakdown": {
-                "us": {"weight": 1.0, "erp": 0.046, "contrib": 0.046}
-            },
+            "erp_breakdown": {"us": {"weight": 1.0, "erp": 0.046, "contrib": 0.046}},
             "_provenance": {
                 "version": "damodaran_jan_2026",
                 "source": "Damodaran (NYU Stern)",

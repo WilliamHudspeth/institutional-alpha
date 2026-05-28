@@ -3,12 +3,11 @@
 Tests the metrics, calibration, and integration with value_security().
 """
 
-import json
 import pandas as pd
 import pytest
 
 from iam.backtest.calibration import ic_to_reliability, summarize_backtest
-from iam.backtest.metrics import information_coefficient, hit_rate, information_ratio
+from iam.backtest.metrics import hit_rate, information_coefficient, information_ratio
 from iam.backtest.quantiles import decile_spread
 
 
@@ -40,13 +39,15 @@ class TestCalibration:
 
     def test_summarize_backtest(self):
         """Summarize backtest results into metrics."""
-        results_df = pd.DataFrame({
-            "ic": [0.05, 0.03, 0.07],
-            "hit_rate": [0.55, 0.52, 0.58],
-            "spread": [0.02, 0.015, 0.025],
-            "top": [0.08, 0.06, 0.10],
-            "bottom": [0.06, 0.045, 0.075],
-        })
+        results_df = pd.DataFrame(
+            {
+                "ic": [0.05, 0.03, 0.07],
+                "hit_rate": [0.55, 0.52, 0.58],
+                "spread": [0.02, 0.015, 0.025],
+                "top": [0.08, 0.06, 0.10],
+                "bottom": [0.06, 0.045, 0.075],
+            }
+        )
 
         summary = summarize_backtest(results_df)
 
@@ -61,50 +62,60 @@ class TestMetrics:
 
     def test_information_coefficient_perfect_correlation(self):
         """Perfect correlation gives IC = 1.0."""
-        df = pd.DataFrame({
-            "score": [1, 2, 3, 4, 5],
-            "fwd": [0.01, 0.02, 0.03, 0.04, 0.05],
-        })
+        df = pd.DataFrame(
+            {
+                "score": [1, 2, 3, 4, 5],
+                "fwd": [0.01, 0.02, 0.03, 0.04, 0.05],
+            }
+        )
 
         ic = information_coefficient(df)
         assert ic == pytest.approx(1.0)
 
     def test_information_coefficient_no_variation_in_scores(self):
         """Constant scores return NaN."""
-        df = pd.DataFrame({
-            "score": [1, 1, 1],
-            "fwd": [0.01, 0.02, 0.03],
-        })
+        df = pd.DataFrame(
+            {
+                "score": [1, 1, 1],
+                "fwd": [0.01, 0.02, 0.03],
+            }
+        )
 
         ic = information_coefficient(df)
         assert pd.isna(ic)
 
     def test_information_coefficient_with_noise(self):
         """Noisy signals have intermediate IC."""
-        df = pd.DataFrame({
-            "score": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-            "fwd": [0.01, 0.015, 0.02, 0.018, 0.025, 0.022, 0.03, 0.028, 0.035, 0.032],
-        })
+        df = pd.DataFrame(
+            {
+                "score": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                "fwd": [0.01, 0.015, 0.02, 0.018, 0.025, 0.022, 0.03, 0.028, 0.035, 0.032],
+            }
+        )
 
         ic = information_coefficient(df)
         assert 0 < ic < 1
 
     def test_hit_rate_all_positive(self):
         """100% of high scores have positive returns."""
-        df = pd.DataFrame({
-            "score": [1, 2, 3, 4, 5],
-            "fwd": [0.01, 0.02, 0.03, 0.04, 0.05],
-        })
+        df = pd.DataFrame(
+            {
+                "score": [1, 2, 3, 4, 5],
+                "fwd": [0.01, 0.02, 0.03, 0.04, 0.05],
+            }
+        )
 
         hr = hit_rate(df)
         assert hr > 0.5  # Above median scores have positive returns
 
     def test_hit_rate_no_signal(self):
         """Weak signal produces intermediate hit rate."""
-        df = pd.DataFrame({
-            "score": [1, 1, 2, 2, 3, 3, 4, 4, 5, 5],
-            "fwd": [-0.02, 0.01, 0.02, -0.01, 0.01, -0.02, 0.02, 0.01, -0.01, 0.02],
-        })
+        df = pd.DataFrame(
+            {
+                "score": [1, 1, 2, 2, 3, 3, 4, 4, 5, 5],
+                "fwd": [-0.02, 0.01, 0.02, -0.01, 0.01, -0.02, 0.02, 0.01, -0.01, 0.02],
+            }
+        )
 
         hr = hit_rate(df)
         # Weak signal yields intermediate hit rate
@@ -128,10 +139,12 @@ class TestQuantiles:
 
     def test_decile_spread_strong_signal(self):
         """Strong signal creates positive spread."""
-        df = pd.DataFrame({
-            "score": list(range(1, 11)),
-            "fwd": [0.01, 0.015, 0.02, 0.018, 0.022, 0.025, 0.03, 0.028, 0.035, 0.04],
-        })
+        df = pd.DataFrame(
+            {
+                "score": list(range(1, 11)),
+                "fwd": [0.01, 0.015, 0.02, 0.018, 0.022, 0.025, 0.03, 0.028, 0.035, 0.04],
+            }
+        )
 
         spreads = decile_spread(df)
 
@@ -140,10 +153,12 @@ class TestQuantiles:
 
     def test_decile_spread_no_signal(self):
         """No signal creates near-zero spread."""
-        df = pd.DataFrame({
-            "score": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-            "fwd": [0.01, -0.01, 0.02, -0.02, 0.01, -0.01, 0.02, -0.02, 0.01, -0.01],
-        })
+        df = pd.DataFrame(
+            {
+                "score": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                "fwd": [0.01, -0.01, 0.02, -0.02, 0.01, -0.01, 0.02, -0.02, 0.01, -0.01],
+            }
+        )
 
         spreads = decile_spread(df)
 
@@ -152,10 +167,12 @@ class TestQuantiles:
 
     def test_decile_spread_insufficient_data(self):
         """Too few securities returns NaN."""
-        df = pd.DataFrame({
-            "score": [1, 2],
-            "fwd": [0.01, 0.02],
-        })
+        df = pd.DataFrame(
+            {
+                "score": [1, 2],
+                "fwd": [0.01, 0.02],
+            }
+        )
 
         spreads = decile_spread(df, n_deciles=10)
 
@@ -164,10 +181,12 @@ class TestQuantiles:
 
     def test_decile_spread_coverage_ratio(self):
         """Coverage tracks fraction of securities assigned to deciles."""
-        df = pd.DataFrame({
-            "score": list(range(1, 31)),
-            "fwd": [0.01 + (i * 0.001) for i in range(30)],
-        })
+        df = pd.DataFrame(
+            {
+                "score": list(range(1, 31)),
+                "fwd": [0.01 + (i * 0.001) for i in range(30)],
+            }
+        )
 
         spreads = decile_spread(df, n_deciles=10)
 
@@ -181,10 +200,12 @@ class TestBacktestIntegration:
 
     def test_calibration_and_metrics_roundtrip(self):
         """IC from metrics can be converted to reliability."""
-        df = pd.DataFrame({
-            "score": list(range(1, 21)),
-            "fwd": [0.01 + (i * 0.002) for i in range(20)],
-        })
+        df = pd.DataFrame(
+            {
+                "score": list(range(1, 21)),
+                "fwd": [0.01 + (i * 0.002) for i in range(20)],
+            }
+        )
 
         ic = information_coefficient(df)
         reliability = ic_to_reliability(ic)
@@ -196,10 +217,12 @@ class TestBacktestIntegration:
     def test_negative_ic_maps_to_minimum_reliability(self):
         """Negative IC (inverse signal) clamps to baseline."""
         # Inverse correlation: high scores, low returns
-        df = pd.DataFrame({
-            "score": list(range(1, 11)),
-            "fwd": list(reversed([0.01 + (i * 0.01) for i in range(10)])),
-        })
+        df = pd.DataFrame(
+            {
+                "score": list(range(1, 11)),
+                "fwd": list(reversed([0.01 + (i * 0.01) for i in range(10)])),
+            }
+        )
 
         ic = information_coefficient(df)
         assert ic < 0
@@ -209,18 +232,28 @@ class TestBacktestIntegration:
 
     def test_summary_with_empty_series(self):
         """Summarize handles empty or NaN series gracefully."""
-        results_df = pd.DataFrame({
-            "ic": [0.05, 0.03, 0.07],
-            "hit_rate": [0.55, 0.52, 0.58],
-            "spread": [0.02, 0.015, 0.025],
-            "top": [0.08, 0.06, 0.10],
-            "bottom": [0.06, 0.045, 0.075],
-        })
+        results_df = pd.DataFrame(
+            {
+                "ic": [0.05, 0.03, 0.07],
+                "hit_rate": [0.55, 0.52, 0.58],
+                "spread": [0.02, 0.015, 0.025],
+                "top": [0.08, 0.06, 0.10],
+                "bottom": [0.06, 0.045, 0.075],
+            }
+        )
 
         summary = summarize_backtest(results_df)
 
         # All expected keys should be present
-        for key in ["ic_mean", "ic_std", "icir", "hit_rate", "spread_mean", "top_decile_mean", "bottom_decile_mean"]:
+        for key in [
+            "ic_mean",
+            "ic_std",
+            "icir",
+            "hit_rate",
+            "spread_mean",
+            "top_decile_mean",
+            "bottom_decile_mean",
+        ]:
             assert key in summary
 
     def test_information_ratio_with_zero_variance(self):

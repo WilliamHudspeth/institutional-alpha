@@ -13,8 +13,8 @@ Architecture: The Data Firewall
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
-from typing import TYPE_CHECKING, Dict, Optional, Tuple
+from dataclasses import asdict, dataclass
+from typing import TYPE_CHECKING
 
 from iam.data.damodaran import DamodaranProvider, MacroBaselines
 from iam.data.provenance import attach_provenance
@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
 class GroundTruthProviderError(Exception):
     """Raised when ground truth calculation fails."""
+
     pass
 
 
@@ -46,12 +47,13 @@ class EquityRiskProfile:
     For multi-region companies, erp_breakdown shows the weighted ERP
     contribution by geography (useful for auditing international exposure).
     """
+
     erp: float
     risk_free_rate: float
     industry_unlevered_beta: float
     levered_beta: float
     cost_of_equity: float
-    erp_breakdown: Dict[str, dict] = None
+    erp_breakdown: dict[str, dict] = None
 
     def __post_init__(self) -> None:
         if self.erp_breakdown is None:
@@ -59,11 +61,11 @@ class EquityRiskProfile:
 
     def __str__(self) -> str:
         return (
-            f"Risk Profile: Rf={self.risk_free_rate*100:.2f}% "
-            f"ERP={self.erp*100:.2f}% "
+            f"Risk Profile: Rf={self.risk_free_rate * 100:.2f}% "
+            f"ERP={self.erp * 100:.2f}% "
             f"U-Beta={self.industry_unlevered_beta:.2f} "
             f"L-Beta={self.levered_beta:.2f} "
-            f"CoE={self.cost_of_equity*100:.2f}%"
+            f"CoE={self.cost_of_equity * 100:.2f}%"
         )
 
 
@@ -81,7 +83,7 @@ class GroundTruthProvider:
     4. Institutional credibility (using published Damodaran research)
     """
 
-    def __init__(self, damodaran: Optional[DamodaranProvider] = None):
+    def __init__(self, damodaran: DamodaranProvider | None = None):
         """Initialize with optional Damodaran provider (for dependency injection/testing)."""
         self.damodaran = damodaran or DamodaranProvider()
 
@@ -89,7 +91,7 @@ class GroundTruthProvider:
         """Get current macro environment (ERP, Risk-Free Rate, Country Premium)."""
         return self.damodaran.get_macro_state()
 
-    def get_blended_erp(self, security: Security) -> Tuple[float, Dict]:
+    def get_blended_erp(self, security: Security) -> tuple[float, dict]:
         """Calculate blended ERP from security's revenue_mix (geography weighting).
 
         For multi-region companies, uses revenue distribution to weight ERPs
@@ -169,8 +171,7 @@ class GroundTruthProvider:
 
         # 3. Industry Anchor (Sector-specific business risk)
         u_beta = self.damodaran.get_industry_unlevered_beta(
-            security.sector or "unknown",
-            security.industry or "unknown"
+            security.sector or "unknown", security.industry or "unknown"
         )
 
         # 4. Calculate Cost of Equity (CAPM with institutional assumptions)
@@ -194,7 +195,7 @@ class GroundTruthProvider:
             erp_breakdown=erp_breakdown,
         )
 
-    def get_risk_profile(self, security: Security) -> Dict:
+    def get_risk_profile(self, security: Security) -> dict:
         """Get risk profile as dict with provenance for auditing.
 
         This is the audit-friendly version of get_equity_risk_profile.

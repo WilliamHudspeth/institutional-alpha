@@ -13,14 +13,15 @@ Conventions:
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import Any, Optional, Union
+from typing import Any
 
 
 @dataclass
 class Assumption:
     """A single named assumption underpinning a valuation thesis."""
+
     name: str
-    value: Union[float, str]
+    value: float | str
     rationale: str = ""
     source: str = "model"  # "model" | "consensus" | "user"
 
@@ -28,10 +29,11 @@ class Assumption:
 @dataclass
 class Thesis:
     """A labelled valuation scenario (e.g. bull, base, bear)."""
+
     label: str
     assumptions: list[Assumption] = field(default_factory=list)
-    fair_value_low: Optional[float] = None
-    fair_value_high: Optional[float] = None
+    fair_value_low: float | None = None
+    fair_value_high: float | None = None
     narrative: str = ""
 
     def __post_init__(self) -> None:
@@ -42,29 +44,30 @@ class Thesis:
                     f"must not exceed fair_value_high ({self.fair_value_high})"
                 )
 
+
 @dataclass
 class MacroContext:
     """Macro-environment inputs consumed by MacroRegimeFactor and MacroOverlay."""
 
     # Rates & yields
-    real_rate_10y: Optional[float] = None            # real 10Y rate (decimal)
-    real_rate_trend: Optional[str] = None            # "falling" | "flat" | "rising"
-    yield_curve_slope_10y_2y: Optional[float] = None # 10Y - 2Y in decimal (e.g. 0.005 = 50bps)
+    real_rate_10y: float | None = None  # real 10Y rate (decimal)
+    real_rate_trend: str | None = None  # "falling" | "flat" | "rising"
+    yield_curve_slope_10y_2y: float | None = None  # 10Y - 2Y in decimal (e.g. 0.005 = 50bps)
 
     # Credit
-    credit_spread_hy: Optional[float] = None         # HY spread, decimal (0.035 = 350bps)
+    credit_spread_hy: float | None = None  # HY spread, decimal (0.035 = 350bps)
 
     # Liquidity / volatility
-    liquidity_index: Optional[float] = None          # normalized [-1, 1]
+    liquidity_index: float | None = None  # normalized [-1, 1]
 
     # Activity
-    pmi_direction: Optional[str] = None              # "expanding" | "contracting"
+    pmi_direction: str | None = None  # "expanding" | "contracting"
 
     # Currency
-    dxy_trend: Optional[str] = None                  # "falling" | "flat" | "rising"
-    
+    dxy_trend: str | None = None  # "falling" | "flat" | "rising"
+
     # Valuation
-    erp: Optional[float] = None                      # Equity Risk Premium (decimal)
+    erp: float | None = None  # Equity Risk Premium (decimal)
 
 
 @dataclass
@@ -72,45 +75,45 @@ class Fundamentals:
     """Financial statement and quality metrics for a single security."""
 
     # Revenue
-    revenue_ttm: Optional[float] = None
+    revenue_ttm: float | None = None
     revenue_history: list[float] = field(default_factory=list)  # most-recent-first
 
     # Margins
-    gross_margin: Optional[float] = None
+    gross_margin: float | None = None
     gross_margin_history: list[float] = field(default_factory=list)
-    operating_margin: Optional[float] = None
+    operating_margin: float | None = None
     operating_margin_history: list[float] = field(default_factory=list)
 
     # Profitability
-    net_income_ttm: Optional[float] = None
-    ebitda_ttm: Optional[float] = None
+    net_income_ttm: float | None = None
+    ebitda_ttm: float | None = None
 
     # Cash flow
-    fcf_ttm: Optional[float] = None
+    fcf_ttm: float | None = None
     fcf_history: list[float] = field(default_factory=list)
-    capex_ttm: Optional[float] = None
+    capex_ttm: float | None = None
 
     # Returns & quality
     roic_history: list[float] = field(default_factory=list)
-    incremental_roic: Optional[float] = None
-    accruals_ratio: Optional[float] = None           # Sloan accrual ratio
+    incremental_roic: float | None = None
+    accruals_ratio: float | None = None  # Sloan accrual ratio
 
     # Stock-based compensation
-    sbc_ttm: Optional[float] = None
+    sbc_ttm: float | None = None
 
     # Balance sheet
-    total_debt: Optional[float] = None
-    cash_and_equivalents: Optional[float] = None
-    current_ratio: Optional[float] = None
-    interest_expense_ttm: Optional[float] = None
-    debt_maturity_within_24m: Optional[float] = None
+    total_debt: float | None = None
+    cash_and_equivalents: float | None = None
+    current_ratio: float | None = None
+    interest_expense_ttm: float | None = None
+    debt_maturity_within_24m: float | None = None
 
     # Share count
-    shares_outstanding: Optional[float] = None
+    shares_outstanding: float | None = None
     shares_outstanding_history: list[float] = field(default_factory=list)
 
     # Earnings quality
-    one_time_adjustments_count_5y: Optional[int] = None
+    one_time_adjustments_count_5y: int | None = None
 
     # Segments (used by SOTP; import avoided to keep circular-free at runtime)
     segments: list = field(default_factory=list)  # list[Segment] from iam.valuation.sotp
@@ -121,39 +124,39 @@ class MarketData:
     """Market price, valuation multiples, positioning, and sentiment data."""
 
     # Price & cap
-    price: Optional[float] = None
-    market_cap: Optional[float] = None
-    enterprise_value: Optional[float] = None
+    price: float | None = None
+    market_cap: float | None = None
+    enterprise_value: float | None = None
 
     # Valuation multiples
-    pe_ttm: Optional[float] = None
-    pe_forward: Optional[float] = None
+    pe_ttm: float | None = None
+    pe_forward: float | None = None
     pe_history: list[float] = field(default_factory=list)  # most-recent-first
-    ev_ebitda: Optional[float] = None
-    sector_ev_ebitda_median: Optional[float] = None
-    fcf_yield: Optional[float] = None
-    ev_sales: Optional[float] = None
+    ev_ebitda: float | None = None
+    sector_ev_ebitda_median: float | None = None
+    fcf_yield: float | None = None
+    ev_sales: float | None = None
 
     # Peer comparisons
-    peer_ev_sales_median: Optional[float] = None
+    peer_ev_sales_median: float | None = None
     peer_fcf_yields: list[float] = field(default_factory=list)
 
     # Positioning
-    hedge_fund_ownership_pct: Optional[float] = None
-    retail_ownership_pct: Optional[float] = None
-    short_interest_pct_float: Optional[float] = None
-    passive_index_ownership_pct: Optional[float] = None
+    hedge_fund_ownership_pct: float | None = None
+    retail_ownership_pct: float | None = None
+    short_interest_pct_float: float | None = None
+    passive_index_ownership_pct: float | None = None
 
     # Options
-    options_call_put_skew: Optional[float] = None
+    options_call_put_skew: float | None = None
 
     # Risk
-    beta: Optional[float] = None                           # equity beta vs market index
+    beta: float | None = None  # equity beta vs market index
 
     # Sentiment & momentum
-    analyst_revisions_breadth_30d: Optional[float] = None  # [-1, 1]
+    analyst_revisions_breadth_30d: float | None = None  # [-1, 1]
     earnings_surprise_history: list[float] = field(default_factory=list)
-    news_sentiment_delta: Optional[float] = None           # [-1, 1]
+    news_sentiment_delta: float | None = None  # [-1, 1]
     price_history: list[float] = field(default_factory=list)  # daily closes, most-recent-first
 
 
@@ -171,13 +174,13 @@ class Security:
     """
 
     ticker: str
-    name: Optional[str] = None
-    sector: Optional[str] = None
-    industry: Optional[str] = None
+    name: str | None = None
+    sector: str | None = None
+    industry: str | None = None
     country_iso: str = "US"
     fundamentals: Fundamentals = field(default_factory=Fundamentals)
     market: MarketData = field(default_factory=MarketData)
-    macro: Optional[MacroContext] = None
+    macro: MacroContext | None = None
     qualitative: dict[str, Any] = field(default_factory=dict)
     theses: list[Thesis] = field(default_factory=list)
     revenue_mix: dict[str, float] = field(default_factory=dict)

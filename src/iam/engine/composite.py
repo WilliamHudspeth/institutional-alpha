@@ -7,38 +7,46 @@ fully-decomposed score.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from iam.data.security import Security
 from iam.factors import (
-    Factor, FactorContribution,
-    IntrinsicValueFactor, ExpectationsDifficultyFactor, QualityFactor,
-    RelativeValueFactor, SentimentFactor, ReflexivityFactor,
-    RunwayFactor, MacroRegimeFactor, CrowdingFactor, EarningsQualityFactor,
-    FragilityPenalty, LeveragePenalty, ExecutionRiskPenalty,
+    CrowdingFactor,
+    EarningsQualityFactor,
+    ExecutionRiskPenalty,
+    ExpectationsDifficultyFactor,
+    Factor,
+    FactorContribution,
+    FragilityPenalty,
+    IntrinsicValueFactor,
+    LeveragePenalty,
+    MacroRegimeFactor,
+    QualityFactor,
+    ReflexivityFactor,
+    RelativeValueFactor,
+    RunwayFactor,
+    SentimentFactor,
 )
-
 
 # Default weights derived from the framework writeup (docs/framework.md).
 # Override these by passing a custom dict to ``score(...)``.
 DEFAULT_WEIGHTS: dict[str, float] = {
     "expectations_difficulty": 0.22,
-    "intrinsic_value":         0.20,
-    "quality":                 0.12,
-    "relative_value":          0.10,
-    "sentiment":               0.08,
-    "reflexivity":             0.08,
-    "reinvestment_runway":     0.07,
-    "macro_regime":            0.05,
-    "crowding":                0.04,
-    "earnings_quality":        0.04,
+    "intrinsic_value": 0.20,
+    "quality": 0.12,
+    "relative_value": 0.10,
+    "sentiment": 0.08,
+    "reflexivity": 0.08,
+    "reinvestment_runway": 0.07,
+    "macro_regime": 0.05,
+    "crowding": 0.04,
+    "earnings_quality": 0.04,
 }
 
 # Penalty weights are how much of the [0,1] penalty actually subtracts from
 # the composite. (i.e. a fragility of 1.0 with weight 0.3 subtracts 0.3.)
 DEFAULT_PENALTY_WEIGHTS: dict[str, float] = {
-    "fragility_penalty":      0.30,
-    "leverage_penalty":       0.20,
+    "fragility_penalty": 0.30,
+    "leverage_penalty": 0.20,
     "execution_risk_penalty": 0.15,
 }
 
@@ -67,7 +75,7 @@ class ScoreResult:
     """Decomposed scoring result for a single security."""
 
     ticker: str
-    composite: float                                # final score in roughly [-1, 1]
+    composite: float  # final score in roughly [-1, 1]
     factor_breakdown: dict[str, FactorContribution] = field(default_factory=dict)
     penalties: dict[str, FactorContribution] = field(default_factory=dict)
     weights: dict[str, float] = field(default_factory=dict)
@@ -99,10 +107,10 @@ class ScoreResult:
 
 def score(
     security: Security,
-    weights: Optional[dict[str, float]] = None,
-    penalty_weights: Optional[dict[str, float]] = None,
-    factors: Optional[list[Factor]] = None,
-    penalties: Optional[list[Factor]] = None,
+    weights: dict[str, float] | None = None,
+    penalty_weights: dict[str, float] | None = None,
+    factors: list[Factor] | None = None,
+    penalties: list[Factor] | None = None,
 ) -> ScoreResult:
     """Compute the composite score for a security.
 

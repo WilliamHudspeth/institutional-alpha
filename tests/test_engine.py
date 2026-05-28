@@ -1,8 +1,7 @@
 """End-to-end smoke and behavior tests for the scoring engine."""
 
-import pytest
 
-from iam import Security, Fundamentals, MarketData, MacroContext, score
+from iam import Fundamentals, MarketData, Security, score
 from iam.factors.base import FactorContribution
 
 
@@ -22,7 +21,7 @@ def test_high_quality_inputs_produce_positive_quality():
     sec = Security(
         ticker="HQ",
         fundamentals=Fundamentals(
-            roic_history=[0.30, 0.29, 0.31, 0.30, 0.28],   # high + stable
+            roic_history=[0.30, 0.29, 0.31, 0.30, 0.28],  # high + stable
             gross_margin_history=[0.75, 0.74, 0.76, 0.75, 0.74],
             operating_margin_history=[0.30, 0.29, 0.30, 0.28, 0.29],
             fcf_ttm=1000.0,
@@ -67,7 +66,7 @@ def test_leverage_penalty_fires_on_high_net_debt():
         fundamentals=Fundamentals(
             total_debt=5000.0,
             cash_and_equivalents=200.0,
-            ebitda_ttm=800.0,            # net debt/EBITDA = 6
+            ebitda_ttm=800.0,  # net debt/EBITDA = 6
             interest_expense_ttm=400.0,  # 2x coverage
         ),
     )
@@ -95,21 +94,27 @@ def test_custom_weights_change_composite():
         fundamentals=Fundamentals(
             roic_history=[0.30, 0.30, 0.30, 0.30, 0.30],
             operating_margin_history=[0.30, 0.30, 0.30, 0.30, 0.30],
-            fcf_ttm=1000.0, net_income_ttm=1000.0,
+            fcf_ttm=1000.0,
+            net_income_ttm=1000.0,
         ),
     )
     default_result = score(sec)
     # Crank quality weight all the way up
-    custom = score(sec, weights={"quality": 1.0,
-                                  "expectations_difficulty": 0,
-                                  "intrinsic_value": 0,
-                                  "relative_value": 0,
-                                  "sentiment": 0,
-                                  "reflexivity": 0,
-                                  "reinvestment_runway": 0,
-                                  "macro_regime": 0,
-                                  "crowding": 0,
-                                  "earnings_quality": 0})
+    custom = score(
+        sec,
+        weights={
+            "quality": 1.0,
+            "expectations_difficulty": 0,
+            "intrinsic_value": 0,
+            "relative_value": 0,
+            "sentiment": 0,
+            "reflexivity": 0,
+            "reinvestment_runway": 0,
+            "macro_regime": 0,
+            "crowding": 0,
+            "earnings_quality": 0,
+        },
+    )
     assert custom.composite != default_result.composite
 
 

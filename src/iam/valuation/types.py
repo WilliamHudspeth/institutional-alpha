@@ -10,14 +10,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 
 class Method(str, Enum):
     """Which valuation method produced a result."""
+
     REVERSE_DCF = "reverse_dcf"
-    RELATIVE    = "relative"
-    INTRINSIC   = "intrinsic"   # SOTP + FCFE DCF
+    RELATIVE = "relative"
+    INTRINSIC = "intrinsic"  # SOTP + FCFE DCF
 
 
 @dataclass
@@ -29,17 +29,18 @@ class ImpliedExpectations:
     The whole point of reverse DCF is to make those implicit assumptions
     explicit so you can ask: are they plausible?
     """
-    implied_revenue_growth: Optional[float] = None       # 5-10y CAGR
-    implied_operating_margin: Optional[float] = None     # steady-state
-    implied_roic: Optional[float] = None                 # steady-state
-    implied_terminal_growth: Optional[float] = None
-    implied_reinvestment_rate: Optional[float] = None
-    discount_rate_assumed: Optional[float] = None
+
+    implied_revenue_growth: float | None = None  # 5-10y CAGR
+    implied_operating_margin: float | None = None  # steady-state
+    implied_roic: float | None = None  # steady-state
+    implied_terminal_growth: float | None = None
+    implied_reinvestment_rate: float | None = None
+    discount_rate_assumed: float | None = None
 
     # How does this compare to what the business has actually done?
-    growth_vs_history_max: Optional[float] = None        # implied / 5y peak
-    margin_vs_history_peak: Optional[float] = None
-    roic_vs_industry_peak: Optional[float] = None
+    growth_vs_history_max: float | None = None  # implied / 5y peak
+    margin_vs_history_peak: float | None = None
+    roic_vs_industry_peak: float | None = None
 
 
 @dataclass
@@ -49,10 +50,11 @@ class ValuationResult:
     All three pipeline stages produce one of these, which lets Stage 4
     (triangulation) compare them like-for-like.
     """
+
     method: Method
-    fair_value_per_share: Optional[float] = None    # the headline number
-    fair_value_to_price: Optional[float] = None     # fair / current price - 1
-    confidence: float = 1.0                          # in [0, 1]
+    fair_value_per_share: float | None = None  # the headline number
+    fair_value_to_price: float | None = None  # fair / current price - 1
+    confidence: float = 1.0  # in [0, 1]
 
     # Sub-results that the method computed along the way — useful for audit.
     components: dict[str, float] = field(default_factory=dict)
@@ -60,13 +62,13 @@ class ValuationResult:
     notes: list[str] = field(default_factory=list)
 
     # Reverse DCF specifically populates this; other methods leave it None.
-    implied: Optional[ImpliedExpectations] = None
+    implied: ImpliedExpectations | None = None
 
     # Each method should populate a one-line plain-English summary.
     verdict_text: str = ""
 
     @property
-    def is_bullish(self) -> Optional[bool]:
+    def is_bullish(self) -> bool | None:
         """True if fair value > price, False if <, None if can't tell."""
         if self.fair_value_to_price is None:
             return None
@@ -77,10 +79,11 @@ class ValuationResult:
 class TriangulationResult:
     """The output of Stage 4. Tells you whether the three methods agree,
     where the cluster sits, and how confident the verdict is."""
-    cluster_center: Optional[float] = None    # fair_value_to_price of cluster
+
+    cluster_center: float | None = None  # fair_value_to_price of cluster
     cluster_members: list[Method] = field(default_factory=list)
     outliers: list[Method] = field(default_factory=list)
-    spread: Optional[float] = None            # max - min across all three
-    confidence: float = 0.0                   # in [0, 1]
-    verdict: str = ""                          # "agree" | "two_of_three" | "disagree"
+    spread: float | None = None  # max - min across all three
+    confidence: float = 0.0  # in [0, 1]
+    verdict: str = ""  # "agree" | "two_of_three" | "disagree"
     notes: list[str] = field(default_factory=list)

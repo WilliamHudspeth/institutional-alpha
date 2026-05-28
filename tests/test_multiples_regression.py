@@ -1,17 +1,14 @@
 """Tests for the Damodaran Jan 2026 regression-based multiple predictions."""
 
-import math
 import pytest
 
+from iam.data.security import Fundamentals, MarketData, Security
 from iam.valuation.multiples_regression import (
     RegressionInputs,
-    predict_multiple,
     predict_all,
-    REGRESSIONS,
+    predict_multiple,
 )
 from iam.valuation.relative import RelativeValuation
-from iam.data.security import Fundamentals, MarketData, Security
-
 
 # ---------------------------------------------------------------------------
 # Baseline inputs: a generic US mid-cap with no dividends
@@ -63,7 +60,9 @@ class TestPredictMultiple:
     def test_higher_debt_ratio_lowers_ev_ebitda(self):
         high_debt = {**BASE_INPUTS, "DFR": 0.50}
         low_debt = {**BASE_INPUTS, "DFR": 0.05}
-        assert predict_multiple("US", "EV_EBITDA", high_debt) < predict_multiple("US", "EV_EBITDA", low_debt)
+        assert predict_multiple("US", "EV_EBITDA", high_debt) < predict_multiple(
+            "US", "EV_EBITDA", low_debt
+        )
 
     def test_peg_raises_on_zero_g_eps(self):
         inputs = {**BASE_INPUTS, "gEPS": 0.0}
@@ -119,7 +118,17 @@ class TestRegressionInputs:
     def test_to_dict_has_correct_keys(self):
         inp = RegressionInputs()
         d = inp.to_dict()
-        assert set(d.keys()) == {"Beta", "gEPS", "Payout", "ROE", "g", "ROIC", "DFR", "OperMargin", "TaxRate"}
+        assert set(d.keys()) == {
+            "Beta",
+            "gEPS",
+            "Payout",
+            "ROE",
+            "g",
+            "ROIC",
+            "DFR",
+            "OperMargin",
+            "TaxRate",
+        }
 
     def test_default_region_is_us(self):
         assert RegressionInputs().region == "US"

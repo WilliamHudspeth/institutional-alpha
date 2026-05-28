@@ -9,7 +9,7 @@ No external dependencies. All rendering is pure f-string padding.
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 from iam.version import VERSION
 
@@ -34,7 +34,7 @@ def _fmt_pct_signed(value: float) -> str:
         return "—"
 
 
-def print_institutional_ui(data: Dict[str, Any]) -> None:
+def print_institutional_ui(data: dict[str, Any]) -> None:
     """Render a minimalist, whitespace-driven institutional report.
 
     Args:
@@ -87,9 +87,7 @@ def print_institutional_ui(data: Dict[str, Any]) -> None:
     if scenarios:
         print()
         print(" [ PROBABILISTIC SCENARIO MATRIX ]")
-        print(
-            f"   {'SCENARIO':<12} {'PROB':<6} {'TARGET':<12} {'IMPLIED':<10} THESIS"
-        )
+        print(f"   {'SCENARIO':<12} {'PROB':<6} {'TARGET':<12} {'IMPLIED':<10} THESIS")
         for s in scenarios:
             s_name = str(s.get("name", "—"))
             s_prob = str(s.get("prob", "—"))
@@ -99,9 +97,7 @@ def print_institutional_ui(data: Dict[str, Any]) -> None:
                 s_target = "—"
             s_upside = str(s.get("upside", "—"))
             s_thesis = str(s.get("thesis", ""))
-            print(
-                f"   {s_name:<12} {s_prob:<6} {s_target:<12} {s_upside:<10} {s_thesis}"
-            )
+            print(f"   {s_name:<12} {s_prob:<6} {s_target:<12} {s_upside:<10} {s_thesis}")
 
     # Component signals — colons aligned at column 25
     signals = data.get("signals", {})
@@ -126,9 +122,7 @@ def print_pipeline_summary(
     confidence: str,
 ) -> None:
     """Quick summary used for rapid feedback during pipeline run."""
-    upside_str = (
-        _fmt_pct_signed((pwev / current_price) - 1) if current_price > 0 else "—"
-    )
+    upside_str = _fmt_pct_signed((pwev / current_price) - 1) if current_price > 0 else "—"
 
     print()
     print(RULE)
@@ -145,8 +139,8 @@ def print_pipeline_summary(
 
 def print_bayesian_update_summary(
     ticker: str,
-    prior: Dict[str, float],
-    posterior: Dict[str, float],
+    prior: dict[str, float],
+    posterior: dict[str, float],
     evidence_type: str,
     evidence_reliability: float,
 ) -> None:
@@ -186,9 +180,27 @@ if __name__ == "__main__":
         "synthesis": "+11.5%",
         "confidence": "MODERATE",
         "scenarios": [
-            {"name": "Bear Case", "prob": "20%", "target": 146.13, "upside": "-84.0%", "thesis": "Stressed execution"},
-            {"name": "Base Case", "prob": "60%", "target": 213.04, "upside": "-77.0%", "thesis": "Normal execution"},
-            {"name": "Bull Case", "prob": "20%", "target": 311.33, "upside": "-66.0%", "thesis": "Platform leverage"},
+            {
+                "name": "Bear Case",
+                "prob": "20%",
+                "target": 146.13,
+                "upside": "-84.0%",
+                "thesis": "Stressed execution",
+            },
+            {
+                "name": "Base Case",
+                "prob": "60%",
+                "target": 213.04,
+                "upside": "-77.0%",
+                "thesis": "Normal execution",
+            },
+            {
+                "name": "Bull Case",
+                "prob": "20%",
+                "target": 311.33,
+                "upside": "-66.0%",
+                "thesis": "Platform leverage",
+            },
         ],
         "signals": {
             "reverse_dcf": "BEARISH (-38.2%)",

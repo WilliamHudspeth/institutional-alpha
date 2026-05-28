@@ -1,18 +1,21 @@
 """Tests for the v0.2.0-alpha valuation pipeline."""
 
-import pytest
 
-from iam import Security, Fundamentals, MarketData, ValuationPipeline
+from iam import Fundamentals, MarketData, Security, ValuationPipeline
 from iam.valuation import (
-    ReverseDCF, RelativeValuation, FCFEDCF, FCFEAssumptions, Triangulator,
+    FCFEDCF,
+    FCFEAssumptions,
     Method,
+    RelativeValuation,
+    ReverseDCF,
+    Triangulator,
 )
 from iam.valuation.reverse_dcf import _present_value_two_stage, _solve_implied_growth
-
 
 # ---------------------------------------------------------------------------
 # Reverse DCF math
 # ---------------------------------------------------------------------------
+
 
 def test_pv_two_stage_at_zero_growth():
     """At zero high-growth and 0% terminal, PV reduces to a perpetuity."""
@@ -27,7 +30,9 @@ def test_pv_increases_with_growth():
     """Higher growth -> higher PV, monotonically."""
     pvs = []
     for g in [0.0, 0.05, 0.10, 0.15]:
-        pvs.append(_present_value_two_stage(10, g, 10, 0.025, 0.09, 0.20)) # High ROE to limit reinvestment penalty
+        pvs.append(
+            _present_value_two_stage(10, g, 10, 0.025, 0.09, 0.20)
+        )  # High ROE to limit reinvestment penalty
     assert pvs == sorted(pvs)
     assert all(pvs[i] < pvs[i + 1] for i in range(len(pvs) - 1))
 
@@ -35,7 +40,9 @@ def test_pv_increases_with_growth():
 def test_solve_implied_growth_roundtrip():
     """Solve for g such that PV == target, then verify the solution."""
     target = 250.0
-    g = _solve_implied_growth(target_price=target, base_ni=10, n=10, g_terminal=0.025, r=0.09, roe=0.15)
+    g = _solve_implied_growth(
+        target_price=target, base_ni=10, n=10, g_terminal=0.025, r=0.09, roe=0.15
+    )
     assert g is not None
     pv = _present_value_two_stage(10, g, 10, 0.025, 0.09, 0.15)
     assert abs(pv - target) / target < 0.01
@@ -43,13 +50,16 @@ def test_solve_implied_growth_roundtrip():
 
 def test_reverse_dcf_implausibly_high_price_returns_none():
     """If the price requires >60% growth, the solver should fail gracefully."""
-    g = _solve_implied_growth(target_price=100_000, base_ni=1, n=10, g_terminal=0.025, r=0.09, roe=0.15)
+    g = _solve_implied_growth(
+        target_price=100_000, base_ni=1, n=10, g_terminal=0.025, r=0.09, roe=0.15
+    )
     assert g is None
 
 
 # ---------------------------------------------------------------------------
 # Reverse DCF integration
 # ---------------------------------------------------------------------------
+
 
 def test_reverse_dcf_basic_run():
     sec = Security(
@@ -84,15 +94,39 @@ def test_reverse_dcf_negative_fcfe_skipped():
 # Relative valuation
 # ---------------------------------------------------------------------------
 
+
 def test_relative_valuation_with_all_signals():
     sec = Security(
         ticker="REL",
         market=MarketData(
             price=100,
             pe_ttm=15,
-            pe_history=[14, 16, 18, 20, 22, 24, 18, 16, 14, 12,
-                        14, 16, 18, 20, 22, 24, 18, 16, 14, 12,
-                        14, 16, 18, 20],
+            pe_history=[
+                14,
+                16,
+                18,
+                20,
+                22,
+                24,
+                18,
+                16,
+                14,
+                12,
+                14,
+                16,
+                18,
+                20,
+                22,
+                24,
+                18,
+                16,
+                14,
+                12,
+                14,
+                16,
+                18,
+                20,
+            ],
             ev_ebitda=10,
             sector_ev_ebitda_median=15,
             fcf_yield=0.06,
@@ -114,6 +148,7 @@ def test_relative_valuation_no_inputs():
 # ---------------------------------------------------------------------------
 # FCFE DCF
 # ---------------------------------------------------------------------------
+
 
 def test_fcfe_dcf_basic_run():
     sec = Security(
@@ -157,19 +192,25 @@ def test_fcfe_higher_growth_higher_fair_value():
 # Triangulation
 # ---------------------------------------------------------------------------
 
+
 def test_triangulator_agreement():
     """When all three methods agree, verdict should be AGREE with high conf."""
-    from iam.valuation.types import ValuationResult, ImpliedExpectations
+    from iam.valuation.types import ImpliedExpectations, ValuationResult
 
     rev = ValuationResult(
-        method=Method.REVERSE_DCF, confidence=0.9,
+        method=Method.REVERSE_DCF,
+        confidence=0.9,
         implied=ImpliedExpectations(growth_vs_history_max=1.0),  # converts to 0% ratio
     )
     rel = ValuationResult(
-        method=Method.RELATIVE, confidence=0.9, fair_value_to_price=0.03,
+        method=Method.RELATIVE,
+        confidence=0.9,
+        fair_value_to_price=0.03,
     )
     intr = ValuationResult(
-        method=Method.INTRINSIC, confidence=0.9, fair_value_to_price=-0.02,
+        method=Method.INTRINSIC,
+        confidence=0.9,
+        fair_value_to_price=-0.02,
     )
     tri = Triangulator().triangulate(rev, rel, intr)
     assert tri.verdict == "agree"
@@ -178,17 +219,22 @@ def test_triangulator_agreement():
 
 def test_triangulator_disagreement():
     """Three wildly different ratios -> disagree verdict."""
-    from iam.valuation.types import ValuationResult, ImpliedExpectations
+    from iam.valuation.types import ImpliedExpectations, ValuationResult
 
     rev = ValuationResult(
-        method=Method.REVERSE_DCF, confidence=0.9,
+        method=Method.REVERSE_DCF,
+        confidence=0.9,
         implied=ImpliedExpectations(growth_vs_history_max=2.0),  # converts to -0.5
     )
     rel = ValuationResult(
-        method=Method.RELATIVE, confidence=0.9, fair_value_to_price=0.5,
+        method=Method.RELATIVE,
+        confidence=0.9,
+        fair_value_to_price=0.5,
     )
     intr = ValuationResult(
-        method=Method.INTRINSIC, confidence=0.9, fair_value_to_price=0.0,
+        method=Method.INTRINSIC,
+        confidence=0.9,
+        fair_value_to_price=0.0,
     )
     tri = Triangulator().triangulate(rev, rel, intr)
     assert tri.verdict in ("disagree", "two_of_three")
@@ -197,17 +243,22 @@ def test_triangulator_disagreement():
 
 def test_triangulator_two_of_three():
     """Two methods cluster, third is outlier."""
-    from iam.valuation.types import ValuationResult, ImpliedExpectations
+    from iam.valuation.types import ImpliedExpectations, ValuationResult
 
     rev = ValuationResult(
-        method=Method.REVERSE_DCF, confidence=0.9,
+        method=Method.REVERSE_DCF,
+        confidence=0.9,
         implied=ImpliedExpectations(growth_vs_history_max=1.0),  # -> ~0
     )
     rel = ValuationResult(
-        method=Method.RELATIVE, confidence=0.9, fair_value_to_price=0.02,
+        method=Method.RELATIVE,
+        confidence=0.9,
+        fair_value_to_price=0.02,
     )
     intr = ValuationResult(
-        method=Method.INTRINSIC, confidence=0.9, fair_value_to_price=0.50,
+        method=Method.INTRINSIC,
+        confidence=0.9,
+        fair_value_to_price=0.50,
     )
     tri = Triangulator().triangulate(rev, rel, intr)
     assert tri.verdict == "two_of_three"
@@ -218,6 +269,7 @@ def test_triangulator_two_of_three():
 # Full pipeline
 # ---------------------------------------------------------------------------
 
+
 def test_full_pipeline_runs():
     sec = Security(
         ticker="FULL",
@@ -227,11 +279,37 @@ def test_full_pipeline_runs():
             revenue_history=[10000, 8500, 7200, 6100, 5200],
         ),
         market=MarketData(
-            price=180, pe_ttm=75, ev_ebitda=50,
-            pe_history=[60, 55, 50, 70, 80, 65, 55, 45, 40, 35,
-                        50, 60, 70, 80, 65, 55, 45, 40, 35, 50,
-                        60, 70, 50, 45],
-            sector_ev_ebitda_median=22, fcf_yield=0.016,
+            price=180,
+            pe_ttm=75,
+            ev_ebitda=50,
+            pe_history=[
+                60,
+                55,
+                50,
+                70,
+                80,
+                65,
+                55,
+                45,
+                40,
+                35,
+                50,
+                60,
+                70,
+                80,
+                65,
+                55,
+                45,
+                40,
+                35,
+                50,
+                60,
+                70,
+                50,
+                45,
+            ],
+            sector_ev_ebitda_median=22,
+            fcf_yield=0.016,
             peer_fcf_yields=[0.03, 0.025, 0.04],
         ),
         qualitative={"forecast_growth": 0.18, "forecast_discount_rate": 0.10},
@@ -242,7 +320,11 @@ def test_full_pipeline_runs():
     assert report.relative.fair_value_to_price is not None
     assert report.intrinsic.fair_value_to_price is not None
     assert report.triangulation.verdict in (
-        "agree", "two_of_three", "disagree", "single_method", "no_data"
+        "agree",
+        "two_of_three",
+        "disagree",
+        "single_method",
+        "no_data",
     )
     # explain() should produce non-empty multiline text
     text = report.explain()
@@ -259,6 +341,7 @@ def test_empty_security_pipeline_no_crash():
 def test_v01_factor_scoring_still_works():
     """Make sure adding the pipeline didn't break v0.1.0 factor scoring."""
     from iam import score
+
     result = score(Security(ticker="LEGACY"))
     assert result.composite is not None
     assert len(result.factor_breakdown) == 10

@@ -24,7 +24,6 @@ from iam.backtest.sources import (
     default_chain,
 )
 
-
 # -----------------------------------------------------------------------------
 # Test fixtures
 # -----------------------------------------------------------------------------
@@ -265,7 +264,9 @@ class TestStooqSource:
             "2024-01-02,101,103,100,102,1100000\n"
             "2024-01-03,102,104,101,103,1200000\n"
         )
-        with patch("iam.backtest.sources.stooq_source.urllib.request.urlopen", _urlopen_returning(csv)):
+        with patch(
+            "iam.backtest.sources.stooq_source.urllib.request.urlopen", _urlopen_returning(csv)
+        ):
             src = StooqSource()
             result = src.download_history("AAPL", "2024-01-01", "2024-01-31")
 
@@ -276,14 +277,20 @@ class TestStooqSource:
 
     def test_download_history_returns_none_on_empty(self):
         # Header only, no data rows → pd.read_csv returns an empty DataFrame.
-        with patch("iam.backtest.sources.stooq_source.urllib.request.urlopen", _urlopen_returning("Date,Open,High,Low,Close,Volume\n")):
+        with patch(
+            "iam.backtest.sources.stooq_source.urllib.request.urlopen",
+            _urlopen_returning("Date,Open,High,Low,Close,Volume\n"),
+        ):
             src = StooqSource()
             result = src.download_history("AAPL", "2024-01-01", "2024-01-31")
         assert result is None
 
     def test_download_history_returns_none_on_missing_columns(self):
         # Missing some required columns
-        with patch("iam.backtest.sources.stooq_source.urllib.request.urlopen", _urlopen_returning("Date,Close\n2024-01-01,100\n")):
+        with patch(
+            "iam.backtest.sources.stooq_source.urllib.request.urlopen",
+            _urlopen_returning("Date,Close\n2024-01-01,100\n"),
+        ):
             src = StooqSource()
             result = src.download_history("AAPL", "2024-01-01", "2024-01-31")
         assert result is None
@@ -303,13 +310,18 @@ class TestStooqSource:
             "2024-01-03,102,104,101,102.5,1\n"
             "2024-01-04,103,105,102,103.5,1\n"
         )
-        with patch("iam.backtest.sources.stooq_source.urllib.request.urlopen", _urlopen_returning(csv)):
+        with patch(
+            "iam.backtest.sources.stooq_source.urllib.request.urlopen", _urlopen_returning(csv)
+        ):
             src = StooqSource()
             price = src.fetch_price("AAPL", pd.Timestamp("2024-01-02"))
         assert price == pytest.approx(101.5)
 
     def test_fetch_price_raises_on_no_data(self):
-        with patch("iam.backtest.sources.stooq_source.urllib.request.urlopen", _urlopen_returning("Date,Open,High,Low,Close,Volume\n")):
+        with patch(
+            "iam.backtest.sources.stooq_source.urllib.request.urlopen",
+            _urlopen_returning("Date,Open,High,Low,Close,Volume\n"),
+        ):
             src = StooqSource()
             with pytest.raises(DataSourceError):
                 src.fetch_price("AAPL", pd.Timestamp("2024-01-02"))

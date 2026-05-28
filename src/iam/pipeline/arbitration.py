@@ -1,13 +1,14 @@
 """Master Arbitration Layer (Consensus Engine) for resolving conflicting valuation signals."""
 
 from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
 class ArbitrationResult:
     """Output of the consensus arbitration process."""
+
     blended_upside: float
     rating: str
     pipeline_weight_used: float
@@ -26,7 +27,7 @@ class ConsensusEngine:
     @staticmethod
     def arbitrate_verdict(
         pipeline_upside: float,
-        synthesis_upside: Optional[float] = None,
+        synthesis_upside: float | None = None,
         primary_confidence: float = 0.70,
     ) -> ArbitrationResult:
         """Blend traditional DCF pipeline with multi-lens synthesis into institutional rating.
@@ -58,9 +59,7 @@ class ConsensusEngine:
         synthesis_weight = 1.0 - pipeline_weight
 
         # Blend the two signals
-        blended_upside = (pipeline_upside * pipeline_weight) + (
-            synthesis_upside * synthesis_weight
-        )
+        blended_upside = (pipeline_upside * pipeline_weight) + (synthesis_upside * synthesis_weight)
 
         # Institutional Rating Tiers (based on implied move %)
         if blended_upside > 0.20:

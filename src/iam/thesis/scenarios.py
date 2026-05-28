@@ -12,7 +12,6 @@ we update the probability of formally-defined scenarios.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 
 @dataclass
@@ -25,10 +24,11 @@ class ScenarioAssumptions:
     - If "AUM momentum" is the thesis, then forecast_growth rises
       AND WACC compresses (lower risk premium).
     """
-    forecast_growth: float          # CAGR during projection period
-    wacc: float                     # Discount rate (reflects risk in this scenario)
-    terminal_growth: float          # Perpetuity growth rate
-    operating_margin: Optional[float] = None  # If known for this scenario
+
+    forecast_growth: float  # CAGR during projection period
+    wacc: float  # Discount rate (reflects risk in this scenario)
+    terminal_growth: float  # Perpetuity growth rate
+    operating_margin: float | None = None  # If known for this scenario
 
 
 @dataclass
@@ -39,12 +39,15 @@ class ValuationScenario:
     principle demands that scenarios should NOT overlap in their narratives—
     you should never have a "Bull" case that assumes fee compression.
     """
-    name: str                           # e.g., "Bull Case", "Base Case", "Bear Case"
-    probability: float                  # Prior: P(Scenario)
-    thesis: str                         # The narrative (e.g., "Fee compression + AUM slowdown")
-    expected_signals: List[str]         # Evidence that would confirm this (e.g., ["Missed EPS", "Declining inflows"])
-    assumptions: ScenarioAssumptions    # Mathematical bounds
-    target_price: float = 0.0           # Fair value from DCF (populated by valuation engine)
+
+    name: str  # e.g., "Bull Case", "Base Case", "Bear Case"
+    probability: float  # Prior: P(Scenario)
+    thesis: str  # The narrative (e.g., "Fee compression + AUM slowdown")
+    expected_signals: list[
+        str
+    ]  # Evidence that would confirm this (e.g., ["Missed EPS", "Declining inflows"])
+    assumptions: ScenarioAssumptions  # Mathematical bounds
+    target_price: float = 0.0  # Fair value from DCF (populated by valuation engine)
 
     def __post_init__(self):
         """Clamp probability to [0, 1] after initialization."""
@@ -70,9 +73,10 @@ class ScenarioMatrix:
     changes the probabilities of these scenarios, not the price targets or
     assumptions (those stay constant until the thesis changes).
     """
+
     ticker: str
-    scenarios: Dict[str, ValuationScenario] = field(default_factory=dict)
-    created_at: Optional[str] = None
+    scenarios: dict[str, ValuationScenario] = field(default_factory=dict)
+    created_at: str | None = None
 
     def get_pwev(self) -> float:
         """Calculate Probability-Weighted Expected Value across all scenarios."""
@@ -81,10 +85,7 @@ class ScenarioMatrix:
         total_prob = sum(s.probability for s in self.scenarios.values())
         if total_prob == 0:
             return 0.0
-        return sum(
-            s.target_price * s.probability / total_prob
-            for s in self.scenarios.values()
-        )
+        return sum(s.target_price * s.probability / total_prob for s in self.scenarios.values())
 
     def get_upside(self, current_price: float) -> float:
         """Calculate implied upside from PWEV to current price."""

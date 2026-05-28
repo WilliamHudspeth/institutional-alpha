@@ -4,9 +4,8 @@ Loads price data from parquet file (built via build_price_parquet.py),
 which includes pre-computed forward returns for a given horizon.
 """
 
+
 import polars as pl
-from pathlib import Path
-from typing import Optional
 
 
 def load_price_block(config: "BacktestConfig") -> pl.DataFrame:
@@ -37,7 +36,7 @@ def load_price_block(config: "BacktestConfig") -> pl.DataFrame:
     # Ensure correct schema
     if "ticker" not in df.columns or "date" not in df.columns or "close" not in df.columns:
         raise ValueError(
-            f"Price parquet missing required columns. Expected: ticker, date, close, fwd_ret"
+            "Price parquet missing required columns. Expected: ticker, date, close, fwd_ret"
         )
 
     return df.sort(["ticker", "date"])

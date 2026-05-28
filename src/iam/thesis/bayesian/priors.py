@@ -4,6 +4,7 @@ from dataclasses import dataclass
 @dataclass
 class ScenarioPrior:
     """Represents the probability of a specific scenario (e.g., Bull, Base, Bear)."""
+
     label: str
     probability: float
 

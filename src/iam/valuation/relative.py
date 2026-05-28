@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import statistics
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from iam.data.security import Security
-from iam.valuation.types import Method, ValuationResult
 from iam.valuation.damodaran_defaults import DamodaranUniverse
+from iam.valuation.types import Method, ValuationResult
 
 if TYPE_CHECKING:
     from iam.valuation.multiples_regression import RegressionInputs
@@ -25,13 +25,13 @@ class RelativeValuation:
     at today.  Pass ``regression_inputs`` to activate it.
     """
 
-    def __init__(self, universe: Optional[DamodaranUniverse] = None):
+    def __init__(self, universe: DamodaranUniverse | None = None):
         self.universe = universe
 
     def compute(
         self,
         security: Security,
-        regression_inputs: Optional[RegressionInputs] = None,
+        regression_inputs: RegressionInputs | None = None,
     ) -> ValuationResult:
         m = security.market
         f = security.fundamentals
@@ -41,7 +41,8 @@ class RelativeValuation:
 
         if m.price is None or m.price <= 0:
             return ValuationResult(
-                method=Method.RELATIVE, confidence=0.0,
+                method=Method.RELATIVE,
+                confidence=0.0,
                 notes=["Relative valuation requires a positive current price."],
                 verdict_text="Insufficient data for relative valuation.",
             )
@@ -52,10 +53,10 @@ class RelativeValuation:
         damodaran_used = False
         if self.universe and security.sector and security.sector in self.universe.sector_multiples:
             multiples = self.universe.sector_multiples[security.sector]
-            
+
             # Implied value based on EV/EBITDA
-            if f.ebitda_ttm and f.ebitda_ttm > 0 and 'ev_ebitda' in multiples:
-                target_ev = f.ebitda_ttm * multiples['ev_ebitda']
+            if f.ebitda_ttm and f.ebitda_ttm > 0 and "ev_ebitda" in multiples:
+                target_ev = f.ebitda_ttm * multiples["ev_ebitda"]
                 target_eq = target_ev - (f.total_debt or 0) + (f.cash_and_equivalents or 0)
                 if f.shares_outstanding and f.shares_outstanding > 0:
                     impl_price = target_eq / f.shares_outstanding
@@ -64,14 +65,14 @@ class RelativeValuation:
                     damodaran_used = True
 
             # Implied value based on P/E
-            if f.net_income_ttm and f.net_income_ttm > 0 and 'pe' in multiples:
-                target_mc = f.net_income_ttm * multiples['pe']
+            if f.net_income_ttm and f.net_income_ttm > 0 and "pe" in multiples:
+                target_mc = f.net_income_ttm * multiples["pe"]
                 if f.shares_outstanding and f.shares_outstanding > 0:
                     impl_price = target_mc / f.shares_outstanding
                     implied_prices.append(impl_price)
                     components["implied_price_pe"] = impl_price
                     damodaran_used = True
-        
+
         # 1b. Fallback to basic MarketData sector multiples
         if not damodaran_used:
             if m.ev_ebitda and m.sector_ev_ebitda_median and m.ev_ebitda > 0:
@@ -107,6 +108,7 @@ class RelativeValuation:
         # 4. Damodaran regression-predicted multiples (optional)
         if regression_inputs is not None:
             from iam.valuation.multiples_regression import predict_all
+
             predicted = predict_all(regression_inputs.region, regression_inputs.to_dict())
             reg_signals = 0
 
@@ -116,7 +118,12 @@ class RelativeValuation:
                 components["implied_price_regression_pe"] = impl_price
                 reg_signals += 1
 
-            if m.ev_ebitda and m.ev_ebitda > 0 and predicted.get("EV_EBITDA") and predicted["EV_EBITDA"] > 0:
+            if (
+                m.ev_ebitda
+                and m.ev_ebitda > 0
+                and predicted.get("EV_EBITDA")
+                and predicted["EV_EBITDA"] > 0
+            ):
                 impl_price = m.price * (predicted["EV_EBITDA"] / m.ev_ebitda)
                 implied_prices.append(impl_price)
                 components["implied_price_regression_ev_ebitda"] = impl_price
@@ -128,11 +135,14 @@ class RelativeValuation:
                     f"{reg_signals} fundamentals-predicted multiple(s)."
                 )
             else:
-                notes.append("Regression inputs provided but no matching market multiples available.")
+                notes.append(
+                    "Regression inputs provided but no matching market multiples available."
+                )
 
         if not implied_prices:
             return ValuationResult(
-                method=Method.RELATIVE, confidence=0.0,
+                method=Method.RELATIVE,
+                confidence=0.0,
                 notes=notes + ["No relative signals available."],
                 verdict_text="Insufficient data for relative valuation.",
             )
@@ -146,9 +156,11 @@ class RelativeValuation:
 
         pct = composite_ratio * 100
         signals = f"{len(implied_prices)} signal{'s' if len(implied_prices) != 1 else ''}"
-        
+
         if composite_ratio > 0.20:
-            verdict = f"Relative valuation suggests ~{pct:+.0f}% upside vs peers/history ({signals})."
+            verdict = (
+                f"Relative valuation suggests ~{pct:+.0f}% upside vs peers/history ({signals})."
+            )
         elif composite_ratio > 0.05:
             verdict = f"Modestly cheap on relative basis ({pct:+.0f}%, {signals})."
         elif composite_ratio > -0.05:

@@ -17,18 +17,15 @@ thesis the rest of the pipeline tests.
 
 from __future__ import annotations
 
-from typing import Optional
-
 from iam.data.security import Security
 from iam.valuation.beta import get_yahoo_beta
-from iam.valuation.types import Method, ValuationResult, ImpliedExpectations
-
+from iam.valuation.types import ImpliedExpectations, Method, ValuationResult
 
 # Reasonable defaults; can be overridden via Security or call-site.
-DEFAULT_DISCOUNT_RATE = 0.09          # generalist equity cost of capital
-DEFAULT_HIGH_GROWTH_YEARS = 10        # explicit forecast horizon
-DEFAULT_TERMINAL_GROWTH = 0.025       # GDP-ish steady state
-DEFAULT_ROE = 0.15                    # Return on Equity for reinvestment constraint (g / ROE)
+DEFAULT_DISCOUNT_RATE = 0.09  # generalist equity cost of capital
+DEFAULT_HIGH_GROWTH_YEARS = 10  # explicit forecast horizon
+DEFAULT_TERMINAL_GROWTH = 0.025  # GDP-ish steady state
+DEFAULT_ROE = 0.15  # Return on Equity for reinvestment constraint (g / ROE)
 
 
 def _present_value_two_stage(
@@ -76,7 +73,7 @@ def _solve_implied_growth(
     hi: float = 0.60,
     tol: float = 1e-4,
     max_iter: int = 80,
-) -> Optional[float]:
+) -> float | None:
     """Bisection: find g_high such that PV(...) == target_price."""
 
     pv_lo = _present_value_two_stage(base_ni, lo, n, g_terminal, r, roe)
@@ -182,7 +179,7 @@ class ReverseDCF:
             )
 
         # Compare implied growth to history for context.
-        growth_vs_max: Optional[float] = None
+        growth_vs_max: float | None = None
         if len(f.revenue_history) >= 4 and f.revenue_history[-1] > 0:
             # Year-over-year growth rates from history (most-recent-first).
             rates = []
@@ -229,15 +226,21 @@ class ReverseDCF:
         )
 
     @staticmethod
-    def _verdict_text(g: float, vs_max: Optional[float]) -> str:
+    def _verdict_text(g: float, vs_max: float | None) -> str:
         g_pct = g * 100
         base = f"Market implies ~{g_pct:.1f}% annual FCFE growth for the next decade"
         if vs_max is None:
             return base + "."
         if vs_max < 0.7:
-            return base + f" — comfortably below the {1/vs_max:.1f}x peak the business has delivered."
+            return (
+                base
+                + f" — comfortably below the {1 / vs_max:.1f}x peak the business has delivered."
+            )
         if vs_max < 1.0:
             return base + f" — within historical capability ({vs_max:.0%} of peak)."
         if vs_max < 1.5:
             return base + f" — moderately above the historical peak ({vs_max:.0%})."
-        return base + f" — substantially above what the business has ever delivered ({vs_max:.0%} of peak)."
+        return (
+            base
+            + f" — substantially above what the business has ever delivered ({vs_max:.0%} of peak)."
+        )

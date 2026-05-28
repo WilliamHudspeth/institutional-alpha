@@ -11,8 +11,8 @@ expected to be supplied via ``security.qualitative``.
 
 from __future__ import annotations
 
-from iam.factors.base import Factor, FactorContribution
 from iam.data.security import Security
+from iam.factors.base import Factor, FactorContribution
 
 
 class ReflexivityFactor(Factor):
@@ -20,10 +20,10 @@ class ReflexivityFactor(Factor):
 
     QUALITATIVE_KEYS = [
         ("equity_currency_strength", 0.25),
-        ("network_effect_strength",  0.25),
-        ("talent_attraction",        0.20),
-        ("acquisition_optionality",  0.15),
-        ("narrative_reinforcement",  0.15),
+        ("network_effect_strength", 0.25),
+        ("talent_attraction", 0.20),
+        ("acquisition_optionality", 0.15),
+        ("narrative_reinforcement", 0.15),
     ]
 
     def compute(self, security: Security) -> FactorContribution:
