@@ -406,7 +406,7 @@ Risk Analysis:
   - Average correlation: 0.35
 
 Portfolio Verdict:
-  - Recommendation: {recommendation.verdict.value}
+  - Recommendation: {(recommendation.verdict.value if hasattr(recommendation.verdict, 'value') else str(recommendation.verdict))}
   - Conviction: {recommendation.conviction}
   - Expected return: {recommendation.portfolio_target_return:+.1f}%
   - Risk: {recommendation.portfolio_risk:.1f}%

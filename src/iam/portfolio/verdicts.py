@@ -268,7 +268,12 @@ class PortfolioVerdictEngine:
         lines.append("")
 
         # Main verdict
-        lines.append(f"Verdict: {recommendation.verdict.value}")
+        verdict_str = (
+            recommendation.verdict.value
+            if hasattr(recommendation.verdict, "value")
+            else str(recommendation.verdict)
+        )
+        lines.append(f"Verdict: {verdict_str}")
         lines.append(f"Conviction: {recommendation.conviction}")
         lines.append(
             f"Target Return: {recommendation.portfolio_target_return:+.1f}% | "
