@@ -40,6 +40,30 @@ python scripts/verify.py
 ```
 This is the single source of truth for codebase health. Always check this before ending your turn.
 
+## Guidelines for AI Coding Assistants (Preventing Common Errors)
+
+To prevent regression bugs, copy-paste duplications, formatting issues, and type mismatches, any AI assistant working on this repository must adhere to the following rules:
+
+### 1. Zero-Duplication Policy
+- **Verify Existing Functions**: Before writing any new utility, adapter logic, or math helper, search the repository (`git grep`) to verify that the logic is not already implemented elsewhere (e.g., in `src/iam/data/` or other valuation/backtest modules).
+- **Consolidate Exceptions**: Never duplicate cash flow parsing or financial metrics calculations across adapters. Keep core parsing centralized.
+
+### 2. Strict Indentation & Syntax Rules
+- **4-Space Indentation**: The entire repository enforces a strict 4-space indentation policy for Python.
+- **Zero BOM (U+FEFF)**: Never upload or save files containing a Byte Order Mark (BOM). Ensure files are saved in clean, standard UTF-8 without signatures.
+- **No Duplicated Exception Blocks**: Ensure that error-handling blocks (`except Exception:`) are concise, cleanly formatted, and do not contain duplicated code segments.
+
+### 3. Strict Type Safety & Covariance
+- **Use `Mapping` for Read-only Dicts**: When a function takes a dictionary for read-only purposes (such as passing a list of sub-factor inputs or weights), always type-hint the parameter as `Mapping` (imported from `collections.abc`) instead of `dict`. Because `dict` is mutable and **invariant**, using `dict` will trigger union type errors for subclasses or optional values. `Mapping` is read-only and **covariant**, satisfying all subtype validations cleanly.
+- **Nullable Assertions**: When extracting values that are `float | None`, always perform explicit checking (`if val is not None:`) or type-narrowing before performing calculations, rather than assuming non-null values.
+
+### 4. Continuous Local Validation
+- **Run the Auditor First**: Always run the Platform Integrity Auditor as your very first command after landing, and your very last command before finishing:
+  ```bash
+  python scripts/verify.py
+  ```
+  Never submit or push code if any of the checks fail.
+
 ## Architecture map
 
 - `main.py` — primary interactive entry point (welcome screen + guided menu)
