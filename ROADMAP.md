@@ -725,6 +725,23 @@ The user should never manually update. Security patches, factor improvements, da
   - Model change logs
   - Assumption override tracking
 
+- [ ] **Zero-Configuration Data Layer** (Key for democratization)
+  - **Philosophy**: Users download repo, run `python data_fetcher.py --prefetch`, then backtest — no API keys, no config.
+  - Redundant fetching: yfinance (primary) → Stooq (fallback) for prices
+  - SEC EDGAR for point-in-time fundamentals (official, no key required)
+  - Bundled macro data (CSV; user can replace with FRED if desired)
+  - Persistent SQLite cache (TTL-based, reduces network calls)
+  - Pre-fetch script: one-time download of 20+ years of data for universe
+  - Automatic rate limiting & exponential backoff (graceful degradation under load)
+  - Offline-first: after prefetch, backtest runs entirely offline
+  - Integration: `RedundantDataFetcher` API used by backtest runner
+
+  **Benefits**:
+  - Retail investors can backtest without API keys or vendor lock-in
+  - Researchers can validate methodologies on real historical data
+  - Hedge funds get redundant, resilient data pipeline for production
+  - Community can contribute data source adapters (Bloomberg, Refinitiv connectors)
+
 - [ ] **Institutional Exports**
   - HTML research reports
   - Excel-compatible outputs
