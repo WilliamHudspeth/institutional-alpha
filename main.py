@@ -10,9 +10,9 @@ A user-friendly entry point that guides you through:
 
 from __future__ import annotations
 
-import sys
-import re
 import json
+import re
+import sys
 import urllib.parse
 import urllib.request
 
@@ -31,13 +31,14 @@ def print_header() -> None:
 def print_menu() -> None:
     """Print the main menu options with persistent console header."""
     import os
+
     from iam.version import VERSION
 
     # Clear console for immersive dedicated retro terminal experience
     os.system("cls" if os.name == "nt" else "clear")
 
     print("┌" + "─" * 78 + "┐")
-    print(f"│  ALADDIN-IA // SYSTEM CONSOLE // COGNITIVE MULTI-FACTOR EQUITIES PLATFORM     │")
+    print(f"│  ALPHA-TERMINAL // SYSTEM CONSOLE // COGNITIVE MULTI-FACTOR EQUITIES PLATFORM │")
     print(
         f"│  USER: wshb         SECURE TERMINAL: ACTIVE           SYSTEM VERSION: {VERSION:<14} │"
     )
@@ -107,12 +108,12 @@ def run_valuation_pipeline(ticker: str) -> None:
     print(f"  Fetching {ticker} from Yahoo Finance...")
     try:
         from iam.data.yahoo import fetch_security
-        from iam.pipeline.orchestrator import ValuationPipeline, print_assumption_table
-        from iam.lenses.rate_sensitive import RateSensitiveLens
-        from iam.lenses.platform_compounder import PlatformCompounderLens
-        from iam.lenses.expectations_difficulty import ExpectationsDifficultyLens
         from iam.lenses.damodaran_base import DamodaranBaseLens
+        from iam.lenses.expectations_difficulty import ExpectationsDifficultyLens
+        from iam.lenses.platform_compounder import PlatformCompounderLens
+        from iam.lenses.rate_sensitive import RateSensitiveLens
         from iam.lenses.synthesis import synthesize_lenses
+        from iam.pipeline.orchestrator import ValuationPipeline, print_assumption_table
 
         security = fetch_security(ticker)
         print(f"  ✓ {security.name or ticker} loaded")
@@ -175,8 +176,8 @@ def run_factor_scoring(ticker: str) -> None:
     print("\n" + "-" * 70)
     print(f"  Fetching {ticker} from Yahoo Finance...")
     try:
-        from iam.data.yahoo import fetch_security
         from iam import score
+        from iam.data.yahoo import fetch_security
 
         security = fetch_security(ticker)
         print(f"  ✓ {security.name or ticker} loaded")
@@ -203,10 +204,10 @@ def run_thesis_engine(ticker: str) -> None:
     print("\n" + "-" * 70)
     print(f"  Fetching {ticker} from Yahoo Finance...")
     try:
-        from iam.data.yahoo import fetch_security
         from iam.data.security import Assumption, Thesis
-        from iam.thesis.engine import ThesisEngine
+        from iam.data.yahoo import fetch_security
         from iam.thesis.bayesian.priors import ScenarioPrior
+        from iam.thesis.engine import ThesisEngine
 
         security = fetch_security(ticker)
         print(f"  ✓ {security.name or ticker} loaded")

@@ -1,4 +1,4 @@
-"""Retro-futuristic 90s Bloomberg Terminal and Aladdin console UI for institutional reports.
+"""Retro-futuristic 90s Bloomberg Terminal and Alpha console UI for institutional reports.
 
 Presents a highly immersive, retro military-grade quant console layout featuring
 custom double-line ASCII borders, a structured system HUD, dynamic horizontal valuation sliders,
@@ -102,7 +102,7 @@ def _draw_move_meter(move_pct: float) -> str:
 
 
 def print_institutional_ui(data: dict[str, Any]) -> None:
-    """Render a high-fidelity retro 90s Bloomberg / Aladdin style report card."""
+    """Render a high-fidelity retro 90s Bloomberg / Alpha style report card."""
     ticker = str(data.get("ticker", "TICK")).upper()
     name = data.get("name", "Unknown Company")
     price = float(data.get("price", 0.0) or 0.0)
@@ -116,7 +116,7 @@ def print_institutional_ui(data: dict[str, Any]) -> None:
     # 1. Structured retro system HUD header
     print()
     print("┌" + "─" * 78 + "┐")
-    print(f"│  ALADDIN-IA // SYSTEM ACTIVE // COGNITIVE QUANTITATIVE MULTI-FACTOR ENGINE   │")
+    print(f"│  ALPHA-TERMINAL // SYSTEM ACTIVE // COGNITIVE QUANTITATIVE MULTI-FACTOR ENGINE│")
     print(f"│  SECURITY: {ticker:<10} NAME: {name:<26} STATUS: ONLINE         │")
     print("└" + "─" * 78 + "┘")
     print(RULE)
@@ -231,7 +231,7 @@ def print_pipeline_summary(
 
     print()
     print("┌" + "─" * 78 + "┐")
-    print(f"│  ALADDIN-IA // SYSTEM DIAGNOSTIC COMPILATION PROCESS COMPLETE                │")
+    print(f"│  ALPHA-TERMINAL // SYSTEM DIAGNOSTIC COMPILATION PROCESS COMPLETE            │")
     print("└" + "─" * 78 + "┘")
     print(RULE)
     print(f"║  [ {ticker.upper()} VALUATION PIPELINE COMPLETE STATS ]".ljust(WIDTH - 1) + "║")
@@ -257,7 +257,7 @@ def print_bayesian_update_summary(
     """Render an immersive retro Bayesian inference update log."""
     print()
     print("┌" + "─" * 78 + "┐")
-    print(f"│  ALADDIN-IA // BAYESIAN PROBABILISTIC INTERPRETATION MATRIX MODULE           │")
+    print(f"│  ALPHA-TERMINAL // BAYESIAN PROBABILISTIC INTERPRETATION MATRIX MODULE       │")
     print(
         f"│  TICKER: {ticker.upper():<10} EVENT TYPE: {evidence_type:<20} RELIABILITY: {evidence_reliability * 100:.0f}%      │"
     )
