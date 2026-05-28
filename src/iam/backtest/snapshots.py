@@ -9,19 +9,17 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 from diskcache import Cache
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from iam.data.security import Security, MarketData
 from iam.backtest.sources import DataSource, default_chain
-
+from iam.data.security import MarketData, Security
 
 # Global cache singleton
-_snapshot_cache: Optional[Cache] = None
-_default_source: Optional[DataSource] = None
+_snapshot_cache: Cache | None = None
+_default_source: DataSource | None = None
 
 
 def get_snapshot_cache(cache_dir: Path) -> Cache:
@@ -83,7 +81,7 @@ def build_snapshot(
     base: Security,
     as_of: str,  # YYYY-MM-DD
     cache_dir: Path = Path(".cache/snapshots"),
-    source: Optional[DataSource] = None,
+    source: DataSource | None = None,
 ) -> Security:
     """Build a point-in-time Security snapshot for a specific date.
 
@@ -107,7 +105,11 @@ def build_snapshot(
     src = source if source is not None else get_default_source()
     price, debt = _fetch_snapshot_data(ticker, as_of_dt, src)
 
-    shares = base.fundamentals.shares_outstanding if base.fundamentals.shares_outstanding else 1_000_000_000
+    shares = (
+        base.fundamentals.shares_outstanding
+        if base.fundamentals.shares_outstanding
+        else 1_000_000_000
+    )
     market_cap = price * shares
 
     snapshot = replace(
@@ -124,7 +126,7 @@ def load_snapshot(
     ticker: str,
     as_of: str,
     cache_dir: Path = Path(".cache/snapshots"),
-) -> Optional[Security]:
+) -> Security | None:
     """Load a cached snapshot if available, else None."""
     cache_key = f"{ticker}_{as_of}"
     cache = get_snapshot_cache(cache_dir)

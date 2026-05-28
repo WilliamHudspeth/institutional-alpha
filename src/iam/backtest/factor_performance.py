@@ -7,7 +7,6 @@ IC by factor, and detects regime-dependent performance shifts.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -23,12 +22,10 @@ class FactorMetrics:
     information_ratio: float
     hit_rate: float
     rolling_ic_trend: float  # Correlation of rolling IC with time
-    regime_correlation: Optional[dict] = None  # regime → IC
+    regime_correlation: dict | None = None  # regime → IC
 
 
-def compute_factor_ic(
-    factor_scores: pd.Series, forward_returns: pd.Series
-) -> float:
+def compute_factor_ic(factor_scores: pd.Series, forward_returns: pd.Series) -> float:
     """Compute Information Coefficient for a factor.
 
     Args:
@@ -207,9 +204,7 @@ def generate_factor_report(metrics: dict[str, FactorMetrics]) -> str:
     ]
 
     # Sort by IR (descending)
-    sorted_factors = sorted(
-        metrics.values(), key=lambda m: m.information_ratio, reverse=True
-    )
+    sorted_factors = sorted(metrics.values(), key=lambda m: m.information_ratio, reverse=True)
 
     for metric in sorted_factors:
         lines.append(

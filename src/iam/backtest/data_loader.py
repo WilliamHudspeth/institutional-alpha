@@ -42,9 +42,7 @@ class StooqDataLoader:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.manifest_path = cache_dir / "manifest.json"
 
-    def download_ticker_data(
-        self, ticker: str, start: str, end: str
-    ) -> pd.DataFrame:
+    def download_ticker_data(self, ticker: str, start: str, end: str) -> pd.DataFrame:
         """Download single ticker from Stooq.
 
         Args:

@@ -7,14 +7,14 @@ into ModelResult objects that the arbitrator can blend and weight.
 from __future__ import annotations
 
 import math
-from typing import Any, Dict
+from typing import Any
 
 from iam.integration.types import ModelResult
 
 
 def from_ground_truth(
     name: str,
-    profile: Dict[str, Any],
+    profile: dict[str, Any],
     reliability: float = 0.85,
 ) -> ModelResult:
     """Convert GroundTruthProvider.get_risk_profile() output into a ModelResult.

@@ -13,7 +13,6 @@ from iam.valuation.beta import (
 from iam.valuation.fcfe_dcf import FCFEDCF
 from iam.valuation.reverse_dcf import ReverseDCF
 
-
 # ---------------------------------------------------------------------------
 # Core math — verified against Damodaran's levbeta.xls workbook
 # ---------------------------------------------------------------------------
@@ -66,7 +65,7 @@ class TestMarketValueOfDebt:
     def test_coupon_equals_market_rate_gives_book_value(self):
         # When coupon rate = market rate, PV of debt = face value
         book = 10_000.0
-        interest = book * 0.075          # 7.5% coupon
+        interest = book * 0.075  # 7.5% coupon
         result = market_value_of_debt(book, interest, market_rate=0.075, maturity=5.0)
         assert result == pytest.approx(book, rel=1e-5)
 
@@ -129,14 +128,14 @@ class TestGetCustomBetaForIntrinsic:
             ticker="TEST",
             fundamentals=Fundamentals(
                 total_debt=10_000.0,
-                interest_expense_ttm=750.0,   # 7.5% coupon on 10k book debt
+                interest_expense_ttm=750.0,  # 7.5% coupon on 10k book debt
             ),
             market=MarketData(beta=beta, market_cap=market_cap),
         )
         # levbeta.xls example parameters
         sec.qualitative["tax_rate"] = 0.36
         sec.qualitative["avg_de_ratio"] = 0.14
-        sec.qualitative["pre_tax_cost_debt"] = 0.075   # coupon = market rate → MVD = book
+        sec.qualitative["pre_tax_cost_debt"] = 0.075  # coupon = market rate → MVD = book
         sec.qualitative["debt_maturity"] = 5.0
         return sec
 
@@ -225,7 +224,8 @@ class TestStage1CAPMWiring:
         sec = Security(
             ticker="TEST",
             fundamentals=Fundamentals(
-                net_income_ttm=5_000.0, shares_outstanding=1_000.0,
+                net_income_ttm=5_000.0,
+                shares_outstanding=1_000.0,
                 revenue_history=[110.0, 100.0, 90.0, 80.0, 70.0],
             ),
             market=MarketData(price=100.0, beta=1.40),
@@ -265,7 +265,9 @@ class TestStage3CAPMWiring:
         sec = Security(
             ticker="TEST",
             fundamentals=Fundamentals(
-                net_income_ttm=5_000.0, fcf_ttm=4_000.0, shares_outstanding=1_000.0,
+                net_income_ttm=5_000.0,
+                fcf_ttm=4_000.0,
+                shares_outstanding=1_000.0,
             ),
             market=MarketData(price=100.0),
         )

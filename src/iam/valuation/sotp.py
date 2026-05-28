@@ -23,8 +23,7 @@ will skip with reduced confidence when segment data is absent.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 from iam.data.security import Security
 from iam.valuation.types import Method, ValuationResult
@@ -33,12 +32,13 @@ from iam.valuation.types import Method, ValuationResult
 @dataclass
 class Segment:
     """A single business segment for SOTP purposes."""
+
     name: str
-    revenue_ttm: Optional[float] = None
-    operating_income_ttm: Optional[float] = None
-    growth_rate: Optional[float] = None
-    multiple: Optional[float] = None        # e.g. EV/Sales for high-growth
-    multiple_type: str = "ev_sales"           # "ev_sales", "ev_ebit", "ev_ebitda"
+    revenue_ttm: float | None = None
+    operating_income_ttm: float | None = None
+    growth_rate: float | None = None
+    multiple: float | None = None  # e.g. EV/Sales for high-growth
+    multiple_type: str = "ev_sales"  # "ev_sales", "ev_ebit", "ev_ebitda"
     notes: str = ""
 
 
@@ -66,7 +66,8 @@ class SOTP:
         f = security.fundamentals
         if m.price is None or f.shares_outstanding is None:
             return ValuationResult(
-                method=Method.INTRINSIC, confidence=0.0,
+                method=Method.INTRINSIC,
+                confidence=0.0,
                 notes=["SOTP requires price and shares outstanding."],
                 verdict_text="Insufficient data for SOTP.",
             )
@@ -87,7 +88,8 @@ class SOTP:
 
         if total_ev == 0:
             return ValuationResult(
-                method=Method.INTRINSIC, confidence=0.0,
+                method=Method.INTRINSIC,
+                confidence=0.0,
                 notes=notes + ["Could not value any segment."],
                 verdict_text="SOTP yielded no valuable segments.",
             )
@@ -108,12 +110,12 @@ class SOTP:
             notes=notes,
             verdict_text=(
                 f"SOTP across {len(segments)} segments implies "
-                f"{fair_value_to_price*100:+.0f}% vs current price."
+                f"{fair_value_to_price * 100:+.0f}% vs current price."
             ),
         )
 
     @staticmethod
-    def _segment_ev(seg: Segment) -> Optional[float]:
+    def _segment_ev(seg: Segment) -> float | None:
         if seg.multiple is None:
             return None
         if seg.multiple_type == "ev_sales" and seg.revenue_ttm is not None:

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -16,11 +15,11 @@ class LensResult:
     """
 
     lens_name: str
-    fair_value_low: Optional[float]       # WACC+1% scenario
-    fair_value_high: Optional[float]      # WACC-1% scenario
-    implied_move_pct: Optional[float]     # midpoint / current_price - 1
-    confidence: float                     # in [0, 1]
-    narrative: str                        # plain-English one-liner
+    fair_value_low: float | None  # WACC+1% scenario
+    fair_value_high: float | None  # WACC-1% scenario
+    implied_move_pct: float | None  # midpoint / current_price - 1
+    confidence: float  # in [0, 1]
+    narrative: str  # plain-English one-liner
     assumptions: dict[str, float] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
 
@@ -44,7 +43,7 @@ def two_stage_pv(
     n: int,
     g_terminal: float,
     r: float,
-) -> Optional[float]:
+) -> float | None:
     """PV per share of a two-stage FCFE stream.
 
     Returns None when r <= g_terminal (model would not converge).

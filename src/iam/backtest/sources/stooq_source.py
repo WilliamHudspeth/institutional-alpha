@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import io
 import urllib.request
-from typing import Optional
 
 import pandas as pd
 
@@ -62,7 +61,7 @@ class StooqSource(DataSource):
         ticker: str,
         start: str,
         end: str,
-    ) -> Optional[pd.DataFrame]:
+    ) -> pd.DataFrame | None:
         try:
             url = self._url(ticker, start, end)
             with urllib.request.urlopen(url, timeout=self.timeout) as response:

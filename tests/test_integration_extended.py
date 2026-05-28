@@ -4,18 +4,18 @@ These tests validate edge cases, scenario management, provenance tracking,
 and multi-region blending across the complete pipeline.
 """
 
+
 import pytest
-from dataclasses import replace
 
 from iam.api import Security, value_security
 from iam.data import (
-    apply_scenario,
-    GroundTruthProvider,
     DamodaranProvider,
     Fundamentals,
+    GroundTruthProvider,
     MarketData,
+    apply_scenario,
 )
-from iam.integration import from_ground_truth, ModelResult, Orchestrator
+from iam.integration import ModelResult, Orchestrator, from_ground_truth
 
 
 class TestSecurityImmutability:
@@ -440,6 +440,7 @@ class TestDependencyInjection:
 
     def test_ground_truth_accepts_custom_damodaran(self):
         """GroundTruthProvider accepts custom Damodaran for testing."""
+
         # Create a mock Damodaran provider
         class MockDamodaran:
             def resolve_erp(self, key):
@@ -452,6 +453,7 @@ class TestDependencyInjection:
                 class Macro:
                     risk_free_rate = 0.04
                     implied_erp = 0.05
+
                 return Macro()
 
             def relever_beta(self, u_beta, de, tax_rate):
@@ -468,6 +470,7 @@ class TestDependencyInjection:
 
     def test_orchestrator_accepts_custom_damodaran(self):
         """Orchestrator passes Damodaran to GroundTruthProvider."""
+
         class MockDamodaran:
             def resolve_erp(self, key):
                 return 0.06
@@ -479,6 +482,7 @@ class TestDependencyInjection:
                 class Macro:
                     risk_free_rate = 0.035
                     implied_erp = 0.06
+
                 return Macro()
 
             def relever_beta(self, u_beta, de, tax_rate):

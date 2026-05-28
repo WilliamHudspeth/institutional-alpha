@@ -12,12 +12,11 @@ real-world evidence (earnings beats, margin shifts) arrives.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Optional
 import logging
+from dataclasses import dataclass
 
-from iam.data.security import Security
 from iam.data.ground_truth import GroundTruthProvider
+from iam.data.security import Security
 from iam.valuation.beta import get_custom_beta_for_intrinsic
 from iam.valuation.reverse_dcf import _present_value_two_stage
 from iam.valuation.types import Method, ValuationResult
@@ -33,11 +32,12 @@ class FCFEAssumptions:
     management guidance, your own bottom-up. The model's job is to compute
     a fair value *given* these inputs, not to invent them.
     """
-    high_growth: float          # FCFE CAGR during forecast period
+
+    high_growth: float  # FCFE CAGR during forecast period
     terminal_growth: float = 0.025
     high_growth_years: int = 10
     discount_rate: float = 0.09
-    roe: float = 0.15           # Return on Equity for reinvestment constraint
+    roe: float = 0.15  # Return on Equity for reinvestment constraint
 
 
 class FCFEDCF:
@@ -53,13 +53,13 @@ class FCFEDCF:
     single-point estimate. The scenario matrix enables Bayesian updating.
     """
 
-    def __init__(self, default_assumptions: Optional[FCFEAssumptions] = None):
+    def __init__(self, default_assumptions: FCFEAssumptions | None = None):
         self.defaults = default_assumptions or FCFEAssumptions(high_growth=0.08)
 
     def compute(
         self,
         security: Security,
-        assumptions: Optional[FCFEAssumptions] = None,
+        assumptions: FCFEAssumptions | None = None,
     ) -> ValuationResult:
         """Compute intrinsic value via probabilistic scenario analysis."""
         m = security.market
@@ -79,9 +79,7 @@ class FCFEDCF:
         base_a = assumptions or self._resolve_assumptions(security)
         if assumptions is None and not self._has_explicit_assumptions(security):
             confidence *= 0.7
-            notes.append(
-                "Using model defaults — supply assumptions for a tailored estimate."
-            )
+            notes.append("Using model defaults — supply assumptions for a tailored estimate.")
 
         # Cost of Equity Hierarchy:
         # 1. Explicit risk_free_rate + equity_risk_premium (custom CAPM)
@@ -109,8 +107,8 @@ class FCFEDCF:
                 profile = gt.get_equity_risk_profile(security)
                 base_a.discount_rate = profile.cost_of_equity
                 notes.append(
-                    f"Cost of Equity: {profile.risk_free_rate*100:.2f}% + {profile.industry_unlevered_beta:.2f} "
-                    f"(relevered) × {profile.erp*100:.2f}% = {profile.cost_of_equity*100:.2f}% "
+                    f"Cost of Equity: {profile.risk_free_rate * 100:.2f}% + {profile.industry_unlevered_beta:.2f} "
+                    f"(relevered) × {profile.erp * 100:.2f}% = {profile.cost_of_equity * 100:.2f}% "
                     f"(Damodaran institutional baseline)"
                 )
             except Exception as e:
@@ -256,14 +254,10 @@ class FCFEDCF:
         q = security.qualitative
         return FCFEAssumptions(
             high_growth=float(q.get("forecast_growth", self.defaults.high_growth)),
-            terminal_growth=float(
-                q.get("forecast_terminal_growth", self.defaults.terminal_growth)
-            ),
+            terminal_growth=float(q.get("forecast_terminal_growth", self.defaults.terminal_growth)),
             high_growth_years=int(
                 q.get("forecast_high_growth_years", self.defaults.high_growth_years)
             ),
-            discount_rate=float(
-                q.get("forecast_discount_rate", self.defaults.discount_rate)
-            ),
+            discount_rate=float(q.get("forecast_discount_rate", self.defaults.discount_rate)),
             roe=float(q.get("forecast_roe", self.defaults.roe)),
         )

@@ -3,9 +3,9 @@
 import pytest
 
 from iam.data.security import Assumption, Security, Thesis
-from iam.thesis.engine import ThesisEngine
-from iam.thesis.bayesian.priors import ScenarioPrior
 from iam.thesis.bayesian.evidence import Evidence, ScenarioLikelihood
+from iam.thesis.bayesian.priors import ScenarioPrior
+from iam.thesis.engine import ThesisEngine
 
 
 def mock_intrinsic_dcf(sec: Security) -> float:
@@ -26,9 +26,9 @@ def test_calculate_sensitivity_increases_fair_value():
                 assumptions=[
                     Assumption("terminal_margin", 0.20, source="user"),
                     Assumption("revenue_growth_5y", 0.10, source="user"),
-                ]
+                ],
             )
-        ]
+        ],
     )
     engine = ThesisEngine()
 
@@ -59,7 +59,7 @@ def test_expected_value_calculation():
         theses=[
             Thesis(label="Bull", fair_value_low=150, fair_value_high=200),
             Thesis(label="Bear", fair_value_low=50, fair_value_high=100),
-        ]
+        ],
     )
     engine = ThesisEngine()
     priors = [ScenarioPrior("Bull", 0.8), ScenarioPrior("Bear", 0.2)]
@@ -76,7 +76,7 @@ def test_apply_evidence_updates_posteriors():
         theses=[
             Thesis(label="Bull", fair_value_low=150, fair_value_high=200),
             Thesis(label="Bear", fair_value_low=50, fair_value_high=100),
-        ]
+        ],
     )
     engine = ThesisEngine()
     priors = [ScenarioPrior("Bull", 0.5), ScenarioPrior("Bear", 0.5)]
@@ -84,7 +84,7 @@ def test_apply_evidence_updates_posteriors():
         type="EARNINGS_BEAT",
         description="Massive positive beat.",
         reliability=1.0,
-        likelihoods={"Bull": ScenarioLikelihood(1.0), "Bear": ScenarioLikelihood(0.0)}
+        likelihoods={"Bull": ScenarioLikelihood(1.0), "Bear": ScenarioLikelihood(0.0)},
     )
 
     evaluation = engine.apply_evidence(sec, priors, evidence)

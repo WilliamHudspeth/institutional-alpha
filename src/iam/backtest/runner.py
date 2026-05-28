@@ -6,17 +6,16 @@ value_security() as a black box and never touches data or valuation internals.
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Optional
 from concurrent.futures import ProcessPoolExecutor
+from pathlib import Path
 
 import pandas as pd
 from tqdm import tqdm
 
-from iam.api import value_security, Security
-from iam.backtest.calibration import summarize_backtest, write_calibration
-from iam.backtest.metrics import information_coefficient, hit_rate, information_ratio
-from iam.backtest.quantiles import decile_spread, quantile_spread_by_date
+from iam.api import Security, value_security
+from iam.backtest.calibration import summarize_backtest
+from iam.backtest.metrics import hit_rate, information_coefficient
+from iam.backtest.quantiles import decile_spread
 from iam.backtest.snapshots import build_snapshot, load_snapshot
 
 
@@ -63,7 +62,7 @@ def run_backtest(
     universe: list[Security],
     dates: list[str],  # YYYY-MM-DD format, month-ends preferred
     price_block: pd.DataFrame,  # Pre-loaded price block (date, ticker) MultiIndex
-    config: Optional[object] = None,
+    config: object | None = None,
     score_field: str = "cost_of_equity",
 ) -> pd.DataFrame:
     """Run historical backtest with parallel scoring.
@@ -79,7 +78,11 @@ def run_backtest(
         DataFrame with columns: date, ic, ic_sector_neutral, hit_rate, spread, top, bottom, coverage, n_securities
     """
     n_jobs_cpu = getattr(config, "n_jobs_cpu", 4) if config else 4
-    cache_dir = getattr(config, "snapshot_cache", Path(".cache/snapshots")) if config else Path(".cache/snapshots")
+    cache_dir = (
+        getattr(config, "snapshot_cache", Path(".cache/snapshots"))
+        if config
+        else Path(".cache/snapshots")
+    )
 
     if hasattr(price_block, "to_pandas"):
         price_block = price_block.to_pandas()
@@ -122,30 +125,36 @@ def run_backtest(
             if len(common_tickers) < 10:
                 continue
 
-            df = pd.DataFrame({
-                "ticker": common_tickers,
-                "score": [scores[t] for t in common_tickers],
-                "fwd": [fwd[t] for t in common_tickers],
-                "sector": [sectors[t] for t in common_tickers],
-            })
+            df = pd.DataFrame(
+                {
+                    "ticker": common_tickers,
+                    "score": [scores[t] for t in common_tickers],
+                    "fwd": [fwd[t] for t in common_tickers],
+                    "sector": [sectors[t] for t in common_tickers],
+                }
+            )
 
             # Calculate metrics
             ic = information_coefficient(df)
-            ic_sn = information_coefficient(df, sector_col="sector") if "sector" in df.columns else ic
+            ic_sn = (
+                information_coefficient(df, sector_col="sector") if "sector" in df.columns else ic
+            )
             hr = hit_rate(df)
             spreads = decile_spread(df)
 
-            results.append({
-                "date": date,
-                "ic": ic,
-                "ic_sector_neutral": ic_sn,
-                "hit_rate": hr,
-                "spread": spreads["spread"],
-                "top": spreads["top"],
-                "bottom": spreads["bottom"],
-                "coverage": spreads["coverage"],
-                "n_securities": len(common_tickers),
-            })
+            results.append(
+                {
+                    "date": date,
+                    "ic": ic,
+                    "ic_sector_neutral": ic_sn,
+                    "hit_rate": hr,
+                    "spread": spreads["spread"],
+                    "top": spreads["top"],
+                    "bottom": spreads["bottom"],
+                    "coverage": spreads["coverage"],
+                    "n_securities": len(common_tickers),
+                }
+            )
 
     if not results:
         raise ValueError("No valid backtest results generated")

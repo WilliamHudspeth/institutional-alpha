@@ -28,11 +28,18 @@ class DamodaranBaseLens(BaseLens):
         f = security.fundamentals
         q = security.qualitative
 
-        if m.price is None or f.fcf_ttm is None or f.shares_outstanding is None or f.shares_outstanding == 0:
+        if (
+            m.price is None
+            or f.fcf_ttm is None
+            or f.shares_outstanding is None
+            or f.shares_outstanding == 0
+        ):
             return LensResult(
                 lens_name=self.name,
-                fair_value_low=None, fair_value_high=None,
-                implied_move_pct=None, confidence=0.0,
+                fair_value_low=None,
+                fair_value_high=None,
+                implied_move_pct=None,
+                confidence=0.0,
                 narrative="Missing required pricing or cash flow data.",
             )
 
@@ -40,8 +47,10 @@ class DamodaranBaseLens(BaseLens):
         if fcfe0 <= 0:
             return LensResult(
                 lens_name=self.name,
-                fair_value_low=None, fair_value_high=None,
-                implied_move_pct=None, confidence=0.2,
+                fair_value_low=None,
+                fair_value_high=None,
+                implied_move_pct=None,
+                confidence=0.2,
                 narrative="Base FCFE non-positive; Damodaran base lens skipped.",
             )
 
@@ -56,8 +65,10 @@ class DamodaranBaseLens(BaseLens):
         if mid_pv is None or low_pv is None or high_pv is None:
             return LensResult(
                 lens_name=self.name,
-                fair_value_low=None, fair_value_high=None,
-                implied_move_pct=None, confidence=0.0,
+                fair_value_low=None,
+                fair_value_high=None,
+                implied_move_pct=None,
+                confidence=0.0,
                 narrative="Bad assumptions: discount rate <= terminal growth.",
             )
 

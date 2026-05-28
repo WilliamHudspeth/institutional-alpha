@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import statistics
 
-from iam.factors.base import Factor, FactorContribution
 from iam.data.security import Security
+from iam.factors.base import Factor, FactorContribution
 
 
 class QualityFactor(Factor):
@@ -27,8 +27,8 @@ class QualityFactor(Factor):
             mean_roic = statistics.mean(f.roic_history)
             stdev = statistics.pstdev(f.roic_history) if len(f.roic_history) > 1 else 0
             # high mean + low variance is the win
-            level_score = self.clamp((mean_roic - 0.10) / 0.10)   # 10% = neutral, 20%+ = great
-            stability_score = self.clamp(1 - (stdev / 0.08))      # 8% stdev ~ neutral
+            level_score = self.clamp((mean_roic - 0.10) / 0.10)  # 10% = neutral, 20%+ = great
+            stability_score = self.clamp(1 - (stdev / 0.08))  # 8% stdev ~ neutral
             components["roic_persistence"] = (level_score + stability_score) / 2
         else:
             confidence *= 0.7
@@ -68,7 +68,9 @@ class QualityFactor(Factor):
             recent = f.shares_outstanding_history[0]
             older = f.shares_outstanding_history[-1]
             if older > 0:
-                annual_dilution = ((recent / older) ** (1 / (len(f.shares_outstanding_history) - 1))) - 1
+                annual_dilution = (
+                    (recent / older) ** (1 / (len(f.shares_outstanding_history) - 1))
+                ) - 1
                 # +5%/yr = bad, 0 = neutral, -2%/yr (buybacks) = great
                 components["dilution_control"] = self.clamp(-annual_dilution * 20)
 
@@ -76,15 +78,17 @@ class QualityFactor(Factor):
         if f.incremental_roic is not None:
             components["reinvestment_efficiency"] = self.clamp((f.incremental_roic - 0.10) / 0.10)
 
-        value = self.weighted_average({
-            "roic":  (components.get("roic_persistence"),         0.25),
-            "gm":    (components.get("gross_margin_stability"),   0.15),
-            "fcfc":  (components.get("fcf_conversion"),           0.20),
-            "bs":    (components.get("balance_sheet_strength"),   0.10),
-            "om":    (components.get("operating_margin_stability"), 0.10),
-            "dil":   (components.get("dilution_control"),         0.05),
-            "rein":  (components.get("reinvestment_efficiency"),  0.15),
-        })
+        value = self.weighted_average(
+            {
+                "roic": (components.get("roic_persistence"), 0.25),
+                "gm": (components.get("gross_margin_stability"), 0.15),
+                "fcfc": (components.get("fcf_conversion"), 0.20),
+                "bs": (components.get("balance_sheet_strength"), 0.10),
+                "om": (components.get("operating_margin_stability"), 0.10),
+                "dil": (components.get("dilution_control"), 0.05),
+                "rein": (components.get("reinvestment_efficiency"), 0.15),
+            }
+        )
 
         return FactorContribution(
             name=self.name,

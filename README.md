@@ -6,13 +6,16 @@ Most public valuation models stop at DCF or relative multiples. Institutional di
 
 ## Status
 
+[![CI/CD Pipeline](https://github.com/WilliamHudspeth/institutional-alpha/actions/workflows/python-package.yml/badge.svg)](https://github.com/WilliamHudspeth/institutional-alpha/actions)
+
 **v0.4.0-rc1** — release candidate. The factor scoring engine, seven-stage valuation pipeline, Bayesian thesis engine, and a hardened backtest stack are all implemented and tested. Awaiting one empirical IC run on real market data before the v0.4.0 promotion.
 
-- 355 tests passing
+- 401 tests passing (with enhanced CI/CD coverage)
 - 13 orthogonal factors (10 additive + 3 penalty)
 - 7-stage valuation pipeline
 - Pluggable data sources (yfinance primary, Stooq fallback)
 - Bayesian shrinkage calibration with sector-neutral IC
+- Comprehensive CI/CD with linting, type checking, and security scanning
 
 ## How it actually works
 

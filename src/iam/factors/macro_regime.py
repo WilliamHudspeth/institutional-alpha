@@ -8,8 +8,8 @@ alternative implementation that re-weights other factors lives in
 
 from __future__ import annotations
 
-from iam.factors.base import Factor, FactorContribution
 from iam.data.security import Security
+from iam.factors.base import Factor, FactorContribution
 
 
 class MacroRegimeFactor(Factor):
@@ -23,14 +23,18 @@ class MacroRegimeFactor(Factor):
 
         if mc is None:
             return FactorContribution(
-                name=self.name, value=0.0, confidence=0.0,
+                name=self.name,
+                value=0.0,
+                confidence=0.0,
                 notes=["No macro context provided."],
             )
 
         # Real rates — falling = supportive of duration; rising = headwind
         if mc.real_rate_trend:
             components["real_rate_regime"] = {
-                "falling": 0.7, "flat": 0.0, "rising": -0.7,
+                "falling": 0.7,
+                "flat": 0.0,
+                "rising": -0.7,
             }.get(mc.real_rate_trend, 0.0)
         else:
             confidence *= 0.85
@@ -51,7 +55,8 @@ class MacroRegimeFactor(Factor):
         # PMI direction
         if mc.pmi_direction:
             components["pmi_direction"] = {
-                "expanding": 0.6, "contracting": -0.6,
+                "expanding": 0.6,
+                "contracting": -0.6,
             }.get(mc.pmi_direction, 0.0)
 
         # Dollar strength
@@ -59,17 +64,21 @@ class MacroRegimeFactor(Factor):
             # Strong dollar mixed: bearish for multinationals & EM, bullish for domestics
             # Default: weak USD slightly bullish for risk
             components["dollar_strength"] = {
-                "falling": 0.3, "flat": 0.0, "rising": -0.3,
+                "falling": 0.3,
+                "flat": 0.0,
+                "rising": -0.3,
             }.get(mc.dxy_trend, 0.0)
 
-        value = self.weighted_average({
-            "rates":  (components.get("real_rate_regime"),    0.25),
-            "liq":    (components.get("liquidity_conditions"), 0.20),
-            "credit": (components.get("credit_spreads"),       0.15),
-            "curve":  (components.get("yield_curve"),          0.15),
-            "pmi":    (components.get("pmi_direction"),        0.15),
-            "dxy":    (components.get("dollar_strength"),      0.10),
-        })
+        value = self.weighted_average(
+            {
+                "rates": (components.get("real_rate_regime"), 0.25),
+                "liq": (components.get("liquidity_conditions"), 0.20),
+                "credit": (components.get("credit_spreads"), 0.15),
+                "curve": (components.get("yield_curve"), 0.15),
+                "pmi": (components.get("pmi_direction"), 0.15),
+                "dxy": (components.get("dollar_strength"), 0.10),
+            }
+        )
 
         return FactorContribution(
             name=self.name,

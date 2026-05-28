@@ -16,20 +16,17 @@ Where:
 
 from __future__ import annotations
 
-from typing import List, Union
+from iam.thesis.scenarios import ScenarioMatrix, ValuationScenario
 
-from .priors import ScenarioPrior
 from .evidence import Evidence
-from iam.thesis.scenarios import ValuationScenario, ScenarioMatrix
+from .priors import ScenarioPrior
 
 
 class BayesianUpdater:
     """Computes posterior probabilities using Bayes' Theorem with signal dampening."""
 
     @staticmethod
-    def update(
-        priors: List[ScenarioPrior], evidence: Evidence
-    ) -> List[ScenarioPrior]:
+    def update(priors: list[ScenarioPrior], evidence: Evidence) -> list[ScenarioPrior]:
         """Updates scenario probabilities based on new evidence.
 
         Formula: P(Scenario | Evidence) = [P(Evidence | Scenario) * P(Scenario)] / P(Evidence)
@@ -76,8 +73,8 @@ class ThesisEngine:
 
     @staticmethod
     def apply_update(
-        matrix: Union[ScenarioMatrix, List[ValuationScenario]], evidence: Evidence
-    ) -> Union[ScenarioMatrix, List[ValuationScenario]]:
+        matrix: ScenarioMatrix | list[ValuationScenario], evidence: Evidence
+    ) -> ScenarioMatrix | list[ValuationScenario]:
         """Apply Bayesian update to a scenario matrix.
 
         Args:

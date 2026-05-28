@@ -2,6 +2,7 @@
 
 import sys
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 from iam.data.yahoo import fetch_security
@@ -31,7 +32,7 @@ def test_fetch_security_primary_keys_respected(mock_yfinance):
     mock_yfinance.Ticker.return_value = mock_ticker
 
     sec = fetch_security("MOCK")
-    
+
     assert sec.market.price == 150.0
     assert sec.fundamentals.shares_outstanding == 100.0
     assert sec.fundamentals.net_income_ttm == 1000.0
@@ -57,9 +58,9 @@ def test_fetch_security_math_fallbacks(mock_yfinance):
     sec = fetch_security("MOCK")
 
     assert sec.fundamentals.shares_outstanding == 100.0  # 15000 / 150
-    assert sec.fundamentals.net_income_ttm == 1000.0     # 15000 / 15
-    assert sec.fundamentals.ebitda_ttm == 2000.0         # 20000 / 10
-    assert sec.fundamentals.fcf_ttm == 1200.0            # 1500 * 0.8
+    assert sec.fundamentals.net_income_ttm == 1000.0  # 15000 / 15
+    assert sec.fundamentals.ebitda_ttm == 2000.0  # 20000 / 10
+    assert sec.fundamentals.fcf_ttm == 1200.0  # 1500 * 0.8
 
 
 def test_fetch_security_ultimate_fcf_fallback(mock_yfinance):
@@ -70,7 +71,7 @@ def test_fetch_security_ultimate_fcf_fallback(mock_yfinance):
     mock_yfinance.Ticker.return_value = mock_ticker
 
     sec = fetch_security("MOCK")
-    assert sec.fundamentals.fcf_ttm == 100.0             # Falls back to 1000 / 10
+    assert sec.fundamentals.fcf_ttm == 100.0  # Falls back to 1000 / 10
 
 
 def test_fetch_security_mostly_empty_info(mock_yfinance):

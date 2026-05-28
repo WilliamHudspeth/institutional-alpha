@@ -6,11 +6,10 @@ This module provides utilities for attaching provenance metadata to risk profile
 
 from __future__ import annotations
 
-from dataclasses import asdict
-from typing import Any, Dict
+from typing import Any
 
 
-def attach_provenance(data: Dict[str, Any], version: str = "damodaran_jan_2026") -> Dict[str, Any]:
+def attach_provenance(data: dict[str, Any], version: str = "damodaran_jan_2026") -> dict[str, Any]:
     """Attach provenance metadata to a dict for auditability.
 
     Args:

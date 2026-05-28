@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from unittest.mock import patch
-
-import pytest
 
 from iam.backtest.config import BacktestConfig
 from iam.backtest.manifest import BacktestManifest
@@ -31,6 +28,7 @@ class TestBacktestManifest:
         manifest = BacktestManifest(cfg)
         # Should parse as ISO datetime
         from datetime import datetime
+
         parsed = datetime.fromisoformat(manifest.timestamp)
         assert parsed.year >= 2024
 
@@ -39,9 +37,7 @@ class TestBacktestManifest:
         manifest = BacktestManifest(cfg)
 
         # At least one backtest module file should be hashed
-        backtest_files = [
-            k for k in manifest.file_hashes.keys() if "backtest" in k
-        ]
+        backtest_files = [k for k in manifest.file_hashes.keys() if "backtest" in k]
         assert len(backtest_files) > 0
 
         # Each hash should be a hex string of fixed length (12 chars truncated)

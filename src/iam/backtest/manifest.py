@@ -1,10 +1,10 @@
 """Manifest system for backtest reproducibility (git SHA, file hashes, config snapshot)."""
 
-import json
 import hashlib
+import json
 import subprocess
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 
@@ -62,9 +62,7 @@ class BacktestManifest:
         """Export manifest as dictionary."""
         # Pydantic model_dump() returns PosixPath objects; stringify for JSON
         config_dict = self.config.model_dump()
-        config_dict = {
-            k: (str(v) if isinstance(v, Path) else v) for k, v in config_dict.items()
-        }
+        config_dict = {k: (str(v) if isinstance(v, Path) else v) for k, v in config_dict.items()}
         return {
             "_meta": {
                 "version": "v0.4.0",
@@ -86,5 +84,5 @@ class BacktestManifest:
         """Load manifest from JSON file."""
         if not path.exists():
             return {}
-        with open(path, "r") as f:
+        with open(path) as f:
             return json.load(f)

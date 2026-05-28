@@ -6,8 +6,8 @@ software, serial acquirers, and aggressive accruers.
 
 from __future__ import annotations
 
-from iam.factors.base import Factor, FactorContribution
 from iam.data.security import Security
+from iam.factors.base import Factor, FactorContribution
 
 
 class EarningsQualityFactor(Factor):
@@ -53,15 +53,19 @@ class EarningsQualityFactor(Factor):
         # One-time adjustments frequency
         if f.one_time_adjustments_count_5y is not None:
             # 0-2 over 5y = normal, 5+ = chronic
-            components["one_time_adjustments"] = self.clamp(-(f.one_time_adjustments_count_5y - 2) * 0.3)
+            components["one_time_adjustments"] = self.clamp(
+                -(f.one_time_adjustments_count_5y - 2) * 0.3
+            )
 
-        value = self.weighted_average({
-            "acc":   (components.get("accruals_ratio"),         0.20),
-            "sbc":   (components.get("sbc_pct_revenue"),        0.20),
-            "conv":  (components.get("cash_conversion"),        0.20),
-            "capex": (components.get("capex_authenticity"),     0.15),
-            "ot":    (components.get("one_time_adjustments"),   0.10),
-        })
+        value = self.weighted_average(
+            {
+                "acc": (components.get("accruals_ratio"), 0.20),
+                "sbc": (components.get("sbc_pct_revenue"), 0.20),
+                "conv": (components.get("cash_conversion"), 0.20),
+                "capex": (components.get("capex_authenticity"), 0.15),
+                "ot": (components.get("one_time_adjustments"), 0.10),
+            }
+        )
 
         return FactorContribution(
             name=self.name,

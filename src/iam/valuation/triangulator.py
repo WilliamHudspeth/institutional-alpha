@@ -21,9 +21,8 @@ and by any individual method having low intrinsic confidence.
 from __future__ import annotations
 
 from itertools import combinations
-from typing import Optional
 
-from iam.valuation.types import Method, ValuationResult, TriangulationResult
+from iam.valuation.types import Method, TriangulationResult, ValuationResult
 
 
 # Reverse DCF doesn't produce a fair_value_to_price directly — it produces
@@ -34,7 +33,7 @@ from iam.valuation.types import Method, ValuationResult, TriangulationResult
 #
 # This is an approximation but a defensible one: it lets reverse DCF
 # participate in cluster math without inventing a fake fair value.
-def reverse_dcf_to_ratio(result: ValuationResult) -> Optional[float]:
+def reverse_dcf_to_ratio(result: ValuationResult) -> float | None:
     """Convert a reverse-DCF result into a fair_value_to_price-comparable
     ratio for triangulation. Returns None if the result lacks the inputs."""
     if result.implied is None:
@@ -62,8 +61,8 @@ class Triangulator:
 
     def __init__(
         self,
-        agree_band: float = 0.10,        # all three within ±10% => AGREE
-        pair_band: float = 0.20,         # two within ±20% with third outside => TWO_OF_THREE
+        agree_band: float = 0.10,  # all three within ±10% => AGREE
+        pair_band: float = 0.20,  # two within ±20% with third outside => TWO_OF_THREE
     ):
         self.agree_band = agree_band
         self.pair_band = pair_band
@@ -75,7 +74,7 @@ class Triangulator:
         intrinsic: ValuationResult,
     ) -> TriangulationResult:
         # Extract comparable ratios. Reverse DCF gets the special conversion.
-        ratios: dict[Method, Optional[float]] = {
+        ratios: dict[Method, float | None] = {
             Method.REVERSE_DCF: reverse_dcf_to_ratio(reverse_dcf),
             Method.RELATIVE: relative.fair_value_to_price,
             Method.INTRINSIC: intrinsic.fair_value_to_price,
@@ -148,9 +147,9 @@ class Triangulator:
             )
 
         # Case B: find the tightest pair; check if third is the outlier
-        best_pair: Optional[tuple[Method, Method]] = None
+        best_pair: tuple[Method, Method] | None = None
         best_dist = float("inf")
-        for (m1, m2) in combinations(available.keys(), 2):
+        for m1, m2 in combinations(available.keys(), 2):
             d = abs(available[m1] - available[m2])
             if d < best_dist:
                 best_dist = d
@@ -179,7 +178,7 @@ class Triangulator:
 
         # Case C: real disagreement
         return TriangulationResult(
-            cluster_center=sum(all_ratios) / 3,    # median would also be defensible
+            cluster_center=sum(all_ratios) / 3,  # median would also be defensible
             cluster_members=[],
             outliers=list(available.keys()),
             spread=spread,

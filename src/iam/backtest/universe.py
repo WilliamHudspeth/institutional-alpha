@@ -1,9 +1,8 @@
 """Static universe loader from JSON with integrity checking."""
 
-import json
 import hashlib
+import json
 from pathlib import Path
-from typing import Optional
 
 from iam.data.security import Fundamentals, Security
 

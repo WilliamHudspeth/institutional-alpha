@@ -6,8 +6,6 @@ snapshot logic to either implementation.
 
 from __future__ import annotations
 
-from typing import Optional
-
 import pandas as pd
 
 from .base import DataSource, DataSourceError
@@ -22,7 +20,7 @@ class CompositeDataSource(DataSource):
         if not sources:
             raise ValueError("CompositeDataSource requires at least one source")
         self.sources = sources
-        self.last_used: Optional[str] = None
+        self.last_used: str | None = None
 
     def is_available(self) -> bool:
         return any(s.is_available() for s in self.sources)
@@ -43,9 +41,7 @@ class CompositeDataSource(DataSource):
                 errors.append(f"{source.name}: unexpected error {e}")
                 continue
 
-        raise DataSourceError(
-            self.name, ticker, f"all sources failed: {'; '.join(errors)}"
-        )
+        raise DataSourceError(self.name, ticker, f"all sources failed: {'; '.join(errors)}")
 
     def fetch_debt(self, ticker: str, as_of: pd.Timestamp) -> float:
         """Try each source in order; first non-zero result wins.
@@ -68,7 +64,7 @@ class CompositeDataSource(DataSource):
         ticker: str,
         start: str,
         end: str,
-    ) -> Optional[pd.DataFrame]:
+    ) -> pd.DataFrame | None:
         for source in self.sources:
             if not source.is_available():
                 continue

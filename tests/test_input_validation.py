@@ -3,11 +3,11 @@
 import pytest
 
 from iam.validation import (
-    parse_percentage_input,
     parse_growth_rate,
+    parse_percentage_input,
     sanity_check_valuation,
-    validate_growth_rate,
     validate_discount_rate,
+    validate_growth_rate,
 )
 
 

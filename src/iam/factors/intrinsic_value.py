@@ -24,11 +24,9 @@ To keep this factor orthogonal to ExpectationsDifficultyFactor:
 
 from __future__ import annotations
 
-from typing import Optional
-
-from iam.factors.base import Factor, FactorContribution
 from iam.data.security import Security
-from iam.valuation import ReverseDCF, FCFEDCF
+from iam.factors.base import Factor, FactorContribution
+from iam.valuation import FCFEDCF, ReverseDCF
 
 
 class IntrinsicValueFactor(Factor):
@@ -36,8 +34,8 @@ class IntrinsicValueFactor(Factor):
 
     def __init__(
         self,
-        reverse_dcf: Optional[ReverseDCF] = None,
-        fcfe_dcf: Optional[FCFEDCF] = None,
+        reverse_dcf: ReverseDCF | None = None,
+        fcfe_dcf: FCFEDCF | None = None,
     ):
         self._reverse_dcf = reverse_dcf or ReverseDCF()
         self._fcfe_dcf = fcfe_dcf or FCFEDCF()
@@ -68,15 +66,20 @@ class IntrinsicValueFactor(Factor):
         else:
             components["owner_earnings_yield"] = fcf_yield_score
 
-        value = self.weighted_average({
-            "dcf":     (components.get("dcf_residual"),       0.50),
-            "reverse": (components.get("reverse_dcf_gap"),    0.30),
-            "yield":   (components.get("owner_earnings_yield"), 0.20),
-        })
+        value = self.weighted_average(
+            {
+                "dcf": (components.get("dcf_residual"), 0.50),
+                "reverse": (components.get("reverse_dcf_gap"), 0.30),
+                "yield": (components.get("owner_earnings_yield"), 0.20),
+            }
+        )
 
         return FactorContribution(
-            name=self.name, value=self.clamp(value),
-            confidence=confidence, components=components, notes=notes,
+            name=self.name,
+            value=self.clamp(value),
+            confidence=confidence,
+            components=components,
+            notes=notes,
         )
 
     def _dcf_residual(self, security: Security):

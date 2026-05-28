@@ -15,22 +15,23 @@ your DCF valuations become immune to short-term market noise.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Dict, Optional, Tuple
-import logging
 
 logger = logging.getLogger(__name__)
 
 
 class DamodaranProviderError(Exception):
     """Raised when Damodaran data fetch or calculation fails."""
+
     pass
 
 
 @dataclass
 class MacroBaselines:
     """The foundational macro environment for institutional valuation."""
+
     risk_free_rate: float
     implied_erp: float
     mature_market_premium: float
@@ -58,26 +59,46 @@ class DamodaranProvider:
 
     # Country ISO Codes to Regional Mapping
     COUNTRY_ERPS = {
-        "US": 0.046, "CA": 0.046,
-        "GB": 0.052, "DE": 0.052, "FR": 0.052,
-        "JP": 0.048, "AU": 0.048, "SG": 0.048,
-        "CN": 0.075, "IN": 0.075, "KR": 0.048, "TW": 0.048,
-        "BR": 0.085, "MX": 0.085,
+        "US": 0.046,
+        "CA": 0.046,
+        "GB": 0.052,
+        "DE": 0.052,
+        "FR": 0.052,
+        "JP": 0.048,
+        "AU": 0.048,
+        "SG": 0.048,
+        "CN": 0.075,
+        "IN": 0.075,
+        "KR": 0.048,
+        "TW": 0.048,
+        "BR": 0.085,
+        "MX": 0.085,
     }
 
     COUNTRY_TO_REGION = {
-        "US": "north_america", "CA": "north_america",
-        "GB": "europe", "DE": "europe", "FR": "europe",
-        "JP": "apac_developed", "AU": "apac_developed", "SG": "apac_developed",
-        "CN": "emerging_markets", "IN": "emerging_markets",
-        "BR": "latin_america", "MX": "latin_america",
+        "US": "north_america",
+        "CA": "north_america",
+        "GB": "europe",
+        "DE": "europe",
+        "FR": "europe",
+        "JP": "apac_developed",
+        "AU": "apac_developed",
+        "SG": "apac_developed",
+        "CN": "emerging_markets",
+        "IN": "emerging_markets",
+        "BR": "latin_america",
+        "MX": "latin_america",
     }
 
     REGION_ALIASES = {
-        "americas": "north_america", "na": "north_america",
-        "emea": "europe", "eu": "europe",
-        "apac": "apac_developed", "asia": "apac_developed",
-        "em": "emerging_markets", "latam": "latin_america",
+        "americas": "north_america",
+        "na": "north_america",
+        "emea": "europe",
+        "eu": "europe",
+        "apac": "apac_developed",
+        "asia": "apac_developed",
+        "em": "emerging_markets",
+        "latam": "latin_america",
     }
 
     # Damodaran's Implied Equity Risk Premium (Updated Jan 2026)
@@ -100,44 +121,37 @@ class DamodaranProvider:
         "internet": 1.20,
         "it services": 1.05,
         "communications equipment": 1.12,
-
         # Financial Services (note: these are VERY low unlevered because banks are so levered)
         "asset management": 0.59,
         "banks": 0.45,
         "financial services": 0.55,
         "insurance": 0.60,
         "brokerage": 0.65,
-
         # Healthcare
         "pharmaceuticals": 0.75,
         "medical devices": 0.80,
         "healthcare services": 0.85,
         "biotechnology": 0.95,
-
         # Consumer
         "consumer cyclical": 0.90,
         "consumer staples": 0.70,
         "food & beverage": 0.75,
         "retail": 0.85,
-
         # Industrial & Materials
         "industrial": 0.95,
         "machinery": 0.95,
         "materials": 1.00,
         "steel": 1.05,
         "chemicals": 0.95,
-
         # Energy & Utilities
         "energy": 0.70,
         "oil & gas": 0.75,
         "utilities": 0.40,  # Monopolies have very low pure business risk
         "renewable energy": 0.85,
-
         # Real Estate & Real Assets
         "real estate": 0.60,
         "reit": 0.65,
         "infrastructure": 0.70,
-
         # Other
         "transportation": 0.80,
         "hospitality": 0.95,
@@ -162,7 +176,6 @@ class DamodaranProvider:
         "australia": 0.00,
         "netherlands": 0.00,
         "sweden": 0.00,
-
         # Emerging Markets
         "china": 0.015,  # 1.5% premium
         "india": 0.020,  # 2.0% premium
@@ -315,8 +328,7 @@ class DamodaranProvider:
 
         # Default: Global average unlevered beta
         logger.warning(
-            f"Could not find unlevered beta for {sector} / {industry}; "
-            f"using global default (0.85)"
+            f"Could not find unlevered beta for {sector} / {industry}; using global default (0.85)"
         )
         return 0.85
 

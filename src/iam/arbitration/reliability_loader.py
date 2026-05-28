@@ -79,9 +79,7 @@ class ReliabilityLoader:
 
         if data_source == "empirical":
             self._is_empirical = True
-            logger.info(
-                f"Loading empirical calibration (v{self._metadata.get('version')})"
-            )
+            logger.info(f"Loading empirical calibration (v{self._metadata.get('version')})")
             logger.info(
                 f"  Period: {self._metadata.get('period')}, "
                 f"IC mean: {self._metadata.get('ic_mean'):.4f}"
@@ -92,10 +90,8 @@ class ReliabilityLoader:
             self._is_empirical = False
             logger.warning("⚠️  SYNTHETIC CALIBRATION LOADED")
             logger.warning(f"   Version: {self._metadata.get('version')}")
-            logger.warning(
-                f"   This is architectural validation only. NOT FOR PRODUCTION."
-            )
-            logger.warning(f"   Using default reliabilities instead of synthetic values")
+            logger.warning("   This is architectural validation only. NOT FOR PRODUCTION.")
+            logger.warning("   Using default reliabilities instead of synthetic values")
             return DEFAULT_RELIABILITIES
 
         else:
@@ -149,8 +145,8 @@ class ReliabilityLoader:
         else:
             lines = [
                 "⚠️  SYNTHETIC CALIBRATION (Architectural Validation Only)",
-                f"  NOT FOR PRODUCTION USE",
-                f"  Using default reliabilities instead",
+                "  NOT FOR PRODUCTION USE",
+                "  Using default reliabilities instead",
             ]
 
         return "\n".join(lines)

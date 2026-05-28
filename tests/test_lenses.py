@@ -8,12 +8,12 @@ from iam.lenses.damodaran_base import DamodaranBaseLens
 from iam.lenses.expectations_difficulty import ExpectationsDifficultyLens
 from iam.lenses.platform_compounder import PlatformCompounderLens
 from iam.lenses.rate_sensitive import RateSensitiveLens
-from iam.lenses.synthesis import SynthesisResult, synthesize_lenses
-
+from iam.lenses.synthesis import synthesize_lenses
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_security(
     fcf_ttm: float = 500.0,
@@ -34,6 +34,7 @@ def _make_security(
 # ---------------------------------------------------------------------------
 # RateSensitiveLens
 # ---------------------------------------------------------------------------
+
 
 def test_rate_sensitive_fallback_wacc_is_nine_percent():
     sec = _make_security()
@@ -61,7 +62,7 @@ def test_rate_sensitive_null_real_rate_falls_back():
 
 
 def test_rate_sensitive_higher_wacc_lowers_value():
-    macro_low = MacroContext(real_rate_10y=0.00)   # WACC = 5.5%
+    macro_low = MacroContext(real_rate_10y=0.00)  # WACC = 5.5%
     macro_high = MacroContext(real_rate_10y=0.03)  # WACC = 8.5%
     r_low = RateSensitiveLens().compute(_make_security(macro=macro_low))
     r_high = RateSensitiveLens().compute(_make_security(macro=macro_high))
@@ -85,6 +86,7 @@ def test_rate_sensitive_confidence_lower_without_macro():
 # ---------------------------------------------------------------------------
 # PlatformCompounderLens
 # ---------------------------------------------------------------------------
+
 
 def test_platform_compounder_no_history_lower_confidence():
     sec = _make_security()
@@ -126,6 +128,7 @@ def test_platform_compounder_missing_data():
 # ExpectationsDifficultyLens
 # ---------------------------------------------------------------------------
 
+
 def test_expectations_difficulty_never_has_price_target():
     sec = _make_security()
     result = ExpectationsDifficultyLens().compute(sec)
@@ -150,6 +153,7 @@ def test_expectations_difficulty_missing_data():
 # ---------------------------------------------------------------------------
 # DamodaranBaseLens
 # ---------------------------------------------------------------------------
+
 
 def test_damodaran_base_produces_range():
     sec = _make_security()
@@ -187,6 +191,7 @@ def test_damodaran_base_missing_data():
 # ---------------------------------------------------------------------------
 # synthesize_lenses
 # ---------------------------------------------------------------------------
+
 
 def test_synthesize_excludes_diagnostic_lens():
     pricing = LensResult(

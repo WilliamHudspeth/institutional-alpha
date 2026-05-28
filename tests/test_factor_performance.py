@@ -320,8 +320,12 @@ class TestGenerateFactorReport:
         lines = report.split("\n")
 
         # Find the lines with factor names
-        value_idx = next(i for i, line in enumerate(lines) if "value" in line and "IC Mean" not in line)
-        quality_idx = next(i for i, line in enumerate(lines) if "quality" in line and "IC Mean" not in line)
+        value_idx = next(
+            i for i, line in enumerate(lines) if "value" in line and "IC Mean" not in line
+        )
+        quality_idx = next(
+            i for i, line in enumerate(lines) if "quality" in line and "IC Mean" not in line
+        )
 
         # value should come first (higher IR)
         assert value_idx < quality_idx

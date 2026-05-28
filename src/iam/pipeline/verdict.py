@@ -1,21 +1,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from iam.data.security import Security
+from iam.pipeline.arbitration import ArbitrationResult, ConsensusEngine
 from iam.valuation.types import TriangulationResult, ValuationResult
-from iam.pipeline.arbitration import ConsensusEngine, ArbitrationResult
 
 
 @dataclass
 class VerdictResult:
     """The final actionable output of the Valuation Pipeline."""
+
     rating: str
     confidence_band: str
     notes: list[str] = field(default_factory=list)
-    arbitration: Optional[ArbitrationResult] = None
-    blended_upside: Optional[float] = None
+    arbitration: ArbitrationResult | None = None
+    blended_upside: float | None = None
 
 
 class VerdictGenerator:
@@ -30,7 +30,7 @@ class VerdictGenerator:
         triangulation: TriangulationResult,
         relative: ValuationResult,
         security: Security,
-        synthesis_upside: Optional[float] = None,
+        synthesis_upside: float | None = None,
     ) -> VerdictResult:
         """Generate verdict using Master Arbitration Layer if synthesis available.
 
@@ -57,9 +57,7 @@ class VerdictGenerator:
             notes.append(
                 f"Rating '{rating}' derived from Master Arbitration Layer (consensus engine)."
             )
-            notes.append(
-                f"Blended Implied Move: {arbitration.blended_upside * 100:+.1f}%"
-            )
+            notes.append(f"Blended Implied Move: {arbitration.blended_upside * 100:+.1f}%")
             notes.append(
                 f"  ↳ Traditional Engine Weight: {arbitration.pipeline_weight_used * 100:.0f}%"
             )
@@ -74,9 +72,7 @@ class VerdictGenerator:
             # Legacy single-lens verdict generation
             if triangulation.verdict in ("no_data", "disagree"):
                 rating = "INCONCLUSIVE"
-                notes.append(
-                    "Triangulation failed to cluster; cannot issue a definitive rating."
-                )
+                notes.append("Triangulation failed to cluster; cannot issue a definitive rating.")
             elif triangulation.cluster_center is None:
                 rating = "INCONCLUSIVE"
                 notes.append("No implied upside available to generate a rating.")
@@ -98,7 +94,9 @@ class VerdictGenerator:
         else:
             band = "LOW"
             if rating != "INCONCLUSIVE":
-                notes.append("Confidence band is LOW due to weak cluster agreement or missing data.")
+                notes.append(
+                    "Confidence band is LOW due to weak cluster agreement or missing data."
+                )
 
         # 3. Peer-Relative Ranking (Damodaran Sector Context)
         if relative.fair_value_to_price is not None and security.sector:
@@ -115,7 +113,9 @@ class VerdictGenerator:
         if f.total_debt is not None and f.ebitda_ttm is not None and f.ebitda_ttm > 0:
             leverage = f.total_debt / f.ebitda_ttm
             if leverage >= 4.0:
-                notes.append(f"[RISK PENALTY] High leverage detected (Debt/EBITDA = {leverage:.1f}x).")
+                notes.append(
+                    f"[RISK PENALTY] High leverage detected (Debt/EBITDA = {leverage:.1f}x)."
+                )
                 if band == "HIGH":
                     band = "MEDIUM"
                     notes.append("Conviction downgraded due to balance sheet risk.")
@@ -127,6 +127,7 @@ class VerdictGenerator:
             arbitration=arbitration,
             blended_upside=blended_upside,
         )
+
 
 EXPLAIN_STAGE_1 = """### Stage 1: Reverse DCF — What does the market expect?
 **What we do:** We take the current stock price and solve backwards for the growth rate the market is already pricing in. No opinions yet, just math.

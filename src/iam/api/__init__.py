@@ -12,13 +12,14 @@ wired together here and never accessed directly by users.
 from __future__ import annotations
 
 from iam.data import Security
-from iam.integration import Orchestrator, ModelResult
+from iam.integration import ModelResult, Orchestrator
 
 __all__ = [
     "Security",
     "Orchestrator",
     "ModelResult",
 ]
+
 
 # Convenience: value_security as a module-level function
 def value_security(security: Security, damodaran_provider=None) -> dict:

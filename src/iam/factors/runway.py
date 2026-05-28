@@ -9,18 +9,18 @@ from financials.
 
 from __future__ import annotations
 
-from iam.factors.base import Factor, FactorContribution
 from iam.data.security import Security
+from iam.factors.base import Factor, FactorContribution
 
 
 class RunwayFactor(Factor):
     name = "reinvestment_runway"
 
     QUALITATIVE_KEYS = [
-        ("tam_remaining",              0.30),
-        ("geographic_expansion",       0.15),
-        ("adjacency_potential",        0.15),
-        ("recurring_revenue_mix",      0.10),
+        ("tam_remaining", 0.30),
+        ("geographic_expansion", 0.15),
+        ("adjacency_potential", 0.15),
+        ("recurring_revenue_mix", 0.10),
     ]
 
     def compute(self, security: Security) -> FactorContribution:
