@@ -34,33 +34,36 @@ class DataProviderError(Exception):
 # CACHING LAYER: SQLite Cache for Normalized Data
 # ============================================================================
 
+SEED_CACHE_PATH = "data/cache/seed_cache.sqlite"
+RUNTIME_CACHE_PATH = "data/cache/iam_cache.sqlite"
+
+
 def _init_cache_db():
     """Initialize SQLite cache for normalized ticker data.
 
     Seed Database Strategy:
-    - If iam_cache.sqlite doesn't exist, copy from seed_cache.sqlite
+    - If runtime cache doesn't exist, copy from the tracked seed cache
     - This gives every developer a warm cache of institutional data
-    - Daily fetches update iam_cache.sqlite (which is .gitignore'd)
-    - seed_cache.sqlite stays in version control as the permanent fallback
+    - Daily fetches update the runtime cache (which is .gitignore'd)
+    - The seed cache stays in version control as the permanent fallback
 
-    Stores normalized (validated) data, not raw HTTP responses.
-    This is superior to HTTP-level caching because:
-    1. Caches validated data (not raw Yahoo garbage)
-    2. Immune to yfinance version changes
-    3. Simpler error handling and debugging
+    Both caches live under data/cache/ (src-layout convention).
     """
     import sqlite3
     import shutil
     import os
 
     try:
+        # Ensure the cache directory exists
+        os.makedirs(os.path.dirname(RUNTIME_CACHE_PATH), exist_ok=True)
+
         # Seed initialization: if runtime cache missing, copy from seed
-        if not os.path.exists("iam_cache.sqlite") and os.path.exists("seed_cache.sqlite"):
-            shutil.copy2("seed_cache.sqlite", "iam_cache.sqlite")
-            logger.info("[CACHE] Initialized from seed_cache.sqlite (warm start)")
+        if not os.path.exists(RUNTIME_CACHE_PATH) and os.path.exists(SEED_CACHE_PATH):
+            shutil.copy2(SEED_CACHE_PATH, RUNTIME_CACHE_PATH)
+            logger.info(f"[CACHE] Initialized from {SEED_CACHE_PATH} (warm start)")
 
         # Create/verify table structure
-        conn = sqlite3.connect("iam_cache.sqlite")
+        conn = sqlite3.connect(RUNTIME_CACHE_PATH)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS ticker_cache (
                 ticker TEXT PRIMARY KEY,
@@ -89,7 +92,7 @@ def _get_cached_data(ticker: str) -> Optional[Dict[str, Any]]:
         import json
         from datetime import datetime
 
-        conn = sqlite3.connect("iam_cache.sqlite")
+        conn = sqlite3.connect(RUNTIME_CACHE_PATH)
         cursor = conn.cursor()
         cursor.execute(
             "SELECT data, timestamp FROM ticker_cache WHERE ticker = ?",
@@ -124,7 +127,7 @@ def _save_cached_data(ticker: str, data: Dict[str, Any]) -> None:
         import json
         from datetime import datetime
 
-        conn = sqlite3.connect("iam_cache.sqlite")
+        conn = sqlite3.connect(RUNTIME_CACHE_PATH)
         cursor = conn.cursor()
         cursor.execute(
             "INSERT OR REPLACE INTO ticker_cache (ticker, data, timestamp) VALUES (?, ?, ?)",

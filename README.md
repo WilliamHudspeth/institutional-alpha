@@ -90,7 +90,7 @@ Stage 6: Macro Re-overlay  → Re-run only the names whose verdict actually chan
 Stage 7: Verdict           → Buy/Hold/Sell + conviction band + peer-relative ranking.
 ```
 
-**Backtest harness** (`iam.backtest`) — production-grade evaluation infrastructure. Pluggable data sources (yfinance → Stooq fallback), Polars-based price block, diskcache PIT snapshots, ProcessPool scoring, statsmodels Newey-West, sector-neutral IC, Bayesian shrinkage calibration. See [`docs/pipeline.md`](docs/pipeline.md) and [`ARCHITECTURE.md`](ARCHITECTURE.md).
+**Backtest harness** (`iam.backtest`) — production-grade evaluation infrastructure. Pluggable data sources (yfinance → Stooq fallback), Polars-based price block, diskcache PIT snapshots, ProcessPool scoring, statsmodels Newey-West, sector-neutral IC, Bayesian shrinkage calibration. See [`docs/pipeline.md`](docs/pipeline.md) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Install
 
@@ -262,8 +262,8 @@ Full conceptual documentation:
 - [`docs/framework.md`](docs/framework.md) — why orthogonality matters, the composite formula, and factor design rationale
 - [`docs/factors.md`](docs/factors.md) — every factor's definition, sub-components, and default weights
 - [`docs/pipeline.md`](docs/pipeline.md) — the seven pipeline stages in depth
-- [`ARCHITECTURE.md`](ARCHITECTURE.md) — full module map, dependency rules, validation gates
-- [`REAL_DATA_BACKTEST_STRATEGY.md`](REAL_DATA_BACKTEST_STRATEGY.md) — empirical validation plan and gates
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — full module map, dependency rules, validation gates
+- [`docs/REAL_DATA_BACKTEST_STRATEGY.md`](docs/REAL_DATA_BACKTEST_STRATEGY.md) — empirical validation plan and gates
 - [`RELEASES.md`](RELEASES.md) — release-by-release notes
 - [`CHANGELOG.md`](CHANGELOG.md) — Keep-a-Changelog format
 

@@ -1,6 +1,6 @@
 # Institutional Alpha — Release Notes
 
-Release-by-release summary of what shipped, why it shipped, and what's pending. For commit-level history see [CHANGELOG.md](CHANGELOG.md). For architectural detail see [ARCHITECTURE.md](ARCHITECTURE.md).
+Release-by-release summary of what shipped, why it shipped, and what's pending. For commit-level history see [CHANGELOG.md](CHANGELOG.md). For architectural detail see [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 
@@ -22,7 +22,7 @@ Release-by-release summary of what shipped, why it shipped, and what's pending. 
 
 ## v0.4.0-rc1 — Hardened Backtest Stack
 
-**Release candidate.** Promotes to v0.4.0 after one successful empirical IC run passes the validation gates documented in [REAL_DATA_BACKTEST_STRATEGY.md](REAL_DATA_BACKTEST_STRATEGY.md).
+**Release candidate.** Promotes to v0.4.0 after one successful empirical IC run passes the validation gates documented in [REAL_DATA_BACKTEST_STRATEGY.md](docs/REAL_DATA_BACKTEST_STRATEGY.md).
 
 ### Why this release
 
@@ -88,7 +88,7 @@ The `[backtest]` extra installs: `polars`, `diskcache`, `tenacity`, `statsmodels
 
 1. Build the price parquet (`python scripts/build_price_parquet.py`)
 2. Run the empirical backtest (`python -m iam.backtest.cli backtest`)
-3. Pass the validation gates in [REAL_DATA_BACKTEST_STRATEGY.md](REAL_DATA_BACKTEST_STRATEGY.md):
+3. Pass the validation gates in [REAL_DATA_BACKTEST_STRATEGY.md](docs/REAL_DATA_BACKTEST_STRATEGY.md):
    - Data integrity: ≥75 of 100 tickers downloaded, no gaps, debt values reasonable
    - Statistical validity: IC mean > 0.01, IR > 0.3, t-stat > 1.5, rolling IC stable
    - Architectural soundness: sector-neutral IC ≈ global IC, turnover < 40%/month
@@ -112,7 +112,7 @@ Transitioned the harness from synthetic to real-data capable.
 - `src/iam/backtest/metrics.py` — added `rolling_ic_stability()`, `statistical_significance()`, simplified `newey_west_se()`
 - `src/iam/backtest/snapshots.py` — `load_sp100_tickers()` helper
 - `src/iam/arbitration/calibrated_reliabilities.json` — explicitly marked `_meta.data_source: synthetic` with warning
-- `REAL_DATA_BACKTEST_STRATEGY.md` — three-phase execution plan with validation gates
+- `docs/REAL_DATA_BACKTEST_STRATEGY.md` — three-phase execution plan with validation gates
 
 ### Why it mattered
 
@@ -157,7 +157,7 @@ These numbers proved the pipeline was sound, not that the signal works on real m
 
 ### Scope
 
-- `ARCHITECTURE.md` — 400+ line system audit: 71 modules, dependency rules, validation gates
+- `docs/ARCHITECTURE.md` — 400+ line system audit: 71 modules, dependency rules, validation gates
 - `RELEASES.md` — comprehensive baseline release notes
 - `src/iam/version.py` — bumped to v0.3.4-alpha
 - `src/iam/__init__.py` — updated docstring with backtest entry point
@@ -258,8 +258,8 @@ git tag -l
 
 - [`README.md`](README.md) — overview, quick start, method explanation
 - [`CHANGELOG.md`](CHANGELOG.md) — commit-level history in Keep-a-Changelog format
-- [`ARCHITECTURE.md`](ARCHITECTURE.md) — module map, dependency rules
-- [`REAL_DATA_BACKTEST_STRATEGY.md`](REAL_DATA_BACKTEST_STRATEGY.md) — empirical validation plan
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — module map, dependency rules
+- [`docs/REAL_DATA_BACKTEST_STRATEGY.md`](docs/REAL_DATA_BACKTEST_STRATEGY.md) — empirical validation plan
 - [`docs/framework.md`](docs/framework.md) — orthogonality, composite formula
 - [`docs/factors.md`](docs/factors.md) — every factor's definition and weights
 - [`docs/pipeline.md`](docs/pipeline.md) — the seven pipeline stages in depth

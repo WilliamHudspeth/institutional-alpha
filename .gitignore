@@ -46,13 +46,41 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Data files (root-level only, not src/iam/data/ package)
-*.csv
-*.parquet
-*.xlsx
-/data/
+# ---------------------------------------------------------------------------
+# Data layer (src-layout convention)
+#
+# /data/ stores runtime artifacts: cache databases, downloaded prices, backtest
+# results. We ignore the whole tree by default and then explicitly un-ignore
+# the small set of files we want under version control:
+#
+#   data/cache/seed_cache.sqlite     — warm-start cache shipped with the repo
+#   data/results/backtest_results_v0.3.5.csv  — historical reference artifact
+#   data/universe/*.json             — static universe definitions
+#
+# Everything else under /data/ (runtime caches, downloaded prices, new backtest
+# outputs, snapshot pickles, etc.) stays local-only.
+# ---------------------------------------------------------------------------
 
-# Runtime cache (Seed Database Strategy)
-# iam_cache.sqlite: Runtime cache, updated daily with fresh ticker data (IGNORE in git)
-# seed_cache.sqlite: Permanent fallback with institutional blue-chip data (TRACK in git)
-iam_cache.sqlite
+# Ignore the whole data tree by default ...
+/data/**
+
+# ... then re-allow directory entries so the un-ignores below can match
+!/data/
+!/data/cache/
+!/data/results/
+!/data/universe/
+
+# Files we explicitly track
+!/data/cache/seed_cache.sqlite
+!/data/results/backtest_results_v0.3.5.csv
+!/data/universe/*.json
+!/data/.gitkeep
+
+# Root-level data artifacts (legacy guard — there should be none now)
+/*.csv
+/*.parquet
+/*.xlsx
+/*.sqlite
+
+# Diskcache and other runtime working directories
+.cache/

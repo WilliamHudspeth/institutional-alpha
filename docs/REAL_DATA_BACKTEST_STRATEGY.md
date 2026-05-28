@@ -60,7 +60,7 @@ The v0.3.5 synthetic backtest proved:
 
 **Tasks:**
 ```
-[ ] Execute backtest_runner.py against sp100_ohlcv.parquet
+[ ] Execute scripts/backtest_runner.py against sp100_ohlcv.parquet
     - Uses StooqDataLoader to load cached prices
     - Runs value_security() for each security/date combination
     - Generates monthly IC measurements
@@ -243,7 +243,7 @@ The v0.3.5 synthetic backtest proved:
 
 - [ ] Download and cache Stooq data
 - [ ] Verify all 80 tickers downloaded
-- [ ] Run backtest_runner.py on real prices
+- [ ] Run scripts/backtest_runner.py on real prices
 - [ ] Compute statistical significance tests
 - [ ] Generate rolling IC plot (drift detection)
 - [ ] Run factor attribution analysis

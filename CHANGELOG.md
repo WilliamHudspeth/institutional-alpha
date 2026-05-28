@@ -6,7 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Awaiting: empirical IC run on real S&P 100 data. Once it passes the validation gates in [REAL_DATA_BACKTEST_STRATEGY.md](REAL_DATA_BACKTEST_STRATEGY.md), v0.4.0-rc1 is promoted to v0.4.0.
+Awaiting: empirical IC run on real S&P 100 data. Once it passes the validation gates in [REAL_DATA_BACKTEST_STRATEGY.md](docs/REAL_DATA_BACKTEST_STRATEGY.md), v0.4.0-rc1 is promoted to v0.4.0.
 
 ---
 
@@ -87,7 +87,7 @@ Real-data backtest infrastructure. Rolled into v0.4.0-rc1.
 - **Stooq Data Loader** (`src/iam/backtest/data_loader.py`): `StooqDataLoader` class with parquet caching, SHA256 integrity tracking, manifest system; `get_or_download_sp100_prices()` convenience function.
 - **Statistical helpers** (`src/iam/backtest/metrics.py`): `rolling_ic_stability()` (12-month rolling drift), `statistical_significance()` (t-stat + p-value), `newey_west_se()` (simplified autocorrelation correction). Note: the rigorous statsmodels version arrived in v0.4.0-rc1.
 - **Safe reliability loader** (`src/iam/arbitration/reliability_loader.py`): `ReliabilityLoader` with `data_source` detection. Refuses to use synthetic calibration in production; falls back to institutional defaults (0.70 per signal).
-- **Strategy document** (`REAL_DATA_BACKTEST_STRATEGY.md`): three-phase plan with validation gates.
+- **Strategy document** (`docs/REAL_DATA_BACKTEST_STRATEGY.md`): three-phase plan with validation gates.
 
 ### Changed
 
@@ -130,7 +130,7 @@ Architecture audit and version metadata.
 
 ### Added
 
-- `ARCHITECTURE.md`: 400+ line system audit (71 modules, dependency rules, validation gates)
+- `docs/ARCHITECTURE.md`: 400+ line system audit (71 modules, dependency rules, validation gates)
 - `RELEASES.md`: comprehensive release history baseline
 - Updated `README.md`: v0.3.4 status, mentions backtest harness
 
