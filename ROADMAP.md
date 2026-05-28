@@ -22,6 +22,27 @@ To answer that, the platform combines:
 
 Unlike black-box ML approaches, every output decomposes to its factor components and assumption inputs. Transparency is non-negotiable.
 
+### The Democratization Mission
+
+This tool is built for **everyone**, not gatekeepers:
+
+- **For retail investors**: Bring hedge fund reasoning to individual decision-making. Learn *how* institutions think about valuation, not just *what* to buy. Democratize the analytical frameworks that have historically been locked behind $10K/year Bloomberg terminals or $500K+ advisory fees.
+
+- **For asset managers & hedge funds**: A risk-management companion, not a replacement. Use institutional-alpha to stress-test theses, validate assumptions under macro regimes, and catch fragile positions before they blow up.
+
+- **For researchers & academics**: Open methodology. Publish factor alphas. Validate backtests on real data. Contribute factor designs. Learn from each other.
+
+- **Philosophy**: "The best investment insights should not be hoarded. Better markets happen when more people think clearly about value."
+
+**How we achieve this:**
+- **Free & open-source** (code published, weights eventually transparent)
+- **No SaaS paywall** (download, run locally, no licensing fees)
+- **Modular design** (easy to extend, fork, improve)
+- **Frequent releases** (security patches in hours, features in weeks)
+- **Community-driven** (accept factor PRs, data source contributions, methodologies)
+- **Educational materials** (explainers, validation reports, research papers)
+- **Institutional adoption** (same tool serves retail and $100B+ funds; no artificial product segmentation)
+
 ---
 
 ## The Reasoning-Engine Direction (v0.5+)
@@ -162,6 +183,107 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
   - Sector-specific defaults
   - Historical assumption performance
   - Industry median comparisons
+
+### Phase 1.1: Release Management & Community Trust (Parallel to Phase 1)
+**Focus**: Transparent, frequent releases + community-driven improvements (Rufus-inspired)
+
+**Philosophy**: This tool is for everyone. Fast, trustworthy releases + open development = institutional-grade + accessible to retail.
+
+#### Semantic Versioning & Release Cadence
+
+- [ ] **Release Schedule**
+  - Patch releases (v0.4.2): Every Friday if ready; includes bugfixes, security patches, data updates
+  - Minor releases (v0.5.0): Every 6 weeks; includes features, factor improvements, UI enhancements
+  - Major releases (v1.0.0): Quarterly; breaking changes, architectural shifts, production-grade milestones
+  - Security patches: Within 24 hours of identification (no waiting for next scheduled release)
+
+- [ ] **Conventional Commits & Auto-Changelog**
+  - All commits tagged: `feat:`, `fix:`, `chore:`, `docs:`, `perf:`, `test:`, `security:`
+  - PR descriptions include: what/why/impact + link to issue + changelog entry
+  - Auto-generate release notes from merged PRs (tool: `auto` or `release-drafter`)
+  - Changelog template: Security → Breaking Changes → Features → Bugfixes → Deprecations → Testing
+
+- [ ] **Version Control & Artifact Management**
+  - Every release tagged in git (v0.4.2)
+  - Binaries (exe, dmg, wheel) published to GitHub Releases
+  - Checksums (SHA256) + GPG signatures for integrity verification
+  - Old versions always available (users can downgrade if new version breaks workflow)
+  - "End of life" label on versions >12 months old (migrate to newer, but support remains)
+
+#### Transparent Development (GitHub-First)
+
+- [ ] **Public Roadmap**
+  - Milestones for v0.5.0, v0.6.0, v1.0.0 (timeline + scope)
+  - Issues tagged by type: `bug`, `feature`, `research`, `documentation`, `help-wanted`
+  - "Help wanted" issues (contributions invited from researchers, fund managers)
+  - Monthly status update (in-app + email): what shipped, what's next, known issues
+
+- [ ] **Community Contributions**
+  - Factor improvement PRs (propose new factor, include backtest + IC improvement)
+  - Data source adapters (add alternative to yfinance/Stooq; community-maintained)
+  - Documentation & educational materials (research papers, explainers, validation reports)
+  - Methodology discussions (GitHub Discussions: "How should we handle X?" — open forum)
+
+- [ ] **Issue Triage & Responsiveness**
+  - Triage SLA: bug/security → 24h response; feature requests → 1 week
+  - Transparency: explain why issues are closed (won't fix, duplicate, out of scope)
+  - User feedback → priority (high-volume requests bubble to next sprint)
+
+#### User Communication & Trust
+
+- [ ] **In-App Notifications**
+  - New version available (with changelog link, auto-updater prompt)
+  - Security alerts (breach? 72-hour user notification)
+  - Model updates (factor weights changed; here's why + impact analysis)
+  - Educational: tips on how to use features, links to docs
+
+- [ ] **Monthly Community Email**
+  - What shipped (with links to PRs + detailed changelog)
+  - What's coming (next 4-6 weeks roadmap preview)
+  - Validation metrics (IC, hit rate, model performance this month)
+  - Research highlight (interesting backtests, factor discoveries)
+  - Ask for feedback ("What would help you?" — simple survey)
+
+- [ ] **Validation & Transparency Reports**
+  - Monthly IC backtest results (composite score performance by sector, horizon, universe)
+  - Model stress tests (how factors behave in different regimes)
+  - Factor attribution (which factors contributed most to recent alpha?)
+  - Validation errors (cases where model underperformed + lessons learned)
+  - These reports are public (GitHub + in-app)
+
+#### Distribution & Accessibility
+
+- [ ] **Single-Artifact Downloads**
+  - Windows: `iam-0.4.2.exe` (no installer, just run)
+  - macOS: `iam-0.4.2.dmg`
+  - Linux: `iam-0.4.2.AppImage` or `.tar.gz`
+  - Python package: `pip install institutional-alpha` (for devs)
+  - All artifacts on GitHub Releases + checksums + signatures
+
+- [ ] **Zero Dependencies for End Users**
+  - Executable bundles Python + all deps (pandas, numpy, polars)
+  - User doesn't need to install Python or manage pip
+  - Lightweight (goal: <50MB executable)
+  - Runs on Windows 7+ (maximum backward compat, not cutting off users)
+
+- [ ] **Free & Open Source Commitment**
+  - Code: GitHub public (MIT or similar open license)
+  - No closed-source "pro" version (same tool for retail + hedge funds)
+  - No license keys or activation (run locally, no SaaS lock-in)
+  - No ads, no telemetry (except opt-in usage stats for roadmap prioritization)
+
+#### Success Criteria for Phase 1.1
+
+- New release every Friday (patch) or every 6 weeks (minor)
+- Release notes auto-generated from commits (0 manual writing per release)
+- 24-hour response to bug reports; security patches within 24h
+- 50%+ PRs from community (factors, data adapters, docs)
+- GitHub Discussions active (1-2 threads per week from users asking "how do I...")
+- Monthly validation report published (IC, stress tests, attribution)
+- 90%+ of users on latest version (auto-update working)
+- Zero user complaints about "opaque" methodology (all factors, bounds, logic explained)
+
+---
 
 ### Phase 1.5: Security Hardening & Data Protection (Parallel to Phase 1)
 **Focus**: CIA (Confidentiality, Integrity, Availability) + secure-by-default architecture
@@ -653,19 +775,19 @@ The user should never manually update. Security patches, factor improvements, da
 ## Architectural Principles
 
 ### 1. **Factors Are Orthogonal**
-Each factor measures one independent dimension. No mixing of valuation with quality, sentiment with growth.
+Each factor measures one independent dimension. No mixing of valuation with quality, sentiment with growth. Users can understand and challenge each piece.
 
 ### 2. **Everything Is Auditable**
-Composite scores decompose to factor contributions. No black-box aggregations. Every output traceable to inputs.
+Composite scores decompose to factor contributions. No black-box aggregations. Every output traceable to inputs. Retail investors deserve the same transparency as hedge funds.
 
 ### 3. **Pluggable Data Sources**
-The model accepts fundamentals as inputs. Never assumes a specific data provider. Easy to adapt to major market data providers.
+The model accepts fundamentals as inputs. Never assumes a specific data provider. Easy to adapt to major market data providers. Open community (contribute data adapters, improve fallback chains).
 
 ### 4. **No Magic Numbers**
-All default weights, bounds, and assumptions are explicit and documented. Silent defaults are forbidden.
+All default weights, bounds, and assumptions are explicit and documented. Silent defaults are forbidden. Users and researchers can propose improvements via PRs.
 
 ### 5. **Dependencies Stay Minimal**
-Core engine uses only: pandas, numpy. Financial theory, not ML dependencies. Easy to audit and reproduce.
+Core engine uses only: pandas, numpy. Financial theory, not ML dependencies. Easy to audit, reproduce, and extend. No vendor lock-in.
 
 ### 6. **Security Is Built-In, Not Bolted-On**
 Input validation, immutable audit logs, encrypted secrets, and rate limiting are foundational — not afterthoughts. Every endpoint requires authentication. Every data access is logged. Every assumption override is traceable.
@@ -725,15 +847,33 @@ Input validation, immutable audit logs, encrypted secrets, and rate limiting are
 
 ## Future Considerations
 
-### If Commercialized
-- **Security-first**: Phase 1.5 is non-negotiable prerequisite
-- Multi-user platform (OAuth 2.0, RBAC, audit logging)
-- Real-time enterprise data feeds (rate limiting, circuit breakers)
-- Institutional API (REST, OpenAPI spec, API key management)
-- Portfolio management layer (user data isolation, encryption at rest)
-- Risk reporting (VaR, stress testing)
-- Regulatory compliance: SOC 2 Type II, GDPR, CCPA, investment adviser filings
-- Incident response SLA (notification within 24 hours of breach)
+### If Commercialized (Open-Core Model, Not Gatekeeping)
+
+**Philosophy**: Free, open-source core + optional premium services for enterprises/professionals who want convenience.
+
+- **Core (Always Free & Open)**
+  - Single-user local deployment (download, run, score tickers)
+  - All factors, all valuation methods
+  - Backtest harness
+  - Community-contributed data sources (yfinance, Stooq, etc.)
+  - No paywalls, no feature lockouts
+
+- **Optional Premium (Enterprise/Professional)**
+  - Managed SaaS API (don't run locally, just call HTTP endpoint)
+  - Real-time enterprise data feeds (Bloomberg, Refinitiv, proprietary sources)
+  - Multi-user collaboration (shared portfolios, assumption libraries, team research)
+  - Advanced risk reporting (portfolio-level VaR, stress scenarios, Greeks)
+  - Audit trail & governance (SOC 2 Type II, regulatory-ready)
+  - Dedicated support SLA
+  
+  **Model**: $99-999/month per user or $10K-50K/year per firm (scale by AUM)
+
+- **Values**:
+  - **Security-first**: Phase 1.5 is non-negotiable for any deployment
+  - **Transparent pricing**: no hidden tiers, no artificial feature segmentation
+  - **No lock-in**: export your data anytime, run open-source core locally
+  - **Community first**: premium customers fund open-source development
+  - **Regulatory-grade**: SOC 2 Type II, GDPR, CCPA, investment adviser filings (for both free + premium)
 
 ### If Academic
 - Published factor papers (define alpha clearly)
