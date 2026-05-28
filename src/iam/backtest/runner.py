@@ -81,12 +81,18 @@ def run_backtest(
     n_jobs_cpu = getattr(config, "n_jobs_cpu", 4) if config else 4
     cache_dir = getattr(config, "snapshot_cache", Path(".cache/snapshots")) if config else Path(".cache/snapshots")
 
+    if hasattr(price_block, "to_pandas"):
+        price_block = price_block.to_pandas()
+    if "date" in price_block.columns:
+        price_block = price_block.copy()
+        price_block["date"] = pd.to_datetime(price_block["date"]).dt.strftime("%Y-%m-%d")
+        price_block = price_block.set_index(["date", "ticker"])
+
     results = []
 
-    for date in tqdm(dates, desc="Backtesting"):
-        try:
-            # Parallel scoring with ProcessPoolExecutor
-            with ProcessPoolExecutor(max_workers=n_jobs_cpu) as executor:
+    with ProcessPoolExecutor(max_workers=n_jobs_cpu) as executor:
+        for date in tqdm(dates, desc="Backtesting"):
+            try:
                 futures = [
                     executor.submit(_score_security_worker, base, date, score_field, cache_dir)
                     for base in universe
@@ -99,45 +105,45 @@ def run_backtest(
                     scores[ticker] = score
                     sectors[ticker] = sector
 
-        except Exception as e:
-            print(f"Warning: Parallel scoring failed on {date}: {e}")
-            continue
+            except Exception as e:
+                print(f"Warning: Parallel scoring failed on {date}: {e}")
+                continue
 
-        # Get forward returns for this date
-        try:
-            fwd = price_block.xs(date, level="date")["fwd_ret"]
-        except KeyError:
-            continue
+            # Get forward returns for this date
+            try:
+                fwd = price_block.xs(date, level="date")["fwd_ret"]
+            except KeyError:
+                continue
 
-        # Build score/return dataframe with sector column
-        common_tickers = [t for t in scores.keys() if t in fwd.index and not pd.isna(scores[t])]
-        if len(common_tickers) < 10:
-            continue
+            # Build score/return dataframe with sector column
+            common_tickers = [t for t in scores.keys() if t in fwd.index and not pd.isna(scores[t])]
+            if len(common_tickers) < 10:
+                continue
 
-        df = pd.DataFrame({
-            "ticker": common_tickers,
-            "score": [scores[t] for t in common_tickers],
-            "fwd": [fwd[t] for t in common_tickers],
-            "sector": [sectors[t] for t in common_tickers],
-        })
+            df = pd.DataFrame({
+                "ticker": common_tickers,
+                "score": [scores[t] for t in common_tickers],
+                "fwd": [fwd[t] for t in common_tickers],
+                "sector": [sectors[t] for t in common_tickers],
+            })
 
-        # Calculate metrics
-        ic = information_coefficient(df)
-        ic_sn = information_coefficient(df, sector_col="sector") if "sector" in df.columns else ic
-        hr = hit_rate(df)
-        spreads = decile_spread(df)
+            # Calculate metrics
+            ic = information_coefficient(df)
+            ic_sn = information_coefficient(df, sector_col="sector") if "sector" in df.columns else ic
+            hr = hit_rate(df)
+            spreads = decile_spread(df)
 
-        results.append({
-            "date": date,
-            "ic": ic,
-            "ic_sector_neutral": ic_sn,
-            "hit_rate": hr,
-            "spread": spreads["spread"],
-            "top": spreads["top"],
-            "bottom": spreads["bottom"],
-            "coverage": spreads["coverage"],
-            "n_securities": len(common_tickers),
-        })
+            results.append({
+                "date": date,
+                "ic": ic,
+                "ic_sector_neutral": ic_sn,
+                "hit_rate": hr,
+                "spread": spreads["spread"],
+                "top": spreads["top"],
+                "bottom": spreads["bottom"],
+                "coverage": spreads["coverage"],
+                "n_securities": len(common_tickers),
+            })
 
     if not results:
         raise ValueError("No valid backtest results generated")

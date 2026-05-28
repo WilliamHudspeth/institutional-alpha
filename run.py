@@ -174,6 +174,8 @@ def main() -> None:
     if g_input:
         try:
             growth = parse_growth_rate(g_input, default=0.08)
+            if security.qualitative is None:
+                security.qualitative = {}
             security.qualitative["forecast_growth"] = growth
         except ValueError as exc:
             print(f"Invalid growth input: {exc} — using default 8%.")
