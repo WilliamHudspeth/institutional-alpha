@@ -1,7 +1,6 @@
 """Input normalization for human-friendly percentage and rate inputs."""
 
 
-
 def parse_percentage_input(user_input: str, default: float | None = None) -> float:
     """
     Safely convert human percentage input to decimal format.

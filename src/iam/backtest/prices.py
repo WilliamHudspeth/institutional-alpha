@@ -4,7 +4,6 @@ Loads price data from parquet file (built via build_price_parquet.py),
 which includes pre-computed forward returns for a given horizon.
 """
 
-
 import polars as pl
 
 

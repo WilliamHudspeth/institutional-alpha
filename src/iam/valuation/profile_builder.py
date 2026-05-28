@@ -50,9 +50,7 @@ def _compute_revenue_cagr(revenue_history: list[float], years: int = 5) -> float
     return (end_value / start_value) ** (1.0 / n) - 1.0
 
 
-def _compute_eps_volatility(
-    revenue_history: list[float], fcf_history: list[float]
-) -> float | None:
+def _compute_eps_volatility(revenue_history: list[float], fcf_history: list[float]) -> float | None:
     """Compute company-specific volatility from EPS/revenue/FCF history.
 
     Uses FCF if available, else revenue. Returns std dev of year-over-year
@@ -129,9 +127,7 @@ def build_company_profile(
         hist_eps_growth = sector_est.value
 
     # --- Company-specific volatility ---
-    company_vol = _compute_eps_volatility(
-        fundamentals.revenue_history, fundamentals.fcf_history
-    )
+    company_vol = _compute_eps_volatility(fundamentals.revenue_history, fundamentals.fcf_history)
     if company_vol is None:
         company_vol = _sector_volatility_default(sector)
 
@@ -219,9 +215,7 @@ def triangulate_growth_for_security(
 
     # --- Estimator 4: Bottom-up build ---
     rev_growth_5y = _compute_revenue_cagr(fundamentals.revenue_history, years=5)
-    op_margin_5y_avg = _safe_get_history_avg(
-        fundamentals.operating_margin_history, years=5
-    )
+    op_margin_5y_avg = _safe_get_history_avg(fundamentals.operating_margin_history, years=5)
     bottom_up_est = estimate_bottom_up_growth(
         revenue_growth_5y=rev_growth_5y,
         operating_margin=fundamentals.operating_margin,

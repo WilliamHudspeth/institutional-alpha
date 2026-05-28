@@ -77,9 +77,7 @@ class AdaptiveValuationEngine:
         threshold = 0.25 * vol_factor
 
         # Divergence: (historical - implied) / implied
-        divergence = (p.hist_eps_growth - p.implied_growth) / max(
-            p.implied_growth, 0.01
-        )
+        divergence = (p.hist_eps_growth - p.implied_growth) / max(p.implied_growth, 0.01)
 
         if abs(divergence) < threshold:
             # Condition A: Agreement — use historical growth
@@ -122,9 +120,7 @@ class AdaptiveValuationEngine:
                 if y <= 7:
                     growth_path.append(base_growth)
                 else:
-                    growth_path.append(
-                        np.interp(y, [7, 10], [base_growth, target])
-                    )
+                    growth_path.append(np.interp(y, [7, 10], [base_growth, target]))
 
         elif btype == "stable":
             # Stable businesses hold growth 8 years, fade to sector
@@ -133,9 +129,7 @@ class AdaptiveValuationEngine:
                 if y <= 8:
                     growth_path.append(base_growth)
                 else:
-                    growth_path.append(
-                        np.interp(y, [8, 10], [base_growth, target])
-                    )
+                    growth_path.append(np.interp(y, [8, 10], [base_growth, target]))
 
         elif btype == "financial":
             # Financials fade ROE-based growth to sector, 5-year hold
@@ -144,9 +138,7 @@ class AdaptiveValuationEngine:
                 if y <= 5:
                     growth_path.append(base_growth)
                 else:
-                    growth_path.append(
-                        np.interp(y, [5, 10], [base_growth, target])
-                    )
+                    growth_path.append(np.interp(y, [5, 10], [base_growth, target]))
 
         elif btype == "cyclical":
             # Cyclicals check margin position relative to mid-cycle
@@ -163,9 +155,7 @@ class AdaptiveValuationEngine:
                 if y <= hold_years:
                     growth_path.append(base_growth)
                 else:
-                    growth_path.append(
-                        np.interp(y, [hold_years, 10], [base_growth, target])
-                    )
+                    growth_path.append(np.interp(y, [hold_years, 10], [base_growth, target]))
 
         else:
             # Default: low-margin scale business (WMT, CVS)
@@ -174,9 +164,7 @@ class AdaptiveValuationEngine:
                 if y <= 5:
                     growth_path.append(base_growth)
                 else:
-                    growth_path.append(
-                        np.interp(y, [5, 10], [base_growth, target])
-                    )
+                    growth_path.append(np.interp(y, [5, 10], [base_growth, target]))
 
         return [float(g) for g in growth_path]
 

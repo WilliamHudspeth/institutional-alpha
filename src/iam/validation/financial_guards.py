@@ -1,6 +1,5 @@
 """Financial sanity checks and assumption validation."""
 
-
 # Constants: Financial guardrails
 MAX_FORECAST_GROWTH = 0.40  # 40% growth is extremely aggressive
 MAX_TERMINAL_GROWTH = 0.05  # Terminal growth should not exceed long-term GDP

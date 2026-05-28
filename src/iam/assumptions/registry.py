@@ -275,9 +275,7 @@ class AssumptionRegistry:
         """
         return self.profiles[risk_profile]
 
-    def get_sector_adjusted(
-        self, risk_profile: RiskProfile, sector: str
-    ) -> AssumptionSet:
+    def get_sector_adjusted(self, risk_profile: RiskProfile, sector: str) -> AssumptionSet:
         """Get assumptions with sector-specific overrides applied.
 
         Args:

@@ -30,11 +30,11 @@ from scipy.optimize import brentq
 # Base variances per estimator (tuned for typical financial data quality)
 # ---------------------------------------------------------------------------
 _BASE_VAR: dict[str, float] = {
-    "implied":    0.0025,  # Low when FCF is clean; rises with FCF noise
+    "implied": 0.0025,  # Low when FCF is clean; rises with FCF noise
     "historical": 0.0050,  # Moderate; rises with earnings volatility
     "sustainable": 0.0100,  # ROIC estimation has meaningful uncertainty
-    "bottom_up":  0.0050,  # Depends on margin data quality
-    "sector":     0.0150,  # Prior only — widest
+    "bottom_up": 0.0050,  # Depends on margin data quality
+    "sector": 0.0150,  # Prior only — widest
 }
 
 _LAMBDA: float = 1.0  # Regime penalty scale factor
@@ -43,9 +43,9 @@ _LAMBDA: float = 1.0  # Regime penalty scale factor
 @dataclass
 class GrowthEstimate:
     name: str
-    value: float            # Annual growth rate
-    variance: float         # Estimator variance (lower = more reliable)
-    weight: float = 0.0     # Filled by compute_weights()
+    value: float  # Annual growth rate
+    variance: float  # Estimator variance (lower = more reliable)
+    weight: float = 0.0  # Filled by compute_weights()
     notes: str = ""
 
 
@@ -54,8 +54,8 @@ class GrowthEngineResult:
     mean_growth: float
     std_dev: float
     estimates: list[GrowthEstimate] = field(default_factory=list)
-    growth_haircut: float = 0.0        # From margin trajectory
-    terminal_haircut: float = 0.0      # From margin trajectory
+    growth_haircut: float = 0.0  # From margin trajectory
+    terminal_haircut: float = 0.0  # From margin trajectory
     margin_trajectory_notes: str = ""
     fade_path: list[float] = field(default_factory=list)
 
@@ -233,7 +233,7 @@ class GrowthEstimatorEngine:
 
         # Reliability error override
         rmse = self.reliability_errors.get("implied", 0.0)
-        variance = max(variance, rmse ** 2)
+        variance = max(variance, rmse**2)
 
         return GrowthEstimate(
             name="implied",
@@ -262,14 +262,14 @@ class GrowthEstimatorEngine:
         spread = float(np.std(clipped)) if len(clipped) > 1 else 0.05
 
         base_var = _BASE_VAR["historical"]
-        variance = base_var + spread ** 2
+        variance = base_var + spread**2
 
         # Structural break: historical data less informative
         if self.is_structural_break:
             variance += 0.10
 
         rmse = self.reliability_errors.get("historical", 0.0)
-        variance = max(variance, rmse ** 2)
+        variance = max(variance, rmse**2)
 
         return GrowthEstimate(
             name="historical",
@@ -303,7 +303,7 @@ class GrowthEstimatorEngine:
         variance = base_var + roic_penalty
 
         rmse = self.reliability_errors.get("sustainable", 0.0)
-        variance = max(variance, rmse ** 2)
+        variance = max(variance, rmse**2)
 
         return GrowthEstimate(
             name="sustainable",
@@ -346,7 +346,7 @@ class GrowthEstimatorEngine:
         variance = base_var if has_margin else base_var * 1.5
 
         rmse = self.reliability_errors.get("bottom_up", 0.0)
-        variance = max(variance, rmse ** 2)
+        variance = max(variance, rmse**2)
 
         return GrowthEstimate(
             name="bottom_up",
@@ -411,7 +411,7 @@ class GrowthEstimatorEngine:
         # Signal 2: acceleration (change in slope — second derivative proxy)
         if n >= 4:
             recent_slope = float(np.mean(np.diff(margin_array[:4][::-1])))
-            older_slope = float(np.mean(np.diff(margin_array[n // 2:][::-1]))) if n > 4 else 0.0
+            older_slope = float(np.mean(np.diff(margin_array[n // 2 :][::-1]))) if n > 4 else 0.0
             acceleration = recent_slope - older_slope
         else:
             acceleration = 0.0
@@ -425,9 +425,9 @@ class GrowthEstimatorEngine:
             peer_deviation = self.peer_margin_avg - current  # positive = below peers
 
         # Severity score: weighted composite
-        slope_severity = max(0.0, -slope / 0.02)         # Negative slope is bad
+        slope_severity = max(0.0, -slope / 0.02)  # Negative slope is bad
         accel_severity = max(0.0, -acceleration / 0.01)  # Negative acceleration (worsening)
-        vol_severity = min(1.0, volatility / 0.05)       # High volatility = uncertain
+        vol_severity = min(1.0, volatility / 0.05)  # High volatility = uncertain
         peer_severity = max(0.0, peer_deviation / 0.05)  # Below-peer margin
 
         composite = (
@@ -445,8 +445,8 @@ class GrowthEstimatorEngine:
             s = 1.0 / (1.0 + math.exp(-x))
             return max_haircut * s
 
-        growth_penalty = sigmoid_haircut(composite, 0.50)   # Up to 50% growth haircut
-        terminal_penalty = sigmoid_haircut(composite, 0.30) # Up to 30% terminal haircut
+        growth_penalty = sigmoid_haircut(composite, 0.50)  # Up to 50% growth haircut
+        terminal_penalty = sigmoid_haircut(composite, 0.30)  # Up to 30% terminal haircut
 
         growth_haircut = max(0.5, 1.0 - growth_penalty)
         terminal_haircut = max(0.7, 1.0 - terminal_penalty)
@@ -466,9 +466,7 @@ class GrowthEstimatorEngine:
     # Inverse-variance weighting
     # ------------------------------------------------------------------
 
-    def compute_weights(
-        self, estimates: list[GrowthEstimate]
-    ) -> list[GrowthEstimate]:
+    def compute_weights(self, estimates: list[GrowthEstimate]) -> list[GrowthEstimate]:
         """Assign inverse-variance weights and normalize.
 
         w_i = 1 / (variance_i + lambda * regime_penalty_i)
@@ -561,9 +559,7 @@ class GrowthEstimatorEngine:
     # Growth persistence profile
     # ------------------------------------------------------------------
 
-    def growth_persistence_profile(
-        self, base_growth: float, years: int = 10
-    ) -> list[float]:
+    def growth_persistence_profile(self, base_growth: float, years: int = 10) -> list[float]:
         """Exponential decay from base_growth toward terminal_growth.
 
         decay_speed = 1.0 - moat_durability
@@ -584,6 +580,7 @@ class GrowthEstimatorEngine:
 # ---------------------------------------------------------------------------
 # Factory: build engine from Security object
 # ---------------------------------------------------------------------------
+
 
 def build_engine_from_security(
     security,
@@ -650,7 +647,9 @@ def build_engine_from_security(
 
     # ROIC and reinvestment rate
     roic_hist = f.roic_history or []
-    roic = float(np.mean([r for r in roic_hist[:3] if r is not None and r > 0])) if roic_hist else None
+    roic = (
+        float(np.mean([r for r in roic_hist[:3] if r is not None and r > 0])) if roic_hist else None
+    )
     if roic is None:
         roic = f.incremental_roic
 

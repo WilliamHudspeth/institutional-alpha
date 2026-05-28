@@ -1,6 +1,5 @@
 """Tests for the v0.2.0-alpha valuation pipeline."""
 
-
 from iam import Fundamentals, MarketData, Security, ValuationPipeline
 from iam.valuation import (
     FCFEDCF,

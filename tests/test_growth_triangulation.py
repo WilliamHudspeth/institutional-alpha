@@ -145,9 +145,7 @@ class TestSustainableGrowth:
 
     def test_stable_roic_high_confidence(self):
         """Stable ROIC history -> higher confidence."""
-        stable = estimate_sustainable_growth(
-            roe=0.15, roic_history=[0.15, 0.14, 0.15, 0.14, 0.15]
-        )
+        stable = estimate_sustainable_growth(roe=0.15, roic_history=[0.15, 0.14, 0.15, 0.14, 0.15])
         unstable = estimate_sustainable_growth(
             roe=0.15, roic_history=[0.15, 0.05, 0.25, 0.10, 0.20]
         )
@@ -414,8 +412,18 @@ class TestNineTickerBasket:
     """Validate triangulation against the nine reference companies."""
 
     def _make_security(
-        self, ticker, sector, op_margin, op_history, fcf_ttm, fcf_history,
-        revenue_ttm, revenue_history, roic_history, price, shares
+        self,
+        ticker,
+        sector,
+        op_margin,
+        op_history,
+        fcf_ttm,
+        fcf_history,
+        revenue_ttm,
+        revenue_history,
+        roic_history,
+        price,
+        shares,
     ):
         return Security(
             ticker=ticker,

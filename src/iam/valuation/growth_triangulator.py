@@ -23,9 +23,7 @@ from typing import Literal, Optional
 
 import numpy as np
 
-GrowthMethod = Literal[
-    "implied", "historical", "sustainable", "bottom_up", "sector"
-]
+GrowthMethod = Literal["implied", "historical", "sustainable", "bottom_up", "sector"]
 
 
 @dataclass
