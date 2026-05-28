@@ -21,7 +21,7 @@ class ConsensusEngine:
 
     Resolves tension between traditional DCF pipeline and multi-lens synthesis
     by dynamically weighting each based on confidence. This is how sophisticated
-    quant platforms (BlackRock, Citadel) handle conflicting alpha signals.
+    quant platforms handle conflicting alpha signals.
     """
 
     @staticmethod

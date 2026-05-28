@@ -303,7 +303,7 @@ class DamodaranProvider:
         Example:
             >>> u_beta = DamodaranProvider.get_industry_unlevered_beta("Financial Services", "Asset Management")
             >>> # u_beta is 0.59 (very low pure business risk)
-            >>> # But BlackRock's levered beta might be 1.1 due to debt
+            >>> # But a leveraged firm's levered beta might be 1.1 due to debt
         """
         sector_clean = sector.lower().strip() if sector else ""
         industry_clean = industry.lower().strip() if industry else ""
