@@ -3,12 +3,12 @@
 import pytest
 
 from iam.assumptions import (
-    AssumptionRegistry,
-    AssumptionSet,
-    RiskProfile,
     AGGRESSIVE_PROFILE,
     BASE_PROFILE,
     CONSERVATIVE_PROFILE,
+    AssumptionRegistry,
+    AssumptionSet,
+    RiskProfile,
 )
 
 

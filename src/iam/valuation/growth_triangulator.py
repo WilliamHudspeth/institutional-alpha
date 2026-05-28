@@ -17,12 +17,11 @@ Bayesian shrinkage: posterior = (Sum w_i * g_i) / (Sum w_i + tau_prior)
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Literal, Optional
-import math
 
 import numpy as np
-
 
 GrowthMethod = Literal[
     "implied", "historical", "sustainable", "bottom_up", "sector"
@@ -55,7 +54,7 @@ class TriangulatedGrowth:
     confidence: float  # 0.0 to 1.0
     estimates: list[GrowthEstimate] = field(default_factory=list)
     method_disagreement: float = 0.0  # Std dev across estimators
-    dominant_method: Optional[GrowthMethod] = None
+    dominant_method: GrowthMethod | None = None
     margin_adjustment: float = 0.0  # Applied margin trajectory penalty/bonus
     raw_growth: float = 0.0  # Before margin adjustment
 
@@ -81,12 +80,12 @@ class TriangulatedGrowth:
 
 
 def estimate_implied_growth(
-    price: Optional[float],
-    fcf_ttm: Optional[float],
-    shares_outstanding: Optional[float],
+    price: float | None,
+    fcf_ttm: float | None,
+    shares_outstanding: float | None,
     wacc: float = 0.09,
     terminal_growth: float = 0.025,
-) -> Optional[GrowthEstimate]:
+) -> GrowthEstimate | None:
     """Solve for implied growth that justifies current price.
 
     Uses a 2-stage DCF: 5 years of high growth + perpetual terminal.
@@ -140,9 +139,9 @@ def estimate_implied_growth(
 
 def estimate_historical_growth(
     revenue_history: list[float],
-    fcf_history: Optional[list[float]] = None,
+    fcf_history: list[float] | None = None,
     min_years: int = 3,
-) -> Optional[GrowthEstimate]:
+) -> GrowthEstimate | None:
     """Compute smoothed historical CAGR with outlier removal.
 
     Uses log-CAGR to reduce sensitivity to endpoints. Drops top/bottom 10%
@@ -205,10 +204,10 @@ def estimate_historical_growth(
 
 
 def estimate_sustainable_growth(
-    roe: Optional[float],
-    payout_ratio: Optional[float] = None,
-    roic_history: Optional[list[float]] = None,
-) -> Optional[GrowthEstimate]:
+    roe: float | None,
+    payout_ratio: float | None = None,
+    roic_history: list[float] | None = None,
+) -> GrowthEstimate | None:
     """Compute sustainable growth from ROE and retention rate.
 
     Formula: g = ROE * (1 - payout_ratio)
@@ -263,11 +262,11 @@ def estimate_sustainable_growth(
 
 
 def estimate_bottom_up_growth(
-    revenue_growth_5y: Optional[float],
-    operating_margin: Optional[float],
-    operating_margin_5y_avg: Optional[float],
+    revenue_growth_5y: float | None,
+    operating_margin: float | None,
+    operating_margin_5y_avg: float | None,
     reinvestment_rate: float = 0.5,
-) -> Optional[GrowthEstimate]:
+) -> GrowthEstimate | None:
     """Bottom-up build: revenue growth x margin trajectory x reinvestment.
 
     Args:
@@ -307,7 +306,7 @@ def estimate_bottom_up_growth(
 
 def estimate_sector_growth(
     sector: str,
-    sector_growth_table: Optional[dict[str, float]] = None,
+    sector_growth_table: dict[str, float] | None = None,
 ) -> GrowthEstimate:
     """Sector-median growth as prior baseline.
 
@@ -346,7 +345,7 @@ def estimate_sector_growth(
 
 
 def detect_margin_trajectory(
-    operating_margin: Optional[float],
+    operating_margin: float | None,
     operating_margin_history: list[float],
     threshold: float = 0.10,
 ) -> dict[str, float | str]:
@@ -416,7 +415,7 @@ def detect_margin_trajectory(
 
 
 def triangulate_growth(
-    estimates: list[Optional[GrowthEstimate]],
+    estimates: list[GrowthEstimate | None],
     margin_adjustment: float = 0.0,
     prior_strength: float = 0.5,
 ) -> TriangulatedGrowth:

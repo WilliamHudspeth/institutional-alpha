@@ -21,16 +21,15 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 import numpy as np
 from scipy.optimize import brentq
 
-
 # ---------------------------------------------------------------------------
 # Base variances per estimator (tuned for typical financial data quality)
 # ---------------------------------------------------------------------------
-_BASE_VAR: Dict[str, float] = {
+_BASE_VAR: dict[str, float] = {
     "implied":    0.0025,  # Low when FCF is clean; rises with FCF noise
     "historical": 0.0050,  # Moderate; rises with earnings volatility
     "sustainable": 0.0100,  # ROIC estimation has meaningful uncertainty
@@ -54,11 +53,11 @@ class GrowthEstimate:
 class GrowthEngineResult:
     mean_growth: float
     std_dev: float
-    estimates: List[GrowthEstimate] = field(default_factory=list)
+    estimates: list[GrowthEstimate] = field(default_factory=list)
     growth_haircut: float = 0.0        # From margin trajectory
     terminal_haircut: float = 0.0      # From margin trajectory
     margin_trajectory_notes: str = ""
-    fade_path: List[float] = field(default_factory=list)
+    fade_path: list[float] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -117,21 +116,21 @@ class GrowthEstimatorEngine:
         net_debt: float,
         wacc: float,
         terminal_growth: float = 0.025,
-        growth_3y: Optional[float] = None,
-        growth_5y: Optional[float] = None,
-        growth_10y: Optional[float] = None,
-        roic: Optional[float] = None,
-        reinvestment_rate: Optional[float] = None,
-        revenue_growth_recent: Optional[float] = None,
-        gross_margin_current: Optional[float] = None,
-        gross_margin_lag: Optional[float] = None,
-        capex_to_sales: Optional[float] = None,
+        growth_3y: float | None = None,
+        growth_5y: float | None = None,
+        growth_10y: float | None = None,
+        roic: float | None = None,
+        reinvestment_rate: float | None = None,
+        revenue_growth_recent: float | None = None,
+        gross_margin_current: float | None = None,
+        gross_margin_lag: float | None = None,
+        capex_to_sales: float | None = None,
         sector_growth_prior: float = 0.06,
-        margin_history: Optional[List[float]] = None,
-        peer_margin_avg: Optional[float] = None,
+        margin_history: list[float] | None = None,
+        peer_margin_avg: float | None = None,
         is_bubble_regime: bool = False,
         is_structural_break: bool = False,
-        reliability_errors: Optional[Dict[str, float]] = None,
+        reliability_errors: dict[str, float] | None = None,
         moat_durability: float = 0.7,
     ) -> None:
         self.market_cap = market_cap
@@ -188,7 +187,7 @@ class GrowthEstimatorEngine:
         equity_value = pv - self.net_debt
         return equity_value
 
-    def implied_growth(self) -> Optional[GrowthEstimate]:
+    def implied_growth(self) -> GrowthEstimate | None:
         """Solve for the growth rate that makes DCF equal current market cap.
 
         Uses Brent's method on the equity value function. Returns None when
@@ -247,7 +246,7 @@ class GrowthEstimatorEngine:
     # Historical CAGR
     # ------------------------------------------------------------------
 
-    def historical_cagr(self) -> Optional[GrowthEstimate]:
+    def historical_cagr(self) -> GrowthEstimate | None:
         """Median of available lookback CAGRs after winsorization.
 
         Uses 3Y, 5Y, 10Y if available. Clips each to [-0.15, 0.40] to
@@ -283,7 +282,7 @@ class GrowthEstimatorEngine:
     # Sustainable growth (ROIC-based, not ROE-based)
     # ------------------------------------------------------------------
 
-    def sustainable_growth(self) -> Optional[GrowthEstimate]:
+    def sustainable_growth(self) -> GrowthEstimate | None:
         """ROIC × reinvestment_rate — leverage-neutral sustainable growth.
 
         Avoids the ROE distortion from financial leverage. Critical for
@@ -317,7 +316,7 @@ class GrowthEstimatorEngine:
     # Bottom-up build
     # ------------------------------------------------------------------
 
-    def bottom_up_growth(self) -> Optional[GrowthEstimate]:
+    def bottom_up_growth(self) -> GrowthEstimate | None:
         """Revenue growth + margin improvement + reinvestment efficiency.
 
         Formula: g = rev_growth + margin_delta × 0.3 + (efficiency_factor - 1) × 0.1
@@ -378,7 +377,7 @@ class GrowthEstimatorEngine:
     # Margin trajectory haircuts
     # ------------------------------------------------------------------
 
-    def margin_penalty_factors(self) -> Tuple[float, float]:
+    def margin_penalty_factors(self) -> tuple[float, float]:
         """Compute (growth_haircut, terminal_multiple_haircut) from margin signals.
 
         Analyses four signals: slope, acceleration, volatility, peer deviation.
@@ -468,8 +467,8 @@ class GrowthEstimatorEngine:
     # ------------------------------------------------------------------
 
     def compute_weights(
-        self, estimates: List[GrowthEstimate]
-    ) -> List[GrowthEstimate]:
+        self, estimates: list[GrowthEstimate]
+    ) -> list[GrowthEstimate]:
         """Assign inverse-variance weights and normalize.
 
         w_i = 1 / (variance_i + lambda * regime_penalty_i)
@@ -502,7 +501,7 @@ class GrowthEstimatorEngine:
             5. Return GrowthEngineResult with full audit trail
         """
         # Collect raw estimates
-        raw_estimates: List[GrowthEstimate] = []
+        raw_estimates: list[GrowthEstimate] = []
         for est in [
             self.implied_growth(),
             self.historical_cagr(),
@@ -564,7 +563,7 @@ class GrowthEstimatorEngine:
 
     def growth_persistence_profile(
         self, base_growth: float, years: int = 10
-    ) -> List[float]:
+    ) -> list[float]:
         """Exponential decay from base_growth toward terminal_growth.
 
         decay_speed = 1.0 - moat_durability
@@ -588,11 +587,11 @@ class GrowthEstimatorEngine:
 
 def build_engine_from_security(
     security,
-    sector_growth_table: Optional[Dict[str, float]] = None,
+    sector_growth_table: dict[str, float] | None = None,
     is_bubble_regime: bool = False,
     is_structural_break: bool = False,
     moat_durability: float = 0.7,
-    reliability_errors: Optional[Dict[str, float]] = None,
+    reliability_errors: dict[str, float] | None = None,
 ) -> GrowthEstimatorEngine:
     """Construct a GrowthEstimatorEngine from a Security object.
 
@@ -628,16 +627,16 @@ def build_engine_from_security(
     # Historical CAGRs from FCF history (preferred) or revenue history
     hist = f.fcf_history if f.fcf_history and len(f.fcf_history) >= 3 else f.revenue_history
 
-    def _cagr(series: Optional[List[float]], n: int) -> Optional[float]:
+    def _cagr(series: list[float] | None, n: int) -> float | None:
         if not series or len(series) <= n:
             return None
         clean = [x for x in series if x is not None and x > 0]
         if len(clean) <= n:
             return None
-        end, start = clean[0], clean[n]
+        end, start = float(clean[0]), float(clean[n])
         if start <= 0:
             return None
-        return (end / start) ** (1.0 / n) - 1.0
+        return float((end / start) ** (1.0 / n) - 1.0)
 
     growth_3y = _cagr(hist, 3)
     growth_5y = _cagr(hist, 5)

@@ -8,6 +8,7 @@ trajectory adjustments to catch compression/expansion cases.
 from __future__ import annotations
 
 from typing import Optional
+
 import numpy as np
 
 from iam.data.security import Security
@@ -24,7 +25,7 @@ from iam.valuation.growth_triangulator import (
 )
 
 
-def _safe_get_history_avg(history: list[float], years: int = 5) -> Optional[float]:
+def _safe_get_history_avg(history: list[float], years: int = 5) -> float | None:
     """Get mean of first N values in a history list."""
     if not history:
         return None
@@ -34,7 +35,7 @@ def _safe_get_history_avg(history: list[float], years: int = 5) -> Optional[floa
     return float(np.mean(clean))
 
 
-def _compute_revenue_cagr(revenue_history: list[float], years: int = 5) -> Optional[float]:
+def _compute_revenue_cagr(revenue_history: list[float], years: int = 5) -> float | None:
     """Compute CAGR from revenue history (most-recent-first)."""
     if not revenue_history or len(revenue_history) < 2:
         return None
@@ -51,7 +52,7 @@ def _compute_revenue_cagr(revenue_history: list[float], years: int = 5) -> Optio
 
 def _compute_eps_volatility(
     revenue_history: list[float], fcf_history: list[float]
-) -> Optional[float]:
+) -> float | None:
     """Compute company-specific volatility from EPS/revenue/FCF history.
 
     Uses FCF if available, else revenue. Returns std dev of year-over-year
@@ -87,8 +88,8 @@ def _compute_eps_volatility(
 
 def build_company_profile(
     security: Security,
-    sector_growth_table: Optional[dict[str, float]] = None,
-    adjacent_growth: Optional[float] = None,
+    sector_growth_table: dict[str, float] | None = None,
+    adjacent_growth: float | None = None,
 ) -> CompanyProfile:
     """Build CompanyProfile using triangulated growth estimation.
 
@@ -175,7 +176,7 @@ def build_company_profile(
 
 def triangulate_growth_for_security(
     security: Security,
-    sector_growth_table: Optional[dict[str, float]] = None,
+    sector_growth_table: dict[str, float] | None = None,
 ) -> TriangulatedGrowth:
     """Run full growth triangulation for a security.
 

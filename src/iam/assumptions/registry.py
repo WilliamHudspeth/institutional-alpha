@@ -6,7 +6,7 @@ and allows sector-specific customization. Enables reproducible, auditable analys
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Optional
 
@@ -346,7 +346,7 @@ class AssumptionRegistry:
 
         return comparison
 
-    def generate_report(self, risk_profile: RiskProfile, sector: Optional[str] = None) -> str:
+    def generate_report(self, risk_profile: RiskProfile, sector: str | None = None) -> str:
         """Generate a text report of assumptions.
 
         Args:

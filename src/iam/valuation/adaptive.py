@@ -8,7 +8,8 @@ to compute realistic 10-year forward curves.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, Optional, Dict
+from typing import Literal
+
 import numpy as np
 
 BusinessType = Literal["stable", "moat_tech", "financial", "cyclical"]
@@ -56,7 +57,7 @@ class AdaptiveValuationEngine:
         # In practice, this would check margin, volatility, sector, etc.
         return "stable"
 
-    def phase2_divergence(self, p: CompanyProfile) -> Dict[str, float | str]:
+    def phase2_divergence(self, p: CompanyProfile) -> dict[str, float | str]:
         """Compute adaptive 25% band based on volatility and business type.
 
         Returns:
@@ -179,7 +180,7 @@ class AdaptiveValuationEngine:
 
         return [float(g) for g in growth_path]
 
-    def phase4_confidence(self, p: CompanyProfile, div: Dict) -> str:
+    def phase4_confidence(self, p: CompanyProfile, div: dict) -> str:
         """Grade confidence based on spread and business type.
 
         Args:
@@ -212,7 +213,7 @@ class AdaptiveValuationEngine:
 
         return grade
 
-    def run(self, p: CompanyProfile) -> Dict:
+    def run(self, p: CompanyProfile) -> dict:
         """Run the full adaptive valuation engine.
 
         Args:

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
+from iam.data.security import Fundamentals, MarketData, Security
 from iam.valuation.probabilistic_growth import GrowthEstimatorEngine, build_engine_from_security
-from iam.data.security import Security, Fundamentals, MarketData
-
 
 # ---------------------------------------------------------------------------
 # Helpers

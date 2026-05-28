@@ -1,15 +1,15 @@
 """Tests for adaptive valuation engine and profile builder."""
 
-import pytest
 import numpy as np
+import pytest
 
+from iam.data.security import Fundamentals, MarketData, Security
 from iam.valuation.adaptive import (
     AdaptiveValuationEngine,
     BusinessType,
     CompanyProfile,
 )
 from iam.valuation.profile_builder import build_company_profile
-from iam.data.security import Security, Fundamentals, MarketData
 
 
 class TestCompanyProfile:
