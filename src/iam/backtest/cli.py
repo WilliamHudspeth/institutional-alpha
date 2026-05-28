@@ -21,6 +21,7 @@ from iam.backtest.weight_optimizer import (
     WeightOptimizerConfig,
     format_weights_report,
 )
+from iam.learning_module import LearningModule
 
 app = typer.Typer()
 
@@ -245,6 +246,71 @@ def validate():
 
     typer.echo()
     typer.echo("✓ All validations passed!")
+
+
+@app.command()
+def learn(
+    mode: str = typer.Option("interactive", "--mode", help="Mode: interactive, quiz, report, or concept"),
+    concept: str = typer.Option(None, "--concept", help="Specific concept to explain"),
+    quiz_questions: int = typer.Option(10, "--quiz-questions", help="Number of quiz questions"),
+):
+    """Launch the learning module to learn core valuation and backtesting concepts.
+
+    Modes:
+    - interactive: Browse concepts, take quizzes interactively
+    - quiz: Take a quiz with randomized questions
+    - concept: Look up a specific concept (requires --concept)
+    - report: Generate an HTML reference guide
+
+    Examples:
+        python -m iam.backtest.cli learn
+        python -m iam.backtest.cli learn --mode quiz --quiz-questions 20
+        python -m iam.backtest.cli learn --mode concept --concept "Information Coefficient"
+        python -m iam.backtest.cli learn --mode report
+    """
+    lm = LearningModule()
+
+    if mode == "concept" and concept:
+        typer.echo(lm.explain_concept(concept))
+    elif mode == "quiz":
+        typer.echo(f"🎓 Starting quiz with {quiz_questions} questions...\n")
+        lm.run_quiz(quiz_questions)
+    elif mode == "report":
+        typer.echo("📄 Generating HTML report...")
+        lm.generate_html_report()
+        typer.echo("✓ Report saved to learning_report.html")
+    else:  # interactive
+        while True:
+            typer.echo("\n" + "="*50)
+            typer.echo("📖 Institutional Alpha Learning Module")
+            typer.echo("="*50)
+            typer.echo("1. Explain a concept")
+            typer.echo("2. Take a quiz")
+            typer.echo("3. Generate HTML report")
+            typer.echo("4. List all concepts")
+            typer.echo("0. Exit")
+            choice = typer.prompt("Select option")
+            if choice == "1":
+                concept_name = typer.prompt("Enter concept name (or partial)")
+                typer.echo(lm.explain_concept(concept_name))
+            elif choice == "2":
+                n_str = typer.prompt("Number of questions (default 10)", default="10")
+                n = int(n_str) if n_str.isdigit() else 10
+                typer.echo()
+                lm.run_quiz(n)
+            elif choice == "3":
+                typer.echo("📄 Generating HTML report...")
+                lm.generate_html_report()
+                typer.echo("✓ Report saved to learning_report.html")
+            elif choice == "4":
+                typer.echo("\n📚 Available Concepts:")
+                for c in sorted(lm.concepts.keys()):
+                    typer.echo(f"  • {c}")
+            elif choice == "0":
+                break
+            else:
+                typer.echo("Invalid choice")
+        typer.echo("Goodbye!")
 
 
 if __name__ == "__main__":
