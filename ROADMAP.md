@@ -178,11 +178,17 @@ Unlike black-box ML approaches, every output decomposes to its factor components
   - Macro hedge recommendations
   - Risk parity weighting
 
-- [ ] **Dashboard & Terminal UI**
-  - Real-time factor scorecards
-  - Valuation range visualization
-  - Macro regime display
-  - Performance analytics
+- [x] **Interactive ANSI Terminal UI**
+  - [x] Pure ANSI escape-sequence renderer (no heavy library dependency)
+  - [x] Interactive side-panel layout with custom grid alignments
+  - [x] Live fluctuating portfolio watchlist with dynamic sparklines
+  - [x] Solid block factor scorecard meters & custom animation engines
+
+- [ ] **Desktop Integration: C# ASP.NET Micro-Widget**
+  - [ ] Standalone C# .NET 8 desktop webview/window container
+  - [ ] Compact side-panel view (occupies 1/4 of screen)
+  - [ ] Real-time local API sync to the Python valuation engine
+  - [ ] Glowing glassmorphic widgets & real-time visual alerts
 
 - [ ] **Plugin Architecture**
   - Custom lens registration
