@@ -16,6 +16,7 @@ normalization and missing-data conventions.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -64,7 +65,7 @@ class Factor(ABC):
         return max(lo, min(hi, x))
 
     @staticmethod
-    def weighted_average(parts: dict[str, tuple[float, float]]) -> float:
+    def weighted_average(parts: Mapping[str, tuple[float | None, float]]) -> float:
         """Weighted average of (value, weight) pairs, ignoring None values.
 
         Example:

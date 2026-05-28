@@ -43,9 +43,14 @@ def synthesize_lenses(lenses: Sequence[LensResult]) -> SynthesisResult:
             narratives=narratives,
         )
 
-    weighted_low = sum(l.fair_value_low * l.confidence for l in valid_lenses) / total_conf
-    weighted_high = sum(l.fair_value_high * l.confidence for l in valid_lenses) / total_conf
-    weighted_move = sum(l.implied_move_pct * l.confidence for l in valid_lenses) / total_conf
+    # Ensure mypy knows these are float (we already filtered out None in valid_lenses)
+    weighted_low = sum((l.fair_value_low or 0.0) * l.confidence for l in valid_lenses) / total_conf
+    weighted_high = (
+        sum((l.fair_value_high or 0.0) * l.confidence for l in valid_lenses) / total_conf
+    )
+    weighted_move = (
+        sum((l.implied_move_pct or 0.0) * l.confidence for l in valid_lenses) / total_conf
+    )
 
     return SynthesisResult(
         weighted_fair_value_low=weighted_low,
