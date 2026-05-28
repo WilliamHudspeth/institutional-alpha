@@ -250,28 +250,31 @@ def validate():
 
 @app.command()
 def learn(
-    mode: str = typer.Option("interactive", "--mode", help="Mode: interactive, quiz, report, or concept"),
-    concept: str = typer.Option(None, "--concept", help="Specific concept to explain"),
+    mode: str = typer.Option("interactive", "--mode", help="Mode: interactive, quiz, report, concept, or markdown"),
+    concept: str = typer.Option(None, "--concept", help="Specific concept to explain (for --mode concept)"),
+    detailed: bool = typer.Option(False, "--detailed", help="Show detailed explanation with examples and pitfalls"),
     quiz_questions: int = typer.Option(10, "--quiz-questions", help="Number of quiz questions"),
 ):
     """Launch the learning module to learn core valuation and backtesting concepts.
 
     Modes:
-    - interactive: Browse concepts, take quizzes interactively
+    - interactive: Browse concepts, take quizzes interactively (default)
     - quiz: Take a quiz with randomized questions
     - concept: Look up a specific concept (requires --concept)
     - report: Generate an HTML reference guide
+    - markdown: Export all concepts to markdown file for offline reading
 
     Examples:
         python -m iam.backtest.cli learn
         python -m iam.backtest.cli learn --mode quiz --quiz-questions 20
-        python -m iam.backtest.cli learn --mode concept --concept "Information Coefficient"
+        python -m iam.backtest.cli learn --mode concept --concept "Information Coefficient" --detailed
         python -m iam.backtest.cli learn --mode report
+        python -m iam.backtest.cli learn --mode markdown
     """
     lm = LearningModule()
 
     if mode == "concept" and concept:
-        typer.echo(lm.explain_concept(concept))
+        typer.echo(lm.explain_concept(concept, detailed=detailed))
     elif mode == "quiz":
         typer.echo(f"🎓 Starting quiz with {quiz_questions} questions...\n")
         lm.run_quiz(quiz_questions)
@@ -279,6 +282,10 @@ def learn(
         typer.echo("📄 Generating HTML report...")
         lm.generate_html_report()
         typer.echo("✓ Report saved to learning_report.html")
+    elif mode == "markdown":
+        typer.echo("📝 Generating markdown notes...")
+        lm.generate_markdown_notes()
+        typer.echo("✓ Notes saved to concepts.md")
     else:  # interactive
         while True:
             typer.echo("\n" + "="*50)
@@ -287,12 +294,14 @@ def learn(
             typer.echo("1. Explain a concept")
             typer.echo("2. Take a quiz")
             typer.echo("3. Generate HTML report")
-            typer.echo("4. List all concepts")
+            typer.echo("4. Generate Markdown notes")
+            typer.echo("5. List all concepts")
             typer.echo("0. Exit")
             choice = typer.prompt("Select option")
             if choice == "1":
                 concept_name = typer.prompt("Enter concept name (or partial)")
-                typer.echo(lm.explain_concept(concept_name))
+                detailed_opt = typer.prompt("Detailed explanation? (y/n)", default="n") == 'y'
+                typer.echo(lm.explain_concept(concept_name, detailed=detailed_opt))
             elif choice == "2":
                 n_str = typer.prompt("Number of questions (default 10)", default="10")
                 n = int(n_str) if n_str.isdigit() else 10
@@ -303,6 +312,10 @@ def learn(
                 lm.generate_html_report()
                 typer.echo("✓ Report saved to learning_report.html")
             elif choice == "4":
+                typer.echo("📝 Generating markdown notes...")
+                lm.generate_markdown_notes()
+                typer.echo("✓ Notes saved to concepts.md")
+            elif choice == "5":
                 typer.echo("\n📚 Available Concepts:")
                 for c in sorted(lm.concepts.keys()):
                     typer.echo(f"  • {c}")

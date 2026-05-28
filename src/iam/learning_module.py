@@ -5,8 +5,9 @@ learning_module.py – Interactive educational tool for institutional finance co
 Usage:
     python -m iam.learning_module --mode interactive
     python -m iam.learning_module --mode quiz --quiz_questions 20
-    python -m iam.learning_module --concept "Information Coefficient"
+    python -m iam.learning_module --concept "Information Coefficient" --detailed
     python -m iam.learning_module --mode report
+    python -m iam.learning_module --mode markdown > concepts.md
 """
 
 import json
@@ -14,6 +15,12 @@ import random
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+try:
+    from iam.concept_library_expanded import EXPANDED_CONCEPTS
+    HAS_EXPANDED = True
+except ImportError:
+    HAS_EXPANDED = False
 
 # Concept Library – definitions + where to find them in the code
 CONCEPTS = {
@@ -352,10 +359,11 @@ ALL_QUESTIONS = QUIZ_QUESTIONS + TF_QUESTIONS
 class LearningModule:
     def __init__(self):
         self.concepts = CONCEPTS
+        self.expanded = EXPANDED_CONCEPTS if HAS_EXPANDED else {}
         self.questions = ALL_QUESTIONS.copy()
         random.shuffle(self.questions)
 
-    def explain_concept(self, concept_name: str) -> str:
+    def explain_concept(self, concept_name: str, detailed: bool = False) -> str:
         """Return definition + code reference for a concept."""
         if concept_name not in self.concepts:
             similar = [c for c in self.concepts if concept_name.lower() in c.lower()]
@@ -363,6 +371,11 @@ class LearningModule:
                 concept_name = similar[0]
             else:
                 return f"Concept '{concept_name}' not found. Try one of: {', '.join(list(self.concepts.keys())[:10])}..."
+
+        # Use expanded version if available and requested
+        if detailed and concept_name in self.expanded:
+            return self._explain_detailed(concept_name)
+
         c = self.concepts[concept_name]
         return f"""
 📘 {concept_name}
@@ -371,6 +384,31 @@ class LearningModule:
 
 🔧 Code reference: {c['code_ref']}
 🧮 Formula: {c.get('formula', 'N/A')}
+"""
+
+    def _explain_detailed(self, concept_name: str) -> str:
+        """Return detailed explanation with examples, pitfalls, and references."""
+        if concept_name not in self.expanded:
+            return f"Detailed explanation not available for '{concept_name}'"
+        c = self.expanded[concept_name]
+        return f"""
+📘 {concept_name}
+{'═' * 70}
+
+**Definition & Context:**
+{c['extended']}
+
+**Concrete Example:**
+{c['example']}
+
+**⚠️  Common Pitfall:**
+{c['pitfall']}
+
+**📚 Academic References:**
+{c['reference']}
+
+**🔧 Code Location:**
+{c['code_ref']}
 """
 
     def run_quiz(self, num_questions: int = None) -> Tuple[int, int]:
@@ -446,22 +484,49 @@ h1, h2 { color: #1a3d72; }
             f.write(html)
         print(f"HTML report saved to {output_file}")
 
+    def generate_markdown_notes(self, output_file: str = "concepts.md") -> None:
+        """Generate detailed markdown notes for all concepts."""
+        source = self.expanded if HAS_EXPANDED else self.concepts
+        with open(output_file, 'w') as f:
+            f.write("# Institutional Alpha – Concept Library\n\n")
+            f.write("Comprehensive reference for institutional finance concepts in the backtest engine.\n\n")
+            f.write("---\n\n")
+            for i, (name, data) in enumerate(sorted(source.items()), 1):
+                f.write(f"## {i}. {name}\n\n")
+                if HAS_EXPANDED and 'extended' in data:
+                    f.write(f"### Definition\n{data['extended']}\n\n")
+                    f.write(f"### Example\n{data['example']}\n\n")
+                    f.write(f"### Common Pitfall\n{data['pitfall']}\n\n")
+                    f.write(f"### References\n{data['reference']}\n\n")
+                    f.write(f"### Code Location\n```\n{data['code_ref']}\n```\n\n")
+                else:
+                    f.write(f"**Definition:** {data['definition']}\n\n")
+                    f.write(f"**Code reference:** {data['code_ref']}\n\n")
+                    if data.get('formula'):
+                        f.write(f"**Formula:** {data['formula']}\n\n")
+                f.write("---\n\n")
+        print(f"Markdown notes saved to {output_file}")
+
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="Institutional Alpha Learning Module")
-    parser.add_argument("--mode", choices=["interactive", "quiz", "report", "concept"], default="interactive")
-    parser.add_argument("--concept", type=str, help="Concept name to explain")
+    parser.add_argument("--mode", choices=["interactive", "quiz", "report", "concept", "markdown"], default="interactive",
+                        help="Mode: interactive, quiz, concept lookup, report (HTML), or markdown export")
+    parser.add_argument("--concept", type=str, help="Concept name to explain (for --mode concept)")
+    parser.add_argument("--detailed", action="store_true", help="Show detailed explanation with examples (requires expanded library)")
     parser.add_argument("--quiz_questions", type=int, default=10, help="Number of quiz questions")
     args = parser.parse_args()
 
     lm = LearningModule()
 
     if args.mode == "concept" and args.concept:
-        print(lm.explain_concept(args.concept))
+        print(lm.explain_concept(args.concept, detailed=args.detailed))
     elif args.mode == "quiz":
         lm.run_quiz(args.quiz_questions)
     elif args.mode == "report":
         lm.generate_html_report()
+    elif args.mode == "markdown":
+        lm.generate_markdown_notes()
     else:  # interactive
         while True:
             print("\n" + "="*50)
@@ -470,12 +535,14 @@ def main():
             print("1. Explain a concept")
             print("2. Take a quiz")
             print("3. Generate HTML report")
-            print("4. List all concepts")
+            print("4. Generate Markdown notes")
+            print("5. List all concepts")
             print("0. Exit")
             choice = input("Select option: ").strip()
             if choice == "1":
                 concept = input("Enter concept name (or partial): ")
-                print(lm.explain_concept(concept))
+                detailed_opt = input("Detailed explanation? (y/n, default n): ").strip().lower() == 'y'
+                print(lm.explain_concept(concept, detailed=detailed_opt))
             elif choice == "2":
                 n = input("Number of questions (default 10): ")
                 n = int(n) if n.isdigit() else 10
@@ -483,6 +550,8 @@ def main():
             elif choice == "3":
                 lm.generate_html_report()
             elif choice == "4":
+                lm.generate_markdown_notes()
+            elif choice == "5":
                 for c in sorted(lm.concepts.keys()):
                     print(f"  • {c}")
             elif choice == "0":
