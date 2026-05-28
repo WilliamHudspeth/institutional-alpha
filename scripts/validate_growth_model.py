@@ -22,6 +22,7 @@ from iam.valuation.profile_builder import (
     triangulate_growth_for_security,
 )
 from iam.valuation.adaptive import AdaptiveValuationEngine
+from iam.valuation.probabilistic_growth import build_engine_from_security
 
 
 def make_security(
@@ -155,6 +156,16 @@ def validate_security(security):
         else "SELL"
     )
     print(f"\n  → {rating}")
+
+    # Probabilistic engine comparison
+    prob_eng = build_engine_from_security(security, moat_durability=0.7)
+    prob_result = prob_eng.blended_growth()
+    print(f"\n  PROBABILISTIC ENGINE (brentq + regime-aware)")
+    print(f"  Mean Growth:      {prob_result.mean_growth:>+7.2%}")
+    print(f"  Std Dev:          {prob_result.std_dev:>7.2%}")
+    print(f"  Growth Haircut:   {prob_result.growth_haircut:>7.2%}x")
+    print(f"  Terminal Haircut: {prob_result.terminal_haircut:>7.2%}x")
+    print(f"  Fade: {' → '.join(f'{g:+.1%}' for g in prob_result.fade_path[::3])}")
 
 
 def main():
