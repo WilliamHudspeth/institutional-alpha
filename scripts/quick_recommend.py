@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Simple CLI for quick BUY/HOLD/SELL recommendations on any stock.
+"""Fast BUY/HOLD/SELL recommendations (10 seconds) using adaptive valuation.
 
 Usage:
     python quick_recommend.py
     → Enter ticker
-    → Get instant BUY/HOLD/SELL recommendation
-    → Optionally see detailed analysis
+    → Get instant BUY/HOLD/SELL recommendation without asking for growth
+    → Optionally see detailed valuation metrics
 """
 
 from __future__ import annotations
@@ -14,13 +14,15 @@ import sys
 import re
 
 from src.iam.data.yahoo import fetch_security
-from src.iam.pipeline.orchestrator import ValuationPipeline
+from src.iam.valuation.adaptive import AdaptiveValuationEngine
+from src.iam.valuation.profile_builder import build_company_profile
 
 
 def print_banner() -> None:
     """Print welcome banner."""
     print("\n" + "=" * 76)
-    print("  INSTITUTIONAL ALPHA - QUICK STOCK RECOMMENDATION")
+    print("  INSTITUTIONAL ALPHA - 10-SECOND STOCK RECOMMENDATION")
+    print("  Adaptive Valuation Engine (no growth forecasts required)")
     print("=" * 76)
     print()
 
@@ -43,105 +45,121 @@ def get_ticker() -> str:
         return ticker
 
 
-def get_forecast_growth() -> float:
-    """Prompt for optional forecast growth override."""
-    growth_input = input(
-        "  Forecast growth [press Enter for 8%]: "
-    ).strip()
+def rating_from_confidence(confidence: str) -> str:
+    """Convert confidence grade to BUY/HOLD/SELL.
 
-    if not growth_input:
-        return 0.08
+    Args:
+        confidence: Grade from adaptive engine ("A", "B", or "C")
 
-    try:
-        # Handle both 8 and 0.08 formats
-        g = float(growth_input)
-        if g > 1:  # Assuming user entered percentage
-            return g / 100
-        return g
-    except ValueError:
-        print("  ⚠️  Invalid input, using default 8%")
-        return 0.08
+    Returns:
+        Rating string: "BUY", "HOLD", or "SELL"
+    """
+    if confidence == "A":
+        return "BUY"
+    elif confidence == "B":
+        return "HOLD"
+    else:
+        return "SELL"
 
 
-def format_rating_box(rating: str, confidence: str, upside: float, price: float, fair_value: float) -> str:
+def format_rating_box(
+    rating: str,
+    confidence: str,
+    business_type: str,
+    year1_growth: float,
+    year10_growth: float,
+) -> str:
     """Format recommendation as a clean box."""
     lines = []
     lines.append("  " + "╔" + "═" * 72 + "╗")
-    lines.append(f"  ║  RECOMMENDATION: {rating:20} CONFIDENCE: {confidence:15} ║")
+    lines.append(
+        f"  ║  {rating:20} │ Confidence: {confidence:2} │ Type: {business_type:15} ║"
+    )
     lines.append("  " + "║" + "─" * 72 + "║")
-    lines.append(f"  ║  Current Price:     ${price:10.2f}                                    ║")
-    lines.append(f"  ║  Fair Value:        ${fair_value:10.2f}                                    ║")
-    lines.append(f"  ║  Upside/Downside:   {upside:10.1%}                                    ║")
+    lines.append(f"  ║  Year 1 Growth:     {year1_growth:6.1%}                                    ║")
+    lines.append(f"  ║  Year 10 Growth:    {year10_growth:6.1%}                                    ║")
     lines.append("  " + "╚" + "═" * 72 + "╝")
     return "\n".join(lines)
 
 
-def show_recommendation(ticker: str, forecast_growth: float) -> None:
-    """Fetch security and show recommendation."""
-    print("\n  ⏳ Fetching data and running analysis...\n")
+def show_recommendation(ticker: str) -> None:
+    """Fetch security, run adaptive valuation, show recommendation."""
+    print("\n  ⏳ Fetching data and running adaptive valuation...\n")
 
     try:
         # Fetch security
         security = fetch_security(ticker)
-        print(f"  ✓ {security.name} loaded\n")
+        print(f"  ✓ {security.name} loaded")
+        print(f"  ✓ Sector: {security.sector}\n")
 
-        # Set forecast growth
-        security.qualitative["forecast_growth"] = forecast_growth
+        # Build company profile
+        profile = build_company_profile(security)
 
-        # Run pipeline
-        pipeline = ValuationPipeline()
-        report = pipeline.run(security)
+        # Run adaptive valuation engine
+        engine = AdaptiveValuationEngine()
+        result = engine.run(profile)
 
-        # Extract key values
-        if report.final_verdict:
-            rating = report.final_verdict.rating
-            confidence = report.final_verdict.confidence_band
-            blended_upside = report.final_verdict.blended_upside or report.implied_move_pct or 0
-        else:
-            rating = "INCONCLUSIVE"
-            confidence = "LOW"
-            blended_upside = 0
-
-        fair_value = (security.market.price or 0) * (1 + blended_upside)
+        # Extract results
+        rating = rating_from_confidence(result["confidence"])
+        confidence = result["confidence"]
+        business_type = result["type"]
+        fade_path = result["fade_path"]
 
         # Display recommendation
-        print(format_rating_box(
-            rating,
-            confidence,
-            blended_upside,
-            security.market.price or 0,
-            fair_value
-        ))
+        print(
+            format_rating_box(
+                rating,
+                confidence,
+                business_type,
+                fade_path[0],
+                fade_path[-1],
+            )
+        )
 
-        # Show color-coded interpretation
+        # Show interpretation
         print()
         if rating == "BUY":
-            print("  🟢 BUY: Stock appears undervalued. Potential upside exceeds 15%.")
-        elif rating == "SELL":
-            print("  🔴 SELL: Stock appears overvalued. Potential downside exceeds 10%.")
+            print("  🟢 BUY: Valuation appears attractive. Historical growth exceeds implied.")
+        elif rating == "HOLD":
+            print("  🟡 HOLD: Valuation in fair range. Growth assumptions appear reasonable.")
         else:
-            print("  🟡 HOLD: Stock fairly valued. Return potential between -10% and +15%.")
+            print("  🔴 SELL: Valuation appears stretched. Implied growth exceeds sustainability.")
 
         print()
 
-        # Confidence explanation
-        if confidence == "HIGH":
-            print("  ✓ HIGH confidence: Multiple valuation methods agree on this recommendation.")
-        elif confidence == "MEDIUM":
-            print("  ⚠ MEDIUM confidence: Some divergence between methods; use with judgment.")
+        # Show confidence explanation
+        if confidence == "A":
+            print("  ✓ HIGH confidence: Growth estimates align well. Business type well-defined.")
+        elif confidence == "B":
+            print(
+                "  ⚠ MEDIUM confidence: Some divergence in growth estimates. Use with judgment."
+            )
         else:
-            print("  ⚠ LOW confidence: Limited data or high disagreement between methods.")
+            print("  ⚠ LOW confidence: High divergence or uncertain business type.")
 
         print()
 
         # Ask if user wants details
         while True:
-            details = input("  See detailed analysis? (y/n): ").strip().lower()
+            details = input("  See detailed metrics? (y/n): ").strip().lower()
             if details == "y":
                 print("\n" + "=" * 76)
-                print("  DETAILED VALUATION PIPELINE")
+                print("  ADAPTIVE VALUATION ANALYSIS")
                 print("=" * 76 + "\n")
-                print(report.explain(verbose=False))
+                print(f"  Ticker:              {result['ticker']}")
+                print(f"  Business Type:       {result['type']}")
+                print(f"  Confidence:          {result['confidence']}\n")
+                print(f"  Phase 2 (Divergence):")
+                p2 = result["phase2"]
+                print(
+                    f"    Condition:         {p2['condition']} (threshold: {p2['threshold']:.1%})"
+                )
+                print(f"    Divergence:        {p2['divergence']:.1%}")
+                print(f"    Base Growth:       {p2['base_growth']:.1%}\n")
+                print(f"  Phase 3 (10-Year Fade Path):")
+                for i, g in enumerate(fade_path, 1):
+                    print(f"    Year {i:2d}:  {g:.1%}")
+                print()
                 break
             elif details == "n":
                 print("\n  ✓ Done!\n")
@@ -163,10 +181,8 @@ def main() -> None:
     while True:
         ticker = get_ticker()
         print()
-        forecast_growth = get_forecast_growth()
-        print()
 
-        show_recommendation(ticker, forecast_growth)
+        show_recommendation(ticker)
 
         # Ask if user wants another
         print()
