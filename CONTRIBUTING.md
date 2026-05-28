@@ -69,7 +69,7 @@ Our GitHub Actions pipeline validates:
 
 ## Design Principles
 
-Follow these core principles (documented in [CLAUDE.md](CLAUDE.md)):
+Follow these core principles (documented in [AI.md](AI.md)):
 
 1. **Factors are orthogonal** — Each factor measures one thing. Never blend valuation with quality, or quality with sentiment.
 
@@ -170,7 +170,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full details.
 ## Questions?
 
 - Check [docs/](docs/) for design documentation
-- Review [CLAUDE.md](CLAUDE.md) for project principles
+- Review [AI.md](AI.md) for project principles
 - Open a GitHub discussion
 
 ## Disclaimer

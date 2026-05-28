@@ -6,7 +6,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Awaiting: empirical IC run on real S&P 100 data. Once it passes the validation gates in [REAL_DATA_BACKTEST_STRATEGY.md](docs/REAL_DATA_BACKTEST_STRATEGY.md), v0.4.0-rc1 is promoted to v0.4.0.
+### Added
+
+- **Earnings Quality / Working Capital Quality Factor**: Fully implemented `_working_capital_quality` sub-component inside `EarningsQualityFactor` (`src/iam/factors/earnings_quality.py`). Centralized the `change_in_working_capital` property in the `Fundamentals` dataclass (`src/iam/data/security.py`) to native platform support.
+- **Expectations Difficulty / ROIC Difficulty Factor**: Fully implemented `_roic_difficulty` sub-component inside `ExpectationsDifficultyFactor` (`src/iam/factors/expectations_difficulty.py`).
+- **YFinance Live Data Adapter**: Integrated a fully robust, null-safe live Yahoo Finance data provider (`src/iam/data/providers/yfinance_adapter.py`) with clean error handling for quarterly balance sheet and income statement parsing.
+
+### Fixed
+
+- **Yahoo Finance Indentation & Duplicate Blocks**: Removed duplicate and malformed cash flow parsing blocks in `yfinance_adapter.py`'s `except Exception` clause and formatted all code with strict 4-space indentation.
+- **Type Checking Compliance**: Resolved Mypy union and operand type-checking errors in `src/iam/valuation/fcfe_dcf.py` and `synthesis.py` by introducing explicit nullability handling and type annotations.
+- **Test Assertion Cleanliness**: Fixed comment block formatting and assertions inside `tests/test_thesis_engine.py`.
+- **Formatting Standards**: Brought the entire 125-file codebase into 100% compliance with `ruff format` and `ruff check` (including `isort` import sorting).
+- **Test Suite Standardization**: Re-anchored the test suite to 502 cleanly passing tests.
 
 ---
 
@@ -85,7 +97,7 @@ Hardened backtest stack with documentation, UI, and project-structure refinement
 - Updated architecture tree to surface `sources/`, `config.py`, `manifest.py`, `cli.py`. Added `pip install -e ".[backtest]"` and a CLI quick-start (`python -m iam.backtest.cli backtest`).
 - **RELEASES.md** rewrite. Release matrix at top showing current → stable history. v0.4.0-rc1 section documents what shipped, why, and the gates that promote it to v0.4.0. v0.3.6-rc marked as rolled into v0.4.0-rc1.
 - **CHANGELOG.md** rewrite to strict Keep-a-Changelog format with Added / Changed / Fixed sections. v0.4.0-rc1 Fixed section explicitly names the three bugs caught by testing.
-- **CLAUDE.md** architecture map expanded so an agent landing fresh in the repo immediately knows where everything lives: `scripts/`, `docs/`, `data/` subdirectories all enumerated with one-line purposes.
+- **AI.md** architecture map expanded so an agent landing fresh in the repo immediately knows where everything lives: `scripts/`, `docs/`, `data/` subdirectories all enumerated with one-line purposes.
 - Cross-references updated everywhere to point at the new `docs/` and `scripts/` paths.
 
 ### User interface (terminal)
@@ -152,7 +164,7 @@ This keeps the Seed Database Strategy (v0.3.0) intact — new clones still get a
 
 **Root after cleanup** contains only project-config and onboarding:
 - Entries: `main.py`, `run.py`
-- Onboarding: `README.md`, `RELEASES.md`, `CHANGELOG.md`, `ROADMAP.md`, `CONTRIBUTING.md`, `CLAUDE.md`, `LICENSE`
+- Onboarding: `README.md`, `RELEASES.md`, `CHANGELOG.md`, `ROADMAP.md`, `CONTRIBUTING.md`, `AI.md`, `LICENSE`
 - Config: `pyproject.toml`, `.gitignore`
 - Code: `src/`, `tests/`, `scripts/`, `examples/`, `docs/`, `data/`
 

@@ -311,7 +311,7 @@ Core engine uses only: pandas, numpy. Financial theory, not ML dependencies. Eas
 - Factor methodology → See `docs/factors.md`
 - Pipeline architecture → See `docs/framework.md`
 - Valuation philosophy → See `docs/pipeline.md`
-- Code structure → See `CLAUDE.md`
+- Code structure → See `AI.md`
 
 ---
 

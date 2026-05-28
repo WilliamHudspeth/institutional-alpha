@@ -1,6 +1,6 @@
-# Claude working notes — institutional-alpha
+# AI working notes — institutional-alpha
 
-You are helping develop a multi-factor equity scoring framework.
+You are an AI coding assistant (such as Antigravity or Claude) helping develop a multi-factor equity scoring framework.
 The repo's design principles are non-negotiable. Read them before
 making changes.
 
@@ -67,19 +67,17 @@ making changes.
 
 ## Status
 
-v0.2.0 is complete and stable:
-- ✅ All 7 valuation pipeline stages implemented
-- ✅ 10 orthogonal factors + 3 penalty terms
-- ✅ Bayesian thesis engine with scenario analysis
-- ✅ BacktestHarness for historical factor evaluation
-- ✅ Interactive welcome screen and menu-driven UI
-- ✅ Damodaran-anchored peer ranking
+v0.4.0-rc1 / Recent Achievements (May 2026):
+- ✅ **New Factor Activation**: Fully activated `_working_capital_quality` (inside `EarningsQualityFactor`) and `_roic_difficulty` (inside `ExpectationsDifficultyFactor`).
+- ✅ **Data Layer Upgrades**: Built a robust, null-safe, fully formatted `yfinance_adapter.py` live data provider with strict 4-space indentation.
+- ✅ **CI-CD & Code Quality**: Upgraded the entire codebase to pass strict Mypy type-checking, Ruff formatting, and Ruff lints cleanly.
+- ✅ **Rigorous Testing**: Standardized the test suite to 500+ passing tests (e.g. test assertions formatting corrected in `test_thesis_engine.py`).
+- ✅ **Pluggable Data & Backtesting**: Added a diskcache-backed data source layer, parallel scoring, and statsmodels Newey-West HAC calculations.
 
 Future roadmap:
-- Advanced data provider adapters (FMP, other sources)
+- Real-data S&P 100 empirical IC run and validation checks
+- Portfolio-level optimization and allocation tools
 - Machine learning-enhanced factor weightings
-- Portfolio-level optimization tools
-- Real-time monitoring and alerts
 
 ## My (William's) honest context
 
