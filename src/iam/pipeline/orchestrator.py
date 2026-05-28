@@ -223,6 +223,7 @@ class ValuationPipeline:
             if security.qualitative is None:
                 security.qualitative = {}
             security.qualitative["wacc_override"] = dynamic_wacc
+            security.qualitative["wacc_info"] = wacc_info
             wacc_note = f"Dynamic WACC applied: {dynamic_wacc:.2%} (Rating: {rating})"
 
         # Stage 1: Reverse DCF

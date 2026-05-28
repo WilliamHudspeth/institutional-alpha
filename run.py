@@ -117,6 +117,8 @@ def _build_ui_data(
     else:
         macro_signal = "PASS"
 
+    wacc_info = security.qualitative.get("wacc_info") if security.qualitative else None
+
     return {
         "ticker": security.ticker,
         "name": security.name or security.ticker,
@@ -131,6 +133,7 @@ def _build_ui_data(
         ),
         "confidence": confidence_band,
         "scenarios": _build_scenarios(intrinsic_components),
+        "wacc_info": wacc_info,
         "signals": {
             "reverse_dcf": _classify_signal(report.reverse_dcf.fair_value_to_price)
             if report

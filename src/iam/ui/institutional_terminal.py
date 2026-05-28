@@ -141,6 +141,24 @@ def print_institutional_ui(data: dict[str, Any]) -> None:
     print(f"   Terminal Growth : {terminal:<15} Consensus Synthesis     : {synthesis or 'N/A'}")
     print(THIN_RULE)
 
+    # 2b. Optional WACC Quantitative details
+    wacc_info = data.get("wacc_info")
+    if wacc_info and isinstance(wacc_info, dict):
+        ke_val = wacc_info.get("cost_of_equity")
+        kd_val = wacc_info.get("cost_of_debt")
+        spread_val = wacc_info.get("spread")
+        rating_val = wacc_info.get("rating", "—")
+
+        ke_str = _fmt_pct_signed(ke_val) if ke_val is not None else "—"
+        kd_str = _fmt_pct_signed(kd_val) if kd_val is not None else "—"
+        spread_str = _fmt_pct_signed(spread_val) if spread_val is not None else "—"
+
+        print(f"║  [ QUANTITATIVE COST OF CAPITAL DETAIL ]".ljust(WIDTH - 1) + "║")
+        print(THIN_RULE)
+        print(f"   Cost of Equity (Ke)  : {ke_str:<10} Cost of Debt (Kd)    : {kd_str}")
+        print(f"   Credit Risk Rating   : {rating_val:<10} Corporate Spread     : {spread_str}")
+        print(THIN_RULE)
+
     # 3. Implied Move Gauge
     print(f"║  [ consensus IMPLIED DIRECTION GAUGE ]".ljust(WIDTH - 1) + "║")
     print(THIN_RULE)

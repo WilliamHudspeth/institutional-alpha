@@ -22,13 +22,26 @@ from iam.validation import parse_growth_rate, validate_all_assumptions
 def print_header() -> None:
     """Print the main welcome banner."""
     from iam.version import header, metadata
+
     print(header())
     meta = metadata()
     print(f"Python {meta['python']} | Research Preview\n")
 
 
 def print_menu() -> None:
-    """Print the main menu options."""
+    """Print the main menu options with persistent console header."""
+    import os
+    from iam.version import VERSION
+
+    # Clear console for immersive dedicated retro terminal experience
+    os.system("cls" if os.name == "nt" else "clear")
+
+    print("┌" + "─" * 78 + "┐")
+    print(f"│  ALADDIN-IA // SYSTEM CONSOLE // COGNITIVE MULTI-FACTOR EQUITIES PLATFORM     │")
+    print(
+        f"│  USER: wshb         SECURE TERMINAL: ACTIVE           SYSTEM VERSION: {VERSION:<14} │"
+    )
+    print("└" + "─" * 78 + "┘")
     print("What would you like to do?\n")
     print("  1. Quick recommendation (BUY/HOLD/SELL in 10 seconds)")
     print("  2. Deep dive valuation (7-stage pipeline with details)")
@@ -76,10 +89,7 @@ def get_security_input() -> str:
         ticker, resolved_name = resolve_ticker(query)
 
         if not validate_ticker(ticker):
-            print(
-                f"  '{query}' could not be resolved to a valid ticker. "
-                "Please try again."
-            )
+            print(f"  '{query}' could not be resolved to a valid ticker. Please try again.")
             continue
 
         print(f"  ✓ Ticker resolved: {ticker}", end="")
@@ -298,9 +308,7 @@ def run_quick_recommendation(ticker: str) -> None:
         print(f"  ✓ {security.name or ticker} loaded\n")
 
         # Get forecast growth
-        growth_input = input(
-            "  Forecast growth [press Enter for 8%]: "
-        ).strip()
+        growth_input = input("  Forecast growth [press Enter for 8%]: ").strip()
         forecast_growth = 0.08
         if growth_input:
             try:
@@ -332,7 +340,9 @@ def run_quick_recommendation(ticker: str) -> None:
         print("  " + "╔" + "═" * 68 + "╗")
         print(f"  ║  {rating:20} │ Confidence: {confidence:15} ║")
         print("  " + "║" + "─" * 68 + "║")
-        print(f"  ║  Current: ${security.market.price:>8.2f}  │  Fair Value: ${fair_value:>8.2f}  │  Upside: {upside:>6.1%}  ║")
+        print(
+            f"  ║  Current: ${security.market.price:>8.2f}  │  Fair Value: ${fair_value:>8.2f}  │  Upside: {upside:>6.1%}  ║"
+        )
         print("  " + "╚" + "═" * 68 + "╝")
         print()
 
