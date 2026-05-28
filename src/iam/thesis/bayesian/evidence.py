@@ -73,7 +73,13 @@ class Evidence:
         - If reliability=0.5 (noisy), shrink the update halfway to neutral (1.0)
         - If reliability=0.0 (unreliable), the update is neutral regardless
         """
-        raw_prob = self.likelihoods.get(scenario_label, ScenarioLikelihood(1.0)).probability
+        val = self.likelihoods.get(scenario_label)
+        if isinstance(val, ScenarioLikelihood):
+            raw_prob = val.probability
+        elif isinstance(val, (float, int)):
+            raw_prob = float(val)
+        else:
+            raw_prob = 1.0
 
         # Shrink toward 1.0 based on unreliability
         dampened_val = 1.0 + (raw_prob - 1.0) * self.reliability

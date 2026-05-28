@@ -5,7 +5,10 @@ import json
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from iam.backtest.config import BacktestConfig
 
 
 class BacktestManifest:
@@ -85,4 +88,7 @@ class BacktestManifest:
         if not path.exists():
             return {}
         with open(path) as f:
-            return json.load(f)
+            data = json.load(f)
+            if isinstance(data, dict):
+                return data
+            return {}
