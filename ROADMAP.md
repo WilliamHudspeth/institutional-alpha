@@ -1,14 +1,18 @@
 # Institutional Alpha Roadmap
 
-**Version**: 0.2.1-alpha  
-**Status**: Research Preview  
+**Version**: 0.4.0-rc1  
+**Status**: Release Candidate  
 **Author**: William Hudspeth
 
 ---
 
 ## Platform Philosophy
 
-Institutional Alpha is a **multi-lens equity research engine** designed for rigorous fundamental analysis. The platform combines:
+Institutional Alpha is a **probabilistic institutional equity reasoning engine** — not a stock screener. A screener runs `financials → ratios → score → recommendation`. This platform instead treats valuation as **competing interpretations of reality under uncertainty**, and asks the question institutional investors actually ask:
+
+> *Why does the market disagree with intrinsic value, and whose belief system is right?*
+
+To answer that, the platform combines:
 
 - **Orthogonal factors** (10 independent quality/value/sentiment dimensions)
 - **Multi-perspective valuation** (DCF, Relative, Expectations-based, Triangulation)
@@ -20,7 +24,40 @@ Unlike black-box ML approaches, every output decomposes to its factor components
 
 ---
 
-## Current Capabilities (v0.2.1-alpha)
+## The Reasoning-Engine Direction (v0.5+)
+
+The current pipeline already runs four valuation perspectives and triangulates them. The next evolution reframes those perspectives as **independent reasoning engines** whose *disagreement* is the primary product, governed by a set of hard-coded valuation laws. The edge is not better math — it is **structuring uncertainty, disagreement, and narrative consistency correctly.**
+
+### Seven-Engine Architecture (target)
+
+| # | Engine | Question | Status |
+|---|--------|----------|--------|
+| 1 | **Data Integrity** | Are the inputs normalized, segment-aware, cycle-aware? | Partial (`validation/`, `data/`) |
+| 2 | **Market Expectations** | What does the price *imply* — growth, margins, ROIC, moat duration? | ✅ Reverse DCF |
+| 3 | **Business Reality** | What actually drives this business (revenue quality, cash-flow durability, capital allocation)? | ⬜ New |
+| 4 | **Relative Reality** | Does this company *deserve* its premium, and by how much? | Partial → add **justified premium** |
+| 5 | **Intrinsic Valuation** | What is it worth on cash flows alone, market ignored? | ✅ FCFE DCF, SOTP, bottom-up β, geo-ERP |
+| 6 | **Macro Stress** | How does fair value move under regime shocks? | ✅ Macro overlay |
+| 7 | **Synthesis** | Weight competing realities (not average them) into a verdict + disagreement map | Partial → add **Valuation Battlefield** |
+
+### Damodaran Laws — narrative-consistency constraint layer (target)
+
+These become enforced framework laws that can *reject* an internally inconsistent valuation rather than silently computing one:
+
+- **LAW 1 — Narrative must match numbers.** High growth must be backed by reinvestment, TAM, and (usually) early margin compression.
+- **LAW 2 — Growth requires reinvestment.** Enforce `g = ROIC × reinvestment_rate`; flag narratives where growth is "free."
+- **LAW 3 — Terminal growth ≤ risk-free rate.** ✅ Already enforced.
+- **LAW 4 — Excess returns fade.** Model explicit ROIC decay / margin mean-reversion curves; high ROIC attracts competition.
+- **LAW 5 — Risk is not double-counted.** Risk lives in the cash flows *or* the discount rate, never both.
+
+### Headline outputs (target)
+
+- **Valuation Battlefield** — instead of a single fair value, surface the Bull / Bear / Market-implied / Intrinsic theses side-by-side with the **key disagreement** (e.g. "duration of excess returns") called out explicitly.
+- **Thesis Drift Detection** — register the assumptions that *must remain true*, then monitor margins, ROIC, reinvestment, balance sheet, and macro regime. When assumptions drift, conviction falls and the verdict is re-ranked — turning static valuation into a living, fragility-aware signal.
+
+---
+
+## Current Capabilities (v0.4.0-rc1)
 
 ### ✅ Core Engine
 - [x] **7-Stage Valuation Pipeline**
@@ -135,6 +172,38 @@ Unlike black-box ML approaches, every output decomposes to its factor components
   - Assumption dependency mapping
   - Sensitivity analysis (one-way, two-way)
   - Scenario branching logic
+
+### Phase 2.5: Reasoning-Engine Evolution (Weeks 10-18)
+**Focus**: Turn the valuation pipeline into a disagreement-first reasoning engine (see "The Reasoning-Engine Direction" above)
+
+- [ ] **Damodaran Laws constraint layer**
+  - Enforce `g = ROIC × reinvestment_rate` (growth requires reinvestment)
+  - Narrative-vs-numbers consistency check (reject impossible narratives)
+  - ROIC decay / excess-return fade curves
+  - Risk double-counting guard (cash flows OR discount rate, not both)
+  - Terminal-growth ≤ Rf (already enforced — fold into the law registry)
+
+- [ ] **Business Reality Engine** (`iam.reasoning` / new lens)
+  - Revenue-quality classification (recurring / transactional / cyclical / regulated)
+  - Cash-flow durability scoring (stable / mean-reverting / capital-markets-dependent)
+  - Growth-quality decomposition (organic vs acquisition, marginal ROIC, TAM realism)
+  - Capital-allocation / management-behavior signals (dilution, buyback discipline)
+
+- [ ] **Relative Reality: justified premium**
+  - Estimate the premium/discount a name *deserves* vs sector (not just observed)
+  - Drivers: relative margins, ROIC, durability, cyclicality, optionality
+  - Output justified-vs-actual premium gap
+
+- [ ] **Valuation Battlefield output**
+  - Surface Bull / Bear / Market-implied / Intrinsic theses side-by-side
+  - Identify and label the single key disagreement per name
+  - Replace "one fair value" framing with a structured disagreement map
+
+- [ ] **Thesis Drift Detection**
+  - Register assumptions that must remain true for each active thesis
+  - Monitor margins, ROIC, reinvestment, balance sheet, macro regime
+  - Degrade conviction and re-rank verdict when assumptions drift
+  - Emit a per-name fragility score
 
 ### Phase 3: Operational Excellence (Weeks 12-24)
 **Focus**: Reproducibility, governance, institutional adoption
@@ -327,6 +396,6 @@ Proprietary Research Platform. See LICENSE for details.
 
 ---
 
-**Last Updated**: 2026-05-27  
-**Status**: Research Preview (v0.2.1-alpha)  
-**Next Review**: 2026-06-27
+**Last Updated**: 2026-05-28  
+**Status**: Release Candidate (v0.4.0-rc1)  
+**Next Review**: 2026-06-28
