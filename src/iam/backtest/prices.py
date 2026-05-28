@@ -5,6 +5,11 @@ which includes pre-computed forward returns for a given horizon.
 """
 
 import polars as pl
+from typing import TYPE_CHECKING
+
+# This satisfies Mypy without causing runtime circular imports
+if TYPE_CHECKING:
+    from iam.backtest.config import BacktestConfig
 
 
 def load_price_block(config: "BacktestConfig") -> pl.DataFrame:
