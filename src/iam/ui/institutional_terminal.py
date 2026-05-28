@@ -1,4 +1,4 @@
-"""Retro-futuristic 90s Bloomberg Terminal and Alpha console UI for institutional reports.
+"""Retro-futuristic 90s style console UI for institutional reports.
 
 Presents a highly immersive, retro military-grade quant console layout featuring
 custom double-line ASCII borders, a structured system HUD, dynamic horizontal valuation sliders,
@@ -102,7 +102,7 @@ def _draw_move_meter(move_pct: float) -> str:
 
 
 def print_institutional_ui(data: dict[str, Any]) -> None:
-    """Render a high-fidelity retro 90s Bloomberg / Alpha style report card."""
+    """Render a high-fidelity retro 90s style report card."""
     ticker = str(data.get("ticker", "TICK")).upper()
     name = data.get("name", "Unknown Company")
     price = float(data.get("price", 0.0) or 0.0)
@@ -297,8 +297,8 @@ def print_bayesian_update_summary(
 
 if __name__ == "__main__":
     sample_data = {
-        "ticker": "BLK",
-        "name": "BlackRock, Inc.",
+        "ticker": "ALPH",
+        "name": "Alpha Corp.",
         "price": 1070.34,
         "verdict": "STRONG BUY",
         "growth": "14.0%",
@@ -339,8 +339,8 @@ if __name__ == "__main__":
     }
 
     print_institutional_ui(sample_data)
-    print_pipeline_summary("BLK", 1070.34, 1600.48, "STRONG BUY", "MODERATE")
+    print_pipeline_summary("ALPH", 1070.34, 1600.48, "STRONG BUY", "MODERATE")
 
     prior_weights = {"Bear Case": 0.20, "Base Case": 0.60, "Bull Case": 0.20}
     posterior_weights = {"Bear Case": 0.08, "Base Case": 0.58, "Bull Case": 0.34}
-    print_bayesian_update_summary("BLK", prior_weights, posterior_weights, "EARNINGS_BEAT", 0.85)
+    print_bayesian_update_summary("ALPH", prior_weights, posterior_weights, "EARNINGS_BEAT", 0.85)

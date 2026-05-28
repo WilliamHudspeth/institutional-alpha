@@ -201,7 +201,7 @@ Each factor measures one independent dimension. No mixing of valuation with qual
 Composite scores decompose to factor contributions. No black-box aggregations. Every output traceable to inputs.
 
 ### 3. **Pluggable Data Sources**
-The model accepts fundamentals as inputs. Never assumes a specific data provider. Easy to adapt to Bloomberg, Refinitiv, etc.
+The model accepts fundamentals as inputs. Never assumes a specific data provider. Easy to adapt to major market data providers.
 
 ### 4. **No Magic Numbers**
 All default weights, bounds, and assumptions are explicit and documented. Silent defaults are forbidden.
@@ -258,7 +258,7 @@ Core engine uses only: pandas, numpy. Financial theory, not ML dependencies. Eas
 
 ### If Commercialized
 - Multi-user platform (authentication, permissions)
-- Real-time data feeds (Bloomberg, FactSet)
+- Real-time enterprise data feeds
 - Institutional API (REST endpoints)
 - Portfolio management layer
 - Risk reporting (VaR, stress testing)
