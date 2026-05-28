@@ -8,13 +8,14 @@ Usage:
     python scripts/build_price_parquet.py --start 2018-01-01 --end 2024-12-31 --horizon 63
 """
 
-import typer
+import hashlib
+import json
+from datetime import datetime
+from pathlib import Path
+
 import pandas as pd
 import polars as pl
-from pathlib import Path
-from datetime import datetime
-import json
-import hashlib
+import typer
 
 try:
     import yfinance as yf
@@ -24,8 +25,8 @@ except ImportError:
     HAS_YFINANCE = False
 
 from iam.backtest.config import BacktestConfig
-from iam.backtest.universe import load_universe_tickers
 from iam.backtest.data_loader import StooqDataLoader
+from iam.backtest.universe import load_universe_tickers
 
 app = typer.Typer()
 
@@ -141,7 +142,12 @@ def build_prices(
 
     # Compute forward return: price[t+horizon] / price[t] - 1
     df_pl = df_pl.with_columns(
-        pl.col("close").shift(-horizon).over("ticker").truediv(pl.col("close")).sub(1).alias("fwd_ret")
+        pl.col("close")
+        .shift(-horizon)
+        .over("ticker")
+        .truediv(pl.col("close"))
+        .sub(1)
+        .alias("fwd_ret")
     )
 
     # Filter to evaluation period (exclude forward period)

@@ -19,8 +19,8 @@ import pandas as pd
 
 from iam.api import Security
 from iam.backtest import (
-    run_backtest,
     print_backtest_summary,
+    run_backtest,
     write_calibration,
 )
 
@@ -37,10 +37,7 @@ def load_sp100_universe() -> list[Security]:
     print(f"Universe frozen: {config['date_frozen']}")
 
     # Create minimal Security objects (orchestrator fetches fundamentals)
-    securities = [
-        Security(ticker=t, sector="", industry="", country_iso="US")
-        for t in tickers
-    ]
+    securities = [Security(ticker=t, sector="", industry="", country_iso="US") for t in tickers]
 
     return securities
 
@@ -109,6 +106,7 @@ def main():
     except Exception as e:
         print(f"  ✗ Backtest failed: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

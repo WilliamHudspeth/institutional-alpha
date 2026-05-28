@@ -17,12 +17,14 @@ def resolve_ticker(query: str) -> tuple[str, str | None]:
     try:
         safe_query = urllib.parse.quote(query)
         url = f"https://query2.finance.yahoo.com/v1/finance/search?q={safe_query}&quotesCount=1&newsCount=0"
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=5) as response:
-            data = json.loads(response.read().decode('utf-8'))
+            data = json.loads(response.read().decode("utf-8"))
             quotes = data.get("quotes", [])
             if quotes and "symbol" in quotes[0]:
-                return quotes[0]["symbol"].upper(), quotes[0].get("shortname", quotes[0].get("longname"))
+                return quotes[0]["symbol"].upper(), quotes[0].get(
+                    "shortname", quotes[0].get("longname")
+                )
     except Exception:
         pass
     return query.strip().upper(), None
@@ -60,7 +62,7 @@ def analyze_ticker(query: str) -> str:
 
     # 5. Determine Basic Recommendation
     target_price = None
-    
+
     # Target price prioritizes the triangulation cluster center; falls back to intrinsic DCF
     if report.triangulation.cluster_center is not None:
         target_price = current_price * (1 + report.triangulation.cluster_center)
@@ -69,7 +71,7 @@ def analyze_ticker(query: str) -> str:
 
     if target_price is not None and current_price > 0:
         upside = (target_price / current_price) - 1
-        
+
         # Basic threshold logic for Buy/Sell
         if upside > 0.15:
             recommendation = "BUY"
@@ -77,7 +79,7 @@ def analyze_ticker(query: str) -> str:
             recommendation = "SELL"
         else:
             recommendation = "HOLD"
-        
+
         target_str = f"${target_price:.2f}"
         upside_str = f"{upside:+.1%}"
     else:
@@ -92,23 +94,30 @@ def analyze_ticker(query: str) -> str:
     ]
     if resolved_name and ticker != query.upper():
         lines.append(f" (Resolved from '{query}': {resolved_name})")
-    lines.extend([
-        "=" * 50,
-        f" Current Price  : ${current_price:.2f}",
-        f" Target Price   : {target_str} ({upside_str})",
-        f" Recommendation : {recommendation}",
-        "",
-        "=" * 50,
-        f" ADVANCED PIPELINE REPORT: {ticker}",
-        "=" * 50,
-        report.explain(),
-    ])
+    lines.extend(
+        [
+            "=" * 50,
+            f" Current Price  : ${current_price:.2f}",
+            f" Target Price   : {target_str} ({upside_str})",
+            f" Recommendation : {recommendation}",
+            "",
+            "=" * 50,
+            f" ADVANCED PIPELINE REPORT: {ticker}",
+            "=" * 50,
+            report.explain(),
+        ]
+    )
 
     return "\n".join(lines)
 
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Analyze a stock ticker or company name using IAM.")
-    parser.add_argument("ticker", type=str, help="The stock ticker symbol or company name (e.g., AAPL, Apple)")
+    parser = argparse.ArgumentParser(
+        description="Analyze a stock ticker or company name using IAM."
+    )
+    parser.add_argument(
+        "ticker", type=str, help="The stock ticker symbol or company name (e.g., AAPL, Apple)"
+    )
     args = parser.parse_args()
 
     result = analyze_ticker(args.ticker)

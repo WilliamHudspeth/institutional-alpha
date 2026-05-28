@@ -32,6 +32,14 @@ making changes.
 - Every new factor or pipeline stage needs at least one test
 - Type hints on public APIs
 
+## Auditing & Verification
+
+Before committing any changes, run the platform integrity auditor to ensure code formatting, lints, syntax, merge conflicts, types, and tests all pass cleanly:
+```bash
+python scripts/verify.py
+```
+This is the single source of truth for codebase health. Always check this before ending your turn.
+
 ## Architecture map
 
 - `main.py` — primary interactive entry point (welcome screen + guided menu)

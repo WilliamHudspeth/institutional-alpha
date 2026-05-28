@@ -10,8 +10,8 @@ Usage:
 
 from __future__ import annotations
 
-import sys
 import re
+import sys
 
 from src.iam.data.yahoo import fetch_security
 from src.iam.valuation.adaptive import AdaptiveValuationEngine
@@ -75,12 +75,14 @@ def format_rating_box(
     """Format recommendation as a clean box."""
     lines = []
     lines.append("  " + "╔" + "═" * 72 + "╗")
-    lines.append(
-        f"  ║  {rating:20} │ Confidence: {confidence:2} │ Type: {business_type:15} ║"
-    )
+    lines.append(f"  ║  {rating:20} │ Confidence: {confidence:2} │ Type: {business_type:15} ║")
     lines.append("  " + "║" + "─" * 72 + "║")
-    lines.append(f"  ║  Year 1 Growth:     {year1_growth:6.1%}                                    ║")
-    lines.append(f"  ║  Year 10 Growth:    {year10_growth:6.1%}                                    ║")
+    lines.append(
+        f"  ║  Year 1 Growth:     {year1_growth:6.1%}                                    ║"
+    )
+    lines.append(
+        f"  ║  Year 10 Growth:    {year10_growth:6.1%}                                    ║"
+    )
     lines.append("  " + "╚" + "═" * 72 + "╝")
     return "\n".join(lines)
 
@@ -140,9 +142,7 @@ def show_recommendation(ticker: str) -> None:
         if confidence == "A":
             print("  ✓ HIGH confidence: Growth estimates align well. Business type well-defined.")
         elif confidence == "B":
-            print(
-                "  ⚠ MEDIUM confidence: Some divergence in growth estimates. Use with judgment."
-            )
+            print("  ⚠ MEDIUM confidence: Some divergence in growth estimates. Use with judgment.")
         else:
             print("  ⚠ LOW confidence: High divergence or uncertain business type.")
 
