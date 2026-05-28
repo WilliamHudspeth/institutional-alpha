@@ -90,7 +90,7 @@ def backtest(
             dates,
             price_df,
             config=config,
-            score_field="cost_of_equity",
+            score_field="composite",
         )
         typer.echo()
     except Exception as e:

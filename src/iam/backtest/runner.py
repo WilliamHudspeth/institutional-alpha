@@ -42,6 +42,14 @@ def _score_security_worker(
         if snapshot is None:
             snapshot = build_snapshot(base, as_of, cache_dir=cache_dir)
 
+        # The composite multi-factor score is the alpha signal we validate.
+        # Other fields (e.g. cost_of_equity) are risk metrics, not signals.
+        if score_field == "composite":
+            from iam.engine.composite import score as composite_score
+
+            score = composite_score(snapshot).composite
+            return base.ticker, score, base.sector
+
         # Evaluate using the full stack (black box)
         result = value_security(snapshot)
 
@@ -63,7 +71,7 @@ def run_backtest(
     dates: list[str],  # YYYY-MM-DD format, month-ends preferred
     price_block: pd.DataFrame,  # Pre-loaded price block (date, ticker) MultiIndex
     config: object | None = None,
-    score_field: str = "cost_of_equity",
+    score_field: str = "composite",
 ) -> pd.DataFrame:
     """Run historical backtest with parallel scoring.
 
