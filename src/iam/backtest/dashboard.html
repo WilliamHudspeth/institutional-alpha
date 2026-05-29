@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Institutional Alpha - Backtest Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        outfit: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        slate: {
+                            850: '#1e293b80',
+                            950: '#0b0f19',
+                        },
+                        brand: {
+                            blue: '#3b82f6',
+                            purple: '#8b5cf6',
+                            cyan: '#06b6d4',
+                            magenta: '#d946ef',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0b0f19;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.1) 0px, transparent 50%),
+                radial-gradient(at 50% 100%, rgba(6, 182, 212, 0.05) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.4);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        .glow-hover:hover {
+            box-shadow: 0 0 20px 0 rgba(139, 92, 246, 0.2);
+            border-color: rgba(139, 92, 246, 0.3);
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body class="text-slate-100 font-sans min-h-screen pb-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center pb-8 border-b border-slate-800">
+            <div>
+                <div class="flex items-center space-x-3">
+                    <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-brand-blue to-brand-purple flex items-center justify-center shadow-lg shadow-brand-purple/20">
+                        <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                        </svg>
+                    </div>
+                    <h1 class="text-3xl font-extrabold font-outfit bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">Institutional Alpha</h1>
+                </div>
+                <p class="text-slate-400 mt-2 text-sm md:text-base">Empirical backtest verification dashboard • Zero‑configuration data layer</p>
+            </div>
+            <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
+                <span id="badge-version" class="px-3 py-1 text-xs font-semibold rounded-full bg-slate-800 border border-slate-700 text-slate-300">v0.4.0-empirical</span>
+                <span id="badge-universe" class="px-3 py-1 text-xs font-semibold rounded-full bg-brand-purple/10 border border-brand-purple/30 text-brand-purple">S&P 100 (Static)</span>
+                <span id="badge-git" class="px-3 py-1 text-xs font-mono rounded-full bg-brand-blue/10 border border-brand-blue/30 text-brand-blue">SHA: --</span>
+            </div>
+        </header>
+
+        <!-- KPI Hero Panels -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-8">
+            <!-- Card 1 -->
+            <div class="glass-card rounded-2xl p-6 glow-hover">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Empirical Mean IC</p>
+                        <h3 id="stat-mean-ic" class="text-3xl font-bold font-outfit text-white mt-2">--</h3>
+                    </div>
+                    <div class="p-3 bg-brand-blue/10 rounded-xl text-brand-blue">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center text-xs text-slate-400">
+                    <span id="stat-ic-desc">Information Coefficient (Blended Signal)</span>
+                </div>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="glass-card rounded-2xl p-6 glow-hover">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Bayesian Reliability</p>
+                        <h3 id="stat-reliability" class="text-3xl font-bold font-outfit text-brand-purple mt-2">--</h3>
+                    </div>
+                    <div class="p-3 bg-brand-purple/10 rounded-xl text-brand-purple">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center text-xs text-slate-400">
+                    <span id="stat-rel-desc">Calibrated weighting reliability baseline</span>
+                </div>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="glass-card rounded-2xl p-6 glow-hover">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Information Ratio</p>
+                        <h3 id="stat-ir" class="text-3xl font-bold font-outfit text-brand-cyan mt-2">--</h3>
+                    </div>
+                    <div class="p-3 bg-brand-cyan/10 rounded-xl text-brand-cyan">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M12 16v1M10 21h4a2 2 0 002-2V7a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center text-xs text-slate-400">
+                    <span id="stat-ir-desc">Annualized IC / Volatility (Stability)</span>
+                </div>
+            </div>
+
+            <!-- Card 4 -->
+            <div class="glass-card rounded-2xl p-6 glow-hover">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Total Evaluated Days</p>
+                        <h3 id="stat-obs" class="text-3xl font-bold font-outfit text-brand-magenta mt-2">--</h3>
+                    </div>
+                    <div class="p-3 bg-brand-magenta/10 rounded-xl text-brand-magenta">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center text-xs text-slate-400">
+                    <span id="stat-period">Period: --</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-8">
+            <!-- Left Chart (Horizon Analysis) -->
+            <div class="glass-card rounded-2xl p-6 lg:col-span-2">
+                <h3 class="text-xl font-bold font-outfit text-white mb-4">Multi-Horizon Information Coefficient</h3>
+                <p class="text-slate-400 text-sm mb-6">Characterizes signal timing (momentum vs. fundamental horizons) under value-weighted and sector-neutral layers.</p>
+                <div class="h-80 w-full relative">
+                    <canvas id="horizonChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Right Panel (Bayesian Calibration Specs) -->
+            <div class="glass-card rounded-2xl p-6 flex flex-col justify-between">
+                <div>
+                    <h3 class="text-xl font-bold font-outfit text-white mb-4">Bayesian Arbitration Specs</h3>
+                    <p class="text-slate-400 text-sm mb-6">Empirical metrics are blended dynamically with Damodaran prior reliability benchmarks to prevent sample over-fitting.</p>
+                    
+                    <div class="space-y-6">
+                        <div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-slate-400">Prior Expected IC</span>
+                                <span id="spec-prior-ic" class="text-slate-200 font-semibold">--</span>
+                            </div>
+                            <div class="w-full bg-slate-800 rounded-full h-1.5">
+                                <div id="bar-prior-ic" class="bg-brand-blue h-1.5 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-slate-400">Posterior Blended IC</span>
+                                <span id="spec-post-ic" class="text-slate-200 font-semibold">--</span>
+                            </div>
+                            <div class="w-full bg-slate-800 rounded-full h-1.5">
+                                <div id="bar-post-ic" class="bg-brand-purple h-1.5 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-slate-400">Shrinkage Factor</span>
+                                <span id="spec-shrinkage" class="text-slate-200 font-semibold">--</span>
+                            </div>
+                            <div class="w-full bg-slate-800 rounded-full h-1.5">
+                                <div id="bar-shrinkage" class="bg-brand-cyan h-1.5 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 p-4 bg-slate-850 rounded-xl border border-slate-700">
+                    <h4 class="text-xs uppercase tracking-wider font-semibold text-slate-300">Model Recommendation</h4>
+                    <p id="rec-text" class="text-slate-400 text-xs mt-2 leading-relaxed">Loading calibration details and model state...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Second Chart Section (Rolling IC Timeline) -->
+        <section class="pt-8">
+            <div class="glass-card rounded-2xl p-6">
+                <h3 class="text-xl font-bold font-outfit text-white mb-4">Rolling Chronological IC Timeline</h3>
+                <p class="text-slate-400 text-sm mb-6">Visualizes signal stability and performance decay over the historical backtesting period.</p>
+                <div class="h-80 w-full relative">
+                    <canvas id="timelineChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Detailed Table -->
+        <section class="pt-8">
+            <div class="glass-card rounded-2xl p-6 overflow-hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h3 class="text-xl font-bold font-outfit text-white">Chronological Observation History</h3>
+                        <p class="text-slate-400 text-sm mt-1">Raw daily scores extracted from empirical factor pipeline results.</p>
+                    </div>
+                </div>
+                <div class="overflow-x-auto max-h-96">
+                    <table class="min-w-full divide-y divide-slate-800">
+                        <thead class="bg-slate-850 sticky top-0 z-10">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">IC (Raw)</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">IC (Value Weighted)</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">IC (Sector Neutral)</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">IC 21d</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">IC 63d</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">IC 126d</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">IC 252d</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body" class="divide-y divide-slate-800 text-sm text-slate-300 bg-slate-900/20">
+                            <!-- Dynamic Table Rows -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- JavaScript Data Loading -->
+    <script>
+        // Simple CSV Parser
+        function parseCSV(text) {
+            const lines = text.split('\n').filter(l => l.trim() !== '');
+            const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+            const data = [];
+            for (let i = 1; i < lines.length; i++) {
+                const row = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+                if (row.length === headers.length) {
+                    const obj = {};
+                    for (let j = 0; j < headers.length; j++) {
+                        obj[headers[j]] = row[j];
+                    }
+                    data.push(obj);
+                }
+            }
+            return data;
+        }
+
+        async function initDashboard() {
+            try {
+                // Fetch APIs
+                const [manifestRes, calibrationRes, icHorizonRes] = await Promise.all([
+                    fetch('/api/manifest').then(r => r.ok ? r.json() : null),
+                    fetch('/api/calibration').then(r => r.ok ? r.json() : null),
+                    fetch('/api/ic_by_horizon').then(r => r.ok ? r.text() : '')
+                ]);
+
+                if (manifestRes) {
+                    document.getElementById('badge-git').innerText = `SHA: ${manifestRes.git_sha.substring(0, 7)}`;
+                    document.getElementById('badge-universe').innerText = manifestRes.universe || 'S&P 100';
+                    document.getElementById('stat-period').innerText = `Period: ${manifestRes.start} to ${manifestRes.end}`;
+                }
+
+                let meanIC = 0;
+                let shrinkage = 0;
+                let reliability = 0;
+
+                if (calibrationRes) {
+                    meanIC = calibrationRes.empirical_ic.mean;
+                    reliability = calibrationRes.bayesian_calibration.reliability;
+                    shrinkage = calibrationRes.bayesian_calibration.shrinkage_factor;
+
+                    document.getElementById('stat-mean-ic').innerText = meanIC.toFixed(4);
+                    document.getElementById('stat-reliability').innerText = (reliability * 100).toFixed(1) + '%';
+                    
+                    document.getElementById('spec-prior-ic').innerText = calibrationRes.bayesian_calibration.prior_ic.toFixed(4);
+                    document.getElementById('spec-post-ic').innerText = calibrationRes.bayesian_calibration.posterior_ic.toFixed(4);
+                    document.getElementById('spec-shrinkage').innerText = shrinkage.toFixed(2);
+
+                    document.getElementById('bar-prior-ic').style.width = (calibrationRes.bayesian_calibration.prior_ic * 1000).toFixed(0) + '%';
+                    document.getElementById('bar-post-ic').style.width = (calibrationRes.bayesian_calibration.posterior_ic * 1000).toFixed(0) + '%';
+                    document.getElementById('bar-shrinkage').style.width = (shrinkage * 100).toFixed(0) + '%';
+
+                    // Recommend text
+                    const recEl = document.getElementById('rec-text');
+                    if (reliability > 0.7) {
+                        recEl.innerText = `System reliability is exceptionally strong (${(reliability*100).toFixed(0)}%). The empirical factor model highly out-performs baseline expectations. High-conviction Bayesian weighting calibration is active.`;
+                        recEl.className += " text-emerald-400";
+                    } else if (reliability > 0.4) {
+                        recEl.innerText = `Moderate system reliability (${(reliability*100).toFixed(0)}%). Factor composite exhibits stable signal predictability. Bayesian weights are safely regularized toward the bottom-up Damodaran prior.`;
+                        recEl.className += " text-brand-purple";
+                    } else {
+                        recEl.innerText = `Low system reliability. Signal exhibits high noise over selected horizons. The bayesian engine has shrunken weights heavily toward equal‑weighted benchmarks to prevent portfolio tail risk.`;
+                        recEl.className += " text-amber-400";
+                    }
+                }
+
+                // Parse CSV Data
+                if (icHorizonRes) {
+                    const rawData = parseCSV(icHorizonRes);
+                    
+                    // Filter and summarize
+                    const dates = rawData.map(r => r.date || r[''] || 'N/A');
+                    const rawIcs = rawData.map(r => parseFloat(r.ic || 0));
+                    const vwIcs = rawData.map(r => parseFloat(r.ic_vw || 0));
+                    const snIcs = rawData.map(r => parseFloat(r.ic_sector_neutral || 0));
+
+                    // Multi-horizon aggregations
+                    const horizons = ['21d', '63d', '126d', '252d'];
+                    const horizonAvg = [];
+                    const horizonVwAvg = [];
+
+                    horizons.forEach(h => {
+                        const hVals = rawData.map(r => parseFloat(r[`ic_${h}`] || 0)).filter(v => !isNaN(v));
+                        const hVwVals = rawData.map(r => parseFloat(r[`ic_vw_${h}`] || 0)).filter(v => !isNaN(v));
+                        horizonAvg.push(hVals.length ? hVals.reduce((a,b)=>a+b,0)/hVals.length : 0);
+                        horizonVwAvg.push(hVwVals.length ? hVwVals.reduce((a,b)=>a+b,0)/hVwVals.length : 0);
+                    });
+
+                    // Update metrics
+                    document.getElementById('stat-obs').innerText = rawData.length;
+                    const icStd = rawIcs.reduce((a,b)=>a+Math.pow(b-meanIC,2),0)/(rawIcs.length-1);
+                    const irVal = meanIC / Math.sqrt(icStd);
+                    document.getElementById('stat-ir').innerText = isNaN(irVal) ? '--' : irVal.toFixed(3);
+
+                    // Load observations table
+                    const tbody = document.getElementById('table-body');
+                    rawData.slice(-20).reverse().forEach(row => {
+                        const tr = document.createElement('tr');
+                        tr.className = "hover:bg-slate-800/30 transition-colors";
+                        const getValText = (val) => val ? parseFloat(val).toFixed(4) : '--';
+                        tr.innerHTML = `
+                            <td class="px-6 py-4 whitespace-nowrap font-mono text-xs text-slate-300">${row.date || row[''] || 'N/A'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap font-semibold ${parseFloat(row.ic) >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${getValText(row.ic)}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-slate-300">${getValText(row.ic_vw)}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-slate-400">${getValText(row.ic_sector_neutral)}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-xs text-slate-500">${getValText(row['ic_21d'])}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-xs text-slate-500">${getValText(row['ic_63d'])}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-xs text-slate-500">${getValText(row['ic_126d'])}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-xs text-slate-500">${getValText(row['ic_252d'])}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+
+                    // Render Horizon Chart
+                    const ctxH = document.getElementById('horizonChart').getContext('2d');
+                    new Chart(ctxH, {
+                        type: 'bar',
+                        data: {
+                            labels: ['21-Day (Short-Term)', '63-Day (Quarterly)', '126-Day (Semi-Annual)', '252-Day (Annual)'],
+                            datasets: [{
+                                label: 'Equal-Weighted IC',
+                                data: horizonAvg,
+                                backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                                borderColor: '#3b82f6',
+                                borderWidth: 1.5,
+                                borderRadius: 6
+                            }, {
+                                label: 'Value-Weighted IC',
+                                data: horizonVwAvg,
+                                backgroundColor: 'rgba(139, 92, 246, 0.6)',
+                                borderColor: '#8b5cf6',
+                                borderWidth: 1.5,
+                                borderRadius: 6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    labels: { color: '#94a3b8', font: { family: 'Inter' } }
+                                }
+                            },
+                            scales: {
+                                x: { grid: { display: false }, ticks: { color: '#64748b' } },
+                                y: { grid: { color: '#334155/30' }, ticks: { color: '#64748b' } }
+                            }
+                        }
+                    });
+
+                    // Render Timeline Chart
+                    const ctxT = document.getElementById('timelineChart').getContext('2d');
+                    new Chart(ctxT, {
+                        type: 'line',
+                        data: {
+                            labels: dates,
+                            datasets: [{
+                                label: 'Raw IC',
+                                data: rawIcs,
+                                borderColor: '#06b6d4',
+                                backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: 0
+                            }, {
+                                label: 'Sector-Neutral IC',
+                                data: snIcs,
+                                borderColor: '#d946ef',
+                                backgroundColor: 'transparent',
+                                tension: 0.3,
+                                borderDash: [5, 5],
+                                pointRadius: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    labels: { color: '#94a3b8', font: { family: 'Inter' } }
+                                }
+                            },
+                            scales: {
+                                x: { grid: { display: false }, ticks: { color: '#64748b', maxTicksLimit: 12 } },
+                                y: { grid: { color: '#334155/30' }, ticks: { color: '#64748b' } }
+                            }
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error("Dashboard failed to initialize:", err);
+            }
+        }
+
+        window.onload = initDashboard;
+    </script>
+</body>
+</html>
