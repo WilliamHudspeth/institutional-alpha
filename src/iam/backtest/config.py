@@ -15,7 +15,11 @@ class BacktestConfig(BaseModel):
     start: str = Field("2018-01-31", description="Start date (YYYY-MM-DD)")
     end: str = Field("2024-12-31", description="End date (YYYY-MM-DD)")
     freq: str = Field("ME", description="Evaluation frequency (ME=month-end, D=daily)")
-    horizon_days: int = Field(63, ge=1, description="Forward return horizon in days")
+    horizon_days: int = Field(63, ge=1, description="Primary forward return horizon in days (used for top-line IC)")
+    horizons_days: list[int] = Field(
+        default_factory=lambda: [21, 63, 126, 252],
+        description="Multi-horizon windows in days; all are pre-computed in the price parquet",
+    )
     cost_bps: float = Field(5.0, ge=0, description="Transaction cost in basis points")
     yfinance_timeout: float = Field(10.0, ge=1, description="yfinance timeout in seconds")
     stooq_timeout: float = Field(15.0, ge=1, description="Stooq timeout in seconds")

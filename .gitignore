@@ -84,3 +84,4 @@ Thumbs.db
 
 # Diskcache and other runtime working directories
 .cache/
+data_cache/

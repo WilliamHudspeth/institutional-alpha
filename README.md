@@ -4,9 +4,12 @@
 
 Most public valuation models stop at DCF or relative multiples. Institutional discretionary and systematic funds implicitly price a much wider surface: **expectations difficulty, quality, reflexivity, crowding, regime fit, fragility, and capital allocation quality.** This repo is an open-source attempt to encode that surface as an orthogonal, weighted, auditable factor model — written in plain Python so it's easy to read, fork, and extend.
 
+It is built as a **probabilistic equity reasoning engine**, not a screener. A screener runs `financials → ratios → score → recommendation`. IAM instead treats valuation as **competing interpretations of reality under uncertainty** — market-implied expectations, business reality, peer-relative economics, and bottom-up intrinsic value are run independently, and their *disagreement* is the primary output. The question is not "is the DCF higher than the price?" but "**why** does the market disagree with intrinsic value, and whose belief system holds up?" The next phase formalizes this into independent reasoning engines, a Damodaran-laws consistency layer, and a Valuation Battlefield view — see the [roadmap](#roadmap) and [`ROADMAP.md`](ROADMAP.md).
+
 ## Status
 
 [![CI/CD Pipeline](https://github.com/WilliamHudspeth/institutional-alpha/actions/workflows/python-package.yml/badge.svg)](https://github.com/WilliamHudspeth/institutional-alpha/actions)
+[![codecov](https://codecov.io/gh/WilliamHudspeth/institutional-alpha/branch/main/graph/badge.svg)](https://codecov.io/gh/WilliamHudspeth/institutional-alpha)
 
 **v0.4.0-rc1** — Institutional infrastructure complete. The factor scoring engine, seven-stage valuation pipeline, Bayesian thesis engine, hardened backtest stack, institutional portfolio analytics, and modern modular terminal are all implemented and tested. Next: empirical IC run on real market data (v0.4.0) and probabilistic reasoning engine (v0.5.0).
 
@@ -208,6 +211,62 @@ With `prior_ic = 0.02` and `prior_strength = 36` months, 36 months of data give 
 
 **Pluggable data sources.** Price and balance-sheet data flow through a `DataSource` contract (`src/iam/backtest/sources/base.py`). The default chain is yfinance → Stooq: yfinance is queried first (institutional-grade, includes quarterly debt); on any failure, Stooq is queried (free CSV export, sandbox-safe, price only). Every new source — FMP, Tiingo, custom CSV — implements three methods and slots in without touching `snapshots.py` or `runner.py`.
 
+### Data Architecture (Zero-Configuration, Redundant)
+
+The data layer is designed for **democratization**: no API keys, no vendor lock-in, offline-capable.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    Your Backtest / Analysis                       │
+└─────────────────────────────┬──────────────────────────────────────┘
+                              │
+                ┌─────────────▼──────────────┐
+                │  UnifiedDataAdapter        │
+                │  (get_fundamentals,        │
+                │   fetch_price_history,     │
+                │   fetch_macro)             │
+                └─────────────┬───────────────┘
+                              │
+                ┌─────────────▼───────────────────────────────┐
+                │    RedundantDataFetcher                     │
+                │  • Tries sources in priority order          │
+                │  • Exponential backoff on rate limits        │
+                │  • SQLite cache (TTL: 7 days default)       │
+                │  • Offline-first (prefetch once, works      │
+                │    offline forever)                          │
+                └─────────────┬───────────────────────────────┘
+                              │
+    ┌─────────────┬───────────┼────────────┬─────────────┬──────┐
+    ▼             ▼           ▼            ▼             ▼      ▼
+┌────────────┐ ┌────────┐ ┌─────────┐ ┌──────────┐ ┌─────────┐ ┌────────┐
+│ SEC EDGAR  │ │yfinance│ │  Stooq  │ │   FRED   │ │ Alpha   │ │ Custom │
+│            │ │        │ │ (free   │ │ (macro)  │ │Vantage  │ │  API   │
+│ Fundamentals
+│ Point-in-  │ │Prices  │ │fallback)│ │          │ │(paid    │ │(any    │
+│ time       │ │Latest  │ │         │ │GDP, CPI, │ │tier)    │ │format) │
+│ (Official)  │ │funds   │ │         │ │ unemp    │ │         │ │        │
+└────────────┘ └────────┘ └─────────┘ └──────────┘ └─────────┘ └────────┘
+     ✓NO KEY      ✓FREE     ✓FREE      ✓NO KEY    $API KEY   $API KEY
+                           FALLBACK
+```
+
+**How it works:**
+
+1. **User downloads repo** → `pip install` (one-time)
+2. **User runs prefetch** (optional) → `python data_fetcher.py --prefetch` downloads 20+ years of data to local SQLite cache
+3. **User runs backtest** → Uses cached data, only fetches missing dates (rare)
+4. **Network fails?** → No problem. Backtest still works offline with cached data.
+5. **Want real-time FRED?** → Add your API key, it becomes priority source. No code changes.
+6. **Want Bloomberg?** → Community can contribute `BloombergSource` adapter, plugs in seamlessly.
+
+**Key features:**
+
+- **Zero API keys required** — yfinance, Stooq, SEC EDGAR, macro CSV are all free/public
+- **Automatic fallback** — yfinance throttles? Stooq takes over. Both fail? Use cache.
+- **Offline-first** — prefetch once (20 tickers, 20 years ≈ 1 hour), backtest works forever without internet
+- **Community-extensible** — add data sources (Bloomberg, Refinitiv, proprietary) as drop-in adapters
+- **Institutional-grade** — redundant, rate-limited, cached, reproducible
+
 **Manifest.** Every backtest run writes a `manifest.json` capturing git SHA, file hashes for all backtest modules, and the full config dump. Two runs with the same manifest are guaranteed reproducible.
 
 ## What's in the box
@@ -262,6 +321,66 @@ For live market data:
 ```bash
 pip install -e ".[live]"
 ```
+
+## Quick Start
+
+### 1. Download Data (One-Time, Optional)
+
+For offline backtesting, download 20+ years of price and fundamental data:
+
+```bash
+# Downloads ~20GB to local cache, takes ~1-2 hours (one-time)
+python scripts/data_fetcher.py --prefetch --start_year 2015
+
+# After this, all backtests work offline — no internet required
+```
+
+No API keys needed. Uses free public APIs: yfinance, SEC EDGAR, Stooq.
+
+### 2. Run a Backtest
+
+```bash
+# Validate config and universe
+python -m iam.backtest.cli validate
+
+# Run multi-horizon IC backtest on composite score
+python -m iam.backtest.cli backtest
+
+# Output: Information Coefficient, Sharpe ratio, hit rate, sector-neutral IC
+```
+
+### 3. Score a Single Stock
+
+```python
+from iam.data import Security
+from iam.engine.composite import score
+
+nvda = Security(
+    ticker="NVDA",
+    sector="Semiconductors",
+    revenue_mix={"US": 0.50, "CN": 0.25, "TW": 0.15, "EU": 0.10}
+)
+
+result = score(nvda)
+print(f"Composite Score: {result.composite:+.3f}")
+print(f"Factors: {result.explain()}")
+```
+
+### 4. Run the Full Valuation Pipeline
+
+```python
+from iam.data import Security
+from iam.integration.orchestrator import Orchestrator
+
+nvda = Security(ticker="NVDA", sector="Semiconductors", ...)
+orch = Orchestrator()
+result = orch.value_security(nvda)
+
+print(f"Fair Value: ${result['model_result'].value:.2f}")
+print(f"Verdict: {result['recommendation']}")
+```
+
+See [`docs/`](docs/) for detailed examples.
 
 For the full backtest stack:
 
@@ -535,6 +654,14 @@ Full conceptual documentation:
 - [ ] Machine learning overlay: IC stability prediction, signal reliability estimation
 - [ ] Real-time thesis reranking on earnings/macro events
 - [ ] Portfolio-level thesis aggregation and sector regime adaptation
+
+**Reasoning-engine evolution (v0.5+)** — reframe the pipeline as disagreement-first reasoning engines:
+
+- [ ] Damodaran-laws constraint layer: enforce `g = ROIC × reinvestment_rate`, narrative-vs-numbers consistency, ROIC fade, no risk double-counting
+- [ ] Business Reality Engine: revenue-quality, cash-flow durability, growth-quality, and capital-allocation interrogation
+- [ ] Relative Reality: estimate the *justified* premium/discount vs sector, not just the observed one
+- [ ] Valuation Battlefield output: Bull / Bear / Market-implied / Intrinsic theses side-by-side with the key disagreement labeled
+- [ ] Thesis Drift Detection: register assumptions that must hold, monitor drift, and degrade conviction with a per-name fragility score
 
 ## License
 

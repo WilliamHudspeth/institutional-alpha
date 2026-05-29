@@ -2,7 +2,7 @@
 
 Builds immutable Security objects as they existed on a specific date, freezing
 price and debt data. Uses diskcache for persistence and delegates data fetching
-to the pluggable `sources` package (default: yfinance → Stooq fallback).
+to the pluggable `fetcher` package (RedundantDataFetcher).
 """
 
 from __future__ import annotations
@@ -14,12 +14,12 @@ import pandas as pd
 from diskcache import Cache
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from iam.backtest.sources import DataSource, default_chain
+from iam.data.fetcher import RedundantDataFetcher
 from iam.data.security import MarketData, Security
 
 # Global cache singleton
 _snapshot_cache: Cache | None = None
-_default_source: DataSource | None = None
+_default_fetcher: RedundantDataFetcher | None = None
 
 
 def get_snapshot_cache(cache_dir: Path) -> Cache:
@@ -39,41 +39,54 @@ def reset_snapshot_cache() -> None:
     _snapshot_cache = None
 
 
-def get_default_source() -> DataSource:
-    """Get or build the default yfinance → Stooq fallback chain."""
-    global _default_source
-    if _default_source is None:
-        _default_source = default_chain()
-    return _default_source
+def get_default_fetcher() -> RedundantDataFetcher:
+    """Get or build the default RedundantDataFetcher."""
+    global _default_fetcher
+    if _default_fetcher is None:
+        _default_fetcher = RedundantDataFetcher()
+    return _default_fetcher
 
 
-def set_default_source(source: DataSource) -> None:
-    """Override the default data source (used in tests and for custom chains)."""
-    global _default_source
-    _default_source = source
+def set_default_fetcher(fetcher: RedundantDataFetcher) -> None:
+    """Override the default data fetcher (used in tests)."""
+    global _default_fetcher
+    _default_fetcher = fetcher
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
 def _fetch_snapshot_data(
     ticker: str,
     as_of: pd.Timestamp,
-    source: DataSource,
+    fetcher: RedundantDataFetcher,
 ) -> tuple[float, float]:
-    """Fetch price and debt via the provided data source.
+    """Fetch price and debt via the provided RedundantDataFetcher.
 
     Args:
         ticker: Stock ticker
         as_of: Target date
-        source: DataSource (typically a CompositeDataSource fallback chain)
+        fetcher: RedundantDataFetcher
 
     Returns:
         Tuple of (price, debt). Debt is 0.0 if unavailable.
-
-    Raises:
-        DataSourceError: If price cannot be obtained from any source.
     """
-    price = source.fetch_price(ticker, as_of)
-    debt = source.fetch_debt(ticker, as_of)
+    as_of_dt = as_of.to_pydatetime()
+    # Fetch a small window of prices to handle weekends/holidays
+    start_dt = as_of_dt - pd.Timedelta(days=7)
+    prices = fetcher.fetch_price_history(ticker, start_dt, as_of_dt)
+    
+    if prices.empty:
+        raise ValueError(f"No price data available for {ticker} around {as_of}")
+        
+    valid_prices = prices[prices.index <= as_of_dt]
+    if valid_prices.empty:
+        raise ValueError(f"No valid price data on or before {as_of} for {ticker}")
+        
+    price = float(valid_prices.iloc[-1])
+    
+    fundamentals = fetcher.fetch_fundamentals(ticker, as_of_dt)
+    # Map Liabilities or totalDebt depending on what's available
+    debt = float(fundamentals.get('Liabilities', fundamentals.get('totalDebt', 0.0)))
+    
     return price, debt
 
 
@@ -81,7 +94,7 @@ def build_snapshot(
     base: Security,
     as_of: str,  # YYYY-MM-DD
     cache_dir: Path = Path(".cache/snapshots"),
-    source: DataSource | None = None,
+    fetcher: RedundantDataFetcher | None = None,
 ) -> Security:
     """Build a point-in-time Security snapshot for a specific date.
 
@@ -89,7 +102,7 @@ def build_snapshot(
         base: Base Security with sector, industry, revenue_mix, shares_outstanding
         as_of: Date string (YYYY-MM-DD)
         cache_dir: Directory for diskcache persistence
-        source: Optional DataSource override (default: yfinance → Stooq chain)
+        fetcher: Optional fetcher override
 
     Returns:
         New Security object with market_cap and total_debt frozen for as_of
@@ -102,8 +115,13 @@ def build_snapshot(
     if cache_key in cache:
         return cache[cache_key]
 
-    src = source if source is not None else get_default_source()
-    price, debt = _fetch_snapshot_data(ticker, as_of_dt, src)
+    src = fetcher if fetcher is not None else get_default_fetcher()
+    try:
+        price, debt = _fetch_snapshot_data(ticker, as_of_dt, src)
+    except Exception as e:
+        # Fallback to base or nan
+        price = float('nan')
+        debt = 0.0
 
     shares = (
         base.fundamentals.shares_outstanding

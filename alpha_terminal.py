@@ -197,7 +197,7 @@ def _spark_line(history: list[float], width: int) -> str:
     window = history[-width:]
     lo, hi = min(window), max(window)
     span = hi - lo or 1.0
-    return "".join(SPARK_CHARS[int((v - lo) / span * 8)] for v in window).ljust(width)
+    return "".join(SPARK_CHARS[min(8, max(0, int((v - lo) / span * 8)))] for v in window).ljust(width)
 
 
 def _spark_trend(history: list[float]) -> str:
@@ -1073,7 +1073,7 @@ class AlphaTerminal:
         "Exit",
     ]
 
-    DEFAULT_WATCHLIST = ["AAPL", "MSFT", "NVDA", "TSLA", "AMD"]
+    DEFAULT_WATCHLIST = ["TSLA", "MSFT", "AAPL", "NVDA", "META"]
 
     def __init__(self) -> None:
         self._active = "AAPL"
@@ -1106,6 +1106,13 @@ class AlphaTerminal:
     def start(self) -> None:
         if sys.platform == "win32":
             os.system("")
+            try:
+                sys.stdout.reconfigure(encoding="utf-8")
+            except AttributeError:
+                pass
+        else:
+            self._old_settings = termios.tcgetattr(sys.stdin.fileno())
+            tty.setcbreak(sys.stdin.fileno())
         sys.stdout.write(ALT_ON + CURSOR_HIDE + CLEAR)
         sys.stdout.flush()
         self._running = True
@@ -1120,6 +1127,8 @@ class AlphaTerminal:
     def _teardown(self) -> None:
         sys.stdout.write(CURSOR_SHOW + ALT_OFF)
         sys.stdout.flush()
+        if sys.platform != "win32" and hasattr(self, "_old_settings"):
+            termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, self._old_settings)
         self._executor.shutdown(wait=False)
 
     # ── Layout ────────────────────────────────────────────────────────────
@@ -1260,19 +1269,22 @@ class AlphaTerminal:
         """Simulate live price ticks for sparkline animation."""
         with self._lock:
             st = self._secs.get(self._active)
-        if st and not st.loading and st.security:
-            try:
-                p = st.security.market.price or 150.0
-                st.security.market.price = max(1.0, p + random.gauss(0, p * 0.004))
-                st.history.append(st.security.market.price)
-                if len(st.history) > 50:
-                    st.history = st.history[-50:]
-            except Exception:
-                pass
+            if st and not st.loading and st.security:
+                try:
+                    p = st.security.market.price or 150.0
+                    new_price = max(1.0, p + random.gauss(0, p * 0.004))
+                    st.security.market.price = new_price
+                    st.history.append(new_price)
+                    if len(st.history) > 50:
+                        st.history = st.history[-50:]
+                except Exception:
+                    pass
 
     # ── Interactive flows ─────────────────────────────────────────────────
 
     def _switch_flow(self) -> None:
+        if sys.platform != "win32" and hasattr(self, "_old_settings"):
+            termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, self._old_settings)
         sys.stdout.write(CURSOR_SHOW + CLEAR)
         sys.stdout.flush()
         cols, _ = shutil.get_terminal_size()
@@ -1302,10 +1314,14 @@ class AlphaTerminal:
         sys.stdout.flush()
         sys.stdout.write(CURSOR_HIDE)
         _getch_block()
+        if sys.platform != "win32":
+            tty.setcbreak(sys.stdin.fileno())
         if self._canvas:
             self._canvas._dirty = True
 
     def _add_to_watchlist_flow(self) -> None:
+        if sys.platform != "win32" and hasattr(self, "_old_settings"):
+            termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, self._old_settings)
         sys.stdout.write(CURSOR_SHOW + CLEAR)
         sys.stdout.flush()
         print(f"{TL1}{H1 * 50}{TR1}")
@@ -1326,6 +1342,8 @@ class AlphaTerminal:
         print(f"\n  Press any key...")
         sys.stdout.write(CURSOR_HIDE)
         _getch_block()
+        if sys.platform != "win32":
+            tty.setcbreak(sys.stdin.fileno())
         if self._canvas:
             self._canvas._dirty = True
 

@@ -179,6 +179,51 @@ def newey_west_se_rigorous(ic_series: pd.Series, nlags: int = 3) -> tuple[float,
     return t_stat, p_value, se
 
 
+def ic_value_weighted(
+    df: pd.DataFrame,
+    mcap_col: str = "market_cap",
+    score_col: str = "score",
+    fwd_col: str = "fwd",
+) -> float:
+    """Value-weighted rank IC: weighted Spearman between composite score and forward return.
+
+    Ranks both series then computes the weighted Pearson correlation of those ranks,
+    using market cap as weights. This tells you whether the signal holds in names
+    where you can actually deploy real size, not just in micro-caps.
+
+    Falls back to equal-weighted Spearman when market cap data is unavailable.
+    """
+    valid = df[[score_col, fwd_col]].copy()
+    if mcap_col in df.columns:
+        valid[mcap_col] = df[mcap_col]
+        valid = valid.dropna()
+    else:
+        valid = valid.dropna()
+
+    if len(valid) < 5:
+        return np.nan
+
+    # Rank both series (average ties)
+    rank_score = valid[score_col].rank(method="average")
+    rank_fwd = valid[fwd_col].rank(method="average")
+
+    if mcap_col in valid.columns and valid[mcap_col].sum() > 0:
+        w = valid[mcap_col].values.astype(float)
+        w = w / w.sum()
+        mu_s = np.dot(w, rank_score.values)
+        mu_f = np.dot(w, rank_fwd.values)
+        cov = np.dot(w, (rank_score.values - mu_s) * (rank_fwd.values - mu_f))
+        var_s = np.dot(w, (rank_score.values - mu_s) ** 2)
+        var_f = np.dot(w, (rank_fwd.values - mu_f) ** 2)
+        if var_s <= 0 or var_f <= 0:
+            return np.nan
+        return float(cov / np.sqrt(var_s * var_f))
+
+    # No market cap — fall back to equal-weight Spearman
+    corr, _ = spearmanr(rank_score, rank_fwd, nan_policy="omit")
+    return corr
+
+
 def ic_sector_neutral(df: pd.DataFrame, sector_col: str = "sector") -> float:
     """Calculate sector-neutral Information Coefficient.
 
