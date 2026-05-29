@@ -57,7 +57,7 @@ The theory: Apply **Mauboussin's expectations-investing framework** (what does t
 |---|--------|----------|--------|--------|
 | 1 | **Data Integrity** | Normalized inputs, segment accounting, cycle detection | ✅ Partial | Clean accounting is foundational |
 | 2 | **Market Expectations** | What growth, margins, ROIC, moat duration is the price implying? | ✅ | Reverse DCF (Mauboussin) |
-| 3 | **Business Reality** | Revenue durability, cash-flow quality, capital efficiency, management discipline | ⬜ New | Business logic layer (Damodaran) |
+| 3 | **Business Reality** | Revenue durability, cash-flow quality, capital efficiency, management discipline | ✅ | Business logic layer (Damodaran) |
 | 4 | **Relative Reality** | Justified premium/discount based on competitive durability, not just multiples | Partial → enhance | "Does it *deserve* this premium?" |
 | 5 | **Intrinsic Valuation** | Fair value from bottom-up DCF, independent of market | ✅ | Damodaran DCF with bottom-up risk |
 | 6 | **Macro Stress** | Fair value swing when rates move / growth contracts, calibrated by business durability | Partial → enhance | Elasticity-aware, not flat shocks |
@@ -776,11 +776,13 @@ The user should never manually update. Security patches, factor improvements, da
   - Risk double-counting guard (cash flows OR discount rate, not both)
   - Terminal-growth ≤ Rf (already enforced — fold into the law registry)
 
-- [ ] **Business Reality Engine** (`iam.reasoning` / new lens)
-  - Revenue-quality classification (recurring / transactional / cyclical / regulated)
-  - Cash-flow durability scoring (stable / mean-reverting / capital-markets-dependent)
-  - Growth-quality decomposition (organic vs acquisition, marginal ROIC, TAM realism)
-  - Capital-allocation / management-behavior signals (dilution, buyback discipline)
+- [x] **Business Reality Engine** (`iam.reasoning` / new lens) — see `docs/business_reality.md`
+  - [x] Revenue-quality classification (recurring / transactional / cyclical / regulated)
+  - [x] Cash-flow durability scoring (stable / mean-reverting / capital-markets-dependent)
+  - [x] Growth-quality decomposition (organic vs acquisition, marginal ROIC, TAM realism)
+  - [x] Capital-allocation / management-behavior signals (dilution, buyback discipline)
+  - [x] ROIC durability (excess-return fade, Damodaran Law 4) + fragility/robustness synthesis
+  - [x] Surfaced as a diagnostic `BusinessRealityLens`; `fragility` is the hook for Thesis-Drift / Battlefield
 
 - [ ] **Relative Reality: justified premium**
   - Estimate the premium/discount a name *deserves* vs sector (not just observed)
