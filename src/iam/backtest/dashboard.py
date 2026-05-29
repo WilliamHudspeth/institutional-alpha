@@ -19,7 +19,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     
     def do_GET(self):
         # Resolve target paths
-        results_dir = Path("data/results/ic")
+        results_dir = Path("data/results")
         calibration_path = Path("src/iam/arbitration/calibrated_reliabilities_empirical.json")
         
         # Routing

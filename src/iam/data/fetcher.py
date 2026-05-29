@@ -195,7 +195,7 @@ class SecEdgarSource:
             return {}
         cache_key = f"sec_fund_{ticker}_{as_of_date.date()}"
         cached = self.cache.get(cache_key, source="sec")
-        if cached:
+        if cached is not None:
             return cached
 
         # For demonstration, we'll fetch a few key metrics.
@@ -244,27 +244,31 @@ class YFinanceSource:
         """Return latest fundamentals (not point‑in‑time)."""
         cache_key = f"yf_fund_{ticker}"
         cached = self.cache.get(cache_key, source="yfinance")
-        if cached:
+        if cached is not None:
             return cached
-        stock = yf.Ticker(ticker)
-        info = stock.info
-        result = {
-            'market_cap': info.get('marketCap'),
-            'price': info.get('currentPrice'),
-            'currentPrice': info.get('currentPrice'),  # for test compatibility
-            'pe_ratio': info.get('trailingPE'),
-            'pb_ratio': info.get('priceToBook'),
-            'dividend_yield': info.get('dividendYield'),
-            'revenue_growth': info.get('revenueGrowth'),
-            'profit_margins': info.get('profitMargins'),
-        }
-        # Also get net income and book value from financials if available
         try:
-            financials = stock.financials
-            if not financials.empty:
-                result['net_income'] = financials.loc['Net Income'].iloc[0] if 'Net Income' in financials.index else None
-        except:
-            pass
+            stock = yf.Ticker(ticker)
+            info = stock.info or {}
+            result = {
+                'market_cap': info.get('marketCap'),
+                'price': info.get('currentPrice'),
+                'currentPrice': info.get('currentPrice'),  # for test compatibility
+                'pe_ratio': info.get('trailingPE'),
+                'pb_ratio': info.get('priceToBook'),
+                'dividend_yield': info.get('dividendYield'),
+                'revenue_growth': info.get('revenueGrowth'),
+                'profit_margins': info.get('profitMargins'),
+            }
+            # Also get net income and book value from financials if available
+            try:
+                financials = stock.financials
+                if not financials.empty:
+                    result['net_income'] = financials.loc['Net Income'].iloc[0] if 'Net Income' in financials.index else None
+            except:
+                pass
+        except Exception as e:
+            logger.warning(f"Failed to fetch yfinance fundamentals for {ticker}: {e}")
+            result = {}
         self.cache.set(cache_key, result, source="yfinance")
         return result
 
@@ -272,12 +276,13 @@ class YFinanceSource:
     def get_price_history(self, ticker: str, start: datetime, end: datetime) -> pd.Series:
         cache_key = f"yf_price_{ticker}_{start.date()}_{end.date()}"
         cached = self.cache.get(cache_key, source="yfinance")
-        if cached:
+        if cached is not None:
             # Reconstruct Series with DatetimeIndex
             idx = pd.to_datetime(list(cached.keys()))
             return pd.Series(list(cached.values()), index=idx)
         data = yf.download(ticker, start=start, end=end, progress=False, auto_adjust=False)
         if data.empty:
+            self.cache.set(cache_key, {}, source="yfinance")
             return pd.Series()
         series = data['Adj Close']
         if isinstance(series, pd.DataFrame):
