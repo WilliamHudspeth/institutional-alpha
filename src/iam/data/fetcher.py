@@ -280,6 +280,11 @@ class YFinanceSource:
         if data.empty:
             return pd.Series()
         series = data['Adj Close']
+        if isinstance(series, pd.DataFrame):
+            if ticker in series.columns:
+                series = series[ticker]
+            else:
+                series = series.iloc[:, 0]
         # Convert index (timestamps) to strings for json storage
         series_dict = {k.strftime('%Y-%m-%d') if hasattr(k, 'strftime') else str(k): v for k, v in series.to_dict().items()}
         self.cache.set(cache_key, series_dict, source="yfinance")

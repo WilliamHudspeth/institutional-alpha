@@ -163,8 +163,13 @@ def backtest(
 
     # Save full results parquet
     results_path = config.results_dir / "backtest_results.parquet"
-    results_df.to_parquet(results_path)
-    typer.echo(f"✓ Results written to {results_path}")
+    try:
+        results_df.to_parquet(results_path)
+        typer.echo(f"✓ Results written to {results_path}")
+    except Exception as e:
+        csv_fallback_path = config.results_dir / "backtest_results.csv"
+        results_df.to_csv(csv_fallback_path)
+        typer.echo(f"⚠️  PyArrow/FastParquet not available. Saved results as CSV instead to: {csv_fallback_path}")
 
     # Save a tidy per-horizon IC CSV for easy inspection
     horizon_ic_cols = [c for c in results_df.columns if (c.startswith("ic_") and c.endswith("d"))]
