@@ -75,6 +75,21 @@ def _gather_lens_results(security) -> tuple[Optional[float], Optional[str]]:
         return None, str(exc)
 
 
+def _gather_business_reality(security):
+    """Run the Business Reality Engine silently.
+
+    Returns ``(narrative, error)``. The engine is purely diagnostic, so any
+    failure is non-fatal and never blocks the valuation render.
+    """
+    try:
+        from iam.reasoning.business_reality import BusinessRealityEngine
+
+        assessment = BusinessRealityEngine().assess(security)
+        return assessment.narrative, None
+    except Exception as exc:
+        return None, str(exc)
+
+
 def _gather_pipeline_report(security, synthesis_upside: Optional[float]):
     """Run the 7-stage pipeline silently. Returns (report, error)."""
     try:
@@ -199,6 +214,13 @@ def main() -> None:
     # ----- Single unified render -----
     ui_data = _build_ui_data(security, growth, synthesis_upside, report)
     print_institutional_ui(ui_data)
+
+    # ----- Business Reality reasoning (diagnostic, non-fatal) -----
+    business_reality, br_error = _gather_business_reality(security)
+    if business_reality:
+        print(f"\nBusiness Reality: {business_reality}")
+    elif br_error:
+        print(f"(Business Reality analysis unavailable: {br_error})")
 
 
 if __name__ == "__main__":
