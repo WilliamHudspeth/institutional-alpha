@@ -9,8 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-import numpy as np
-
 from iam.data.security import Security
 
 
@@ -316,7 +314,8 @@ class DamodaranLaws:
         }
 
         passed = all(v.passed for v in verdicts.values())
-        overall_score = float(np.mean([v.score for v in verdicts.values()]))
+        scores = [v.score for v in verdicts.values()]
+        overall_score = float(sum(scores) / len(scores)) if scores else 1.0
 
         # Build summary
         summary_parts = []
