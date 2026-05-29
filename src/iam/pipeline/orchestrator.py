@@ -70,6 +70,8 @@ class PipelineReport:
     final_verdict: VerdictResult | None = None
     synthesis_upside: float | None = None  # Multi-lens synthesis weighted implied move
     business_reality: ValuationResult | None = None
+    battlefield: BattlefieldReport | None = None
+    drift: ThesisDriftReport | None = None
 
     def explain(self, verbose: bool = False) -> str:
         if verbose:
@@ -159,6 +161,24 @@ class PipelineReport:
         lines.append("")
 
         lines.append(f"SUMMARY: {self.summary}")
+        lines.append("")
+
+        if self.battlefield:
+            lines.append("STAGE 8 — VALUATION BATTLEFIELD VIEW")
+            lines.append(f"{self.battlefield.verdict_text}")
+            lines.append("")
+
+        if self.drift:
+            lines.append("STAGE 9 — THESIS OPERATIONAL DRIFT AUDIT")
+            lines.append(f"  Overall Fragility Score: {self.drift.overall_fragility * 100:.1f}%")
+            if self.drift.drift_warnings:
+                for w in self.drift.drift_warnings:
+                    lines.append(f"    ⚠️ {w}")
+            else:
+                lines.append(
+                    "    ✅ No active operational assumption drift detected across theses."
+                )
+            lines.append("")
 
         if self.final_verdict:
             lines.append("=" * 60)
@@ -290,6 +310,13 @@ class ValuationPipeline:
             summary=triangulation_res.verdict,
             business_reality=business_reality_res,
         )
+
+        # Stages 8 & 9: Valuation Battlefield & Thesis Drift Detection
+        from iam.thesis.battlefield import ValuationBattlefield
+        from iam.thesis.drift import ThesisDriftDetector
+
+        report.battlefield = ValuationBattlefield.generate_battlefield(security, report)
+        report.drift = ThesisDriftDetector.detect_drift(security)
 
         # Stages 5 & 6: Macro Overlay
         if macro:
