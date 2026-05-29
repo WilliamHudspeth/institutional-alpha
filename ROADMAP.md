@@ -219,18 +219,18 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
   - Coverage report generated on every test run
   - Gaps highlighted (unused code paths)
 
-- [ ] **Test Organization**
-  - `tests/fixtures/` — shared fixtures
-  - `tests/unit/` — single-unit tests (cache, individual sources)
-  - `tests/integration/` — full workflows (backtest, end-to-end)
-  - `tests/performance/` — benchmarks
-  - `tests/regression/` — bug reports turned tests
+- [x] **Test Organization**
+  - `tests/fixtures/` — shared fixtures (BacktestHarness)
+  - `tests/unit/` — 20 single-unit tests (components in isolation)
+  - `tests/integration/` — 7 full workflows (pipeline, data fetching)
+  - `tests/performance/` — 7 backtest & performance tests
+  - See TEST_ORGANIZATION.md for complete reference
 
-- [ ] **Test Documentation**
-  - Each test has a docstring explaining what it tests and why
-  - Fixtures documented (what they set up, what they clean up)
-  - Test naming convention: `test_<unit>_<scenario>_<expected>`
-  - Example: `test_cache_ttl_expiry_returns_none`
+- [x] **Test Documentation**
+  - Module-level docstrings explaining test scope and purpose
+  - Function-level docstrings for critical tests (engine, business_reality, imports)
+  - Test naming convention: `test_<component>_<scenario>_<expected>`
+  - TEST_ORGANIZATION.md guide with categories, running tests, naming conventions
 
 #### Success Criteria for Phase 0.5
 
