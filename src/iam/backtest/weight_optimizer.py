@@ -20,6 +20,92 @@ from scipy.optimize import Bounds, minimize
 logger = logging.getLogger(__name__)
 
 
+def ledoit_wolf_shrinkage(X: np.ndarray) -> np.ndarray:
+	"""
+	Computes the analytical Ledoit-Wolf optimal shrinkage covariance matrix.
+
+	The estimator shrinks the sample covariance matrix S toward a constant
+	correlation target F using an optimal shrinkage intensity δ ∈ [0,1]:
+		Σ = (1 - δ) S + δ F
+
+	The optimal δ is derived by minimizing the Frobenius norm between the
+	true and estimated covariance (Ledoit & Wolf, 2004).
+
+	Parameters
+	----------
+	X : np.ndarray, shape (n_samples, n_features)
+		Data matrix. Rows are observations, columns are features.
+		NaNs are imputed with column means.
+
+	Returns
+	-------
+	shrunk_cov : np.ndarray, shape (n_features, n_features)
+		Shrunken covariance matrix (symmetric positive semi‑definite).
+	"""
+	# ---------- handle edge cases and NaNs ----------
+	X = X.astype(float, copy=True)
+	# replace NaNs with column means
+	col_means = np.nanmean(X, axis=0)
+	X = np.where(np.isnan(X), col_means, X)
+
+	n, p = X.shape
+	if n == 0:
+		return np.zeros((p, p))
+	if n == 1:
+		# degenerate case: only one observation → diagonal of sample variances (all zero)
+		return np.diag(np.var(X, axis=0, ddof=0))
+
+	# ---------- center data ----------
+	Xc = X - X.mean(axis=0)			# shape (n, p)
+
+	# ---------- sample covariance (MLE divisor n) ----------
+	S = (Xc.T @ Xc) / n				# shape (p, p)
+
+	# ---------- constant correlation target F ----------
+	var = np.diag(S)				 # marginal variances
+	sqrt_var = np.sqrt(var)
+
+	# handle zero‑variance features
+	pos_var = var > 0
+	if np.sum(pos_var) >= 2:
+		idx = np.where(pos_var)[0]
+		S_nz = S[np.ix_(idx, idx)]
+		sqrt_nz = sqrt_var[idx]
+		# correlation matrix of positive‑variance features
+		R_nz = S_nz / np.outer(sqrt_nz, sqrt_nz)
+		# average correlation (off‑diagonal only)
+		r_bar = (np.sum(R_nz) - len(idx)) / (len(idx) * (len(idx) - 1))
+	else:
+		r_bar = 0.0
+
+	# build target matrix F = (1-r_bar)*diag(var) + r_bar * (sqrt_var sqrt_var^T)
+	outer_sqrt = np.outer(sqrt_var, sqrt_var)
+	F = r_bar * outer_sqrt
+	np.fill_diagonal(F, var)			# correct diagonal to variances
+
+	# ---------- compute optimal shrinkage intensity δ ----------
+	# d² = Frobenius norm squared of (S - F)
+	d2 = np.sum((S - F) ** 2)
+
+	# b² = average empirical variance of the entries of the sample covariance
+	# Let y = Xc (centered). For each feature pair (i,j):
+	#   s_ij = (1/n) Σ_t y_ti y_tj
+	#   var_hat(s_ij) = (1/n) Σ_t (y_ti y_tj - s_ij)²
+	#   then b² = (1/n) Σ_{i,j} var_hat(s_ij)
+	M = Xc ** 2					 # shape (n, p)
+	# S2[i,j] = sample variance of the product y_i y_j
+	S2 = (M.T @ M) / n - S ** 2
+	b2 = np.sum(S2) / n
+
+	# shrinkage intensity δ = b² / (b² + d²)	 (clipped to [0,1])
+	shrinkage = b2 / (b2 + d2) if (b2 + d2) > 0 else 0.0
+	shrinkage = np.clip(shrinkage, 0.0, 1.0)
+
+	# ---------- return shrunken covariance ----------
+	shrunk_cov = (1 - shrinkage) * S + shrinkage * F
+	return shrunk_cov
+
+
 @dataclass
 class WeightOptimizerConfig:
     n_factors: int = 10
@@ -31,6 +117,7 @@ class WeightOptimizerConfig:
     n_bootstrap: int = 100
     max_iter: int = 500
     tol: float = 1e-6
+    regularization_penalty: float = 0.05
 
 
 @dataclass
@@ -65,8 +152,10 @@ def _objective(
     weights: np.ndarray,
     factor_scores_list: list[np.ndarray],
     returns_list: list[np.ndarray],
+    Sigma: np.ndarray | None = None,
+    regularization_penalty: float = 0.05,
 ) -> float:
-    """Negative average IC across all dates."""
+    """Negative average IC across all dates + weight variance penalty."""
     ics = []
     for scores, rets in zip(factor_scores_list, returns_list):
         if len(rets) < 2:
@@ -77,10 +166,19 @@ def _objective(
         ic = np.corrcoef(composite, rets)[0, 1]
         if not np.isnan(ic):
             ics.append(ic)
-            
+
     if not ics:
-        return 0.0
-    return -np.mean(ics)
+        avg_ic = 0.0
+    else:
+        avg_ic = np.mean(ics)
+
+    loss = -avg_ic
+    if Sigma is not None and regularization_penalty > 0:
+        # Regularization term: w^T * Sigma * w
+        penalty = regularization_penalty * float(weights.T @ Sigma @ weights)
+        loss += penalty
+
+    return loss
 
 
 def optimize_weights(
@@ -88,6 +186,7 @@ def optimize_weights(
     returns_list: list[np.ndarray],
     prior_weights: np.ndarray | None = None,
     shrinkage_lambda: float = 0.7,
+    regularization_penalty: float = 0.05,
     max_iter: int = 500,
     tol: float = 1e-6,
 ) -> np.ndarray:
@@ -97,33 +196,42 @@ def optimize_weights(
         return np.array([])
 
     n_factors = factor_scores_list[0].shape[1]
-    
+
     if prior_weights is None:
         prior_weights = np.ones(n_factors) / n_factors
-        
+
+    # Concatenate all cross-sectional factor scores to compute the full sample covariance block
+    try:
+        X = np.concatenate(factor_scores_list, axis=0)
+        Sigma = ledoit_wolf_shrinkage(X)
+    except Exception as e:
+        # Graceful fallback if concatenation fails due to empty dimensions
+        logger.debug(f"Could not compute Ledoit-Wolf covariance: {e}")
+        Sigma = None
+
     x0 = prior_weights.copy()
-    
+
     bounds = Bounds(0.0, 1.0)
     constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]
-    
+
     res = minimize(
         _objective,
         x0,
-        args=(factor_scores_list, returns_list),
+        args=(factor_scores_list, returns_list, Sigma, regularization_penalty),
         method="SLSQP",
         bounds=bounds,
         constraints=constraints,
         options={"maxiter": max_iter, "ftol": tol},
     )
-    
+
     w_opt = res.x
     w_final = shrinkage_lambda * w_opt + (1.0 - shrinkage_lambda) * prior_weights
-    
+
     # Ensure it sums exactly to 1
     w_sum = np.sum(w_final)
     if w_sum > 0:
         w_final /= w_sum
-        
+
     return w_final
 
 
@@ -166,6 +274,7 @@ class WalkForwardOptimizer:
                 train_rets,
                 prior_weights=self.config.prior_weights,
                 shrinkage_lambda=self.config.shrinkage_lambda,
+                regularization_penalty=self.config.regularization_penalty,
                 max_iter=self.config.max_iter,
                 tol=self.config.tol,
             )
@@ -251,6 +360,7 @@ class BootstrapStability:
                 rets,
                 prior_weights=self.config.prior_weights,
                 shrinkage_lambda=self.config.shrinkage_lambda,
+                regularization_penalty=self.config.regularization_penalty,
                 max_iter=self.config.max_iter,
                 tol=self.config.tol,
             )
@@ -317,6 +427,7 @@ class RegimeOptimizer:
                 rets,
                 prior_weights=self.config.prior_weights,
                 shrinkage_lambda=self.config.shrinkage_lambda,
+                regularization_penalty=self.config.regularization_penalty,
                 max_iter=self.config.max_iter,
                 tol=self.config.tol,
             )
