@@ -97,7 +97,10 @@ def run_backtest(
     )
 
     if hasattr(price_block, "to_pandas"):
-        price_block = price_block.to_pandas()
+        try:
+            price_block = price_block.to_pandas()
+        except Exception:
+            price_block = pd.DataFrame(price_block.to_dicts())
     if isinstance(price_block.index, pd.MultiIndex):
         price_block = price_block.reset_index()
     if "date" in price_block.columns:

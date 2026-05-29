@@ -58,6 +58,10 @@ test = [
 Homepage = "https://github.com/YOUR_USERNAME/institutional-alpha"
 Issues = "https://github.com/YOUR_USERNAME/institutional-alpha/issues"
 
+[project.scripts]
+iam-learn = "iam.learning_module:main"
+iam-engine = "iam.learning_engine:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
