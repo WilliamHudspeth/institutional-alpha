@@ -69,6 +69,7 @@ class PipelineReport:
     summary: str = ""
     final_verdict: VerdictResult | None = None
     synthesis_upside: float | None = None  # Multi-lens synthesis weighted implied move
+    business_reality: ValuationResult | None = None
 
     def explain(self, verbose: bool = False) -> str:
         if verbose:
@@ -143,6 +144,13 @@ class PipelineReport:
         for note in self.intrinsic.notes:
             lines.append(f"  • {note}")
         lines.append("")
+
+        if self.business_reality:
+            lines.append(
+                "STAGE 3b — Business Reality Engine (Operational Durability & Consistency)"
+            )
+            lines.append(f"  {self.business_reality.verdict_text}")
+            lines.append("")
 
         lines.append(f"STAGE 4 — Triangulation: {self.triangulation.verdict.upper()}")
         lines.append(f"  confidence: {self.triangulation.confidence:.2f}")
@@ -248,6 +256,25 @@ class ValuationPipeline:
         if wacc_info and wacc_note:
             intrinsic_res.notes.append(wacc_note)
 
+        # Stage 3b: Business Reality Audit (Engine 3)
+        g = intrinsic_res.assumptions.get("high_growth", 0.10)
+        tg = intrinsic_res.assumptions.get("terminal_growth", 0.025)
+        discount = intrinsic_res.assumptions.get("discount_rate", 0.09)
+        roe = intrinsic_res.assumptions.get("roe", 0.15)
+
+        from iam.valuation.business_reality import BusinessRealityEngine
+
+        business_reality_res = BusinessRealityEngine.compute(
+            security=security,
+            forecast_growth=g,
+            terminal_growth=tg,
+            discount_rate=discount,
+            roe=roe,
+        )
+
+        # Penalize intrinsic DCF confidence based on business reality and Damodaran checks
+        intrinsic_res.confidence = float(intrinsic_res.confidence * business_reality_res.confidence)
+
         # Stage 4: Triangulation
         triangulation_res = self.triangulator.triangulate(
             reverse_dcf_res, relative_res, intrinsic_res
@@ -261,6 +288,7 @@ class ValuationPipeline:
             triangulation=triangulation_res,
             implied_move_pct=triangulation_res.cluster_center,
             summary=triangulation_res.verdict,
+            business_reality=business_reality_res,
         )
 
         # Stages 5 & 6: Macro Overlay

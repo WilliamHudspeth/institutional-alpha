@@ -11,6 +11,7 @@ from iam.valuation.beta import (
     relever_beta,
     unlever_beta,
 )
+from iam.valuation.business_reality import BusinessRealityEngine, BusinessRealityReport
 from iam.valuation.fcfe_dcf import FCFEDCF, FCFEAssumptions
 from iam.valuation.multiples_regression import (
     REGRESSIONS,
@@ -38,6 +39,8 @@ __all__ = [
     "RelativeValuation",
     "FCFEDCF",
     "FCFEAssumptions",
+    "BusinessRealityEngine",
+    "BusinessRealityReport",
     "SOTP",
     "Segment",
     "Triangulator",
