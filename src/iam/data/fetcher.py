@@ -295,7 +295,7 @@ class YFinanceSource:
 # ----------------------------------------------------------------------
 class StooqSource:
     """Fallback price source when yfinance throttles."""
-    @with_retry(max_retries=2, base_delay=1.0, rate_limit_per_sec=1)
+    @with_retry(max_retries=1, base_delay=1.0, rate_limit_per_sec=1)
     def get_price_history(self, ticker: str, start: datetime, end: datetime) -> pd.Series:
         # Stooq uses format: s=ticker&d1=yyyymmdd&d2=yyyymmdd
         params = {
@@ -304,9 +304,14 @@ class StooqSource:
             'd2': end.strftime('%Y%m%d')
         }
         url = f"{STOOQ_BASE}?{urlencode(params)}"
-        # Stooq returns CSV
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
         try:
-            df = pd.read_csv(url, header=None, names=['Date', 'Open', 'High', 'Low', 'Close', 'Volume'])
+            resp = requests.get(url, headers=headers, timeout=3.0)
+            if resp.status_code != 200:
+                logger.debug(f"Stooq HTTP error {resp.status_code} for {ticker}")
+                return pd.Series()
+            import io
+            df = pd.read_csv(io.StringIO(resp.text), header=None, names=['Date', 'Open', 'High', 'Low', 'Close', 'Volume'])
             df['Date'] = pd.to_datetime(df['Date'], format='%Y%m%d')
             df.set_index('Date', inplace=True)
             series = df['Close'].sort_index()

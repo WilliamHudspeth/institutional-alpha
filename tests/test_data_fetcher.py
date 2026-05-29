@@ -274,9 +274,12 @@ class TestYFinanceSource:
 class TestStooqSource:
     """Test Stooq fallback source."""
 
+    @mock.patch('requests.get')
     @mock.patch('pandas.read_csv')
-    def test_get_price_history_success(self, mock_read_csv, sample_ticker, sample_start_end):
+    def test_get_price_history_success(self, mock_read_csv, mock_get, sample_ticker, sample_start_end):
         """Test successful Stooq fetch."""
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.text = "dummy csv content"
         # Mock CSV response
         dates = pd.date_range('2024-01-01', '2024-12-31', freq='D')
         mock_read_csv.return_value = pd.DataFrame({
@@ -295,10 +298,13 @@ class TestStooqSource:
         assert isinstance(result, pd.Series)
         assert len(result) > 0
 
+    @mock.patch('requests.get')
     @mock.patch('pandas.read_csv')
-    def test_get_price_history_fallback_on_error(self, mock_read_csv, sample_ticker,
+    def test_get_price_history_fallback_on_error(self, mock_read_csv, mock_get, sample_ticker,
                                                   sample_start_end):
         """Test that Stooq gracefully fails."""
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.text = "dummy csv content"
         mock_read_csv.side_effect = Exception("Network error")
 
         source = StooqSource()

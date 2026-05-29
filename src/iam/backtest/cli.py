@@ -3,7 +3,22 @@
 Entry point: python -m iam.backtest.cli backtest
 """
 
+import sys
+# Prevent potential Windows terminal Unicode encoding crashes (e.g. yfinance printing unicode arrows)
+if sys.platform.startswith('win'):
+    if hasattr(sys.stdout, 'reconfigure'):
+        try:
+            sys.stdout.reconfigure(errors='backslashreplace')
+        except Exception:
+            pass
+    if hasattr(sys.stderr, 'reconfigure'):
+        try:
+            sys.stderr.reconfigure(errors='backslashreplace')
+        except Exception:
+            pass
+
 from pathlib import Path
+
 
 import pandas as pd
 import typer
