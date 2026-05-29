@@ -17,16 +17,17 @@ and empirical backtesting. As of v0.3.4, the project includes:
 """
 
 import sys
+
 # Prevent potential Windows terminal Unicode encoding crashes (e.g. yfinance printing unicode arrows)
-if sys.platform.startswith('win'):
-    if hasattr(sys.stdout, 'reconfigure'):
+if sys.platform.startswith("win"):
+    if hasattr(sys.stdout, "reconfigure"):
         try:
-            sys.stdout.reconfigure(errors='backslashreplace')
+            sys.stdout.reconfigure(errors="backslashreplace")
         except Exception:
             pass
-    if hasattr(sys.stderr, 'reconfigure'):
+    if hasattr(sys.stderr, "reconfigure"):
         try:
-            sys.stderr.reconfigure(errors='backslashreplace')
+            sys.stderr.reconfigure(errors="backslashreplace")
         except Exception:
             pass
 

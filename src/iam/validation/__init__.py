@@ -1,5 +1,6 @@
 """Input validation and financial sanity checking for the IAM framework."""
 
+from .damodaran_laws import DamodaranAuditReport, DamodaranLaws, LawVerdict
 from .financial_guards import (
     sanity_check_valuation,
     validate_all_assumptions,
@@ -17,4 +18,7 @@ __all__ = [
     "validate_growth_rate",
     "validate_wacc",
     "validate_all_assumptions",
+    "DamodaranLaws",
+    "LawVerdict",
+    "DamodaranAuditReport",
 ]

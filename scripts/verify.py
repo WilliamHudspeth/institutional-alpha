@@ -119,6 +119,7 @@ def check_ruff_lint() -> tuple[bool, str]:
             ["ruff", "check", "src/", "tests/", "scripts/"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=False,
         )
         if result.returncode == 0:
@@ -143,6 +144,7 @@ def check_ruff_format() -> tuple[bool, str]:
             ["ruff", "format", "src/", "tests/", "scripts/", "--check"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=False,
         )
         if result.returncode == 0:
@@ -164,6 +166,7 @@ def check_mypy() -> tuple[bool, str]:
             ["mypy", "src/", "--ignore-missing-imports"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=False,
         )
         if result.returncode == 0:
@@ -190,7 +193,11 @@ def check_pytest() -> tuple[bool, str]:
     """Run pytest suite with short traceback output."""
     try:
         result = subprocess.run(
-            ["pytest", "-v", "--tb=short"], capture_output=True, text=True, check=False
+            ["pytest", "-v", "--tb=short"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
         )
         if result.returncode == 0:
             summary = [line for line in result.stdout.splitlines() if "passed" in line][-1:]

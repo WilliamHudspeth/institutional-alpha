@@ -17,6 +17,7 @@ from dataclasses import dataclass
 
 from iam.data.ground_truth import GroundTruthProvider
 from iam.data.security import Security
+from iam.validation.damodaran_laws import DamodaranLaws
 from iam.valuation.beta import get_custom_beta_for_intrinsic
 from iam.valuation.reverse_dcf import _present_value_two_stage
 from iam.valuation.types import Method, ValuationResult
@@ -208,6 +209,18 @@ class FCFEDCF:
         # ====================================================================
         pwev_upside = (pwev_target / m.price) - 1 if m.price > 0 else 0
 
+        # Execute Damodaran consistency audit
+        audit = DamodaranLaws.audit_security_valuation(
+            security=security,
+            growth=base_a.high_growth,
+            terminal_growth=base_a.terminal_growth,
+            discount_rate=base_a.discount_rate,
+            roe=base_a.roe,
+            reinvestment_rate=min(base_a.high_growth / base_a.roe, 1.0) if base_a.roe > 0 else 1.0,
+            forecast_margin=security.qualitative.get("forecast_margin"),
+            target_roe=base_a.roe,
+        )
+
         # Format the scenario matrix for output
         verdict_lines = [
             f"Probability-Weighted Fair Value (PWEV): ${pwev_target:.2f} ({pwev_upside * 100:+.1f}%)",
@@ -221,7 +234,15 @@ class FCFEDCF:
             f"    • Bull (20%): ${matrix_results['Bull Case']['target']:.2f} "
             f"| Growth: {matrix_results['Bull Case']['g'] * 100:.1f}% "
             f"| WACC: {matrix_results['Bull Case']['wacc'] * 100:.2f}%",
+            "",
+            "📊 Damodaran Consistency Audit Report:",
+            f"  • Overall Score: {audit.overall_score * 100:.1f}% ({'PASSED' if audit.passed else 'FAILED'})",
         ]
+
+        # Append warnings if any
+        for v in audit.verdicts.values():
+            for w in v.warnings:
+                verdict_lines.append(f"    - {w}")
 
         return ValuationResult(
             method=Method.INTRINSIC,
@@ -232,6 +253,7 @@ class FCFEDCF:
                 "pwev_target": pwev_target,
                 "scenarios": matrix_results,
                 "base_ni_per_share": ni_per_share,
+                "damodaran_audit": audit,
             },
             assumptions={
                 "high_growth": base_a.high_growth,
@@ -240,7 +262,7 @@ class FCFEDCF:
                 "discount_rate": base_a.discount_rate,
                 "roe": base_a.roe,
             },
-            notes=notes,
+            notes=notes + [f"Damodaran Consistency Score: {audit.overall_score * 100:.1f}%"],
             verdict_text="\n".join(verdict_lines),
         )
 

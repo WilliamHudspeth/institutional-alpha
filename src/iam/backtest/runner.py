@@ -111,7 +111,7 @@ def run_backtest(
     # Discover which per-horizon columns are present (e.g. fwd_ret_21d).
     horizon_cols = sorted(
         [c for c in price_block.columns if c.startswith("fwd_ret_") and c.endswith("d")],
-        key=lambda c: int(c[len("fwd_ret_"):-1]),
+        key=lambda c: int(c[len("fwd_ret_") : -1]),
     )
 
     results = []
@@ -180,14 +180,20 @@ def run_backtest(
             }
 
             # Per-horizon IC columns: ic_21d, ic_vw_21d, ic_63d, ...
-            date_slice = price_block.xs(date, level="date") if date in price_block.index.get_level_values(0) else None
+            date_slice = (
+                price_block.xs(date, level="date")
+                if date in price_block.index.get_level_values(0)
+                else None
+            )
             if date_slice is not None:
                 for hcol in horizon_cols:
-                    h_label = hcol[len("fwd_ret_"):]  # e.g. "21d"
+                    h_label = hcol[len("fwd_ret_") :]  # e.g. "21d"
                     if hcol not in date_slice.columns:
                         continue
                     h_fwd = date_slice[hcol]
-                    h_tickers = [t for t in common_tickers if t in h_fwd.index and not pd.isna(h_fwd.get(t))]
+                    h_tickers = [
+                        t for t in common_tickers if t in h_fwd.index and not pd.isna(h_fwd.get(t))
+                    ]
                     if len(h_tickers) < 10:
                         continue
                     h_df = pd.DataFrame(
@@ -233,15 +239,21 @@ def print_backtest_summary(results_df: pd.DataFrame) -> dict:
 
     # Multi-horizon table
     horizon_cols = sorted(
-        [c for c in results_df.columns if c.startswith("ic_") and c.endswith("d") and "_vw_" not in c],
-        key=lambda c: int(c[len("ic_"):-1]),
+        [
+            c
+            for c in results_df.columns
+            if c.startswith("ic_") and c.endswith("d") and "_vw_" not in c
+        ],
+        key=lambda c: int(c[len("ic_") : -1]),
     )
     if horizon_cols:
         print()
-        print(f"  {'Horizon':>8}  {'Mean IC':>8}  {'IC VW':>8}  {'ICIR':>6}  {'NW t-stat':>10}  {'Sig':>4}")
+        print(
+            f"  {'Horizon':>8}  {'Mean IC':>8}  {'IC VW':>8}  {'ICIR':>6}  {'NW t-stat':>10}  {'Sig':>4}"
+        )
         print("  " + "-" * 54)
         for hcol in horizon_cols:
-            h_label = hcol[len("ic_"):]
+            h_label = hcol[len("ic_") :]
             vw_col = f"ic_vw_{h_label}"
             series = results_df[hcol].dropna()
             if len(series) < 3:
@@ -251,7 +263,9 @@ def print_backtest_summary(results_df: pd.DataFrame) -> dict:
             t_stat, _, _ = newey_west_se_rigorous(series, nlags=3)
             vw_mean = results_df[vw_col].mean() if vw_col in results_df else float("nan")
             sig = "**" if abs(t_stat) > 2.6 else ("*" if abs(t_stat) > 1.96 else "")
-            print(f"  {h_label:>8}  {mean_ic:>+8.4f}  {vw_mean:>+8.4f}  {icir:>6.2f}  {t_stat:>10.2f}  {sig:>4}")
+            print(
+                f"  {h_label:>8}  {mean_ic:>+8.4f}  {vw_mean:>+8.4f}  {icir:>6.2f}  {t_stat:>10.2f}  {sig:>4}"
+            )
 
     print("=" * 70)
     return summary

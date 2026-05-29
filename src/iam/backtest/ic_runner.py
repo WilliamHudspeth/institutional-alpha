@@ -20,8 +20,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from scipy.stats import spearmanr
 from tqdm import tqdm
 
-from iam.data.security import Security
-from iam.engine.composite import DEFAULT_WEIGHTS, ScoreResult, score
 from iam.backtest.metrics import (
     hit_rate,
     ic_sector_neutral,
@@ -30,6 +28,8 @@ from iam.backtest.metrics import (
 )
 from iam.backtest.quantiles import decile_spread
 from iam.backtest.snapshots import build_snapshot
+from iam.data.security import Security
+from iam.engine.composite import DEFAULT_WEIGHTS, ScoreResult, score
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,9 @@ logger = logging.getLogger(__name__)
 class ICBacktestConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    horizons: list[int] = Field(default_factory=lambda: [1, 3, 6, 12], description="Horizons in months")
+    horizons: list[int] = Field(
+        default_factory=lambda: [1, 3, 6, 12], description="Horizons in months"
+    )
     min_stocks_per_date: int = Field(30, description="Minimum stocks required per evaluation date")
     rebalance_freq: str = Field("ME", description="Evaluation frequency (ME=month-end)")
     start_date: str = Field("2018-01-31", description="Start date (YYYY-MM-DD)")
@@ -58,7 +60,7 @@ def _score_worker(
     cache_dir: Path,
 ) -> tuple[str, float, dict[str, float], float, str]:
     """Score a security and return composite and per-factor values.
-    
+
     Returns:
         ticker, composite_score, factor_values, market_cap, sector
     """
@@ -69,10 +71,10 @@ def _score_worker(
 
         # Score the snapshot
         res: ScoreResult = score(snapshot)
-        
+
         # Extract per-factor effective values
         factor_vals = {name: c.effective() for name, c in res.factor_breakdown.items()}
-        
+
         mcap = snapshot.market.market_cap
         if mcap is None or np.isnan(mcap):
             mcap = float("nan")
@@ -92,7 +94,7 @@ class ICBacktest:
         config: ICBacktestConfig | None = None,
     ):
         self.securities = securities
-        
+
         # Process price block
         if hasattr(price_block, "to_pandas"):
             try:
@@ -101,7 +103,7 @@ class ICBacktest:
                 price_block = pd.DataFrame(price_block.to_dicts())
         if isinstance(price_block.index, pd.MultiIndex):
             price_block = price_block.reset_index()
-            
+
         if "date" in price_block.columns:
             price_block = price_block.copy()
             price_block["date"] = pd.to_datetime(price_block["date"]).dt.strftime("%Y-%m-%d")
@@ -109,7 +111,7 @@ class ICBacktest:
             self.price_block = price_block.set_index(["date", "ticker"])
         else:
             self.price_block = price_block
-            
+
         self.config = config or ICBacktestConfig()
         self.factor_names = list(DEFAULT_WEIGHTS.keys())
         self.results: dict[int, pd.DataFrame] = {}
@@ -120,25 +122,25 @@ class ICBacktest:
         date_dt = pd.to_datetime(date)
         target_dt = date_dt + pd.DateOffset(months=horizon_months)
         target_str = target_dt.strftime("%Y-%m-%d")
-        
+
         # Get unique dates in price block
         all_dates = self.price_block.index.get_level_values("date").unique().sort_values()
-        
+
         # Find closest date >= target
         valid_dates = all_dates[all_dates >= target_str]
         if len(valid_dates) == 0:
             return None
-            
+
         actual_target_str = valid_dates[0]
-        
+
         try:
             curr_prices = self.price_block.xs(date, level="date")["close"]
             fwd_prices = self.price_block.xs(actual_target_str, level="date")["close"]
-            
+
             common = curr_prices.index.intersection(fwd_prices.index)
             if len(common) == 0:
                 return None
-                
+
             rets = (fwd_prices[common] / curr_prices[common]) - 1
             return rets
         except KeyError:
@@ -150,34 +152,36 @@ class ICBacktest:
         valid = df.dropna(subset=["score", "fwd", "mcap"])
         if len(valid) < 2:
             return float("nan")
-            
+
         weights = valid["mcap"].values
         w_sum = weights.sum()
         if w_sum <= 0:
             return float("nan")
-            
+
         weights = weights / w_sum
-        
+
         score_vals = valid["score"].values
         fwd_vals = valid["fwd"].values
-        
+
         w_score = score_vals - np.average(score_vals, weights=weights)
         w_fwd = fwd_vals - np.average(fwd_vals, weights=weights)
-        
+
         numerator = np.sum(weights * w_score * w_fwd)
         denom_score = np.sum(weights * w_score**2)
         denom_fwd = np.sum(weights * w_fwd**2)
-        
+
         if denom_score <= 0 or denom_fwd <= 0:
             return float("nan")
-            
+
         return numerator / np.sqrt(denom_score * denom_fwd)
 
     def run(self) -> dict[int, pd.DataFrame]:
         self.config.validate_paths()
-        dates_range = pd.date_range(self.config.start_date, self.config.end_date, freq=self.config.rebalance_freq)
+        dates_range = pd.date_range(
+            self.config.start_date, self.config.end_date, freq=self.config.rebalance_freq
+        )
         dates = dates_range.strftime("%Y-%m-%d").tolist()
-        
+
         all_results = {h: [] for h in self.config.horizons}
 
         with ProcessPoolExecutor(max_workers=self.config.n_jobs_cpu) as executor:
@@ -193,7 +197,7 @@ class ICBacktest:
                     sectors = {}
                     mcaps = {}
                     factor_scores = {f: {} for f in self.factor_names}
-                    
+
                     for future in futures:
                         ticker, comp, f_vals, mcap, sector = future.result()
                         if not np.isnan(comp):
@@ -215,26 +219,34 @@ class ICBacktest:
                     rets = self._get_forward_returns(date, h)
                     if rets is None:
                         continue
-                        
-                    common_tickers = [t for t in scores.keys() if t in rets.index and not pd.isna(rets[t])]
+
+                    common_tickers = [
+                        t for t in scores.keys() if t in rets.index and not pd.isna(rets[t])
+                    ]
                     if len(common_tickers) < self.config.min_stocks_per_date:
                         continue
-                        
-                    df = pd.DataFrame({
-                        "ticker": common_tickers,
-                        "score": [scores[t] for t in common_tickers],
-                        "fwd": [rets[t] for t in common_tickers],
-                        "sector": [sectors[t] for t in common_tickers],
-                        "mcap": [mcaps[t] for t in common_tickers],
-                    })
-                    
+
+                    df = pd.DataFrame(
+                        {
+                            "ticker": common_tickers,
+                            "score": [scores[t] for t in common_tickers],
+                            "fwd": [rets[t] for t in common_tickers],
+                            "sector": [sectors[t] for t in common_tickers],
+                            "mcap": [mcaps[t] for t in common_tickers],
+                        }
+                    )
+
                     # Compute composite metrics
                     ic = information_coefficient(df)
-                    ic_sn = ic_sector_neutral(df, sector_col="sector") if "sector" in df.columns else float("nan")
+                    ic_sn = (
+                        ic_sector_neutral(df, sector_col="sector")
+                        if "sector" in df.columns
+                        else float("nan")
+                    )
                     ic_weighted = self._compute_weighted_ic(df)
                     hr = hit_rate(df)
                     spreads = decile_spread(df)
-                    
+
                     row = {
                         "date": date,
                         "ic": ic,
@@ -246,13 +258,15 @@ class ICBacktest:
                         "bottom": spreads.get("bottom", float("nan")),
                         "n_stocks": len(common_tickers),
                     }
-                    
+
                     # Per-factor IC
                     for f in self.factor_names:
-                        f_series = pd.Series([factor_scores[f].get(t, float("nan")) for t in common_tickers])
+                        f_series = pd.Series(
+                            [factor_scores[f].get(t, float("nan")) for t in common_tickers]
+                        )
                         f_df = pd.DataFrame({"score": f_series, "fwd": df["fwd"]})
                         row[f"ic_{f}"] = information_coefficient(f_df)
-                        
+
                     all_results[h].append(row)
 
         for h in self.config.horizons:
@@ -272,19 +286,25 @@ class ICBacktest:
             if df.empty:
                 stats[h] = {}
                 continue
-                
+
             ic_series = df["ic"].dropna()
             if len(ic_series) < 3:
-                stats[h] = {"mean_ic": np.nan, "icir": np.nan, "t_stat": np.nan, "p_value": np.nan, "n_obs": len(ic_series)}
+                stats[h] = {
+                    "mean_ic": np.nan,
+                    "icir": np.nan,
+                    "t_stat": np.nan,
+                    "p_value": np.nan,
+                    "n_obs": len(ic_series),
+                }
                 continue
-                
+
             mean_ic = ic_series.mean()
             std_ic = ic_series.std()
             icir = mean_ic / std_ic if std_ic > 0 else float("nan")
             n = len(ic_series)
-            
+
             t_stat, p_value, _ = newey_west_se_rigorous(ic_series, nlags=self.config.nw_lags)
-            
+
             stats[h] = {
                 "mean_ic": mean_ic,
                 "icir": icir,
@@ -297,10 +317,10 @@ class ICBacktest:
     def compute_factor_statistics(self) -> pd.DataFrame:
         if 1 not in self.results or self.results[1].empty:
             return pd.DataFrame()
-            
+
         df1 = self.results[1]
         rows = []
-        
+
         for f in self.factor_names:
             col = f"ic_{f}"
             if col not in df1.columns:
@@ -308,28 +328,30 @@ class ICBacktest:
             ic_series = df1[col].dropna()
             if len(ic_series) < 3:
                 continue
-                
+
             mean_ic = ic_series.mean()
             std_ic = ic_series.std()
             icir = mean_ic / std_ic if std_ic > 0 else float("nan")
             t_stat, p_value, _ = newey_west_se_rigorous(ic_series, nlags=self.config.nw_lags)
-            
-            rows.append({
-                "factor": f,
-                "ic_mean": mean_ic,
-                "ic_std": std_ic,
-                "icir": icir,
-                "t_stat": t_stat,
-                "p_value": p_value,
-            })
-            
+
+            rows.append(
+                {
+                    "factor": f,
+                    "ic_mean": mean_ic,
+                    "ic_std": std_ic,
+                    "icir": icir,
+                    "t_stat": t_stat,
+                    "p_value": p_value,
+                }
+            )
+
         return pd.DataFrame(rows).set_index("factor") if rows else pd.DataFrame()
 
     def generate_report(self) -> None:
         self.config.validate_paths()
-        
+
         stats = self.compute_statistics()
-        
+
         summary_path = self.config.results_dir / "ic_summary.txt"
         with open(summary_path, "w") as f:
             f.write("IC Backtest Results\n")
@@ -347,9 +369,9 @@ class ICBacktest:
         factor_stats = self.compute_factor_statistics()
         if not factor_stats.empty:
             factor_stats.to_csv(self.config.results_dir / "factor_stats_1m.csv")
-            
+
         for h, df in self.results.items():
             if not df.empty:
                 df.to_csv(self.config.results_dir / f"ic_horizon_{h}m.csv")
-                
+
         logger.info(f"IC report generated in {self.config.results_dir}")
