@@ -8,7 +8,13 @@ Advanced analytics engines that provide institutional-grade insights:
 """
 
 from iam.analytics.attribution import AttributionAnalysis, AttributionEngine, FactorContribution
-from iam.analytics.regime import MacroRegime, RegimeAnalyzer, RegimeDetector, RegimeIndicators, RegimeWeights
+from iam.analytics.regime import (
+    MacroRegime,
+    RegimeAnalyzer,
+    RegimeDetector,
+    RegimeIndicators,
+    RegimeWeights,
+)
 
 __all__ = [
     "AttributionAnalysis",

@@ -105,10 +105,7 @@ def format_holdings_table(
     lines = []
 
     # Header
-    header = (
-        f"{'Ticker':<8} {'Weight':<10} {'Market Value':<15} "
-        f"{'P&L %':<10} {'Conviction':<12}"
-    )
+    header = f"{'Ticker':<8} {'Weight':<10} {'Market Value':<15} {'P&L %':<10} {'Conviction':<12}"
     lines.append(header)
     lines.append("-" * min(len(header), width - 4))
 
@@ -187,7 +184,7 @@ def format_concentration_warnings(portfolio_metrics: dict) -> list[str]:
 
     if concentration > 0.20:
         warnings.append(
-            f"⚠️  Concentration index {concentration:.1%} (1.0 = max, {1.0/num_positions:.1%} = equal weight)"
+            f"⚠️  Concentration index {concentration:.1%} (1.0 = max, {1.0 / num_positions:.1%} = equal weight)"
         )
 
     if num_positions < 5:

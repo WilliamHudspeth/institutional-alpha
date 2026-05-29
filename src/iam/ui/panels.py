@@ -81,7 +81,9 @@ class DecisionSheetPanel(BasePanel):
         move_pct = security.implied_move
         upside_str = f"{move_pct * 100:+.1f}%" if move_pct != 0 else "—"
 
-        lines.append(f"   • Current Spot Price : {price_str:<18} • consensus rating   : {security.verdict}")
+        lines.append(
+            f"   • Current Spot Price : {price_str:<18} • consensus rating   : {security.verdict}"
+        )
         lines.append(
             f"   • Fair Value (PWEV)  : {pwev_str:<18} • Arb Engine Weight : 70% Synthesis / 30% Trad"
         )
@@ -132,7 +134,9 @@ class ForecastMetricsPanel(BasePanel):
             lines.append(f"║  [ QUANTITATIVE COST OF CAPITAL DETAIL ]".ljust(self.width - 1) + "║")
             lines.append(thin_rule)
             lines.append(f"   Cost of Equity (Ke)  : {ke_str:<10} Cost of Debt (Kd)    : {kd_str}")
-            lines.append(f"   Credit Risk Rating   : {rating_val:<10} Corporate Spread     : {spread_str}")
+            lines.append(
+                f"   Credit Risk Rating   : {rating_val:<10} Corporate Spread     : {spread_str}"
+            )
             lines.append(thin_rule)
 
         return "\n".join(lines)
@@ -153,7 +157,9 @@ class ScenarioMatrixPanel(BasePanel):
 
         lines.append(f"║  [ PROBABILISTIC SCENARIO WEIGHT MATRIX ]".ljust(self.width - 1) + "║")
         lines.append(thin_rule)
-        lines.append(f"   {'SCENARIO CASE':<16} {'WEIGHT':<8} {'TARGET VALUE':<16} {'IMPLIED RETURN':<16} THESIS")
+        lines.append(
+            f"   {'SCENARIO CASE':<16} {'WEIGHT':<8} {'TARGET VALUE':<16} {'IMPLIED RETURN':<16} THESIS"
+        )
 
         for s in security.scenarios:
             s_name = str(s.get("name", "—"))
@@ -181,7 +187,9 @@ class DiagnosticSignalsPanel(BasePanel):
         lines = []
         rule = "═" * self.width
 
-        lines.append(f"║  [ MULTI-LENS DIAGNOSTIC INTERMEDIARY SIGNALS ]".ljust(self.width - 1) + "║")
+        lines.append(
+            f"║  [ MULTI-LENS DIAGNOSTIC INTERMEDIARY SIGNALS ]".ljust(self.width - 1) + "║"
+        )
         lines.append(rule)
 
         for engine, signal in security.signals.items():

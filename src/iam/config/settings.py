@@ -168,7 +168,9 @@ class TerminalSettings(BaseModel):
         except ImportError:
             # Fallback to JSON if YAML not available
             if path.suffix != ".json":
-                raise ImportError("PyYAML required for .yml/.yaml files. Install with: pip install pyyaml")
+                raise ImportError(
+                    "PyYAML required for .yml/.yaml files. Install with: pip install pyyaml"
+                )
             with open(path) as f:
                 data = json.load(f)
 
@@ -192,7 +194,11 @@ class TerminalSettings(BaseModel):
                 return cls.from_file(env_config)
 
         # Check standard locations
-        for path in [Path.home() / ".iam" / "settings.yml", Path("settings.yml"), Path("config.yml")]:
+        for path in [
+            Path.home() / ".iam" / "settings.yml",
+            Path("settings.yml"),
+            Path("config.yml"),
+        ]:
             if path.exists():
                 return cls.from_file(path)
 

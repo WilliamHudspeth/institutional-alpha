@@ -26,7 +26,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from iam.data.fetcher import (
+# Import the fetcher (will be at src/iam/data/fetcher.py after Phase 3.1)
+# For now, use the reference implementation
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+from data_fetcher_reference import (
     SQLiteCache,
     SecEdgarSource,
     YFinanceSource,
