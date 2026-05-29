@@ -9,6 +9,7 @@ It is built as a **probabilistic equity reasoning engine**, not a screener. A sc
 ## Status
 
 [![CI/CD Pipeline](https://github.com/WilliamHudspeth/institutional-alpha/actions/workflows/python-package.yml/badge.svg)](https://github.com/WilliamHudspeth/institutional-alpha/actions)
+[![codecov](https://codecov.io/gh/WilliamHudspeth/institutional-alpha/branch/main/graph/badge.svg)](https://codecov.io/gh/WilliamHudspeth/institutional-alpha)
 
 **v0.4.0-rc1** — release candidate. The factor scoring engine, seven-stage valuation pipeline, Bayesian thesis engine, hardened backtest stack, institutional portfolio analytics, and modern modular terminal are all implemented and tested. Awaiting one empirical IC run on real market data before the v0.4.0 promotion.
 
