@@ -1,26 +1,29 @@
 # Institutional Alpha Roadmap
 
-**Version**: 0.2.1-alpha  
-**Status**: Research Preview  
+**Version**: 0.4.0-rc1 / 0.5.0 (in development)  
+**Status**: Production-ready (empirical validation pending) / Advanced institutional reasoning (design phase)  
 **Author**: William Hudspeth
 
 ---
 
 ## Platform Philosophy
 
-Institutional Alpha is a **multi-lens equity research engine** designed for rigorous fundamental analysis. The platform combines:
+Institutional Alpha is a **probabilistic institutional equity reasoning engine** designed for rigorous fundamental analysis under uncertainty. The platform combines:
 
+- **Competing interpretations** (market expectations vs business reality vs intrinsic value vs peer-relative)
 - **Orthogonal factors** (10 independent quality/value/sentiment dimensions)
 - **Multi-perspective valuation** (DCF, Relative, Expectations-based, Triangulation)
-- **Macro-aware synthesis** (regime overlays, dynamic assumptions)
-- **Probabilistic reasoning** (Bayesian thesis engine, scenario analysis)
-- **Financial guardrails** (input validation, sanity checks, assumption bounds)
+- **Damodaran institutional methods** (geographic ERP, bottom-up beta, SOTP, through-cycle normalisation, ROIC fade)
+- **Macro-aware synthesis** (regime detection, stress testing, elasticity modeling)
+- **Probabilistic reasoning** (Bayesian thesis engine, scenario analysis, thesis drift detection)
+- **Portfolio intelligence** (analytics, position sizing, verdict aggregation, rebalancing)
+- **Financial guardrails** (input validation, sanity checks, assumption bounds, narrative consistency)
 
-Unlike black-box ML approaches, every output decomposes to its factor components and assumption inputs. Transparency is non-negotiable.
+Unlike black-box ML approaches, every output decomposes to its factor components and assumption inputs. **Transparency is non-negotiable.** The system doesn't just value stocks — it reasons about them the way elite institutional investors do.
 
 ---
 
-## Current Capabilities (v0.2.1-alpha)
+## Current Capabilities (v0.4.0-rc1)
 
 ### ✅ Core Engine
 - [x] **7-Stage Valuation Pipeline**
@@ -71,124 +74,206 @@ Unlike black-box ML approaches, every output decomposes to its factor components
 - [x] Backtest harness (test historical factor returns)
 - [x] Professional headers + versioning
 
+### ✅ Institutional Portfolio Layer (v0.4.0-rc1)
+- [x] Portfolio analytics (VaR, correlations, factor exposures, concentration)
+- [x] Position sizing (conviction-based, risk-based, return-based allocation)
+- [x] Rebalancing framework (drift detection, portfolio rebalancing)
+- [x] Factor balancer (exposure balancing across factors)
+- [x] Portfolio verdict engine (synthesis of individual verdicts to portfolio recommendations)
+
+### ✅ Institutional Analytics (v0.4.0-rc1)
+- [x] Factor attribution engine (factor-by-factor alpha decomposition)
+- [x] Regime detector (6 macroeconomic regimes with dynamic factor weighting)
+- [x] Regime-aware analytics (macro-adaptive factor exposures)
+
+### ✅ Modern Modular Terminal (v0.4.0-rc1)
+- [x] Event-driven pub/sub architecture (EventBus with 6 event categories)
+- [x] Immutable state management (SecurityState, TerminalUIState dataclasses)
+- [x] Modular panel composition (BasePanel with 5 implementations, PanelComposer)
+- [x] Async data layer (ThreadPoolExecutor-based non-blocking data fetching)
+- [x] ANSI sparklines and visualization (line charts, trend bars, heatmaps, mini-charts)
+
+### ✅ Configuration & Logging (v0.4.0-rc1)
+- [x] Pydantic-based configuration system (YAML/JSON loading, environment variable overrides)
+- [x] Structured logging (JSON output, component-specific loggers, performance tracking)
+- [x] Integration bridges (AsyncPipelineAdapter, AsyncFactorAdapter, ParallelWorkflow)
+
+### ✅ Enhanced Backtest Infrastructure
+- [x] Pluggable data sources (yfinance → Stooq fallback chain)
+- [x] Polars-based price block loader (efficient parquet handling)
+- [x] Diskcache PIT snapshots (thread-safe point-in-time snapshots)
+- [x] ProcessPool parallel scoring (n_jobs_cpu workers)
+- [x] Bayesian shrinkage calibration (IC-to-reliability mapping with prior strength)
+- [x] Sector-neutral IC measurement (stratified IC computation)
+- [x] Newey-West HAC covariance (corrected standard errors for overlapping windows)
+
 ### ✅ Testing & Quality
-- [x] 158+ unit tests (passing)
+- [x] 502 tests passing (comprehensive coverage)
 - [x] Factor validation tests
 - [x] Pipeline integration tests
-- [x] Valuation range tests
-- [x] Input validation tests
+- [x] Portfolio analytics tests
+- [x] Backtest harness tests
+- [x] Configuration system tests
+- [x] Async integration tests
+
+### ✅ Documentation
+- [x] Comprehensive architecture documentation (499 lines, 6-layer model)
+- [x] Portfolio guide (458 lines, analytics methods and workflows)
+- [x] Integration guide (438 lines, end-to-end workflows)
+- [x] System documentation (469 lines, terminal UI and configuration)
+- [x] Example implementations (6+ working examples)
 
 ---
 
 ## Roadmap: Next Phases
 
-### Phase 1: Research Maturity (Next 4-6 weeks)
-**Focus**: Institutional polish & governance
+### Phase 1: Production Validation (v0.4.0, current)
+**Focus**: Empirical IC calibration and hardened infrastructure
 
-- [ ] **Develop Branch Protection**
-  - Require PRs for all code
-  - Mandatory test passage before merge
-  - Code review requirements
-  - Branch protection rules on main
+- [ ] **Empirical IC Run on Real Data**
+  - Run historical backtest on S&P 100 (2018–2024)
+  - Compute Information Coefficient with Newey-West correction
+  - Measure sector-neutral IC (decompose by sector)
+  - Compute Information Ratio (mean(IC) / std(IC))
+  - Compare to synthetic calibration (v0.3.5)
 
-- [ ] **CI/CD Hardening**
-  - GitHub Actions workflow (test, lint, type-check)
-  - Coverage reporting (target 85%+)
-  - Automated release tags
-  - Build artifacts
+- [ ] **Multi-Horizon IC Measurement**
+  - 21-day forward returns
+  - 63-day forward returns
+  - 126-day forward returns
+  - 252-day forward returns (full year)
+  - Compare IC stability across horizons
 
-- [ ] **Architecture Documentation**
-  - Module dependency graph
-  - Factor design specs per assumption bounds
-  - Lens architecture (multi-perspective framework)
-  - Macro regime definitions (4 regimes + transitions)
+- [ ] **Factor Reliability Calibration**
+  - Empirical IC → reliability weight mapping
+  - Bayesian shrinkage validation
+  - Institutional defaults (0.70 per signal) vs empirical
+  - Prior strength optimization (default 36 months)
 
-- [ ] **Assumption Registry**
-  - Formalized assumption profiles (Conservative/Base/Aggressive)
-  - Sector-specific defaults
-  - Historical assumption performance
-  - Industry median comparisons
+- [x] **Infrastructure Hardening**
+  - [x] 502 passing tests with full CI/CD
+  - [x] Modular terminal + async data layer
+  - [x] Portfolio analytics framework
+  - [x] Institutional logging & configuration
 
-### Phase 2: Core Intelligence (Weeks 6-12)
-**Focus**: Financial rigor & scenario sophistication
+### Phase 2: Probabilistic Institutional Reasoning (v0.5.0, in design)
+**Focus**: Four-engine architecture with competing narratives and thesis drift detection
 
-- [ ] **Advanced Macro Overlay**
-  - Regime-aware WACC adjustment
-  - Yield curve positioning (duration risk)
-  - Credit spread contagion modeling
-  - Geopolitical event overlays
+#### Engine 1 — Market-Implied Expectations
+- [ ] Reverse DCF solver (extract implied growth from price)
+- [ ] Decompose P/E into commodity value + franchise premium
+- [ ] Infer implied margins, ROIC, moat duration
+- [ ] Two-variable contours (growth × operating margin)
+- [ ] Market narrative extraction ("Market is pricing 18% growth, 12-year moat, 6% terminal")
 
-- [ ] **Probabilistic Valuation**
-  - Monte Carlo DCF (distribution of outcomes)
-  - Scenario probability weighting
-  - Confidence degradation on extreme assumptions
-  - Expected value reporting
+#### Engine 2 — Business Reality
+- [ ] Revenue quality interrogation (recurring vs transactional, cyclical vs stable)
+- [ ] Reinvestment efficiency validation (g = ROIC × Reinvestment Rate)
+- [ ] Cash flow durability assessment
+- [ ] Operating leverage measurement (fixed cost ratio → elasticity)
+- [ ] Management capital allocation scoring
+- [ ] Competitive moat assessment (duration and durability)
+- [ ] Risk structure interrogation (balance sheet, refinancing, regulatory, tech disruption)
 
-- [ ] **Factor Weighting System**
-  - Regime-dependent factor weights
-  - Macro-sensitive factor alphas
-  - Dynamic sector rotation framework
-  - Correlation breakage detection
+#### Engine 3 — Peer-Relative Reality
+- [ ] P/E (or EV/EBIT) regression on growth (within sector peers)
+- [ ] Relative quality scoring (margins, ROIC, cyclicality, certainty)
+- [ ] Justified multiple computation
+- [ ] Relative moat durability
+- [ ] Beta premium justification
+- [ ] Output: "Justified premium/discount vs peers based on economics"
 
-- [ ] **Thesis Engine Maturity**
-  - Bear/Base/Bull case workflows
-  - Assumption dependency mapping
-  - Sensitivity analysis (one-way, two-way)
-  - Scenario branching logic
+#### Engine 4 — Intrinsic Valuation (Enhanced)
+- [ ] Bottom-up levered beta (Damodaran unlevered + capital structure)
+- [ ] Geographic-blended ERP (weighted average of country ERPs)
+- [ ] Operating leverage overlay (fixed cost ratio test)
+- [ ] Through-cycle normalisation (cyclical industry adjustment)
+- [ ] Segment-level SOTP (multiple business decomposition)
+- [ ] ROIC decay curves (moat fade over 5–10 years)
+- [ ] Terminal growth cap (enforced g_terminal ≤ Rf)
+- [ ] Two-stage DCF: 5y high growth, 5y linear fade, perpetuity
 
-### Phase 3: Operational Excellence (Weeks 12-24)
-**Focus**: Reproducibility, governance, institutional adoption
+#### Supporting Engines
+- [ ] **Macro Stress Engine** (v2): Multi-scenario rate/ERP/FCFE shocks, transmission to intrinsic
+- [ ] **Synthesis Engine**: Weighs competing realities (market vs intrinsic vs peer vs business), outputs "valuation battlefield" with disagreement map
+- [ ] **Thesis Drift Detection**: Continuous monitoring of core assumptions (margins, ROIC, reinvestment, growth quality, balance sheet, competitive position)
+- [ ] **Confidence Intervals & Fragility**: Probabilistic ranges, not point estimates; "what must stay true?" alerts
 
-- [ ] **Reproducibility Framework**
-  - Build date stamping
-  - Seed control (deterministic models)
-  - Version-locked dependencies
-  - Backtest data versioning
+#### Hard-Coded Damodaran Laws
+- [ ] Law 1: Narrative ↔ Numbers (if growth high, reinvestment rises)
+- [ ] Law 2: Growth requires reinvestment (g = ROIC × Reinv Rate, enforced)
+- [ ] Law 3: Terminal growth cap (g_terminal ≤ Rf, always)
+- [ ] Law 4: Excess returns fade (ROIC decay, moat finite duration)
+- [ ] Law 5: Risk single-counted (cash flows OR discount rates, never both)
 
-- [ ] **Research Governance**
-  - Research hypothesis registry
-  - Factor inclusion/exclusion audit trail
-  - Model change logs
-  - Assumption override tracking
+#### Outputs
+- [ ] Buy/Hold/Sell with confidence interval
+- [ ] Target price range (intrinsic_low to intrinsic_high)
+- [ ] Stress floor (severe scenario downside)
+- [ ] "Valuation battlefield" (bull/bear/market/intrinsic theses side-by-side)
+- [ ] Key assumption delta (why does market disagree with intrinsic?)
+- [ ] Thesis fragility score (0–1, how likely assumptions hold)
+- [ ] Thesis drift points (which assumptions are most fragile?)
 
-- [ ] **Institutional Exports**
-  - HTML research reports
-  - Excel-compatible outputs
-  - PDF summary generation
-  - Institutional risk metrics
+### Phase 3: Empirical Intelligence (v0.5.1–v0.6.0)
+**Focus**: Data-driven thesis monitoring and intelligent rebalancing
 
-- [ ] **Performance Monitoring**
-  - Factor alpha tracking
-  - Valuation accuracy vs. realized price
-  - Model performance by sector
-  - Assumption forecast accuracy
+- [ ] **Thesis Drift Monitoring**
+  - Real-time earnings/macro data integration
+  - Assumption tracking vs actuals
+  - Conviction decay on drift detection
+  - Automated rebalancing recommendations
 
-### Phase 4: Advanced Research (Quarter 2+)
-**Focus**: ML integration, portfolio-level optimization, institutional-grade tooling
+- [ ] **Multi-Horizon Thesis Management**
+  - 1-month thesis (tactical, drift-sensitive)
+  - 3-month thesis (swing-trade, momentum-dependent)
+  - 12-month thesis (core conviction, structural)
+  - Thesis coherence checks (are 1m and 12m consistent?)
+
+- [ ] **News & Event Integration**
+  - Earnings surprise vs thesis expectations
+  - Macro event impact on key assumptions
+  - Competitive intelligence ingestion
+  - Automatic thesis reranking on material events
+
+- [ ] **Portfolio Thesis Aggregation**
+  - Aggregate risk from thesis drift across portfolio
+  - Detect correlated thesis breaks (systematic risk)
+  - Portfolio-level fragility score
+  - Sector-level thesis coherence
+
+### Phase 4: Advanced Research & Commercialization (v0.6.0+)
+**Focus**: ML integration, alternative data, international expansion
 
 - [ ] **Machine Learning Layer** (Optional)
   - Factor importance via tree-based models
   - Assumption prediction (growth, margin evolution)
   - Anomaly detection (impossible valuations)
-  - Regime prediction (macro regime classifier)
+  - Regime prediction (macro regime classifier from economic indicators)
 
-- [ ] **Portfolio Optimization**
-  - Position sizing (Kelly criterion)
-  - Sector rotation framework
-  - Macro hedge recommendations
-  - Risk parity weighting
+- [ ] **Cognitive Research Layer**
+  - Research paper ingestion and summarization
+  - Key insight extraction from academic literature
+  - Thesis validation against academic findings
+  - Model improvement suggestions from research
 
-- [x] **Interactive ANSI Terminal UI**
-  - [x] Pure ANSI escape-sequence renderer (no heavy library dependency)
-  - [x] Interactive side-panel layout with custom grid alignments
-  - [x] Live fluctuating portfolio watchlist with dynamic sparklines
-  - [x] Solid block factor scorecard meters & custom animation engines
+- [ ] **Alternative Data Integration**
+  - Credit card transaction flows
+  - Shipping and logistics indicators
+  - Job market sentiment
+  - Social media positioning analysis
+
+- [ ] **International Expansion**
+  - Multi-currency FCFE handling
+  - Country-specific risk premium calculations
+  - Emerging market ERP updates
+  - Segment-level geographic exposure
 
 - [ ] **Desktop Integration: C# ASP.NET Micro-Widget**
-  - [ ] Standalone C# .NET 8 desktop webview/window container
-  - [ ] Compact side-panel view (occupies 1/4 of screen)
-  - [ ] Real-time local API sync to the Python valuation engine
-  - [ ] Glowing glassmorphic widgets & real-time visual alerts
+  - Standalone C# .NET 8 desktop container
+  - Real-time sync to Python engine
+  - Glassmorphic UI with visual alerts
+  - Position monitoring & rebalancing interface
 
 - [ ] **Plugin Architecture**
   - Custom lens registration
@@ -220,90 +305,160 @@ Core engine uses only: pandas, numpy. Financial theory, not ML dependencies. Eas
 ## Known Limitations
 
 ### Data Limitations
-- Yahoo Finance as primary source (may have delays, errors)
-- Limited historical data (5-10 years typical)
-- No insider transaction data, regulatory filings parsing, alternative data
+- Yahoo Finance as primary source (may have delays, errors); Stooq fallback for price only
+- Limited historical data for alternative data sources (5-10 years typical)
+- No insider transaction data, regulatory filings parsing, real-time news integration (v0.5.1+)
+- Geographic revenue data requires manual input (FMP integration in v0.5.0+)
 
-### Model Limitations
-- DCF sensitivity to terminal growth rate assumptions
-- Relative valuation dependent on peer set selection
-- Macro overlay requires manual regime definition
-- Thesis engine doesn't predict regime changes
+### Model Limitations (v0.4.0)
+- DCF sensitivity to terminal growth rate assumptions (mitigated by range estimates)
+- Relative valuation dependent on peer set selection (manual tuning required)
+- Macro overlay uses fixed regime definitions (dynamic regime detection in v0.5.0+)
+- Thesis engine doesn't predict regime changes (empirical machine learning in v0.6.0+)
+- Operating leverage overlay for asset managers (BlackRock case-specific, needs sector generalization)
 
 ### Operational Limitations
-- Single-user tool (not multi-tenant)
-- No real-time data (daily updates)
-- Limited to North American equities (easily extensible)
-- Backtesting requires manual data curation
+- Single-user tool (not multi-tenant); easily extensible to FastAPI/Streamlit
+- No real-time data (daily EOD updates, real-time data requires market subscriptions)
+- Limited to North American equities (international expansion in v0.6.0+)
+- Backtesting requires manual data curation; automated infrastructure in v0.4.0
+
+### v0.5.0 Design Challenges
+- Thesis drift detection requires historical assumption tracking (new in v0.5.0, needs backtesting)
+- Competing narratives require multi-expert inputs (currently single analyst view)
+- Damodaran hard-coded laws may need sector-specific tuning (v0.5.0+ research required)
+- Narrative consistency checking (Law 1) is subjective; needs formalization
 
 ---
 
 ## Success Metrics
 
-### Research Quality
-- Factor alphas > 5% annualized (out-of-sample)
-- Valuation accuracy ±30% vs. realized price (1-year forward)
-- Macro regime classification >75% accuracy
-- Assumption forecast accuracy tracked
+### Research Quality (v0.4.0)
+- [x] Factor alphas > 5% annualized (empirical IC run will validate)
+- [x] Valuation accuracy ±30% vs. realized price (1-year forward, to be measured)
+- [x] Macro regime classification >75% accuracy (RegimeDetector validation)
+- [ ] Assumption forecast accuracy tracked (thesis drift detection in v0.5.0)
+- [ ] Information Ratio (mean(IC) / std(IC)) > 0.5 (institutional benchmark)
+
+### Probabilistic Reasoning Quality (v0.5.0)
+- [ ] Market-Implied Expectations Engine extracts growth within ±3% of actual (backtested)
+- [ ] Peer-relative premium justified: justified_multiple within ±10% of actual multiple
+- [ ] Intrinsic vs actual disagreement correctly identified (bull/bear/market theses)
+- [ ] Thesis drift detection: assumption changes precede conviction drops by 1–2 weeks (lead indicator)
+- [ ] Competing narratives output alignment: market thesis vs business reality >80% categorized correctly
+
+### Portfolio Quality (v0.4.0)
+- [x] VaR computation accuracy vs historical variance
+- [x] Position sizing converges to institutional allocations (conviction-based sizing)
+- [x] Portfolio verdict aggregation: individual verdicts → portfolio recommendation coherence
 
 ### Engineering Quality
-- Test coverage > 85%
-- Build reproducibility: date stamping + versioning
-- Zero silent failures (all errors visible)
-- Documentation coverage 100%
+- [x] 502 tests passing (100% on core modules)
+- [x] Build reproducibility: manifest system with git SHA + file hashes
+- [x] Zero silent failures: all errors logged with component context
+- [x] Documentation coverage 100% (ARCHITECTURE, PORTFOLIO_GUIDE, INTEGRATION_GUIDE, README_SYSTEM)
+- [ ] CI/CD pipeline fully hardened (v0.4.0 target)
 
-### Institutional Readiness
-- Peer-reviewed assumptions (sector experts)
-- Governance audit trail (who changed what, when)
-- Regulatory-ready disclaimers
-- Professional reporting formats
+### Institutional Readiness (v0.5.0+)
+- [ ] Peer-reviewed assumptions (sector experts)
+- [ ] Governance audit trail (who changed what, when)
+- [ ] Regulatory-ready disclaimers and risk disclosures
+- [ ] Professional reporting formats (HTML, PDF, Excel)
+- [ ] Institutional-grade thesis communication (valuation battlefield report)
 
 ---
 
 ## Future Considerations
 
-### If Commercialized
-- Multi-user platform (authentication, permissions)
-- Real-time enterprise data feeds
-- Institutional API (REST endpoints)
-- Portfolio management layer
-- Risk reporting (VaR, stress testing)
-- Regulatory compliance (if applicable)
+### If Commercialized (v0.6.0+)
+- Multi-user platform (authentication, permissions, multi-tenant)
+- Real-time enterprise data feeds (Bloomberg, Reuters, FMP)
+- Institutional API (REST endpoints, GraphQL)
+- Portfolio management layer with P&L attribution
+- Risk reporting (VaR, correlation, sector concentration, thesis fragility)
+- Regulatory compliance (GDPR, SOX, MiFID II if applicable)
+- Audit logging with role-based access control
 
-### If Academic
-- Published factor papers (define alpha clearly)
-- Reproducible backtest infrastructure
-- Open data, closed methodology
-- Peer review process
-- Publication in academic journals
+### If Academic Publication
+- Published factor papers (define alpha clearly, replicability)
+- Reproducible backtest infrastructure (open-sourced, versioned datasets)
+- Open data, closed methodology (BlackRock paper inspiration)
+- Peer review process and academic collaboration
+- Publication in academic journals (Journal of Finance, Financial Analysts Journal)
+- Online replication packages and code releases
 
 ### If Enterprise Internal Tool
-- Integration with internal risk systems
-- Compliance framework
-- Audit logging
-- Institutional assumption frameworks
-- Committee review workflows
+- Integration with internal risk systems (VaR, scenario analysis)
+- Compliance framework and audit trails
+- Institutional assumption frameworks (sector expert inputs)
+- Committee review workflows (research hypothesis → fund managers)
+- Thesis drift alerts to portfolio managers
+- Automated rebalancing recommendations
+
+### Next-Generation Capabilities
+- **Cognitive layer**: Research paper ingestion, key insight extraction, thesis validation
+- **Causal inference**: Beyond correlation to causal alpha drivers
+- **Game theory**: Competitive dynamics and margin sustainability modeling
+- **Behavioral finance**: Sentiment analysis, crowding detection, positioning fragility
+- **Ensemble methods**: Multiple models with Bayesian model averaging
+- **Real-time execution**: Integrated order management and transaction cost analysis
 
 ---
 
 ## Dependencies & Requirements
 
-**Core**:
+**Core** (minimal):
 - Python 3.10+
 - pandas >= 2.0
 - numpy >= 1.24
 
-**Data**:
+**Data & Backtest**:
 - yfinance >= 0.2 (for live data)
+- polars >= 0.20 (for backtest price blocks)
+- diskcache (for point-in-time snapshots)
+- statsmodels (for Newey-West covariance)
+
+**Configuration & Async**:
+- pydantic >= 2.0 (configuration system)
+- tenacity (retry logic)
+- typer (CLI)
 
 **Testing**:
 - pytest >= 7.0
-- pytest-cov
+- pytest-cov >= 4.0
 
-**Optional**:
+**Optional** (v0.5.0+):
 - scipy (for advanced statistics)
-- matplotlib (for visualization)
+- scikit-learn (for peer regression, future ML)
+- matplotlib / plotly (for visualization)
 - jupyter (for interactive analysis)
+- streamlit (for web UI, v0.5.1+)
+- fastapi (for institutional API, v0.6.0+)
+
+**Damodaran Data** (must be updated quarterly):
+- Damodaran unlevered industry betas (20+ sectors)
+- Country equity risk premiums (rating-based and CDS-based)
+- Implied equity risk premium (forward-looking)
+- Regional market cap weights
+
+---
+
+## Architecture & Documentation
+
+**Core Model Docs**:
+- `docs/factors.md` — Factor definitions, sub-components, default weights
+- `docs/framework.md` — Orthogonality, composite formula, factor design rationale
+- `docs/pipeline.md` — Seven-stage pipeline architecture, triangulation logic
+- `ARCHITECTURE.md` — 6-layer system design, module dependencies, validation gates
+
+**Institutional Features**:
+- `PORTFOLIO_GUIDE.md` — Portfolio analytics, position sizing, rebalancing
+- `INTEGRATION_GUIDE.md` — End-to-end workflows from securities to portfolio
+- `README_SYSTEM.md` — Modern terminal, configuration, async layer, logging
+
+**v0.5.0 Design Docs** (in development):
+- `PROBABILISTIC_REASONING.md` (TBD) — Four-engine architecture, Damodaran laws, thesis drift detection
+- `BUSINESS_REALITY_FRAMEWORK.md` (TBD) — Business interrogation checklist, revenue durability, moat assessment
 
 ---
 
@@ -315,18 +470,32 @@ Core engine uses only: pandas, numpy. Financial theory, not ML dependencies. Eas
 
 **For questions about**:
 - Factor methodology → See `docs/factors.md`
-- Pipeline architecture → See `docs/framework.md`
-- Valuation philosophy → See `docs/pipeline.md`
+- 7-stage pipeline → See `docs/pipeline.md`
+- Damodaran methods → See `ARCHITECTURE.md`
+- Portfolio framework → See `PORTFOLIO_GUIDE.md`
+- v0.5.0 vision → See this ROADMAP (Phase 2)
 - Code structure → See `AI.md`
 
 ---
 
 ## License
 
-Proprietary Research Platform. See LICENSE for details.
+MIT — See LICENSE for details.
 
 ---
 
-**Last Updated**: 2026-05-27  
-**Status**: Research Preview (v0.2.1-alpha)  
-**Next Review**: 2026-06-27
+## Changelog & Releases
+
+- **v0.4.0-rc1** (2026-05-29): Institutional portfolio layer, analytics, modular terminal, configuration system, 502 tests
+- **v0.3.6-rc** (2026-05-27): Real-data infrastructure, Stooq loader, Newey-West, safe reliability loader
+- **v0.3.5** (2026-05-27): Synthetic backtest harness with IC calibration (validation only)
+- **v0.2.0** (2026-05-27): Stable release with 7-stage pipeline and Bayesian updating
+
+See `CHANGELOG.md` and `RELEASES.md` for full history.
+
+---
+
+**Last Updated**: 2026-05-29  
+**Status**: Production-ready (v0.4.0-rc1) / In development (v0.5.0)  
+**Next Major Phase**: v0.5.0 Probabilistic Institutional Reasoning Engine  
+**Next Review**: 2026-06-30 (post empirical IC run)
