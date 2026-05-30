@@ -1,0 +1,25 @@
+{
+  "_meta": {
+    "version": "v0.4.0-empirical",
+    "data_source": "empirical",
+    "timestamp": "2026-05-28T20:56:59.137318",
+    "git_sha": "c6df58762ee1154971e4dbef8ac3ff8ebe808efb"
+  },
+  "source": "Real S&P 100 price data via yfinance \u2192 Stooq fallback",
+  "universe": "S&P 100 (static 2024-12-31)",
+  "period": "2018-01-31 to 2024-12-31",
+  "horizon_days": 63,
+  "signal": "composite",
+  "empirical_ic": {
+    "mean": NaN,
+    "std": NaN,
+    "n_obs": 59
+  },
+  "bayesian_calibration": {
+    "prior_ic": 0.02,
+    "posterior_ic": NaN,
+    "posterior_std": NaN,
+    "shrinkage_factor": 0.6210526315789474,
+    "reliability": 0.95
+  }
+}

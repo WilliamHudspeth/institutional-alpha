@@ -62,7 +62,7 @@ jobs:
           pip install -e ".[dev,data,live,backtest]"
 
       - name: Run pytest with coverage
-        run: pytest -v --cov=src/iam --cov-report=xml --cov-report=term-missing
+        run: pytest -v --cov=src/iam --cov-report=xml --cov-report=term-missing --cov-fail-under=70
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.11'

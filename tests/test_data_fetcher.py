@@ -278,19 +278,22 @@ class TestYFinanceSource:
 class TestStooqSource:
     """Test Stooq fallback source."""
 
+    @mock.patch('requests.get')
     @mock.patch('pandas.read_csv')
-    def test_get_price_history_success(self, mock_read_csv, sample_ticker, sample_start_end):
+    def test_get_price_history_success(self, mock_read_csv, mock_get, sample_ticker, sample_start_end):
         """Test successful Stooq fetch."""
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.text = "dummy csv content"
         # Mock CSV response
         dates = pd.date_range('2024-01-01', '2024-12-31', freq='D')
         mock_read_csv.return_value = pd.DataFrame({
-            'Date': dates,
+            'Date': dates.strftime('%Y%m%d'),
             'Open': 100.0,
             'High': 105.0,
             'Low': 95.0,
             'Close': 102.0,
             'Volume': 1000000,
-        }).set_index('Date')
+        })
 
         source = StooqSource()
         start, end = sample_start_end
@@ -299,10 +302,13 @@ class TestStooqSource:
         assert isinstance(result, pd.Series)
         assert len(result) > 0
 
+    @mock.patch('requests.get')
     @mock.patch('pandas.read_csv')
-    def test_get_price_history_fallback_on_error(self, mock_read_csv, sample_ticker,
+    def test_get_price_history_fallback_on_error(self, mock_read_csv, mock_get, sample_ticker,
                                                   sample_start_end):
         """Test that Stooq gracefully fails."""
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.text = "dummy csv content"
         mock_read_csv.side_effect = Exception("Network error")
 
         source = StooqSource()
@@ -470,6 +476,14 @@ except ImportError:
 # PERFORMANCE TESTS (benchmarks)
 # =====================================================================
 
+try:
+    import pytest_benchmark
+    has_benchmark = True
+except ImportError:
+    has_benchmark = False
+
+
+@pytest.mark.skipif(not has_benchmark, reason="pytest-benchmark not installed")
 class TestPerformance:
     """Test performance characteristics."""
 

@@ -16,6 +16,21 @@ and empirical backtesting. As of v0.3.4, the project includes:
     Measures Information Coefficient to calibrate Bayesian reliability weights empirically.
 """
 
+import sys
+# Prevent potential Windows terminal Unicode encoding crashes (e.g. yfinance printing unicode arrows)
+if sys.platform.startswith('win'):
+    if hasattr(sys.stdout, 'reconfigure'):
+        try:
+            sys.stdout.reconfigure(errors='backslashreplace')
+        except Exception:
+            pass
+    if hasattr(sys.stderr, 'reconfigure'):
+        try:
+            sys.stderr.reconfigure(errors='backslashreplace')
+        except Exception:
+            pass
+
+
 from iam.data.security import Fundamentals, MacroContext, MarketData, Security
 from iam.engine.composite import DEFAULT_WEIGHTS, ScoreResult, score
 from iam.pipeline import PipelineReport, ValuationPipeline

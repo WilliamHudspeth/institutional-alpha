@@ -14,6 +14,7 @@ from .calibration import (
     write_calibration,
 )
 from .config import BacktestConfig
+from .ic_runner import ICBacktest, ICBacktestConfig
 from .manifest import BacktestManifest
 from .metrics import (
     fisher_mean,
@@ -31,11 +32,21 @@ from .quantiles import decile_spread, quantile_spread_by_date, quantile_turnover
 from .runner import print_backtest_summary, run_backtest
 from .snapshots import build_snapshot, get_snapshot_cache, load_snapshot
 from .universe import load_universe_from_json, load_universe_tickers
+from .weight_optimizer import (
+    BootstrapStability,
+    RegimeOptimizer,
+    WalkForwardOptimizer,
+    WeightOptimizerConfig,
+    format_weights_report,
+    optimize_weights,
+)
 
 __all__ = [
     # Config & manifest
     "BacktestConfig",
     "BacktestManifest",
+    "ICBacktest",
+    "ICBacktestConfig",
     # Universe loading
     "load_universe_from_json",
     "load_universe_tickers",
@@ -69,4 +80,11 @@ __all__ = [
     "ic_to_reliability_bayesian",
     "summarize_backtest",
     "write_calibration",
+    # Weight Optimizer
+    "WeightOptimizerConfig",
+    "optimize_weights",
+    "WalkForwardOptimizer",
+    "BootstrapStability",
+    "RegimeOptimizer",
+    "format_weights_report",
 ]

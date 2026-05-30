@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from iam.data.security import Security
 from iam.valuation.damodaran_defaults import DamodaranUniverse
+from iam.valuation.justified_premium import calculate_justified_premium
 from iam.valuation.types import Method, ValuationResult
 
 if TYPE_CHECKING:
@@ -138,6 +139,29 @@ class RelativeValuation:
                 notes.append(
                     "Regression inputs provided but no matching market multiples available."
                 )
+
+        # 5. Justified Premium (Relative Reality)
+        justified_result = calculate_justified_premium(security, self.universe)
+        if justified_result.target_price and justified_result.target_price > 0:
+            implied_prices.append(justified_result.target_price)
+            components["implied_price_justified_premium"] = justified_result.target_price
+
+            if justified_result.justified_multiple is not None:
+                components["justified_multiple"] = justified_result.justified_multiple
+            if justified_result.actual_premium is not None:
+                components["actual_premium"] = justified_result.actual_premium
+            if justified_result.deserved_premium is not None:
+                components["deserved_premium"] = justified_result.deserved_premium
+            if justified_result.premium_gap is not None:
+                components["premium_gap"] = justified_result.premium_gap
+
+            if justified_result.premium_gap is not None:
+                gap_pct = justified_result.premium_gap * 100
+                if abs(justified_result.premium_gap) > 0.10:
+                    notes.append(f"Justified premium gap: {gap_pct:+.1f}%")
+        else:
+            if justified_result.notes:
+                notes.extend(justified_result.notes)
 
         if not implied_prices:
             return ValuationResult(

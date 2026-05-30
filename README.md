@@ -9,8 +9,9 @@ It is built as a **probabilistic equity reasoning engine**, not a screener. A sc
 ## Status
 
 [![CI/CD Pipeline](https://github.com/WilliamHudspeth/institutional-alpha/actions/workflows/python-package.yml/badge.svg)](https://github.com/WilliamHudspeth/institutional-alpha/actions)
+[![codecov](https://codecov.io/gh/WilliamHudspeth/institutional-alpha/branch/main/graph/badge.svg)](https://codecov.io/gh/WilliamHudspeth/institutional-alpha)
 
-**v0.4.0-rc1** — release candidate. The factor scoring engine, seven-stage valuation pipeline, Bayesian thesis engine, hardened backtest stack, institutional portfolio analytics, and modern modular terminal are all implemented and tested. Awaiting one empirical IC run on real market data before the v0.4.0 promotion.
+**v0.4.0-rc1** — Institutional infrastructure complete. The factor scoring engine, seven-stage valuation pipeline, Bayesian thesis engine, hardened backtest stack, institutional portfolio analytics, and modern modular terminal are all implemented and tested. Next: empirical IC run on real market data (v0.4.0) and probabilistic reasoning engine (v0.5.0).
 
 - 502 tests passing (with enhanced CI/CD coverage)
 - 13 orthogonal factors (10 additive + 3 penalty)
@@ -23,21 +24,61 @@ It is built as a **probabilistic equity reasoning engine**, not a screener. A sc
 - Bayesian shrinkage calibration with sector-neutral IC
 - Comprehensive CI/CD with linting, type checking, and security scanning
 
+**v0.5.0 (in development)** — Probabilistic institutional reasoning engine with 4 independent engines (market expectations, business reality, peer-relative, intrinsic), Damodaran hard-coded rules, thesis drift detection, and competing narratives synthesis.
+
 ## How it actually works
 
-The framework is dense, so here is the method in three layers, simple to complex. Read as far as you need.
+The framework is built on an institutional insight: **valuation is competing interpretations of reality under uncertainty**, not a single "correct" number.
+
+### Core Philosophy
+
+Most stock screeners do this: `financials → ratios → score → recommendation`
+
+IAM does this:
+
+```
+market expectations          (What does the market believe?)
+      ↓
+business reality             (What actually drives the business?)
+      ↓
+peer-relative economics      (Does it deserve its premium?)
+      ↓
+intrinsic economics          (DCF independent from market bias)
+      ↓
+macro regime interaction     (How fragile are assumptions?)
+      ↓
+probabilistic synthesis      (Weight competing realities)
+      ↓
+decision under uncertainty   (Buy/Hold/Sell with thesis drift detection)
+```
 
 ### Layer 1 — plain English
 
-When you point IAM at a stock, three things happen.
+When you point IAM at a stock, it runs **four independent reasoning engines**:
 
-1. **It scores the stock.** Ten different "reasons to buy or sell" are evaluated separately — is it cheap, is it high quality, is the price already pricing in heroic growth, is the macro regime helpful, and so on. Each reason gets its own score. They are combined with explicit weights, and three penalty terms (fragility, leverage, execution risk) are subtracted. The final number is a single score between −1 and +1, but you can always see what each piece contributed.
+1. **Market-Implied Expectations Engine** — What does the stock price *tell us* the market believes about growth, margins, ROIC persistence, and moat duration? This reverses the DCF: given the current price, what assumptions must be true? This is not a valuation. It's decoding the market narrative.
 
-2. **It valuates the stock.** A seven-stage pipeline asks the same question from four directions: what does today's price *imply*, what do *peers* and history say, what's the *intrinsic* DCF, and do those three agree? Disagreement is the most useful output — it tells you where the controversy is, not just an averaged number. Macro stress tests then re-run the pipeline only for names whose verdict actually flips.
+2. **Business Reality Engine** — How does this business *actually* work? What drives revenue (recurring vs transactional, cyclical vs stable)? How durable is cash flow? What is reinvestment efficiency? What risks threaten assumptions? This interrogates the business, not just the numbers.
 
-3. **It tests itself.** A backtest harness runs the model month-by-month on historical data and asks: "Did high scores actually predict high returns?" The answer (the Information Coefficient) becomes the empirical weight the model places on its own opinions. If a signal didn't work historically, the model trusts it less.
+3. **Peer-Relative Engine** — Does this company *deserve* its premium? Not whether it has one, but whether the economics justify it. What's the justified multiple vs peers? Is quality relative, or absolute?
 
-That's the whole product. No black boxes — every number decomposes back to inputs.
+4. **Intrinsic Valuation Engine** — Full Damodaran DCF: bottom-up beta, geographic ERP blending, segment-level SOTP, through-cycle normalisation, operating leverage, ROIC fade curves, terminal growth constraints. This is independent from market pricing.
+
+Then a **Synthesis Engine** weighs all four perspectives and asks: **"Why does the market disagree with intrinsic value?"** That disagreement is where alpha lives.
+
+Finally, **Thesis Drift Detection** continuously monitors if your core assumptions remain true. If they drift, conviction falls and the model reranks.
+
+### Layer 2 — how the pieces fit
+
+**Factor scoring** (current) — 10 orthogonal factors + 3 penalties. Composite score ∈ [-1, +1]. Quick cross-sectional ranking.
+
+**7-stage valuation pipeline** (current) — Stages 1–3 compute market expectations, peer analysis, and intrinsic DCF in parallel. Stage 4 triangulates. Stages 5–6 stress-test. Stage 7 outputs verdict with conviction band.
+
+**Portfolio analytics** (current) — VaR, correlations, factor exposures, position sizing, rebalancing, portfolio-level verdicts.
+
+**Bayesian thesis engine** (current) — Scenario probability updating on evidence, with reliability weighting to prevent overfitting.
+
+**Probabilistic institutional reasoning** (v0.5.0, in development) — Four-engine architecture with competing narratives, Damodaran hard-coded rules, thesis drift detection, and probabilistic synthesis. See architecture section below.
 
 ### Layer 2 — how the pieces fit
 
@@ -49,7 +90,111 @@ That's the whole product. No black boxes — every number decomposes back to inp
 
 **Backtest harness.** Every month, build a point-in-time snapshot of each security, score it, then look at the realized 63-day forward return. The Spearman rank correlation between score and return is the **Information Coefficient (IC)**. Over 84 months, you get a distribution; the mean IC tells you if the signal works, the IC standard deviation tells you how consistent it is. The Information Ratio (IR = mean(IC) / std(IC)) is what institutional shops actually care about — 0.3–0.5 is realistic for equity factors.
 
-### Layer 3 — the math and the audit trail
+### Layer 3 — The Institutional Reasoning Engine (v0.5.0)
+
+**Engine 1 — Market-Implied Expectations**
+Solves the reverse DCF to extract what the market is pricing:
+- Implied 5-year FCFE growth
+- Implied operating margins and ROIC persistence
+- Implied moat duration (how long does excess return persist?)
+- Implied cyclicality and macro sensitivity
+- Franchise premium vs commodity value (zero-growth P/E)
+- Conviction embedded in the price
+
+Output: "Market is pricing 18% growth, 32% margins, 12-year moat, 6% terminal growth"
+
+**Engine 2 — Business Reality**
+Interrogates the actual business economics:
+- Revenue durability (recurring, cyclical, regulated, subscription?)
+- Cash flow quality and conversion rates
+- Reinvestment efficiency: does g = ROIC × Reinvestment Rate hold?
+- Operating leverage (fixed cost ratio, elasticity to market shocks)
+- Management capital allocation history
+- Balance sheet fragility and refinancing risk
+- Competitive durability and moat strength
+- Technological disruption and TAM saturation
+
+Output: "Revenue is 75% recurring, reinvestment math checks, moat is 8 years, management disciplined"
+
+**Engine 3 — Peer-Relative Reality**
+Determines if the premium is justified:
+- Regression of P/E (or EV/EBIT) on growth within sector peers
+- Relative quality assessment (margins, ROIC, cyclicality)
+- Relative certainty: is this company riskier than peers?
+- Justified multiple vs actual multiple
+- Relative moat durability
+- Beta premium justification
+
+Output: "BLK trades 1.1x peer-predicted multiple — fairly valued vs growth, premium justified by quality"
+
+**Engine 4 — Intrinsic Valuation (Damodaran)**
+Pure DCF independent from market bias:
+- Bottom-up levered beta from Damodaran unlevered industry beta + capital structure
+- Geographic-blended ERP (not just US ERP)
+- Segment-level SOTP (if multiple businesses)
+- Through-cycle normalisation (e.g., 0.8× base FCFE for cyclical industries)
+- Operating leverage overlay (if FCF/market-drawdown elasticity >1.2×)
+- ROIC decay curves (moat fade over 5–10 years)
+- Terminal growth capped at Rf
+- Two-stage DCF: high growth 5y, then linear fade 5y, then perpetuity
+
+Output: "Intrinsic range $845–$975; stress floor $340 (severe yen unwind); ROIC reverts to WACC in year 9"
+
+**Engine 5 — Macro Stress**
+Recomputes intrinsic under scenario shocks:
+- Rate shock (+50bp, +100bp, +150bp)
+- ERP expansion (+50bp, +100bp)
+- FCFE contraction (based on historical elasticity)
+- Credit cycle transmission
+- Refinancing risk
+- Liquidity shock
+
+Output: "In severe scenario (2.5% rates, 6.5% ERP, -18% FCFE), intrinsic drops to $340"
+
+**Engine 6 — Synthesis (The Secret Sauce)**
+Does NOT average. Instead, it:
+- Weights each engine's output by confidence/durability
+- Maps areas of disagreement
+- Identifies the key assumption delta between market and intrinsic
+- Produces a **valuation battlefield** showing bull/bear/market/intrinsic theses
+- Outputs Buy/Hold/Sell with a **confidence interval** and **fragility score**
+- Flags "thesis drift points" — which assumptions must stay true?
+
+### The Damodaran Hard-Coded Laws
+
+These become framework constraints:
+
+| LAW | Rule | Rationale |
+|-----|------|-----------|
+| **Narrative ↔ Numbers** | If growth high, reinvestment rises; TAM supports; margins compress initially | Catches impossible stories |
+| **Growth requires reinvestment** | g = ROIC × Reinv Rate (hard-coded check) | Prevents fake growth narratives |
+| **Terminal growth cap** | g_terminal ≤ Rf (always enforced) | Prevents perpetual excess returns |
+| **Excess returns fade** | ROIC decay curves; moat duration finite; terminal ROIC → WACC | Realism in competition |
+| **Risk single-counted** | Risk in cash flows OR discount rates, never both | Prevents double-penalizing |
+| **Peer consistency** | If premium justified vs peers, intrinsic must support it | Aligns relative and intrinsic |
+
+### Thesis Drift Detection (Continuous Monitoring)
+
+The system continuously asks: **"What assumptions must remain true for my thesis?"**
+
+It monitors:
+- Operating margins (vs forecast)
+- ROIC (vs forecast)
+- Reinvestment rates (vs forecast)
+- Revenue growth quality (recurring vs transactional mix)
+- Balance sheet metrics (leverage, cash conversion)
+- Competitive position (share, NPS, retention)
+- Macro regime (rates, credit, macro sensitivity)
+
+If drift detected:
+1. Conviction score drops
+2. Model recomputes fair value
+3. Alerts user to "thesis at risk"
+4. Suggests rebalancing or position reduction
+
+This turns static valuation into **living probabilistic intelligence**.
+
+### Layer 4 — the math and the audit trail
 
 **IC calibration.** Empirical IC is converted to a reliability weight `r ∈ [0.5, 0.95]` that gates how much the arbitrator listens to each signal. We use **Bayesian shrinkage** to avoid overfitting on short backtests:
 
@@ -466,6 +611,7 @@ Full conceptual documentation:
 
 ## Roadmap
 
+**v0.1–v0.3:** Foundational layers (factor scoring, DCF, Bayesian updating)
 - [x] Factor scoring engine: 10 factors + 3 penalties (v0.1.0)
 - [x] Valuation pipeline: Reverse DCF → Relative → Intrinsic → Triangulation (v0.2.0-alpha)
 - [x] Core data layer + Yahoo Finance adapter (v0.2.0-alpha)
@@ -478,6 +624,8 @@ Full conceptual documentation:
 - [x] Data layer caching + Damodaran ground truth (v0.3.0–v0.3.3)
 - [x] Synthetic backtest validation (v0.3.5)
 - [x] Real-data infrastructure: Stooq loader, Newey-West, safe reliability loader (v0.3.6)
+
+**v0.4.0:** Production hardening + institutional infrastructure
 - [x] Hardened backtest stack v2: pluggable sources, Polars, ProcessPool, sector-neutral IC, Bayesian shrinkage (v0.4.0-rc1)
 - [x] **Institutional portfolio layer**: analytics, position sizing, verdicts (v0.4.0-rc1)
 - [x] **Bayesian thesis enhancements**: scenario probability tracking, evidence reliability (v0.4.0-rc1)
@@ -486,9 +634,26 @@ Full conceptual documentation:
 - [x] **Configuration system**: Pydantic settings, structured logging (v0.4.0-rc1)
 - [ ] Empirical IC run on real S&P 100 data (v0.4.0)
 - [ ] Multi-horizon IC measurement (21d / 63d / 126d / 252d)
-- [ ] Additional data sources (FMP, Tiingo) via `DataSource` contract
-- [ ] International expansion (country risk premium calculations)
-- [ ] Cognitive research layer: research paper ingestion, insights generation
+
+**v0.5.0:** Probabilistic institutional reasoning engine (next major phase)
+- [ ] **Market-Implied Expectations Engine**: Reverse DCF to extract market's implicit assumptions (growth, margins, ROIC, moat duration)
+- [ ] **Business Reality Engine**: Interrogate actual business mechanics (revenue durability, reinvestment efficiency, moat strength, management quality)
+- [ ] **Peer-Relative Reality Engine**: Determine justified premium/discount vs peers with relative quality assessment
+- [ ] **Damodaran Hard-Coded Laws**: Framework constraints (narrative↔numbers, growth↔reinvestment, terminal growth cap, ROIC fade, single-counting rule)
+- [ ] **Intrinsic Valuation Engine** (enhanced): Bottom-up beta, geographic ERP blending, operating leverage overlay, ROIC decay curves, segment-level SOTP
+- [ ] **Macro Stress Engine** (v2): Multi-scenario rate/ERP/FCFE shocks with transmission to intrinsic value
+- [ ] **Synthesis Engine**: Weights competing realities (market vs intrinsic vs peer vs business) and produces "valuation battlefield" with disagreement map
+- [ ] **Thesis Drift Detection**: Continuous monitoring of core assumptions (margins, ROIC, reinvestment, growth quality, balance sheet, competitive position)
+- [ ] **Confidence Intervals & Fragility Scoring**: Not point estimates, but probabilistic ranges with "what must stay true?" alerts
+- [ ] **Competing Narratives Output**: Bull/Bear/Market/Intrinsic theses with key assumption deltas
+
+**v0.6.0+:** Advanced features
+- [ ] Additional data sources (FMP, Tiingo, Damodaran live datasets) via `DataSource` contract
+- [ ] International expansion (country risk premium calculations, multi-currency FCFE)
+- [ ] Cognitive research layer: research paper ingestion, insights generation, thesis drift via news flow
+- [ ] Machine learning overlay: IC stability prediction, signal reliability estimation
+- [ ] Real-time thesis reranking on earnings/macro events
+- [ ] Portfolio-level thesis aggregation and sector regime adaptation
 
 **Reasoning-engine evolution (v0.5+)** — reframe the pipeline as disagreement-first reasoning engines:
 
