@@ -34,26 +34,26 @@ from iam.backtest.calibration import ic_to_reliability, summarize_backtest
 from iam.backtest.metrics import hit_rate, information_coefficient, information_ratio
 from iam.backtest.quantiles import decile_spread
 from iam.data import Fundamentals, MarketData, apply_scenario
-from iam.engine.composite import (
-    DEFAULT_WEIGHTS,
-    DEFAULT_PENALTY_WEIGHTS,
-    ScoreResult,
-    _default_factors,
-    score as composite_score,
-)
-from iam.factors.base import Factor, FactorContribution
-from iam.integration import ModelResult, Orchestrator
+from iam.engine.composite import DEFAULT_WEIGHTS, ScoreResult
+from iam.engine.composite import score as composite_score
+from iam.integration import Orchestrator
 from iam.thesis.bayesian.updater import BayesianUpdater, Evidence, ScenarioPrior
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 SECTORS = [
-    "Technology", "Financials", "Healthcare", "Energy",
-    "Consumer Discretionary", "Industrials", "Utilities",
-    "Materials", "Real Estate", "Communication Services",
+    "Technology",
+    "Financials",
+    "Healthcare",
+    "Energy",
+    "Consumer Discretionary",
+    "Industrials",
+    "Utilities",
+    "Materials",
+    "Real Estate",
+    "Communication Services",
 ]
 
 INDUSTRIES: dict[str, list[str]] = {
@@ -197,15 +197,14 @@ def _make_security(
 def _make_universe(n: int, seed: int = 42) -> list[Security]:
     """Create a universe of n synthetic securities."""
     rng = random.Random(seed)
-    return [
-        _make_security(
-            f"SYN{i:04d}",
-            sector=(s := rng.choice(SECTORS)),
-            industry=rng.choice(INDUSTRIES[s]),
-            seed=seed + i,
+    result = []
+    for i in range(n):
+        sector = rng.choice(SECTORS)
+        industry = rng.choice(INDUSTRIES[sector])
+        result.append(
+            _make_security(f"SYN{i:04d}", sector=sector, industry=industry, seed=seed + i)
         )
-        for i in range(n)
-    ]
+    return result
 
 
 def _score_df(scores: np.ndarray, returns: np.ndarray) -> pd.DataFrame:
@@ -259,6 +258,7 @@ def _assert_no_unhandled_crash(orchestrator: Orchestrator, sec: Security, label:
 # 1. FACTOR ORTHOGONALITY
 # ===========================================================================
 
+
 class TestFactorOrthogonality:
     """Validate that IAM's factors produce statistically distinct signals.
 
@@ -308,10 +308,11 @@ class TestFactorOrthogonality:
         inactive = stds[stds < 1e-9]
         if len(inactive) > 0:
             # Not a hard failure — but surface them clearly
-            print(f"\n[INFO] Zero-variance factors (no signal in synthetic data): {list(inactive.index)}")
+            print(
+                f"\n[INFO] Zero-variance factors (no signal in synthetic data): {list(inactive.index)}"
+            )
         assert len(active) >= 7, (
-            f"Only {len(active)} factors have nonzero variance. "
-            f"Inactive: {list(inactive.index)}"
+            f"Only {len(active)} factors have nonzero variance. Inactive: {list(inactive.index)}"
         )
 
     def _active_factors(self, factor_score_df: pd.DataFrame) -> pd.DataFrame:
@@ -340,7 +341,7 @@ class TestFactorOrthogonality:
 
         cols = list(df.columns)
         for i, a in enumerate(cols):
-            for b in cols[i + 1:]:
+            for b in cols[i + 1 :]:
                 if frozenset([a, b]) in INTENDED_HIGH_PAIRS:
                     continue
                 r = corr.loc[a, b]
@@ -364,7 +365,7 @@ class TestFactorOrthogonality:
         cols = list(df.columns)
         high_pairs = []
         for i, a in enumerate(cols):
-            for b in cols[i + 1:]:
+            for b in cols[i + 1 :]:
                 r = abs(corr.loc[a, b])
                 if r > 0.50:
                     pair = frozenset([a, b])
@@ -420,6 +421,7 @@ class TestFactorOrthogonality:
 # ===========================================================================
 # 1b. CONVICTION CONVERGENCE
 # ===========================================================================
+
 
 class TestConvictionConvergence:
     """Validate the intrinsic_value / relative_value design philosophy.
@@ -635,6 +637,7 @@ class TestConvictionConvergence:
 # 2. LARGE-SCALE BACKTEST STRESS
 # ===========================================================================
 
+
 class TestLargeScaleBacktest:
     """Stress-test IC/IR metrics at institutional scale.
 
@@ -658,13 +661,11 @@ class TestLargeScaleBacktest:
         noise = rng.randn(n_months, n_stocks).astype(np.float32)
         forward_returns = (signal_strength * scores + noise * 0.15).astype(np.float32)
 
-        monthly_ics = pd.Series([
-            information_coefficient(self._df(scores, forward_returns, t))
-            for t in range(n_months)
-        ])
+        monthly_ics = pd.Series(
+            [information_coefficient(self._df(scores, forward_returns, t)) for t in range(n_months)]
+        )
         monthly_hit_rates = [
-            hit_rate(self._df(scores, forward_returns, t))
-            for t in range(n_months)
+            hit_rate(self._df(scores, forward_returns, t)) for t in range(n_months)
         ]
 
         mean_ic = monthly_ics.mean()
@@ -687,10 +688,9 @@ class TestLargeScaleBacktest:
         scores = rng.randn(n_months, n_stocks).astype(np.float32)
         returns = rng.randn(n_months, n_stocks).astype(np.float32)
 
-        monthly_ics = pd.Series([
-            information_coefficient(self._df(scores, returns, t))
-            for t in range(n_months)
-        ])
+        monthly_ics = pd.Series(
+            [information_coefficient(self._df(scores, returns, t)) for t in range(n_months)]
+        )
         mean_ic = monthly_ics.mean()
         t_stat = mean_ic / (monthly_ics.std() / math.sqrt(n_months))
 
@@ -718,9 +718,7 @@ class TestLargeScaleBacktest:
         ]
         mean_spread = float(np.nanmean(spreads))
 
-        assert mean_spread > 0.005, (
-            f"Decile spread too low: {mean_spread:.4f} (expected > 0.005)"
-        )
+        assert mean_spread > 0.005, f"Decile spread too low: {mean_spread:.4f} (expected > 0.005)"
 
         del scores, returns
         gc.collect()
@@ -731,13 +729,15 @@ class TestLargeScaleBacktest:
         n_months = 120
         true_ic, noise_ic = 0.06, 0.03
 
-        results_df = pd.DataFrame({
-            "ic": true_ic + rng.randn(n_months) * noise_ic,
-            "hit_rate": np.clip(0.53 + rng.randn(n_months) * 0.04, 0, 1),
-            "spread": 0.01 + rng.randn(n_months) * 0.005,
-            "top": 0.015 + rng.randn(n_months) * 0.005,
-            "bottom": 0.005 + rng.randn(n_months) * 0.003,
-        })
+        results_df = pd.DataFrame(
+            {
+                "ic": true_ic + rng.randn(n_months) * noise_ic,
+                "hit_rate": np.clip(0.53 + rng.randn(n_months) * 0.04, 0, 1),
+                "spread": 0.01 + rng.randn(n_months) * 0.005,
+                "top": 0.015 + rng.randn(n_months) * 0.005,
+                "bottom": 0.005 + rng.randn(n_months) * 0.003,
+            }
+        )
 
         summary = summarize_backtest(results_df)
 
@@ -756,7 +756,7 @@ class TestLargeScaleBacktest:
         for i in range(1, len(reliabilities)):
             assert reliabilities[i] >= reliabilities[i - 1], (
                 f"Reliability not monotone at IC={ic_values[i]:.2f}: "
-                f"got {reliabilities[i]:.4f} <= prev {reliabilities[i-1]:.4f}"
+                f"got {reliabilities[i]:.4f} <= prev {reliabilities[i - 1]:.4f}"
             )
 
         assert ic_to_reliability(-0.10) == pytest.approx(0.50, abs=0.01)
@@ -779,10 +779,9 @@ class TestLargeScaleBacktest:
         scores = rng.randn(n_months, n_stocks).astype(np.float32)
         returns = true_ic * scores + rng.randn(n_months, n_stocks).astype(np.float32) * 0.18
 
-        monthly_ics = pd.Series([
-            information_coefficient(self._df(scores, returns, t))
-            for t in range(n_months)
-        ])
+        monthly_ics = pd.Series(
+            [information_coefficient(self._df(scores, returns, t)) for t in range(n_months)]
+        )
 
         bootstrap_irs = []
         for _ in range(100):
@@ -791,8 +790,7 @@ class TestLargeScaleBacktest:
 
         pct_positive = np.mean(np.array(bootstrap_irs) > 0)
         assert pct_positive > 0.70, (
-            f"Only {pct_positive:.1%} of bootstrap IRs are positive. "
-            "Signal may not be robust."
+            f"Only {pct_positive:.1%} of bootstrap IRs are positive. Signal may not be robust."
         )
 
         del scores, returns
@@ -802,6 +800,7 @@ class TestLargeScaleBacktest:
 # ===========================================================================
 # 3. PORTFOLIO OPTIMIZER STRESS
 # ===========================================================================
+
 
 class TestPortfolioOptimizerStress:
     """Test the walk-forward weight optimizer under extreme market conditions."""
@@ -814,14 +813,13 @@ class TestPortfolioOptimizerStress:
         weights_true = np.zeros(n_factors)
         weights_true[:signal_factors] = 1.0 / signal_factors
         rets_by_date = {
-            d: ic * (scores_by_date[d] @ weights_true) + rng.randn(n_stocks) * 0.18
-            for d in dates
+            d: ic * (scores_by_date[d] @ weights_true) + rng.randn(n_stocks) * 0.18 for d in dates
         }
         return dates.tolist(), scores_by_date, rets_by_date
 
     def test_optimizer_with_highly_correlated_factors(self):
         """Optimizer must stay stable when two factors are nearly identical."""
-        from iam.backtest.weight_optimizer import WeightOptimizerConfig, WalkForwardOptimizer
+        from iam.backtest.weight_optimizer import WalkForwardOptimizer, WeightOptimizerConfig
 
         rng = np.random.RandomState(55)
         n_months, n_stocks = 36, 100
@@ -831,13 +829,14 @@ class TestPortfolioOptimizerStress:
 
         scores_by_date = {d: np.column_stack([base[i], clone[i]]) for i, d in enumerate(dates)}
         rets_by_date = {
-            d: 0.05 * scores_by_date[d][:, 0] + rng.randn(n_stocks) * 0.15
-            for d in dates
+            d: 0.05 * scores_by_date[d][:, 0] + rng.randn(n_stocks) * 0.15 for d in dates
         }
 
         config = WeightOptimizerConfig(
-            n_factors=2, factor_names=["f1", "f1_clone"],
-            train_window_months=12, test_window_months=6,
+            n_factors=2,
+            factor_names=["f1", "f1_clone"],
+            train_window_months=12,
+            test_window_months=6,
         )
         result = WalkForwardOptimizer(config).run(dates.tolist(), scores_by_date, rets_by_date)
 
@@ -848,7 +847,7 @@ class TestPortfolioOptimizerStress:
     @pytest.mark.slow
     def test_optimizer_13_factors_500_stocks_5yr(self):
         """Walk-forward optimizer must handle 13 factors × 500 stocks × 5 years."""
-        from iam.backtest.weight_optimizer import WeightOptimizerConfig, WalkForwardOptimizer
+        from iam.backtest.weight_optimizer import WalkForwardOptimizer, WeightOptimizerConfig
 
         n_months, n_stocks, n_factors = 60, 500, 13
         dates, scores_by_date, rets_by_date = self._panel(n_months, n_stocks, n_factors)
@@ -856,7 +855,8 @@ class TestPortfolioOptimizerStress:
         config = WeightOptimizerConfig(
             n_factors=n_factors,
             factor_names=[f"f{i}" for i in range(n_factors)],
-            train_window_months=24, test_window_months=6,
+            train_window_months=24,
+            test_window_months=6,
         )
         result = WalkForwardOptimizer(config).run(dates, scores_by_date, rets_by_date)
 
@@ -869,7 +869,7 @@ class TestPortfolioOptimizerStress:
     @pytest.mark.slow
     def test_optimizer_fat_tail_returns(self):
         """Optimizer must remain stable with Student-t fat-tail return distributions."""
-        from iam.backtest.weight_optimizer import WeightOptimizerConfig, WalkForwardOptimizer
+        from iam.backtest.weight_optimizer import WalkForwardOptimizer, WeightOptimizerConfig
 
         rng = np.random.RandomState(999)
         n_months, n_stocks, n_factors = 48, 200, 5
@@ -881,7 +881,9 @@ class TestPortfolioOptimizerStress:
         }
 
         config = WeightOptimizerConfig(
-            n_factors=n_factors, train_window_months=18, test_window_months=6,
+            n_factors=n_factors,
+            train_window_months=18,
+            test_window_months=6,
         )
         result = WalkForwardOptimizer(config).run(dates.tolist(), scores_by_date, rets_by_date)
 
@@ -891,7 +893,7 @@ class TestPortfolioOptimizerStress:
     @pytest.mark.slow
     def test_bootstrap_stability_strong_vs_weak_signal(self):
         """Weight variance must be lower for a strong-signal regime than a random one."""
-        from iam.backtest.weight_optimizer import WeightOptimizerConfig, BootstrapStability
+        from iam.backtest.weight_optimizer import BootstrapStability, WeightOptimizerConfig
 
         rng = np.random.RandomState(42)
         n_months, n_stocks, n_factors = 36, 150, 4
@@ -899,8 +901,7 @@ class TestPortfolioOptimizerStress:
         scores_by_date = {d: rng.randn(n_stocks, n_factors) for d in dates}
 
         rets_strong = {
-            d: 0.15 * scores_by_date[d][:, 0] + rng.randn(n_stocks) * 0.10
-            for d in dates
+            d: 0.15 * scores_by_date[d][:, 0] + rng.randn(n_stocks) * 0.10 for d in dates
         }
         rets_weak = {d: rng.randn(n_stocks) * 0.20 for d in dates}
 
@@ -921,6 +922,7 @@ class TestPortfolioOptimizerStress:
 # ===========================================================================
 # 4. VALUATION ENGINE CROSS-CONSISTENCY
 # ===========================================================================
+
 
 class TestValuationEngineConsistency:
     """Validate that valuation results are coherent, deterministic, and robust."""
@@ -1004,7 +1006,10 @@ class TestValuationEngineConsistency:
                 shares_outstanding=500e6,
             ),
             market=MarketData(
-                market_cap=50e9, price=100.0, enterprise_value=49e9, pe_ttm=None,
+                market_cap=50e9,
+                price=100.0,
+                enterprise_value=49e9,
+                pe_ttm=None,
             ),
         )
         try:
@@ -1044,13 +1049,14 @@ class TestValuationEngineConsistency:
         universe = _make_universe(200, seed=2024)
         success = sum(1 for sec in universe if _try_value(orchestrator, sec))
         assert success / len(universe) >= 0.70, (
-            f"Only {success/len(universe):.1%} of 200 securities valuated successfully"
+            f"Only {success / len(universe):.1%} of 200 securities valuated successfully"
         )
 
 
 # ===========================================================================
 # 5. BAYESIAN THESIS CONVERGENCE
 # ===========================================================================
+
 
 class TestBayesianThesisConvergence:
     """Validate that the Bayesian thesis engine correctly updates beliefs.
@@ -1146,7 +1152,7 @@ class TestBayesianThesisConvergence:
                 description="Massive earnings beat, highly reliable",
                 likelihoods={"Bull Case": 0.95, "Base Case": 0.50, "Bear Case": 0.05},
                 reliability=0.95,
-            )
+            ),
         )
         strong_shift = (
             next(p.probability for p in posteriors_strong if "Bull" in p.label)
@@ -1162,7 +1168,7 @@ class TestBayesianThesisConvergence:
                     description="Weak bearish signal",
                     likelihoods={"Bull Case": 0.45, "Base Case": 0.50, "Bear Case": 0.55},
                     reliability=0.10,
-                )
+                ),
             )
         weak_shift = abs(
             priors[2].probability
@@ -1204,7 +1210,10 @@ class TestBayesianThesisConvergence:
     @pytest.mark.slow
     def test_converges_to_correct_scenario(self):
         """50 strong signals for each scenario should identify it with high confidence."""
-        for true_scenario, make_ev in [("Bull Case", _bullish_evidence), ("Bear Case", _bearish_evidence)]:
+        for true_scenario, make_ev in [
+            ("Bull Case", _bullish_evidence),
+            ("Bear Case", _bearish_evidence),
+        ]:
             posteriors = _make_priors(bull=0.33, base=0.34, bear=0.33)
             for i in range(50):
                 posteriors = BayesianUpdater.update(posteriors, make_ev(f"ev_{i}"))
@@ -1220,6 +1229,7 @@ class TestBayesianThesisConvergence:
 # 6. DATA PIPELINE ROBUSTNESS
 # ===========================================================================
 
+
 class TestDataPipelineRobustness:
     """Validate graceful degradation with bad/missing data at every boundary."""
 
@@ -1229,14 +1239,17 @@ class TestDataPipelineRobustness:
 
     def test_no_fundamentals(self, orchestrator):
         """Security without Fundamentals must not raise an unhandled exception."""
-        sec = Security(ticker="BARE", sector="Technology", industry="Software",
-                       revenue_mix={"US": 1.0})
+        sec = Security(
+            ticker="BARE", sector="Technology", industry="Software", revenue_mix={"US": 1.0}
+        )
         _assert_no_unhandled_crash(orchestrator, sec, "no fundamentals")
 
     def test_nan_numeric_fields(self, orchestrator):
         """NaN numeric fields must not produce unhandled exceptions."""
         sec = Security(
-            ticker="NANS", sector="Financials", industry="Banking",
+            ticker="NANS",
+            sector="Financials",
+            industry="Banking",
             revenue_mix={"US": 0.7, "EU": 0.3},
             fundamentals=Fundamentals(
                 revenue_ttm=float("nan"),
@@ -1250,7 +1263,9 @@ class TestDataPipelineRobustness:
     def test_zero_revenue(self, orchestrator):
         """Zero revenue must not cause ZeroDivisionError."""
         sec = Security(
-            ticker="ZERO", sector="Healthcare", industry="Biotech",
+            ticker="ZERO",
+            sector="Healthcare",
+            industry="Biotech",
             revenue_mix={"US": 1.0},
             fundamentals=Fundamentals(
                 revenue_ttm=0.0,
@@ -1271,7 +1286,9 @@ class TestDataPipelineRobustness:
     def test_extreme_100x_leverage(self, orchestrator):
         """Debt-to-revenue ratio of 100x must not overflow."""
         sec = Security(
-            ticker="LEVERAGED", sector="Utilities", industry="Electric",
+            ticker="LEVERAGED",
+            sector="Utilities",
+            industry="Electric",
             revenue_mix={"US": 1.0},
             fundamentals=Fundamentals(
                 revenue_ttm=5e9,
@@ -1294,7 +1311,9 @@ class TestDataPipelineRobustness:
     def test_revenue_mix_auto_normalizes(self):
         """revenue_mix that sums to 0.5 must be normalized to sum to 1.0."""
         sec = Security(
-            ticker="BADMIX", sector="Technology", industry="Software",
+            ticker="BADMIX",
+            sector="Technology",
+            industry="Software",
             revenue_mix={"US": 0.30, "EU": 0.20},  # sums to 0.50
         )
         normalized = sec.normalized_mix()
@@ -1305,8 +1324,7 @@ class TestDataPipelineRobustness:
 
     def test_empty_revenue_mix(self):
         """Empty revenue_mix must not crash normalized_mix()."""
-        sec = Security(ticker="EMPTY", sector="Technology", industry="Software",
-                       revenue_mix={})
+        sec = Security(ticker="EMPTY", sector="Technology", industry="Software", revenue_mix={})
         try:
             sec.normalized_mix()
         except Exception:
@@ -1314,8 +1332,7 @@ class TestDataPipelineRobustness:
 
     def test_apply_scenario_empty_mix(self):
         """apply_scenario on empty revenue_mix must not panic."""
-        sec = Security(ticker="EMPTY", sector="Technology", industry="Software",
-                       revenue_mix={})
+        sec = Security(ticker="EMPTY", sector="Technology", industry="Software", revenue_mix={})
         try:
             apply_scenario(sec, {"US": 0.10})
         except Exception:
@@ -1361,6 +1378,7 @@ class TestDataPipelineRobustness:
 # 7. MEMORY PRESSURE & PERFORMANCE BENCHMARKS
 # ===========================================================================
 
+
 class TestMemoryAndPerformance:
     """No significant memory leaks; throughput meets minimum floor.
 
@@ -1377,10 +1395,14 @@ class TestMemoryAndPerformance:
         import tracemalloc
 
         sec = Security(
-            ticker="MSFT", sector="Technology", industry="Software",
+            ticker="MSFT",
+            sector="Technology",
+            industry="Software",
             revenue_mix={"US": 0.60, "EU": 0.25, "APAC": 0.15},
             fundamentals=Fundamentals(
-                revenue_ttm=211e9, operating_margin=0.42, total_debt=79e9,
+                revenue_ttm=211e9,
+                operating_margin=0.42,
+                total_debt=79e9,
                 cash_and_equivalents=111e9,
             ),
             market=MarketData(market_cap=2800e9, price=373.0),
@@ -1405,8 +1427,7 @@ class TestMemoryAndPerformance:
         total_growth_mb = sum(s.size_diff for s in stats) / (1024 * 1024)
 
         assert total_growth_mb < 100, (
-            f"Memory grew by {total_growth_mb:.1f} MB over 200 valuations. "
-            "Possible memory leak."
+            f"Memory grew by {total_growth_mb:.1f} MB over 200 valuations. Possible memory leak."
         )
 
     @pytest.mark.slow
@@ -1428,10 +1449,12 @@ class TestMemoryAndPerformance:
             returns = rng.randn(n_months, n_stocks).astype(np.float32)
             composite = scores.mean(axis=2)  # ≈ 1.0 GB
 
-            monthly_ics = pd.Series([
-                information_coefficient(_score_df(composite[t], returns[t]))
-                for t in range(n_months)
-            ])
+            monthly_ics = pd.Series(
+                [
+                    information_coefficient(_score_df(composite[t], returns[t]))
+                    for t in range(n_months)
+                ]
+            )
             mean_ic = monthly_ics.mean()
             assert abs(mean_ic) < 0.05, f"Unexpected IC from random data: {mean_ic:.4f}"
 
@@ -1457,6 +1480,5 @@ class TestMemoryAndPerformance:
 
         throughput = scored / elapsed
         assert throughput >= 1.0, (
-            f"Throughput too low: {throughput:.2f} sec/security. "
-            "Possible performance regression."
+            f"Throughput too low: {throughput:.2f} sec/security. Possible performance regression."
         )
