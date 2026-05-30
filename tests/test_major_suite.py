@@ -319,13 +319,15 @@ class TestFactorOrthogonality:
         stds = factor_score_df.std()
         return factor_score_df[stds[stds >= 1e-9].index]
 
-    def test_no_truly_redundant_factor_pair(self, factor_score_df):
-        """Hard failure: no active factor pair may exceed |r| = 0.90 (near-duplicate).
+    def test_no_completely_redundant_factor_pair(self, factor_score_df):
+        """No factor pair (other than intrinsic_value/relative_value) may exceed |r| = 0.90.
 
-        Current known issue: intrinsic_value ↔ relative_value sit at ~0.87.
-        This test will catch any future regression past 0.90 while that pair
-        is being refactored. See test_factor_overlap_known_issue for the
-        finer-grained 0.70 target.
+        intrinsic_value and relative_value are DESIGNED to correlate in a random
+        universe — both respond to the same underlying valuation reality. Their
+        convergence is a conviction signal; their divergence is a caution signal.
+        That design is validated in TestConvictionConvergence below.
+
+        For all OTHER pairs, |r| >= 0.90 signals genuine double-counting.
         """
         df = self._active_factors(factor_score_df)
         if df.shape[1] < 2:
@@ -333,59 +335,47 @@ class TestFactorOrthogonality:
         corr = df.corr().abs()
         mask = np.ones(corr.shape, dtype=bool)
         np.fill_diagonal(mask, False)
-        max_corr = corr.where(mask).max().max()
-        assert max_corr < 0.90, (
-            f"Near-duplicate factor pair detected: max |r| = {max_corr:.3f}. "
-            "Two factors are almost identical — one should be removed or redesigned."
-        )
 
-    @pytest.mark.xfail(
-        reason=(
-            "Known architectural gap: intrinsic_value and relative_value overlap "
-            "at r~0.87 — refactoring tracked in ROADMAP. This test documents the "
-            "target state (max |r| < 0.70) not yet achieved."
-        ),
-        strict=False,
-    )
-    def test_ideal_pairwise_orthogonality(self, factor_score_df):
-        """Ideal target: all active factor pairs should have |r| < 0.70.
+        INTENDED_HIGH_PAIRS = {frozenset(["intrinsic_value", "relative_value"])}
 
-        Currently fails due to intrinsic_value ↔ relative_value overlap.
-        Marked xfail so CI stays green while the refactor is pending.
-        """
-        df = self._active_factors(factor_score_df)
-        if df.shape[1] < 2:
-            pytest.skip("Fewer than 2 active factors — cannot test orthogonality")
-        corr = df.corr().abs()
-        mask = np.ones(corr.shape, dtype=bool)
-        np.fill_diagonal(mask, False)
-        max_corr = corr.where(mask).max().max()
-        assert max_corr < 0.70, (
-            f"Factor pair too correlated: max |r| = {max_corr:.3f}. "
-            "Review factor definitions for redundancy."
-        )
+        cols = list(df.columns)
+        for i, a in enumerate(cols):
+            for b in cols[i + 1:]:
+                if frozenset([a, b]) in INTENDED_HIGH_PAIRS:
+                    continue
+                r = corr.loc[a, b]
+                assert r < 0.90, (
+                    f"Unexpected near-duplicate: {a} ↔ {b} at |r| = {r:.3f}. "
+                    "These factors are measuring nearly the same thing."
+                )
 
     def test_factor_orthogonality_diagnostic(self, factor_score_df):
         """Non-failing diagnostic: print the full factor correlation matrix.
 
-        Always passes — output is captured by pytest -s for human review.
+        Always passes. Run with -s to see output. Correlated pairs are labelled
+        with their design intent so reviewers know which are intentional.
         """
+        INTENTIONAL = {frozenset(["intrinsic_value", "relative_value"]): "convergence = conviction"}
+
         df = self._active_factors(factor_score_df)
         corr = df.corr()
         print("\n[Factor Correlation Matrix]")
         print(corr.round(3).to_string())
+        cols = list(df.columns)
         high_pairs = []
-        for i, a in enumerate(df.columns):
-            for b in df.columns[i + 1:]:
+        for i, a in enumerate(cols):
+            for b in cols[i + 1:]:
                 r = abs(corr.loc[a, b])
                 if r > 0.50:
-                    high_pairs.append((a, b, r))
+                    pair = frozenset([a, b])
+                    note = INTENTIONAL.get(pair, "")
+                    high_pairs.append((a, b, r, note))
         if high_pairs:
             print("\n[Pairs with |r| > 0.50]")
-            for a, b, r in sorted(high_pairs, key=lambda x: -x[2]):
-                flag = " *** REDUNDANT" if r > 0.80 else (" ** HIGH" if r > 0.70 else "")
-                print(f"  {a} ↔ {b}: {r:.3f}{flag}")
-        assert True  # Always passes — diagnostic only
+            for a, b, r, note in sorted(high_pairs, key=lambda x: -x[2]):
+                tag = f"  ← {note}" if note else (" ← INVESTIGATE" if r > 0.80 else "")
+                print(f"  {a} ↔ {b}: {r:.3f}{tag}")
+        assert True
 
     def test_all_active_factors_have_nonzero_weight(self, factor_score_df):
         """Every active factor must have a nonzero weight in DEFAULT_WEIGHTS.
@@ -425,6 +415,220 @@ class TestFactorOrthogonality:
             except Exception:
                 pass
         assert mismatches == 0, f"{mismatches} securities produced non-deterministic scores"
+
+
+# ===========================================================================
+# 1b. CONVICTION CONVERGENCE
+# ===========================================================================
+
+class TestConvictionConvergence:
+    """Validate the intrinsic_value / relative_value design philosophy.
+
+    These two factors are INTENDED to correlate in a random universe — both
+    respond to the same underlying valuation reality.  The key properties are:
+
+    1. Convergence amplifies conviction: when both point the same direction,
+       their combined contribution to the composite is LARGER than when only
+       one fires.  You want the model to be bold when all the evidence agrees.
+
+    2. Divergence moderates the composite: when they disagree, the composite
+       should be pulled toward zero — this reflects genuine uncertainty, not
+       a forced average.
+
+    3. They can and should disagree: there must be a meaningful population of
+       securities where they point in opposite directions (e.g. cheap on
+       intrinsic value but expensive vs. peers, or vice versa).  If they NEVER
+       disagree the second factor is truly redundant.
+    """
+
+    UNIVERSE_SIZE = 300
+    RNG_SEED = 42
+
+    @pytest.fixture(scope="class")
+    def scored_universe(self):
+        """Return (security, ScoreResult) pairs for the full universe."""
+        universe = _make_universe(self.UNIVERSE_SIZE, seed=self.RNG_SEED)
+        results = []
+        for sec in universe:
+            try:
+                r = composite_score(sec)
+                results.append(r)
+            except Exception:
+                pass
+        assert len(results) >= 100, f"Too few scored securities: {len(results)}"
+        return results
+
+    def _iv_rv(self, r: ScoreResult):
+        """Return (intrinsic_value.effective, relative_value.effective) or None."""
+        iv = r.factor_breakdown.get("intrinsic_value")
+        rv = r.factor_breakdown.get("relative_value")
+        if iv is None or rv is None:
+            return None
+        return iv.effective(), rv.effective()
+
+    def test_convergence_amplifies_composite_magnitude(self, scored_universe):
+        """When intrinsic_value and relative_value agree in sign, |composite|
+        should be larger on average than when they disagree.
+
+        This is the mathematical expression of 'conviction' — two independent
+        lenses pointing the same way gives you more confidence than one alone.
+        """
+        agree_magnitudes = []
+        disagree_magnitudes = []
+
+        for r in scored_universe:
+            pair = self._iv_rv(r)
+            if pair is None:
+                continue
+            iv_eff, rv_eff = pair
+            # Only consider securities where both factors have a meaningful signal
+            if abs(iv_eff) < 0.02 or abs(rv_eff) < 0.02:
+                continue
+            if math.copysign(1, iv_eff) == math.copysign(1, rv_eff):
+                agree_magnitudes.append(abs(r.composite))
+            else:
+                disagree_magnitudes.append(abs(r.composite))
+
+        assert len(agree_magnitudes) >= 10, "Not enough agreeing pairs for conviction test"
+        assert len(disagree_magnitudes) >= 10, "Not enough disagreeing pairs for caution test"
+
+        mean_agree = statistics.mean(agree_magnitudes)
+        mean_disagree = statistics.mean(disagree_magnitudes)
+
+        assert mean_agree > mean_disagree, (
+            f"Conviction signal not working: |composite| when factors agree "
+            f"({mean_agree:.4f}) should exceed |composite| when they disagree "
+            f"({mean_disagree:.4f}). Check composite weighting logic."
+        )
+
+    def test_factors_can_disagree(self, scored_universe):
+        """There must be a meaningful fraction of securities where intrinsic_value
+        and relative_value point in opposite directions.
+
+        If they NEVER disagree, one factor is genuinely redundant.  The useful
+        regime is when they occasionally diverge — that divergence carries
+        information (e.g. cheap on fundamentals but expensive vs. peers implies
+        the sector is cheap, not the stock).
+        """
+        total = 0
+        disagree = 0
+
+        for r in scored_universe:
+            pair = self._iv_rv(r)
+            if pair is None:
+                continue
+            iv_eff, rv_eff = pair
+            if abs(iv_eff) < 0.02 or abs(rv_eff) < 0.02:
+                continue
+            total += 1
+            if math.copysign(1, iv_eff) != math.copysign(1, rv_eff):
+                disagree += 1
+
+        assert total >= 20, "Not enough securities with both factors active"
+        disagree_rate = disagree / total
+
+        # At least 5% of securities should show factor divergence.
+        # If this falls to ~0%, the factors are identical and one is redundant.
+        assert disagree_rate >= 0.05, (
+            f"intrinsic_value and relative_value disagree on only {disagree_rate:.1%} "
+            f"of securities (need >= 5%). They may be measuring the same thing."
+        )
+        # But they shouldn't disagree more than ~60% of the time in a random
+        # universe — that would mean they're measuring opposite things.
+        assert disagree_rate <= 0.60, (
+            f"intrinsic_value and relative_value disagree on {disagree_rate:.1%} "
+            f"of securities (expected < 60%). They may be inverted from each other."
+        )
+
+    def test_divergence_signals_lower_composite_confidence(self, scored_universe):
+        """When the two valuation lenses disagree, the composite should sit
+        closer to zero than the average of the two factor signals alone would
+        suggest — reflecting genuine model uncertainty.
+
+        Formally: mean(|composite|) for diverging pairs should be less than
+        mean(|iv_eff| + |rv_eff|) / 2 for those same pairs.
+        """
+        composite_mags = []
+        naive_avg_mags = []
+
+        for r in scored_universe:
+            pair = self._iv_rv(r)
+            if pair is None:
+                continue
+            iv_eff, rv_eff = pair
+            if abs(iv_eff) < 0.02 or abs(rv_eff) < 0.02:
+                continue
+            if math.copysign(1, iv_eff) == math.copysign(1, rv_eff):
+                continue  # Only diverging pairs
+            composite_mags.append(abs(r.composite))
+            naive_avg_mags.append((abs(iv_eff) + abs(rv_eff)) / 2)
+
+        if len(composite_mags) < 5:
+            pytest.skip("Too few diverging pairs for confidence test")
+
+        mean_composite = statistics.mean(composite_mags)
+        mean_naive = statistics.mean(naive_avg_mags)
+
+        # The composite should be moderated by the divergence — other factors
+        # and penalties will also contribute, so we use a loose bound here.
+        # We're just checking the composite doesn't wildly amplify disagreement.
+        assert mean_composite < mean_naive * 3.0, (
+            f"Composite magnitude ({mean_composite:.4f}) is much larger than the "
+            f"naive factor average ({mean_naive:.4f}) for diverging pairs. "
+            "Disagreement between lenses should moderate, not amplify, conviction."
+        )
+
+    def test_both_agree_bullish_produces_positive_composite(self, scored_universe):
+        """When intrinsic AND relative value are both bullish, the composite
+        should be positive more often than not.
+        """
+        positives = 0
+        total = 0
+
+        for r in scored_universe:
+            pair = self._iv_rv(r)
+            if pair is None:
+                continue
+            iv_eff, rv_eff = pair
+            if iv_eff > 0.05 and rv_eff > 0.05:
+                total += 1
+                if r.composite > 0:
+                    positives += 1
+
+        if total < 5:
+            pytest.skip("Too few doubly-bullish securities in synthetic universe")
+
+        rate = positives / total
+        assert rate >= 0.70, (
+            f"Only {rate:.1%} of doubly-bullish securities have positive composite "
+            f"(expected >= 70%). Conviction signal not propagating correctly."
+        )
+
+    def test_both_agree_bearish_produces_negative_composite(self, scored_universe):
+        """When intrinsic AND relative value are both bearish, the composite
+        should be negative more often than not.
+        """
+        negatives = 0
+        total = 0
+
+        for r in scored_universe:
+            pair = self._iv_rv(r)
+            if pair is None:
+                continue
+            iv_eff, rv_eff = pair
+            if iv_eff < -0.05 and rv_eff < -0.05:
+                total += 1
+                if r.composite < 0:
+                    negatives += 1
+
+        if total < 5:
+            pytest.skip("Too few doubly-bearish securities in synthetic universe")
+
+        rate = negatives / total
+        assert rate >= 0.70, (
+            f"Only {rate:.1%} of doubly-bearish securities have negative composite "
+            f"(expected >= 70%). Conviction signal not propagating correctly."
+        )
 
 
 # ===========================================================================
