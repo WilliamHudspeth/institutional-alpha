@@ -84,4 +84,7 @@ Thumbs.db
 
 # Diskcache and other runtime working directories
 .cache/
-data_cache/
+# Runtime SQLite cache (generated on demand by iam.data.fetcher); keep curated
+# seed data like data_cache/macro_data.csv tracked.
+data_cache/cache.db
+data_cache/*.db
