@@ -19,6 +19,17 @@ import urllib.request
 from iam.validation import parse_growth_rate, validate_all_assumptions
 
 
+def safe_input(prompt: str, default: str | None = None) -> str:
+    """Return user input if interactive, otherwise return default.
+    Strips whitespace and returns default when stdin is not a TTY.
+    """
+    if sys.stdin.isatty():
+        return input(prompt).strip()
+    else:
+        return default if default is not None else ""
+
+
+
 def print_header() -> None:
     """Print the main welcome banner."""
     from iam.version import header, metadata
@@ -83,11 +94,11 @@ def get_security_input() -> str:
     """Prompt user for a security (ticker or company name)."""
     print("-" * 70)
     while True:
-        query = input("Enter a ticker symbol or company name: ").strip()
-
+        query = safe_input("Enter a ticker symbol or company name: ", default="AAPL")
         if not query:
-            print("  No input provided. Please try again.")
-            continue
+            print("  No input provided. Using default ticker AAPL.")
+            query = "AAPL"
+
 
         # Try to resolve the ticker
         ticker, resolved_name = resolve_ticker(query)
@@ -123,11 +134,13 @@ def run_valuation_pipeline(ticker: str) -> None:
         print()
 
         # Optional growth override
-        g_input = input(
-            "  Forecast growth (e.g. 13 or 0.13 for 13%) [Enter for model default 8%]: "
-        ).strip()
+        g_input = safe_input(
+            "  Forecast growth (e.g. 13 or 0.13 for 13%) [Enter for model default 8%]: ",
+            default=""
+        )
         forecast_growth = 0.08
         if g_input:
+
             try:
                 forecast_growth = parse_growth_rate(g_input, default=0.08)
                 security.qualitative["forecast_growth"] = forecast_growth
@@ -220,10 +233,10 @@ def run_thesis_engine(ticker: str) -> None:
         print("  Define your investment thesis:")
         print()
 
-        bull_low = float(input("    Bull case fair value low: $"))
-        bull_high = float(input("    Bull case fair value high: $"))
-        bear_low = float(input("    Bear case fair value low: $"))
-        bear_high = float(input("    Bear case fair value high: $"))
+        bull_low = float(safe_input("    Bull case fair value low: $", default="100"))
+        bull_high = float(safe_input("    Bull case fair value high: $", default="150"))
+        bear_low = float(safe_input("    Bear case fair value low: $", default="50"))
+        bear_high = float(safe_input("    Bear case fair value high: $", default="80"))
         print()
 
         security.theses = [
@@ -312,7 +325,7 @@ def run_quick_recommendation(ticker: str) -> None:
         print(f"  ✓ {security.name or ticker} loaded\n")
 
         # Get forecast growth
-        growth_input = input("  Forecast growth [press Enter for 8%]: ").strip()
+        growth_input = safe_input("  Forecast growth [press Enter for 8%]: ", default="")
         forecast_growth = 0.08
         if growth_input:
             try:
@@ -360,7 +373,7 @@ def run_quick_recommendation(ticker: str) -> None:
 
         # Ask for details
         print()
-        details = input("  View detailed analysis? (y/n): ").strip().lower()
+        details = safe_input("  View detailed analysis? (y/n): ", default="n").lower()
         if details == "y":
             print("\n" + "-" * 70)
             print("  DETAILED VALUATION PIPELINE")
@@ -386,7 +399,7 @@ def main() -> None:
 
     while True:
         print_menu()
-        choice = input("Enter your choice (1-6): ").strip()
+        choice = safe_input("Enter your choice (1-6): ", default="6").strip()
 
         if choice == "1":
             ticker = get_security_input()
@@ -411,7 +424,7 @@ def main() -> None:
 
         # Ask if user wants to analyze another security
         print()
-        again = input("Analyze another security? (y/n): ").strip().lower()
+        again = safe_input("Analyze another security? (y/n): ", default="n").lower()
         if again != "y":
             print("  Thank you for using IAM. Goodbye!")
             sys.exit(0)
