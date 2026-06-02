@@ -1,0 +1,39 @@
+{
+  "_meta": {
+    "version": "v0.3.5-synthetic-harness",
+    "data_source": "synthetic",
+    "status": "ARCHITECTURAL VALIDATION ONLY - NOT FOR PRODUCTION",
+    "generated_at": "2026-05-27T23:11:35.886195",
+    "note": "This is a synthetic backtest proving the pipeline works. Real calibration requires empirical backtest on real price data. See feature/empirical-calibration-real-data branch."
+  },
+  "source": "Synthetic IC (architectural validation)",
+  "universe": "S&P 100 (static)",
+  "period": "2018-01 to 2024-12 (84 months, synthetic)",
+  "horizon_days": 63,
+  "signal": "cost_of_equity",
+  "empirical_ic": {
+    "mean": 0.033112111224222925,
+    "std": 0.01715118290205262,
+    "min": -0.012155411873615393,
+    "max": 0.06834100732116088,
+    "info_ratio": 1.9306021872264059
+  },
+  "statistics": {
+    "hit_rate": 0.5132448444896892,
+    "decile_spread": 0.004966816683633438,
+    "top_decile_avg": 0.007980090010180062,
+    "bottom_decile_avg": -0.006986726673453377,
+    "coverage_avg": 0.9126133029052355,
+    "n_observations": 84
+  },
+  "calibrated_reliability": {
+    "raw_ic": 0.033112111224222925,
+    "formula": "reliability = 0.5 + clamp(IC * 5, -0.5, 0.45)",
+    "calculated": 0.6655605561211146,
+    "range": [
+      0.5,
+      0.95
+    ],
+    "interpretation": "Institutional prior for Bayesian arbitrator"
+  }
+}

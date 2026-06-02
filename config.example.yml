@@ -1,0 +1,64 @@
+# Example terminal configuration
+# Save as config.yml or ~/.iam/settings.yml
+
+# Factor weights (should sum to approximately 1.0)
+factor_weights:
+  quality: 0.20
+  growth: 0.25
+  value: 0.10
+  momentum: 0.15
+  sentiment: 0.10
+  capital_allocation: 0.12
+  earnings_quality: 0.08
+
+# Data provider configuration
+data_source:
+  primary_provider: yfinance
+  fallback_providers:
+    - stooq
+  cache_ttl_seconds: 3600
+  max_retries: 3
+  timeout_seconds: 10.0
+  use_proxy: false
+
+# Terminal UI configuration
+terminal:
+  width: 80
+  height: 40
+  refresh_rate: 0.1
+  color_mode: auto  # auto, color, mono
+  unicode_enabled: true
+  show_debug_info: false
+
+# Valuation pipeline configuration
+pipeline:
+  enable_dcf: true
+  enable_multiples: true
+  enable_scenario: true
+  forecast_periods: 10
+  terminal_growth_rate: 0.025
+  discount_rate_floor: 0.06
+  discount_rate_ceiling: 0.15
+
+# Async execution configuration
+async:
+  enabled: true
+  max_workers: 4
+  task_timeout_seconds: 60.0
+  enable_event_bus: true
+
+# Logging configuration
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  log_dir: ./logs
+  log_file: terminal.log
+  max_size_mb: 50
+  backup_count: 5
+
+# Risk management limits
+risk_limits:
+  max_concentration: 0.20
+  max_drawdown: 0.15
+  var_confidence: 0.95
+  stress_test_percentile: 0.05

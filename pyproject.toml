@@ -1,0 +1,108 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "institutional-alpha"
+version = "0.2.0a0"
+description = "A multi-factor equity scoring framework that goes beyond cheap vs. expensive."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Your Name", email = "you@example.com" }]
+keywords = ["finance", "valuation", "quant", "equity", "factor-model"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+dependencies = ["tqdm>=4.60.0", "yfinance>=0.2"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "pytest-cov"]
+data = ["pandas>=2.0", "numpy>=1.24", "scipy>=1.10"]
+backtest = [
+    "polars>=0.19.0",
+    "diskcache>=5.6.0",
+    "tenacity>=8.2.0",
+    "statsmodels>=0.14.0",
+    "typer>=0.9.0",
+    "pydantic>=2.0.0",
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "scipy>=1.10",
+]
+test = [
+    "pytest>=7.0",
+    "pytest-cov",
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "polars>=0.19.0",
+    "diskcache>=5.6.0",
+    "tenacity>=8.2.0",
+    "statsmodels>=0.14.0",
+    "typer>=0.9.0",
+    "pydantic>=2.0.0",
+    "yfinance>=0.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/YOUR_USERNAME/institutional-alpha"
+Issues = "https://github.com/YOUR_USERNAME/institutional-alpha/issues"
+
+[project.scripts]
+iam-learn = "iam.learning_module:main"
+iam-engine = "iam.learning_engine:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = [
+    "--strict-markers",
+    "--tb=short",
+]
+markers = [
+    "slow: marks tests as slow",
+    "integration: marks tests as integration tests",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = [".git", "__pycache__", "venv", "build", "dist"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "I",      # isort
+    "UP",     # pyupgrade
+]
+ignore = [
+    "E501",   # line-too-long (handled by formatter)
+    "E741",   # ambiguous-variable-name (existing codebase issue)
+    "W191",   # indentation-contains-tabs
+    "E402",   # module-level import not at top (existing codebase issue)
+    "F",      # pyflakes (forward refs and unused vars - existing issues)
+    "B",      # flake8-bugbear (too strict for existing codebase)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["iam"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+exclude = ["tests/"]

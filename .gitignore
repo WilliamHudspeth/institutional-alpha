@@ -1,0 +1,95 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ---------------------------------------------------------------------------
+# Data layer (src-layout convention)
+#
+# /data/ stores runtime artifacts: cache databases, downloaded prices, backtest
+# results. We ignore the whole tree by default and then explicitly un-ignore
+# the small set of files we want under version control:
+#
+#   data/cache/seed_cache.sqlite     — warm-start cache shipped with the repo
+#   data/results/backtest_results_v0.3.5.csv  — historical reference artifact
+#   data/universe/*.json             — static universe definitions
+#
+# Everything else under /data/ (runtime caches, downloaded prices, new backtest
+# outputs, snapshot pickles, etc.) stays local-only.
+# ---------------------------------------------------------------------------
+
+# Ignore the whole data tree by default ...
+/data/**
+
+# ... then re-allow directory entries so the un-ignores below can match
+!/data/
+!/data/cache/
+!/data/results/
+!/data/universe/
+
+# Files we explicitly track
+!/data/cache/seed_cache.sqlite
+!/data/results/backtest_results_v0.3.5.csv
+!/data/universe/*.json
+!/data/.gitkeep
+
+# Root-level data artifacts (legacy guard — there should be none now)
+/*.csv
+/*.parquet
+/*.xlsx
+/*.sqlite
+
+# Added patterns for binaries and sqlite cache
+*.exe
+*.sqlite
+/data/cache/
+
+# Diskcache and other runtime working directories
+.cache/
+# Runtime SQLite cache (generated on demand by iam.data.fetcher); keep curated
+# seed data like data_cache/macro_data.csv tracked.
+data_cache/cache.db
+data_cache/*.db

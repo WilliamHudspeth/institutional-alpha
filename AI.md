@@ -1,0 +1,118 @@
+# AI working notes — institutional-alpha
+
+You are an AI coding assistant (such as Antigravity or Claude) helping develop a multi-factor equity scoring framework.
+The repo's design principles are non-negotiable. Read them before
+making changes.
+
+## Core design rules
+
+1. **Factors are orthogonal.** Each factor measures one thing.
+   Never blend valuation with quality, or quality with sentiment.
+   If a change would couple two factors, stop and ask.
+
+2. **Everything must be auditable.** Composite scores must decompose
+   back to per-factor contributions and penalty terms. No black-box
+   aggregations.
+
+3. **Pluggable data sources.** The model never assumes a specific
+   data provider. New code should accept fundamentals as inputs,
+   not fetch them.
+
+4. **No magic.** Default factor weights are explicit and documented.
+   No hidden constants. No silent defaults that change behavior.
+
+5. **Dependencies stay minimal.** numpy and pandas are fine. Adding
+   anything else needs a strong reason — propose it before installing.
+
+## Code conventions
+
+- Python 3.10+
+- Match the docstring style already in `src/iam/`
+- Tests live in `tests/` and use pytest
+- Every new factor or pipeline stage needs at least one test
+- Type hints on public APIs
+
+## Auditing & Verification
+
+Before committing any changes, run the platform integrity auditor to ensure code formatting, lints, syntax, merge conflicts, types, and tests all pass cleanly:
+```bash
+python scripts/verify.py
+```
+This is the single source of truth for codebase health. Always check this before ending your turn.
+
+## Guidelines for AI Coding Assistants (Preventing Common Errors)
+
+To prevent regression bugs, copy-paste duplications, formatting issues, and type mismatches, any AI assistant working on this repository must adhere to the following rules:
+
+### 1. Zero-Duplication Policy
+- **Verify Existing Functions**: Before writing any new utility, adapter logic, or math helper, search the repository (`git grep`) to verify that the logic is not already implemented elsewhere (e.g., in `src/iam/data/` or other valuation/backtest modules).
+- **Consolidate Exceptions**: Never duplicate cash flow parsing or financial metrics calculations across adapters. Keep core parsing centralized.
+
+### 2. Strict Indentation & Syntax Rules
+- **4-Space Indentation**: The entire repository enforces a strict 4-space indentation policy for Python.
+- **Zero BOM (U+FEFF)**: Never upload or save files containing a Byte Order Mark (BOM). Ensure files are saved in clean, standard UTF-8 without signatures.
+- **No Duplicated Exception Blocks**: Ensure that error-handling blocks (`except Exception:`) are concise, cleanly formatted, and do not contain duplicated code segments.
+
+### 3. Strict Type Safety & Covariance
+- **Use `Mapping` for Read-only Dicts**: When a function takes a dictionary for read-only purposes (such as passing a list of sub-factor inputs or weights), always type-hint the parameter as `Mapping` (imported from `collections.abc`) instead of `dict`. Because `dict` is mutable and **invariant**, using `dict` will trigger union type errors for subclasses or optional values. `Mapping` is read-only and **covariant**, satisfying all subtype validations cleanly.
+- **Nullable Assertions**: When extracting values that are `float | None`, always perform explicit checking (`if val is not None:`) or type-narrowing before performing calculations, rather than assuming non-null values.
+
+### 4. Continuous Local Validation
+- **Run the Auditor First**: Always run the Platform Integrity Auditor as your very first command after landing, and your very last command before finishing:
+  ```bash
+  python scripts/verify.py
+  ```
+  Never submit or push code if any of the checks fail.
+
+## Architecture map
+
+- `main.py` — primary interactive entry point (welcome screen + guided menu)
+- `run.py` — alternative interactive CLI for multi-lens valuation
+- `src/iam/` — main package
+- `src/iam/factors/` — individual factor implementations
+- `src/iam/pipeline/` — valuation pipeline stages (Reverse DCF → Relative → Intrinsic → Triangulation, with macro overlay + verdict)
+- `src/iam/backtest/` — production backtest harness (sources, metrics, calibration, runner, cli)
+- `scripts/` — utility scripts
+  - `scripts/analyze.py` — command-line utility for single-ticker analysis
+  - `scripts/quick_recommend.py` — fast BUY/HOLD/SELL recommendation
+  - `scripts/backtest_runner.py` — empirical backtest orchestrator
+  - `scripts/build_price_parquet.py` — one-shot price parquet builder
+- `docs/` — conceptual writeups + architecture
+  - `docs/framework.md`, `docs/factors.md`, `docs/pipeline.md` — design rationale
+  - `docs/ARCHITECTURE.md` — full system audit
+  - `docs/REAL_DATA_BACKTEST_STRATEGY.md` — empirical validation plan
+  - `docs/v0.3.5_BACKTEST_POST.md` — historical synthetic backtest writeup
+- `data/` — runtime artifacts (mostly gitignored)
+  - `data/cache/seed_cache.sqlite` — tracked warm-start cache
+  - `data/cache/iam_cache.sqlite` — gitignored runtime cache
+  - `data/universe/sp100.json` — static S&P 100 universe
+  - `data/results/`, `data/prices/`, `data/snapshots/` — gitignored outputs
+- `examples/` — runnable end-to-end demos
+- `tests/` — pytest suite (including backtest harness)
+
+## When unsure
+
+- Ask before adding new dependencies
+- Ask before changing public APIs (anything imported from `iam`)
+- Ask before modifying factor weights or penalty formulas
+- Reference docs/framework.md and docs/factors.md when in doubt
+
+## Status
+
+v0.4.0-rc1 / Recent Achievements (May 2026):
+- ✅ **New Factor Activation**: Fully activated `_working_capital_quality` (inside `EarningsQualityFactor`) and `_roic_difficulty` (inside `ExpectationsDifficultyFactor`).
+- ✅ **Data Layer Upgrades**: Built a robust, null-safe, fully formatted `yfinance_adapter.py` live data provider with strict 4-space indentation.
+- ✅ **CI-CD & Code Quality**: Upgraded the entire codebase to pass strict Mypy type-checking, Ruff formatting, and Ruff lints cleanly.
+- ✅ **Rigorous Testing**: Standardized the test suite to 500+ passing tests (e.g. test assertions formatting corrected in `test_thesis_engine.py`).
+- ✅ **Pluggable Data & Backtesting**: Added a diskcache-backed data source layer, parallel scoring, and statsmodels Newey-West HAC calculations.
+
+Future roadmap:
+- Real-data S&P 100 empirical IC run and validation checks
+- Portfolio-level optimization and allocation tools
+- Machine learning-enhanced factor weightings
+
+## My (William's) honest context
+
+I'm still learning the codebase even though I own it. When you make
+changes, explain *what* you changed and *why* in plain English.
+Don't assume I'll catch subtle issues in a diff — flag them.

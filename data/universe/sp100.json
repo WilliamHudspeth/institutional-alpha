@@ -1,0 +1,15 @@
+{
+  "universe": "S&P 100",
+  "date_frozen": "2024-12-31",
+  "note": "Static universe for backtesting (no web scrape drift)",
+  "tickers": [
+    "AAPL", "MSFT", "GOOG", "NVDA", "AMZN", "TSLA", "JPM", "JNJ", "V", "WMT",
+    "MA", "PG", "COST", "XOM", "DIS", "KO", "PEP", "INTC", "AVGO", "CRM",
+    "ACN", "AMD", "BLK", "AXP", "NFLX", "PM", "ABBV", "NKE", "QCOM", "TMO",
+    "CSCO", "SBUX", "CVX", "BA", "MRK", "UNP", "LLY", "ADBE", "CAT", "BK",
+    "GS", "BKNG", "IBM", "HON", "MCD", "C", "CI", "CME", "MMC", "SO",
+    "ABT", "TJX", "AMAT", "ADP", "ISRG", "PLD", "INTU", "VRTX", "NOW", "LIN",
+    "MSI", "MU", "PYPL", "ABNB", "VEEV", "DXCM", "BIIB", "CPRT", "LRCX", "MAR",
+    "SNPS", "CDNS", "PEE", "XRAY", "CCI", "EXR", "WELL", "EQIX", "VICI", "NWL"
+  ]
+}
