@@ -60,14 +60,14 @@ def _gather_lens_results(security) -> tuple[Optional[float], Optional[str]]:
         from iam.lenses.rate_sensitive import RateSensitiveLens
         from iam.lenses.platform_compounder import PlatformCompounderLens
         from iam.lenses.expectations_difficulty import ExpectationsDifficultyLens
-        from iam.lenses.damodaran_base import DamodaranBaseLens
+        from iam.engine.damodaran import DamodaranEngine
         from iam.lenses.synthesis import synthesize_lenses
 
         lens_results = [
             RateSensitiveLens().compute(security),
             PlatformCompounderLens().compute(security),
             ExpectationsDifficultyLens().compute(security),
-            DamodaranBaseLens().compute(security),
+            DamodaranEngine().compute(security),
         ]
         synthesis = synthesize_lenses(lens_results)
         return synthesis.weighted_implied_move_pct, None
@@ -225,3 +225,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

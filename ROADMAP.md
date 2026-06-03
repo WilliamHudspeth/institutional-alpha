@@ -748,11 +748,15 @@ The user should never manually update. Security patches, factor improvements, da
   - Credit spread contagion modeling
   - Geopolitical event overlays
 
-- [ ] **Probabilistic Valuation**
-  - Monte Carlo DCF (distribution of outcomes)
+- [ ] **Probabilistic Valuation & Reverse DCF Visuals**
+  - Monte Carlo DCF & Reverse DCF (distribution of outcomes)
   - Scenario probability weighting
-  - Confidence degradation on extreme assumptions
-  - Expected value reporting
+  - **Reverse DCF Dashboard**: One-page visual translation of market expectations
+    - *Implied Growth Bridge*: Waterfall chart breaking down current price into existing vs. future growth
+    - *Cash Flow Fan Chart*: Probability bands (10th/25th/50th/75th/90th percentile) of expected FCF
+    - *Risk Gauge (Outcome Distribution)*: Histogram comparing market-implied growth against historical delivery
+    - *Sensitivity Tornado*: Rank assumptions by price impact (WACC, terminal growth, margins)
+  - Expected value reporting and confidence degradation on extreme assumptions
 
 - [ ] **Factor Weighting System**
   - Regime-dependent factor weights

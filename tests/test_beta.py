@@ -11,7 +11,7 @@ from iam.valuation.beta import (
     unlever_beta,
 )
 from iam.valuation.fcfe_dcf import FCFEDCF
-from iam.valuation.reverse_dcf import ReverseDCF
+from iam.engine.market_implied import MarketImpliedEngine
 
 # ---------------------------------------------------------------------------
 # Core math — verified against Damodaran's levbeta.xls workbook
@@ -211,13 +211,13 @@ def _full_security(beta=1.40, market_cap=50_000.0) -> Security:
 class TestStage1CAPMWiring:
     def test_capm_rate_in_assumptions(self):
         sec = _full_security(beta=1.40)
-        result = ReverseDCF().compute(sec)
+        result = MarketImpliedEngine().compute(sec)
         # r = 0.045 + 1.40 * 0.055 = 0.122
         assert result.assumptions["discount_rate"] == pytest.approx(0.045 + 1.40 * 0.055, rel=1e-4)
 
     def test_capm_note_appears(self):
         sec = _full_security()
-        result = ReverseDCF().compute(sec)
+        result = MarketImpliedEngine().compute(sec)
         assert any("CAPM" in n for n in result.notes)
 
     def test_without_capm_keys_uses_default_rate(self):
@@ -230,7 +230,7 @@ class TestStage1CAPMWiring:
             ),
             market=MarketData(price=100.0, beta=1.40),
         )
-        result = ReverseDCF(discount_rate=0.09).compute(sec)
+        result = MarketImpliedEngine(discount_rate=0.09).compute(sec)
         assert result.assumptions["discount_rate"] == pytest.approx(0.09)
 
     def test_higher_beta_implies_higher_growth_needed(self):
@@ -238,8 +238,8 @@ class TestStage1CAPMWiring:
         # → to justify the same price, the market must be expecting higher growth.
         sec_high = _full_security(beta=1.80)
         sec_low = _full_security(beta=0.80)
-        g_high_beta = ReverseDCF().compute(sec_high).components.get("implied_growth", 0)
-        g_low_beta = ReverseDCF().compute(sec_low).components.get("implied_growth", 0)
+        g_high_beta = MarketImpliedEngine().compute(sec_high).components.get("implied_growth", 0)
+        g_low_beta = MarketImpliedEngine().compute(sec_low).components.get("implied_growth", 0)
         assert g_high_beta > g_low_beta
 
 
@@ -282,3 +282,4 @@ class TestStage3CAPMWiring:
         FCFEDCF().compute(sec)
         assert "beta_unlevered" in sec.qualitative
         assert "beta_stage3" in sec.qualitative
+

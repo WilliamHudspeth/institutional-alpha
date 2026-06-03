@@ -26,7 +26,8 @@ from __future__ import annotations
 
 from iam.data.security import Security
 from iam.factors.base import Factor, FactorContribution
-from iam.valuation import FCFEDCF, ReverseDCF
+from iam.valuation import FCFEDCF
+from iam.engine.market_implied import MarketImpliedEngine
 
 
 class IntrinsicValueFactor(Factor):
@@ -34,10 +35,10 @@ class IntrinsicValueFactor(Factor):
 
     def __init__(
         self,
-        reverse_dcf: ReverseDCF | None = None,
+        market_implied_engine: MarketImpliedEngine | None = None,
         fcfe_dcf: FCFEDCF | None = None,
     ):
-        self._reverse_dcf = reverse_dcf or ReverseDCF()
+        self._market_implied_engine = market_implied_engine or MarketImpliedEngine()
         self._fcfe_dcf = fcfe_dcf or FCFEDCF()
 
     def compute(self, security: Security) -> FactorContribution:
@@ -52,12 +53,12 @@ class IntrinsicValueFactor(Factor):
         else:
             components["dcf_residual"] = dcf_residual
 
-        reverse_gap = self._reverse_dcf_gap(security)
+        reverse_gap = self._market_implied_engine_gap(security)
         if reverse_gap is None:
             confidence *= 0.7
             notes.append("Reverse DCF inputs incomplete.")
         else:
-            components["reverse_dcf_gap"] = reverse_gap
+            components["market_implied_engine_gap"] = reverse_gap
 
         fcf_yield_score = self._fcf_yield_score(security)
         if fcf_yield_score is None:
@@ -69,7 +70,7 @@ class IntrinsicValueFactor(Factor):
         value = self.weighted_average(
             {
                 "dcf": (components.get("dcf_residual"), 0.50),
-                "reverse": (components.get("reverse_dcf_gap"), 0.30),
+                "reverse": (components.get("market_implied_engine_gap"), 0.30),
                 "yield": (components.get("owner_earnings_yield"), 0.20),
             }
         )
@@ -96,7 +97,7 @@ class IntrinsicValueFactor(Factor):
             return None
         return self.clamp(result.fair_value_to_price)
 
-    def _reverse_dcf_gap(self, security: Security):
+    def _market_implied_engine_gap(self, security: Security):
         """Score in [-1, 1] for "is the price low given my thesis growth?"
 
         Uses (thesis - implied) / thesis. Positive means the thesis is
@@ -106,7 +107,7 @@ class IntrinsicValueFactor(Factor):
         thesis_g = security.qualitative.get("forecast_growth")
         if thesis_g is None or thesis_g <= 0:
             return None
-        result = self._reverse_dcf.compute(security)
+        result = self._market_implied_engine.compute(security)
         if result.implied is None:
             return None
         implied_g = result.implied.implied_revenue_growth
@@ -124,3 +125,4 @@ class IntrinsicValueFactor(Factor):
         if fcf_yield is None:
             return None
         return self.clamp((fcf_yield - 0.035) / 0.04)
+

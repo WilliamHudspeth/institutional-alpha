@@ -6,10 +6,9 @@ from iam.valuation import (
     FCFEAssumptions,
     Method,
     RelativeValuation,
-    ReverseDCF,
     Triangulator,
 )
-from iam.valuation.reverse_dcf import _present_value_two_stage, _solve_implied_growth
+from iam.engine.market_implied import _present_value_two_stage, _solve_implied_growth, MarketImpliedEngine
 
 # ---------------------------------------------------------------------------
 # Reverse DCF math
@@ -47,7 +46,7 @@ def test_solve_implied_growth_roundtrip():
     assert abs(pv - target) / target < 0.01
 
 
-def test_reverse_dcf_implausibly_high_price_returns_none():
+def test_market_implied_engine_implausibly_high_price_returns_none():
     """If the price requires >60% growth, the solver should fail gracefully."""
     g = _solve_implied_growth(
         target_price=100_000, base_ni=1, n=10, g_terminal=0.025, r=0.09, roe=0.15
@@ -60,7 +59,7 @@ def test_reverse_dcf_implausibly_high_price_returns_none():
 # ---------------------------------------------------------------------------
 
 
-def test_reverse_dcf_basic_run():
+def test_market_implied_engine_basic_run():
     sec = Security(
         ticker="TEST",
         fundamentals=Fundamentals(
@@ -70,7 +69,7 @@ def test_reverse_dcf_basic_run():
         ),
         market=MarketData(price=180),
     )
-    result = ReverseDCF().compute(sec)
+    result = MarketImpliedEngine().compute(sec)
     assert result.method == Method.REVERSE_DCF
     assert result.implied is not None
     assert result.implied.implied_revenue_growth is not None
@@ -78,13 +77,13 @@ def test_reverse_dcf_basic_run():
     assert result.implied.growth_vs_history_max is not None
 
 
-def test_reverse_dcf_negative_fcfe_skipped():
+def test_market_implied_engine_negative_fcfe_skipped():
     sec = Security(
         ticker="LOSS",
         fundamentals=Fundamentals(net_income_ttm=-500, fcf_ttm=-500, shares_outstanding=100),
         market=MarketData(price=50),
     )
-    result = ReverseDCF().compute(sec)
+    result = MarketImpliedEngine().compute(sec)
     assert result.confidence < 0.5
     assert "non-positive" in result.verdict_text.lower()
 
@@ -315,7 +314,7 @@ def test_full_pipeline_runs():
     )
     report = ValuationPipeline().run(sec)
     assert report.ticker == "FULL"
-    assert report.reverse_dcf.implied is not None
+    assert report.market_implied_engine.implied is not None
     assert report.relative.fair_value_to_price is not None
     assert report.intrinsic.fair_value_to_price is not None
     assert report.triangulation.verdict in (
@@ -344,3 +343,4 @@ def test_v01_factor_scoring_still_works():
     result = score(Security(ticker="LEGACY"))
     assert result.composite is not None
     assert len(result.factor_breakdown) == 10
+

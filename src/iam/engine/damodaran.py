@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from iam.data.security import Security
-from iam.lenses.base import BaseLens, LensResult, two_stage_pv
+from iam.lenses.base import LensResult, two_stage_pv
 
 DEFAULT_WACC = 0.09
 DEFAULT_GROWTH = 0.08
@@ -11,7 +11,7 @@ DEFAULT_TERMINAL_GROWTH = 0.025
 HIGH_GROWTH_YEARS = 10
 
 
-class DamodaranBaseLens(BaseLens):
+class DamodaranEngine:
     """Plain two-stage DCF with Damodaran-style stable assumptions.
 
     WACC: 9% (fixed, not rate-adjusted).
@@ -21,7 +21,7 @@ class DamodaranBaseLens(BaseLens):
     Fair value range uses WACC ± 1%.
     """
 
-    name = "damodaran_base"
+    name = "damodaran_engine"
 
     def compute(self, security: Security) -> LensResult:
         m = security.market
@@ -96,3 +96,4 @@ class DamodaranBaseLens(BaseLens):
                 "high_growth_years": float(HIGH_GROWTH_YEARS),
             },
         )
+

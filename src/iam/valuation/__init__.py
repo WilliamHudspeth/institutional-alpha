@@ -19,7 +19,6 @@ from iam.valuation.multiples_regression import (
     predict_multiple,
 )
 from iam.valuation.relative import RelativeValuation
-from iam.valuation.reverse_dcf import ReverseDCF
 from iam.valuation.sotp import SOTP, Segment
 from iam.valuation.triangulator import Triangulator
 from iam.valuation.types import (
@@ -34,7 +33,6 @@ __all__ = [
     "ValuationResult",
     "ImpliedExpectations",
     "TriangulationResult",
-    "ReverseDCF",
     "RelativeValuation",
     "FCFEDCF",
     "FCFEAssumptions",
@@ -51,3 +49,4 @@ __all__ = [
     "get_yahoo_beta",
     "get_custom_beta_for_intrinsic",
 ]
+

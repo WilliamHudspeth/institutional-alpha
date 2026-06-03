@@ -122,7 +122,7 @@ def run_valuation_pipeline(ticker: str) -> None:
     print(f"  Fetching {ticker} from Yahoo Finance...")
     try:
         from iam.data.yahoo import fetch_security
-        from iam.lenses.damodaran_base import DamodaranBaseLens
+        from iam.engine.damodaran import DamodaranEngine
         from iam.lenses.expectations_difficulty import ExpectationsDifficultyLens
         from iam.lenses.platform_compounder import PlatformCompounderLens
         from iam.lenses.rate_sensitive import RateSensitiveLens
@@ -164,7 +164,7 @@ def run_valuation_pipeline(ticker: str) -> None:
                 RateSensitiveLens().compute(security),
                 PlatformCompounderLens().compute(security),
                 ExpectationsDifficultyLens().compute(security),
-                DamodaranBaseLens().compute(security),
+                DamodaranEngine().compute(security),
             ]
             synthesis = synthesize_lenses(lens_results)
             synthesis_upside = synthesis.weighted_implied_move_pct
@@ -440,3 +440,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n  Unexpected error: {e}")
         sys.exit(1)
+

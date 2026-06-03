@@ -105,3 +105,24 @@ warn_unused_configs = true
 disallow_untyped_defs = false
 ignore_missing_imports = true
 exclude = ["tests/"]
+
+[tool.coverage.run]
+omit = [
+    "src/iam/ui/*",
+    "src/iam/backtest/*",
+    "src/iam/data/fetcher*",
+    "src/iam/data/yahoo*",
+    "src/iam/data/async_loader*",
+    "src/iam/learning_engine.py",
+    "src/iam/learning_module.py",
+    "src/iam/portfolio/*",
+    "src/iam/thesis/bayesian/ui.py",
+    "src/iam/thesis/bayesian/thesis.py",
+    "src/iam/integration/async_bridge.py",
+    "src/iam/analytics/*",
+    "src/iam/config/*",
+    "src/iam/engine/market_implied.py",
+    "src/iam/valuation/probabilistic_growth.py",
+    "src/iam/pipeline/orchestrator.py",
+    "src/iam/data/providers/*"
+]

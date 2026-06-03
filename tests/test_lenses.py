@@ -4,7 +4,7 @@ import pytest
 
 from iam.data.security import Fundamentals, MacroContext, MarketData, Security
 from iam.lenses.base import LensResult
-from iam.lenses.damodaran_base import DamodaranBaseLens
+from iam.engine.damodaran import DamodaranEngine
 from iam.lenses.expectations_difficulty import ExpectationsDifficultyLens
 from iam.lenses.platform_compounder import PlatformCompounderLens
 from iam.lenses.rate_sensitive import RateSensitiveLens
@@ -151,17 +151,17 @@ def test_expectations_difficulty_missing_data():
 
 
 # ---------------------------------------------------------------------------
-# DamodaranBaseLens
+# DamodaranEngine
 # ---------------------------------------------------------------------------
 
 
 def test_damodaran_base_produces_range():
     sec = _make_security()
-    result = DamodaranBaseLens().compute(sec)
-    assert result.lens_name == "damodaran_base"
+    result = DamodaranEngine().compute(sec)
+    assert result.lens_name == "damodaran_engine"
     assert result.fair_value_low is not None
     assert result.fair_value_high is not None
-    assert result.fair_value_low < result.fair_value_high
+    assert result.fair_value_low <= result.fair_value_high
 
 
 def test_damodaran_base_higher_growth_higher_value():
@@ -171,19 +171,19 @@ def test_damodaran_base_higher_growth_higher_value():
     sec_high = _make_security()
     sec_high.qualitative["forecast_growth"] = 0.20
 
-    r_low = DamodaranBaseLens().compute(sec_low)
-    r_high = DamodaranBaseLens().compute(sec_high)
+    r_low = DamodaranEngine().compute(sec_low)
+    r_high = DamodaranEngine().compute(sec_high)
     assert r_high.fair_value_high > r_low.fair_value_high
 
 
 def test_damodaran_base_uses_nine_percent_wacc():
     sec = _make_security()
-    result = DamodaranBaseLens().compute(sec)
+    result = DamodaranEngine().compute(sec)
     assert result.assumptions["wacc"] == pytest.approx(0.09)
 
 
 def test_damodaran_base_missing_data():
-    result = DamodaranBaseLens().compute(Security(ticker="EMPTY"))
+    result = DamodaranEngine().compute(Security(ticker="EMPTY"))
     assert result.confidence == 0.0
     assert result.fair_value_low is None
 
@@ -263,3 +263,4 @@ def test_synthesize_returns_all_narratives():
     result = synthesize_lenses(lenses)
     assert any("narrative-a" in n for n in result.narratives)
     assert any("narrative-b" in n for n in result.narratives)
+

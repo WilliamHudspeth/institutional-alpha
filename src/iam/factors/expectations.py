@@ -5,7 +5,7 @@ penalizes prices that require performance the business has never demonstrated.
 
 Inverted convention: *easier* expectations score *higher*.
 
-The growth sub-component delegates to ``iam.valuation.ReverseDCF`` so the
+The growth sub-component delegates to ``iam.valuation.MarketImpliedEngine`` so the
 math here matches the v0.2.0 pipeline. The factor's role is to convert that
 expectations vector into a [-1, 1] cross-sectional score.
 """
@@ -14,14 +14,14 @@ from __future__ import annotations
 
 from iam.data.security import Security
 from iam.factors.base import Factor, FactorContribution
-from iam.valuation import ReverseDCF
+from iam.engine.market_implied import MarketImpliedEngine
 
 
 class ExpectationsDifficultyFactor(Factor):
     name = "expectations_difficulty"
 
-    def __init__(self, reverse_dcf: ReverseDCF | None = None):
-        self._reverse_dcf = reverse_dcf or ReverseDCF()
+    def __init__(self, market_implied_engine: MarketImpliedEngine | None = None):
+        self._market_implied_engine = market_implied_engine or MarketImpliedEngine()
 
     def compute(self, security: Security) -> FactorContribution:
         components: dict[str, float] = {}
@@ -78,7 +78,7 @@ class ExpectationsDifficultyFactor(Factor):
           vs_max=1.5  (stretch) -> -0.75
           vs_max=2.0  (heroic)  -> -1.0
         """
-        result = self._reverse_dcf.compute(security)
+        result = self._market_implied_engine.compute(security)
         if result.implied is None:
             return None
         vs_max = result.implied.growth_vs_history_max
@@ -121,3 +121,4 @@ class ExpectationsDifficultyFactor(Factor):
             return None
         ratio = f.operating_margin / peak
         return self.clamp(-(ratio - 0.9) * 2.0)
+

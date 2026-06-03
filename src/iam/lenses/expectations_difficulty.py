@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from iam.data.security import Security
 from iam.lenses.base import BaseLens, LensResult
-from iam.valuation.reverse_dcf import ReverseDCF
+from iam.engine.market_implied import MarketImpliedEngine
 
 
 class ExpectationsDifficultyLens(BaseLens):
     """Diagnostic lens for expectations difficulty.
 
-    Uses ReverseDCF to compute what growth is implied by the current price,
+    Uses MarketImpliedEngine to compute what growth is implied by the current price,
     and compares it to the company's historical peak growth.
     """
 
@@ -18,7 +18,7 @@ class ExpectationsDifficultyLens(BaseLens):
 
     def compute(self, security: Security) -> LensResult:
         # Rule 1: 10 years projection for all three
-        rev_dcf = ReverseDCF(high_growth_years=10).compute(security)
+        rev_dcf = MarketImpliedEngine(high_growth_years=10).compute(security)
 
         narrative = "Could not compute expectations difficulty (likely missing inputs)."
         conf = rev_dcf.confidence
@@ -48,3 +48,4 @@ class ExpectationsDifficultyLens(BaseLens):
                 "growth_vs_max": growth_vs_max if growth_vs_max is not None else 0.0,
             },
         )
+

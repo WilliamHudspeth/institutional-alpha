@@ -11,11 +11,11 @@ from iam.valuation import (
     SOTP,
     FCFEAssumptions,
     RelativeValuation,
-    ReverseDCF,
     TriangulationResult,
     Triangulator,
     ValuationResult,
 )
+from iam.engine.market_implied import MarketImpliedEngine
 
 
 def format_assumption_table(
@@ -61,7 +61,7 @@ class PipelineReport:
     """The full output of a v0.2.0-alpha pipeline run."""
 
     ticker: str
-    reverse_dcf: ValuationResult
+    market_implied_engine: ValuationResult
     relative: ValuationResult
     intrinsic: ValuationResult
     triangulation: TriangulationResult
@@ -85,8 +85,8 @@ class PipelineReport:
             lines = [f"=== {self.ticker} | Valuation Pipeline Report ===", ""]
 
             lines.append(EXPLAIN_STAGE_1)
-            lines.append(f"> Verdict: {self.reverse_dcf.verdict_text}")
-            lines.append(f"> Confidence: {self.reverse_dcf.confidence:.2f}")
+            lines.append(f"> Verdict: {self.market_implied_engine.verdict_text}")
+            lines.append(f"> Confidence: {self.market_implied_engine.confidence:.2f}")
             lines.append("")
 
             lines.append(EXPLAIN_STAGE_2)
@@ -128,8 +128,8 @@ class PipelineReport:
         # Non-verbose (original) output
         lines = [f"=== {self.ticker} | Valuation Pipeline (Stages 1-4) ===", ""]
         lines.append("STAGE 1 — Reverse DCF (what does the market expect?)")
-        lines.append(f"  {self.reverse_dcf.verdict_text}")
-        lines.append(f"  confidence: {self.reverse_dcf.confidence:.2f}")
+        lines.append(f"  {self.market_implied_engine.verdict_text}")
+        lines.append(f"  confidence: {self.market_implied_engine.confidence:.2f}")
         lines.append("")
 
         lines.append("STAGE 2 — Relative Valuation (do peers/history agree?)")
@@ -164,7 +164,7 @@ class PipelineReport:
 
 class ValuationPipeline:
     def __init__(self, use_sotp_when_segments_available: bool = True):
-        self.reverse_dcf = ReverseDCF()
+        self.market_implied_engine = MarketImpliedEngine()
         self.relative = RelativeValuation()
         self.intrinsic_dcf = FCFEDCF()
         self.sotp = SOTP()
@@ -212,13 +212,13 @@ class ValuationPipeline:
     ) -> PipelineReport:
         wacc_info = self._calculate_dynamic_wacc(security)
         wacc_note = ""
-        original_r = self.reverse_dcf.r
+        original_r = self.market_implied_engine.r
 
         if wacc_info:
             dynamic_wacc = wacc_info["wacc"]
             rating = wacc_info["rating"]
 
-            self.reverse_dcf.r = dynamic_wacc
+            self.market_implied_engine.r = dynamic_wacc
 
             if security.qualitative is None:
                 security.qualitative = {}
@@ -227,10 +227,10 @@ class ValuationPipeline:
             wacc_note = f"Dynamic WACC applied: {dynamic_wacc:.2%} (Rating: {rating})"
 
         # Stage 1: Reverse DCF
-        reverse_dcf_res = self.reverse_dcf.compute(security)
+        market_implied_engine_res = self.market_implied_engine.compute(security)
 
         if wacc_info:
-            self.reverse_dcf.r = original_r
+            self.market_implied_engine.r = original_r
 
         # Stage 2: Relative Valuation
         relative_res = self.relative.compute(security)
@@ -250,12 +250,12 @@ class ValuationPipeline:
 
         # Stage 4: Triangulation
         triangulation_res = self.triangulator.triangulate(
-            reverse_dcf_res, relative_res, intrinsic_res
+            market_implied_engine_res, relative_res, intrinsic_res
         )
 
         report = PipelineReport(
             ticker=security.ticker,
-            reverse_dcf=reverse_dcf_res,
+            market_implied_engine=market_implied_engine_res,
             relative=relative_res,
             intrinsic=intrinsic_res,
             triangulation=triangulation_res,
@@ -268,7 +268,7 @@ class ValuationPipeline:
             report = self.macro_overlay.apply(report, security, macro)
             if report.intrinsic.fair_value_per_share != intrinsic_res.fair_value_per_share:
                 report.triangulation = self.triangulator.triangulate(
-                    report.reverse_dcf, report.relative, report.intrinsic
+                    report.market_implied_engine, report.relative, report.intrinsic
                 )
                 report.implied_move_pct = report.triangulation.cluster_center
 
@@ -282,3 +282,4 @@ class ValuationPipeline:
         )
 
         return report
+
