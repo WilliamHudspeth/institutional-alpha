@@ -138,6 +138,7 @@ class BootstrapResult:
     weight_std: np.ndarray
     coefficient_of_variation: np.ndarray
     weight_names: list[str]
+    bootstrap_weights: np.ndarray = field(default_factory=lambda: np.array([]))
 
 
 @dataclass
@@ -391,6 +392,7 @@ class BootstrapStability:
             weight_std=w_std,
             coefficient_of_variation=cv,
             weight_names=self.config.factor_names,
+            bootstrap_weights=weights_arr,
         )
 
 

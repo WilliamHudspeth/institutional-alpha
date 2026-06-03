@@ -10,16 +10,11 @@ Demonstrates the full integrated system:
 6. Render with visualizations
 """
 
-import time
-from datetime import datetime
-
 from iam.analytics.attribution import AttributionEngine
 from iam.analytics.regime import RegimeDetector, RegimeIndicators
-from iam.data.security import Security
 from iam.portfolio import (
     Portfolio,
     Position,
-    PositionSizer,
     PortfolioAnalyzer,
     PortfolioVerdictEngine,
 )
@@ -27,9 +22,7 @@ from iam.thesis.bayesian.evidence import Evidence, ScenarioLikelihood
 from iam.thesis.bayesian.thesis import ThesisBuilder
 from iam.thesis.bayesian.updater import BayesianUpdater
 from iam.thesis.bayesian.priors import ScenarioPrior
-from iam.thesis.bayesian.ui import format_bayesian_update_full, ThesisTimeline
-from iam.ui.modern_terminal import ModernTerminal
-from iam.ui.sparklines import Sparkline, MiniChart, format_price_movement
+from iam.ui.sparklines import Sparkline, format_price_movement
 
 
 def load_security_data() -> dict[str, dict]:
@@ -142,7 +135,6 @@ def main() -> None:
     # Process each security
     positions = []
     theses = {}
-    terminal = ModernTerminal(width=90)
 
     print("STEP 1: LOAD SECURITIES AND RUN PIPELINE")
     print("-" * 90)
@@ -250,7 +242,6 @@ def main() -> None:
     )
 
     regime = RegimeDetector.detect(macro_indicators)
-    regime_weights = RegimeDetector.get_regime_weights(regime)
 
     print(f"Detected Regime: {regime.value.upper()}")
     print(f"Inflation: {macro_indicators.inflation_rate}% ({macro_indicators.inflation_trend})")
@@ -263,11 +254,7 @@ def main() -> None:
     print("STEP 4: FACTOR ATTRIBUTION")
     print("-" * 90)
 
-    # Get composite alpha (sum of weighted factors)
-    all_scores = {}
-    for ticker, scores in factor_scores.items():
-        weighted = sum(scores.values()) / len(scores)
-        all_scores[ticker] = weighted
+
 
     # Decompose for each position
     for position in portfolio.positions:
@@ -346,10 +333,7 @@ def main() -> None:
 
     # Take MSFT as example
     msft_thesis = theses["MSFT"]
-    timeline = ThesisTimeline(
-        "MSFT",
-        {s.name: s.probability for s in msft_thesis.scenarios},
-    )
+
 
     # Simulate earnings evidence
     earnings_evidence = Evidence(

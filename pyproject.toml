@@ -86,13 +86,12 @@ select = [
     "W",      # pycodestyle warnings
     "I",      # isort
     "UP",     # pyupgrade
+    "F",      # pyflakes
 ]
 ignore = [
     "E501",   # line-too-long (handled by formatter)
     "E741",   # ambiguous-variable-name (existing codebase issue)
     "W191",   # indentation-contains-tabs
-    "E402",   # module-level import not at top (existing codebase issue)
-    "F",      # pyflakes (forward refs and unused vars - existing issues)
     "B",      # flake8-bugbear (too strict for existing codebase)
 ]
 
