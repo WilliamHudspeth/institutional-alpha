@@ -293,7 +293,7 @@ class YahooAdapter:
         for key in keys:
             value = info.get(key)
             # Check if value is a valid number (not None, not NaN)
-            if value is not None and isinstance(value, (int, float)):
+            if value is not None and isinstance(value, int | float):
                 if value == value:  # NaN != NaN, so this catches NaN
                     return float(value)
         return None
@@ -408,7 +408,7 @@ def _get_price(info: dict, *keys: str) -> float | None:
     """Get first non-None float value from info dict (mimics YahooAdapter._get)."""
     for key in keys:
         value = info.get(key)
-        if value is not None and isinstance(value, (int, float)):
+        if value is not None and isinstance(value, int | float):
             if value == value:  # NaN check
                 return float(value)
     return None

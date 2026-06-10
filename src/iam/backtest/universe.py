@@ -77,7 +77,8 @@ def load_universe_tickers(path: Path) -> list[str]:
     data = json.loads(path.read_text())
 
     if "tickers" in data:
-        return data["tickers"]
+        tickers: list[str] = data["tickers"]
+        return tickers
     elif "securities" in data:
         return [sec["ticker"] for sec in data["securities"]]
     else:

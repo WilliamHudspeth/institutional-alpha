@@ -417,7 +417,7 @@ class RegimeOptimizer:
         factor_scores_by_date: dict[pd.Timestamp, np.ndarray],
         returns_by_date: dict[pd.Timestamp, np.ndarray],
     ) -> RegimeResult:
-        regime_to_dates = {}
+        regime_to_dates: dict[str, list[pd.Timestamp]] = {}
         for d in dates:
             r = self.regime_func(d)
             if r not in regime_to_dates:

@@ -207,13 +207,14 @@ class StooqDataLoader:
             logger.error(f"Failed to load cache: {e}")
             return None
 
-    def load_manifest(self) -> dict:
+    def load_manifest(self) -> dict | None:
         """Load metadata about cached data."""
         if not self.manifest_path.exists():
             return None
 
         try:
-            return json.loads(self.manifest_path.read_text())
+            manifest: dict = json.loads(self.manifest_path.read_text())
+            return manifest
         except Exception as e:
             logger.error(f"Failed to load manifest: {e}")
             return None
@@ -232,7 +233,7 @@ def get_or_download_sp100_prices(
     Returns:
         MultiIndex DataFrame (Ticker, Date) with OHLCV data
     """
-    from iam.backtest.snapshots import load_sp100_tickers
+    from iam.backtest.snapshots import load_sp100_tickers  # type: ignore[attr-defined]
 
     loader = StooqDataLoader()
 

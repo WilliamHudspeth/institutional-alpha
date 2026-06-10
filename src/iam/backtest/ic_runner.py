@@ -181,7 +181,7 @@ class ICBacktest:
         )
         dates = dates_range.strftime("%Y-%m-%d").tolist()
 
-        all_results = {h: [] for h in self.config.horizons}
+        all_results: dict[int, list] = {h: [] for h in self.config.horizons}
 
         with ProcessPoolExecutor(max_workers=self.config.n_jobs_cpu) as executor:
             for date in tqdm(dates, desc="IC Backtest"):
@@ -195,7 +195,7 @@ class ICBacktest:
                     scores = {}
                     sectors = {}
                     mcaps = {}
-                    factor_scores = {f: {} for f in self.factor_names}
+                    factor_scores: dict[str, dict] = {f: {} for f in self.factor_names}
 
                     for future in futures:
                         ticker, comp, f_vals, mcap, sector = future.result()
@@ -280,7 +280,7 @@ class ICBacktest:
         return self.results
 
     def compute_statistics(self) -> dict[int, dict]:
-        stats = {}
+        stats: dict[int, dict] = {}
         for h, df in self.results.items():
             if df.empty:
                 stats[h] = {}

@@ -113,7 +113,8 @@ def build_snapshot(
 
     cache = get_snapshot_cache(cache_dir)
     if cache_key in cache:
-        return cache[cache_key]
+        cached: Security = cache[cache_key]
+        return cached
 
     src = fetcher if fetcher is not None else get_default_fetcher()
     try:
@@ -149,5 +150,6 @@ def load_snapshot(
     cache_key = f"{ticker}_{as_of}"
     cache = get_snapshot_cache(cache_dir)
     if cache_key in cache:
-        return cache[cache_key]
+        cached: Security = cache[cache_key]
+        return cached
     return None
