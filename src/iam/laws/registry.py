@@ -145,7 +145,7 @@ class DamodaranLawRegistry:
         check = LawCheck(number=1, name="narrative_matches_numbers", status=LawStatus.NOT_EVALUATED)
         growth = assumptions.get("high_growth")
         history = security.fundamentals.operating_margin_history
-        if growth is None or len(history) < MIN_MARGIN_POINTS:
+        if growth is None or not history or len(history) < MIN_MARGIN_POINTS:
             check.narrative = (
                 "Cannot test narrative vs numbers: needs forecast growth and "
                 f">= {MIN_MARGIN_POINTS} operating-margin observations."
@@ -266,7 +266,8 @@ class DamodaranLawRegistry:
             return check
 
         qualitative = security.qualitative or {}
-        rf = float(qualitative.get("risk_free_rate", DEFAULT_RISK_FREE))
+        rf_val = qualitative.get("risk_free_rate")
+        rf = float(rf_val) if rf_val is not None else DEFAULT_RISK_FREE
         check.components["terminal_growth"] = terminal
         check.components["risk_free_rate"] = rf
 
@@ -299,8 +300,10 @@ class DamodaranLawRegistry:
     ) -> LawCheck:
         check = LawCheck(number=4, name="excess_returns_fade", status=LawStatus.NOT_EVALUATED)
         growth = assumptions.get("high_growth")
-        wacc = assumptions.get("discount_rate", DEFAULT_WACC_BASELINE)
-        horizon = int(assumptions.get("high_growth_years", 10))
+        wacc_val = assumptions.get("discount_rate")
+        wacc = wacc_val if wacc_val is not None else DEFAULT_WACC_BASELINE
+        horizon_val = assumptions.get("high_growth_years")
+        horizon = int(horizon_val) if horizon_val is not None else 10
 
         roic = self._recent_roic(security, lookback=1)
         if roic is None and implied is not None:
@@ -462,7 +465,7 @@ class DamodaranLawRegistry:
     def _revenue_cagr(security: Security) -> float | None:
         """Historical revenue CAGR from most-recent-first history."""
         history = security.fundamentals.revenue_history
-        if len(history) < MIN_REVENUE_POINTS:
+        if not history or len(history) < MIN_REVENUE_POINTS:
             return None
         newest, oldest = history[0], history[-1]
         if oldest <= 0 or newest <= 0:

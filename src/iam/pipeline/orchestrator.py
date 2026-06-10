@@ -285,7 +285,7 @@ class ValuationPipeline:
         # internal consistency. Violations/flags degrade the Stage 7 verdict.
         report.law_report = DamodaranLawRegistry().evaluate(
             security,
-            intrinsic_res.assumptions,
+            intrinsic_res.assumptions or {},
             implied=market_implied_engine_res.implied,
         )
         report.summary += f"\n[DAMODARAN LAWS]: {report.law_report.narrative}"

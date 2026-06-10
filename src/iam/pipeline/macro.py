@@ -49,7 +49,8 @@ class MacroOverlay:
     def apply(
         self, report: PipelineReport, security: Security, macro: MacroConditions
     ) -> PipelineReport:
-        raw_rate_shock_bps = macro.rate_change * 10000.0
+        rate_change = macro.rate_change if macro.rate_change is not None else 0.0
+        raw_rate_shock_bps = rate_change * 10000.0
 
         # Elasticity-aware gate: a duration-bound business feels a 25bps move
         # like a 50bps one. Fall back to the raw shock when unmeasurable.

@@ -24,7 +24,7 @@ classifiers = [
 dependencies = ["tqdm>=4.60.0", "yfinance>=0.2"]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0", "pytest-cov"]
+dev = ["pytest>=7.0", "pytest-cov", "pytest-timeout"]
 data = ["pandas>=2.0", "numpy>=1.24", "scipy>=1.10"]
 backtest = [
     "polars>=0.19.0",
@@ -40,6 +40,7 @@ backtest = [
 test = [
     "pytest>=7.0",
     "pytest-cov",
+    "pytest-timeout",
     "pandas>=2.0",
     "numpy>=1.24",
     "scipy>=1.10",
