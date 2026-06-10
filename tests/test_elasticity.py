@@ -258,8 +258,12 @@ class TestDurabilityStressEngine:
         change = _expected_pv(0.03, 0.095, fcfe0) / _expected_pv(0.08, 0.09, fcfe0) - 1
         raw_loss = max(0.0, -change)
 
-        durable = DurabilityStressEngine(_FixedDurability(0.9), _NullElasticity()).run(sec, scenario)
-        fragile = DurabilityStressEngine(_FixedDurability(0.1), _NullElasticity()).run(sec, scenario)
+        durable = DurabilityStressEngine(_FixedDurability(0.9), _NullElasticity()).run(
+            sec, scenario
+        )
+        fragile = DurabilityStressEngine(_FixedDurability(0.1), _NullElasticity()).run(
+            sec, scenario
+        )
 
         assert durable.conviction_drift == pytest.approx(raw_loss * (1 - 0.9))
         assert fragile.conviction_drift == pytest.approx(raw_loss * (1 - 0.1))

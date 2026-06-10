@@ -25,9 +25,9 @@ To keep this factor orthogonal to ExpectationsDifficultyFactor:
 from __future__ import annotations
 
 from iam.data.security import Security
+from iam.engine.market_implied import MarketImpliedEngine
 from iam.factors.base import Factor, FactorContribution
 from iam.valuation import FCFEDCF
-from iam.engine.market_implied import MarketImpliedEngine
 
 
 class IntrinsicValueFactor(Factor):
@@ -125,4 +125,3 @@ class IntrinsicValueFactor(Factor):
         if fcf_yield is None:
             return None
         return self.clamp((fcf_yield - 0.035) / 0.04)
-

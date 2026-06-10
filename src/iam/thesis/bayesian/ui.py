@@ -54,7 +54,6 @@ def format_scenario_migration(
         change = posterior - prior
 
         direction = "↑" if change > 0 else "↓" if change < 0 else "="
-        bar = _probability_bar(posterior, width=30)
 
         lines.append(
             f"{scenario_name:<20} {prior:>13.1%}  {posterior:>13.1%}  "

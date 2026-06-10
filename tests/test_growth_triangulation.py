@@ -9,18 +9,13 @@ Covers:
 - Cyclical handling (AMD, MPC)
 """
 
-import numpy as np
-import pytest
-
 from iam.data.security import Fundamentals, MarketData, Security
 from iam.valuation.growth_triangulator import (
     GrowthEstimate,
-    TriangulatedGrowth,
     detect_margin_trajectory,
     estimate_bottom_up_growth,
     estimate_historical_growth,
     estimate_implied_growth,
-    estimate_sector_growth,
     estimate_sustainable_growth,
     triangulate_growth,
 )
@@ -483,7 +478,7 @@ class TestNineTickerBasket:
         )
 
         result = triangulate_growth_for_security(security)
-        profile = build_company_profile(security)
+        build_company_profile(security)
 
         # Should produce healthy growth estimate
         assert result.blended_growth > 0.05

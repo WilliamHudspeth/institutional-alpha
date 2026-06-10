@@ -1,7 +1,5 @@
 """Tests for centralized assumption registry."""
 
-import pytest
-
 from iam.assumptions import (
     AGGRESSIVE_PROFILE,
     BASE_PROFILE,

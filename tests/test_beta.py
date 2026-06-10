@@ -3,6 +3,7 @@
 import pytest
 
 from iam.data.security import Fundamentals, MarketData, Security
+from iam.engine.market_implied import MarketImpliedEngine
 from iam.valuation.beta import (
     get_custom_beta_for_intrinsic,
     get_yahoo_beta,
@@ -11,7 +12,6 @@ from iam.valuation.beta import (
     unlever_beta,
 )
 from iam.valuation.fcfe_dcf import FCFEDCF
-from iam.engine.market_implied import MarketImpliedEngine
 
 # ---------------------------------------------------------------------------
 # Core math — verified against Damodaran's levbeta.xls workbook
@@ -282,4 +282,3 @@ class TestStage3CAPMWiring:
         FCFEDCF().compute(sec)
         assert "beta_unlevered" in sec.qualitative
         assert "beta_stage3" in sec.qualitative
-

@@ -1,6 +1,11 @@
 """Tests for the v0.2.0-alpha valuation pipeline."""
 
 from iam import Fundamentals, MarketData, Security, ValuationPipeline
+from iam.engine.market_implied import (
+    MarketImpliedEngine,
+    _present_value_two_stage,
+    _solve_implied_growth,
+)
 from iam.valuation import (
     FCFEDCF,
     FCFEAssumptions,
@@ -8,7 +13,6 @@ from iam.valuation import (
     RelativeValuation,
     Triangulator,
 )
-from iam.engine.market_implied import _present_value_two_stage, _solve_implied_growth, MarketImpliedEngine
 
 # ---------------------------------------------------------------------------
 # Reverse DCF math
@@ -343,7 +347,6 @@ def test_v01_factor_scoring_still_works():
     result = score(Security(ticker="LEGACY"))
     assert result.composite is not None
     assert len(result.factor_breakdown) == 10
-
 
 
 # ---------------------------------------------------------------------------

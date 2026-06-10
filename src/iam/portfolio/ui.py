@@ -41,7 +41,7 @@ class PortfolioMetricsPanel(BasePanel):
         rule = "═" * self.width
 
         lines.append(rule)
-        lines.append(f"║  [ PORTFOLIO METRICS SUMMARY ]".ljust(self.width - 1) + "║")
+        lines.append("║  [ PORTFOLIO METRICS SUMMARY ]".ljust(self.width - 1) + "║")
         lines.append(rule)
 
         # Would be populated from portfolio state

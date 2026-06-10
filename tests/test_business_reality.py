@@ -298,9 +298,9 @@ def test_roic_fade_signal_lowers_durability():
     # Same high, stable history; only incremental ROIC differs (fade signal).
     no_fade = Fundamentals(roic_history=[0.30, 0.30, 0.30], incremental_roic=0.30)
     fading = Fundamentals(roic_history=[0.30, 0.30, 0.30], incremental_roic=0.05)
-    assert _assess(fundamentals=no_fade).roic_durability > _assess(
-        fundamentals=fading
-    ).roic_durability
+    assert (
+        _assess(fundamentals=no_fade).roic_durability > _assess(fundamentals=fading).roic_durability
+    )
 
 
 def test_short_roic_history_is_neutral_prior():

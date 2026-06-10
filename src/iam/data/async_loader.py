@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, TypeVar
 
 from iam.ui.events import EventType, emit_event
@@ -196,7 +196,7 @@ class AsyncDataLoader:
         future = self._tasks.get(task_id)
         if future is None:
             return False
-        return future.done()
+        return bool(future.done())
 
     def get_task_result(self, task_id: str, timeout: float = 5.0) -> Any:
         """Get result from a completed task."""
@@ -222,7 +222,7 @@ class AsyncDataLoader:
         future = self._tasks.get(task_id)
         if future is None:
             return False
-        return future.cancel()
+        return bool(future.cancel())
 
     def shutdown(self) -> None:
         """Shutdown executor and wait for pending tasks."""

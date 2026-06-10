@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 COUNTRY_ERPS = {
     "Abu Dhabi": 0.0487,
@@ -180,8 +180,6 @@ COUNTRY_ERPS = {
     "Zambia": 0.1589,
     "Zimbabwe": 0.1589,
 }
-
-from dataclasses import field
 
 
 @dataclass

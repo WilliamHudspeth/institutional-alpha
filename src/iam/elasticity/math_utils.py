@@ -38,7 +38,7 @@ def pstdev(values: Sequence[float]) -> float | None:
         return None
     mu = sum(values) / len(values)
     var = sum((v - mu) ** 2 for v in values) / len(values)
-    return var**0.5
+    return float(var**0.5)
 
 
 def coefficient_of_variation(values: Sequence[float]) -> float | None:

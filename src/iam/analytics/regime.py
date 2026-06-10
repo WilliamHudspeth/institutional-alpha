@@ -290,7 +290,7 @@ class RegimeAnalyzer:
 
         rule = "─" * 75
         lines.append(rule)
-        lines.append(f"MACROECONOMIC REGIME ANALYSIS".ljust(75))
+        lines.append("MACROECONOMIC REGIME ANALYSIS".ljust(75))
         lines.append(rule)
         lines.append("")
 

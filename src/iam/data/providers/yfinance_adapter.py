@@ -1,7 +1,6 @@
 """Yahoo Finance data adapter for the IAM framework."""
 
 import logging
-from typing import Optional
 
 import pandas as pd
 import yfinance as yf

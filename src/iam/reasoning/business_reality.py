@@ -370,11 +370,7 @@ class BusinessRealityEngine:
 
         # (b) Operating-leverage proxy: share of gross profit consumed by fixed
         # opex. High fixed-cost intensity -> FCF collapses if growth stalls.
-        if (
-            f.gross_margin is not None
-            and f.operating_margin is not None
-            and f.gross_margin > 0
-        ):
+        if f.gross_margin is not None and f.operating_margin is not None and f.gross_margin > 0:
             fixed_cost_intensity = (f.gross_margin - f.operating_margin) / f.gross_margin
             fixed_cost_intensity = Factor.clamp(fixed_cost_intensity, 0.0, 1.0)
             # Low intensity (variable cost base) -> durable; high -> fragile.

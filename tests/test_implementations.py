@@ -1,7 +1,5 @@
 """Tests for factor implementations and un-stubbing."""
 
-import pytest
-
 from iam import Fundamentals, MarketData, Security, score
 
 

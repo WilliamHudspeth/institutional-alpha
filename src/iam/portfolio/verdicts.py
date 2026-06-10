@@ -78,7 +78,6 @@ class PortfolioVerdictEngine:
         """
         # Count verdicts
         buy_count = sum(1 for v in individual_verdicts.values() if v == "BUY")
-        hold_count = sum(1 for v in individual_verdicts.values() if v == "HOLD")
         sell_count = sum(1 for v in individual_verdicts.values() if v == "SELL")
 
         total = len(individual_verdicts)
@@ -205,7 +204,6 @@ class PortfolioVerdictEngine:
         drivers = []
 
         buy_count = sum(1 for v in verdicts.values() if v == "BUY")
-        sell_count = sum(1 for v in verdicts.values() if v == "SELL")
         total = len(verdicts)
 
         if buy_count > total * 0.5:

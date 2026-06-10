@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from iam.data.security import Security
-from iam.lenses.base import BaseLens, LensResult
 from iam.engine.market_implied import MarketImpliedEngine
+from iam.lenses.base import BaseLens, LensResult
 
 
 class ExpectationsDifficultyLens(BaseLens):
@@ -48,4 +48,3 @@ class ExpectationsDifficultyLens(BaseLens):
                 "growth_vs_max": growth_vs_max if growth_vs_max is not None else 0.0,
             },
         )
-

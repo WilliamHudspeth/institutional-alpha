@@ -10,14 +10,11 @@ Usage:
     python -m iam.learning_module --mode markdown > concepts.md
 """
 
-import json
 import random
-import sys
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 try:
     from iam.concept_library_expanded import EXPANDED_CONCEPTS
+
     HAS_EXPANDED = True
 except ImportError:
     HAS_EXPANDED = False
@@ -154,10 +151,10 @@ QUIZ_QUESTIONS = [
             "Build a discounted cash flow spreadsheet",
             "Determine the appropriate risk-free rate",
             "Ask what kind of business this actually is and write its story",
-            "Calculate the company's historical P/E multiple"
+            "Calculate the company's historical P/E multiple",
         ],
         "correct": 2,
-        "concept": "Narrative‑Consistency Validation"
+        "concept": "Narrative‑Consistency Validation",
     },
     {
         "question": "Why does a rigorous valuation framework reject a single firm-wide WACC for a conglomerate?",
@@ -165,22 +162,22 @@ QUIZ_QUESTIONS = [
             "It is mathematically impossible to calculate",
             "Different business segments have different risk profiles",
             "Regulators require segment-level discounting",
-            "It always produces a higher valuation"
+            "It always produces a higher valuation",
         ],
         "correct": 1,
-        "concept": "Segment‑Specific Cost of Equity"
+        "concept": "Segment‑Specific Cost of Equity",
     },
     {
         "question": "A company trades at $100. Using reverse DCF, you find the market is pricing 25% annual FCFE growth for 5 years. If you believe the maximum sustainable growth is 10%, the stock is most likely:",
         "options": ["Undervalued", "Fairly valued", "Overvalued", "Impossible to determine"],
         "correct": 2,
-        "concept": "Reverse DCF"
+        "concept": "Reverse DCF",
     },
     {
         "question": "A global company earns 40% from Europe (ERP 6.0%), 50% from US (ERP 5.0%), 10% from Asia (ERP 7.0%). What is the geographically‑weighted ERP?",
         "options": ["5.00%", "5.40%", "5.70%", "6.00%"],
         "correct": 2,
-        "concept": "Geographic‑Mix‑Weighted ERP"
+        "concept": "Geographic‑Mix‑Weighted ERP",
     },
     {
         "question": "According to the exogenous terminal growth cap, a firm's perpetual growth rate should NOT exceed:",
@@ -188,10 +185,10 @@ QUIZ_QUESTIONS = [
             "Nominal GDP growth of the world",
             "The risk‑free rate (Rf)",
             "The company's historical growth rate",
-            "The inflation rate"
+            "The inflation rate",
         ],
         "correct": 1,
-        "concept": "Terminal Growth Capped at Rf"
+        "concept": "Terminal Growth Capped at Rf",
     },
     {
         "question": "You are valuing a private credit firm. Its current FRE is $500M (peak), but through‑cycle average is $350M. Which should you use?",
@@ -199,16 +196,16 @@ QUIZ_QUESTIONS = [
             "$500M peak",
             "$500M with a 30% risk premium",
             "$350M to avoid overvaluing a cyclical peak",
-            "Average of $500M and $350M"
+            "Average of $500M and $350M",
         ],
         "correct": 2,
-        "concept": "Through‑Cycle Normalisation of Cyclical Earnings"
+        "concept": "Through‑Cycle Normalisation of Cyclical Earnings",
     },
     {
         "question": "A stock has a cost of equity (Ke) of 8%. What is its 'commodity P/E' (zero‑growth value)?",
         "options": ["8.0x", "10.0x", "12.5x", "15.0x"],
         "correct": 2,
-        "concept": "Commodity P/E vs. Franchise P/E"
+        "concept": "Commodity P/E vs. Franchise P/E",
     },
     {
         "question": "Which risk should be handled as a probability‑weighted cash flow adjustment rather than an addition to the discount rate?",
@@ -216,10 +213,10 @@ QUIZ_QUESTIONS = [
             "Market beta",
             "Country equity risk premium",
             "Idiosyncratic risk of losing a single large client",
-            "Systematic interest rate risk"
+            "Systematic interest rate risk",
         ],
         "correct": 2,
-        "concept": "Narrative‑Consistency Validation"
+        "concept": "Narrative‑Consistency Validation",
     },
     {
         "question": "Why is the terminal period often 60‑80% of a DCF's intrinsic value?",
@@ -227,10 +224,10 @@ QUIZ_QUESTIONS = [
             "Because discount rates are lower in the terminal period",
             "Because most present value comes from beyond the explicit forecast",
             "Because analysts inflate terminal growth",
-            "Because near‑term cash flows are irrelevant"
+            "Because near‑term cash flows are irrelevant",
         ],
         "correct": 1,
-        "concept": "Terminal Growth Capped at Rf"
+        "concept": "Terminal Growth Capped at Rf",
     },
     {
         "question": "In an Information Coefficient (IC) backtest, what does a positive IC of 0.03 suggest?",
@@ -238,10 +235,10 @@ QUIZ_QUESTIONS = [
             "The signal is worthless",
             "The signal has a weak but real predictive power",
             "The signal is perfectly predictive",
-            "The signal is mean-reverting"
+            "The signal is mean-reverting",
         ],
         "correct": 1,
-        "concept": "Information Coefficient (IC)"
+        "concept": "Information Coefficient (IC)",
     },
     {
         "question": "What does Value-Weighted IC measure?",
@@ -249,10 +246,10 @@ QUIZ_QUESTIONS = [
             "How well the signal predicts returns equally across all companies",
             "How well the signal predicts returns in large-cap portfolios where real capital deploys",
             "The average IC across all sectors",
-            "The IC adjusted for dividends"
+            "The IC adjusted for dividends",
         ],
         "correct": 1,
-        "concept": "Value‑Weighted IC"
+        "concept": "Value‑Weighted IC",
     },
     {
         "question": "Multi-Horizon IC (21d, 63d, 126d, 252d) helps identify whether a signal is:",
@@ -260,10 +257,10 @@ QUIZ_QUESTIONS = [
             "Statistical noise",
             "Momentum-driven or fundamental in nature",
             "Sector-specific",
-            "Country-specific"
+            "Country-specific",
         ],
         "correct": 1,
-        "concept": "Multi‑Horizon IC"
+        "concept": "Multi‑Horizon IC",
     },
     {
         "question": "What does Sector-Neutral IC tell you?",
@@ -271,16 +268,16 @@ QUIZ_QUESTIONS = [
             "The IC after removing sector-level correlations",
             "The IC only within a single sector",
             "The IC weighted by sector profitability",
-            "The IC adjusted for sector volatility"
+            "The IC adjusted for sector volatility",
         ],
         "correct": 0,
-        "concept": "Sector Neutralization"
+        "concept": "Sector Neutralization",
     },
     {
         "question": "The 'Composite Score' in institutional-alpha blends how many orthogonal factors?",
         "options": ["5", "8", "10", "15"],
         "correct": 2,
-        "concept": "Composite Score (BlackRock Aladdin style)"
+        "concept": "Composite Score (BlackRock Aladdin style)",
     },
     {
         "question": "Why is Manifest.json important in backtesting?",
@@ -288,10 +285,10 @@ QUIZ_QUESTIONS = [
             "It makes the backtest faster",
             "It ensures exact reproducibility with git SHA and config hash",
             "It compresses backtest results",
-            "It is required by regulators"
+            "It is required by regulators",
         ],
         "correct": 1,
-        "concept": "Manifest.json Reproducibility"
+        "concept": "Manifest.json Reproducibility",
     },
     {
         "question": "A company has two divisions: stable software (low beta) and volatile trading (high beta). Using a single company‑wide WACC would most likely:",
@@ -299,22 +296,22 @@ QUIZ_QUESTIONS = [
             "Correctly value both",
             "Under‑value software and over‑value trading",
             "Over‑value software and under‑value trading",
-            "Have no effect"
+            "Have no effect",
         ],
         "correct": 2,
-        "concept": "Segment‑Specific Cost of Equity"
+        "concept": "Segment‑Specific Cost of Equity",
     },
     {
         "question": "In a reverse DCF, if market price implies 3% 5‑year FCFE growth but you believe the company can grow at 8%, the stock is likely:",
         "options": ["Overvalued", "Undervalued", "Fairly valued", "Cannot determine"],
         "correct": 1,
-        "concept": "Reverse DCF (Expectations Investing)"
+        "concept": "Reverse DCF (Expectations Investing)",
     },
     {
         "question": "A firm's actual P/E is 18x and Ke is 9%. What is its franchise P/E (premium for growth)?",
         "options": ["6.9x", "9.0x", "11.1x", "18.0x"],
         "correct": 0,
-        "concept": "Commodity P/E vs. Franchise P/E (PVGO)"
+        "concept": "Commodity P/E vs. Franchise P/E (PVGO)",
     },
     {
         "question": "Which justifies using terminal growth = risk‑free rate of 4%?",
@@ -322,10 +319,10 @@ QUIZ_QUESTIONS = [
             "Company has a strong brand",
             "Company operates in a high‑growth emerging market",
             "Company cannot outgrow the nominal economy forever",
-            "Rf is always the maximum possible growth"
+            "Rf is always the maximum possible growth",
         ],
         "correct": 2,
-        "concept": "Terminal Growth Capped at Risk‑Free Rate"
+        "concept": "Terminal Growth Capped at Risk‑Free Rate",
     },
     {
         "question": "A Sum‑of‑the‑Parts valuation with a conglomerate discount:",
@@ -333,28 +330,69 @@ QUIZ_QUESTIONS = [
             "Is always 15%",
             "Should be applied before segment discounting",
             "May be reduced if synergies exist",
-            "Is required by accounting standards"
+            "Is required by accounting standards",
         ],
         "correct": 2,
-        "concept": "Sum‑of‑the‑Parts (SOTP)"
+        "concept": "Sum‑of‑the‑Parts (SOTP)",
     },
 ]
 
 # True/False questions
 TF_QUESTIONS = [
-    {"question": "A reverse DCF is used to derive the market's implied growth expectations from the current price.", "correct": True, "concept": "Reverse DCF"},
-    {"question": "A conglomerate discount should always be applied after SOTP valuation, regardless of synergies.", "correct": False, "concept": "SOTP"},
-    {"question": "Using a US‑only ERP for a global company is a common simplification that rigorous frameworks accept as adequate.", "correct": False, "concept": "Geographic‑Mix‑Weighted ERP"},
-    {"question": "Operating leverage can increase a company's equity beta because fixed costs magnify earnings volatility.", "correct": True, "concept": "Operating Leverage as Disguised Beta"},
-    {"question": "The commodity P/E is calculated as 1 divided by the cost of equity (Ke).", "correct": True, "concept": "Commodity P/E vs. Franchise P/E"},
-    {"question": "If a company has a franchise P/E greater than zero, it means the market expects excess returns on future investments.", "correct": True, "concept": "Commodity P/E vs. Franchise P/E"},
-    {"question": "A terminal growth rate of 5% is always safe to use as long as the risk‑free rate is 4%.", "correct": False, "concept": "Terminal Growth Capped at Risk‑Free Rate"},
-    {"question": "Idiosyncratic risks are best handled by adding a premium to the discount rate rather than scenario‑adjusted cash flows.", "correct": False, "concept": "Narrative‑Consistency Validation"},
-    {"question": "Epistemic humility in valuation means refusing to produce a single point estimate and instead presenting ranges and scenarios.", "correct": True, "concept": "Narrative‑Consistency Validation"},
-    {"question": "The Information Coefficient (IC) measures how well a factor predicts returns.", "correct": True, "concept": "Information Coefficient (IC)"},
+    {
+        "question": "A reverse DCF is used to derive the market's implied growth expectations from the current price.",
+        "correct": True,
+        "concept": "Reverse DCF",
+    },
+    {
+        "question": "A conglomerate discount should always be applied after SOTP valuation, regardless of synergies.",
+        "correct": False,
+        "concept": "SOTP",
+    },
+    {
+        "question": "Using a US‑only ERP for a global company is a common simplification that rigorous frameworks accept as adequate.",
+        "correct": False,
+        "concept": "Geographic‑Mix‑Weighted ERP",
+    },
+    {
+        "question": "Operating leverage can increase a company's equity beta because fixed costs magnify earnings volatility.",
+        "correct": True,
+        "concept": "Operating Leverage as Disguised Beta",
+    },
+    {
+        "question": "The commodity P/E is calculated as 1 divided by the cost of equity (Ke).",
+        "correct": True,
+        "concept": "Commodity P/E vs. Franchise P/E",
+    },
+    {
+        "question": "If a company has a franchise P/E greater than zero, it means the market expects excess returns on future investments.",
+        "correct": True,
+        "concept": "Commodity P/E vs. Franchise P/E",
+    },
+    {
+        "question": "A terminal growth rate of 5% is always safe to use as long as the risk‑free rate is 4%.",
+        "correct": False,
+        "concept": "Terminal Growth Capped at Risk‑Free Rate",
+    },
+    {
+        "question": "Idiosyncratic risks are best handled by adding a premium to the discount rate rather than scenario‑adjusted cash flows.",
+        "correct": False,
+        "concept": "Narrative‑Consistency Validation",
+    },
+    {
+        "question": "Epistemic humility in valuation means refusing to produce a single point estimate and instead presenting ranges and scenarios.",
+        "correct": True,
+        "concept": "Narrative‑Consistency Validation",
+    },
+    {
+        "question": "The Information Coefficient (IC) measures how well a factor predicts returns.",
+        "correct": True,
+        "concept": "Information Coefficient (IC)",
+    },
 ]
 
 ALL_QUESTIONS = QUIZ_QUESTIONS + TF_QUESTIONS
+
 
 class LearningModule:
     def __init__(self):
@@ -380,10 +418,10 @@ class LearningModule:
         return f"""
 📘 {concept_name}
 ─────────────────────────────────────────────
-{c['definition']}
+{c["definition"]}
 
-🔧 Code reference: {c['code_ref']}
-🧮 Formula: {c.get('formula', 'N/A')}
+🔧 Code reference: {c["code_ref"]}
+🧮 Formula: {c.get("formula", "N/A")}
 """
 
     def _explain_detailed(self, concept_name: str) -> str:
@@ -393,25 +431,25 @@ class LearningModule:
         c = self.expanded[concept_name]
         return f"""
 📘 {concept_name}
-{'═' * 70}
+{"═" * 70}
 
 **Definition & Context:**
-{c['extended']}
+{c["extended"]}
 
 **Concrete Example:**
-{c['example']}
+{c["example"]}
 
 **⚠️  Common Pitfall:**
-{c['pitfall']}
+{c["pitfall"]}
 
 **📚 Academic References:**
-{c['reference']}
+{c["reference"]}
 
 **🔧 Code Location:**
-{c['code_ref']}
+{c["code_ref"]}
 """
 
-    def run_quiz(self, num_questions: int = None) -> Tuple[int, int]:
+    def run_quiz(self, num_questions: int = None) -> tuple[int, int]:
         """Run interactive quiz, return (score, total)."""
         qs = self.questions
         if num_questions and num_questions < len(qs):
@@ -419,30 +457,34 @@ class LearningModule:
         score = 0
         for i, q in enumerate(qs, 1):
             print(f"\nQuestion {i}/{len(qs)}")
-            print(q['question'])
-            if 'options' in q:  # multiple choice
-                for idx, opt in enumerate(q['options']):
-                    print(f"  {chr(65+idx)}. {opt}")
+            print(q["question"])
+            if "options" in q:  # multiple choice
+                for idx, opt in enumerate(q["options"]):
+                    print(f"  {chr(65 + idx)}. {opt}")
                 answer = input("Your answer (A/B/C/D): ").strip().upper()
-                correct_idx = q['correct']
-                if answer and ord(answer)-65 == correct_idx:
+                correct_idx = q["correct"]
+                if answer and ord(answer) - 65 == correct_idx:
                     print("✅ Correct!")
                     score += 1
                 else:
-                    correct_letter = chr(65+correct_idx)
-                    print(f"❌ Wrong. Correct answer: {correct_letter}. {q['options'][correct_idx]}")
+                    correct_letter = chr(65 + correct_idx)
+                    print(
+                        f"❌ Wrong. Correct answer: {correct_letter}. {q['options'][correct_idx]}"
+                    )
             else:  # true/false
                 answer = input("True or False? (T/F): ").strip().upper()
-                is_correct = (answer == 'T' and q['correct']) or (answer == 'F' and not q['correct'])
+                is_correct = (answer == "T" and q["correct"]) or (
+                    answer == "F" and not q["correct"]
+                )
                 if is_correct:
                     print("✅ Correct!")
                     score += 1
                 else:
                     print(f"❌ Wrong. Correct answer: {'True' if q['correct'] else 'False'}")
             # Show concept
-            concept = q.get('concept', 'General')
+            concept = q.get("concept", "General")
             print(f"📚 Related concept: {concept}")
-        print(f"\n🎯 Final score: {score}/{len(qs)} ({score/len(qs)*100:.1f}%)")
+        print(f"\n🎯 Final score: {score}/{len(qs)} ({score / len(qs) * 100:.1f}%)")
         return score, len(qs)
 
     def generate_html_report(self, output_file: str = "learning_report.html"):
@@ -467,33 +509,35 @@ h1, h2 { color: #1a3d72; }
             html += f"""
 <div class='card'>
     <strong>{name}</strong><br>
-    {data['definition']}<br>
-    <span class='code'>🔧 Code: {data['code_ref']}</span>
-    {f"<br>🧮 Formula: {data['formula']}" if data.get('formula') else ""}
+    {data["definition"]}<br>
+    <span class='code'>🔧 Code: {data["code_ref"]}</span>
+    {f"<br>🧮 Formula: {data['formula']}" if data.get("formula") else ""}
 </div>"""
         html += "<h2>📝 Sample Quiz Questions</h2><ul>"
         for q in random.sample(self.questions, min(10, len(self.questions))):
             html += f"<li><strong>{q['question']}</strong><br>"
-            if 'options' in q:
-                html += "<ul>" + "".join(f"<li>{opt}</li>" for opt in q['options']) + "</ul>"
+            if "options" in q:
+                html += "<ul>" + "".join(f"<li>{opt}</li>" for opt in q["options"]) + "</ul>"
             else:
                 html += f"<em>Answer: {q['correct']}</em>"
-            html += f"<br><span style='font-size:0.9em; color:#666;'>Concept: {q.get('concept','')}</span></li>"
+            html += f"<br><span style='font-size:0.9em; color:#666;'>Concept: {q.get('concept', '')}</span></li>"
         html += "</ul><div class='footer'>Generated by learning_module.py – run again for updated content.</div></body></html>"
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             f.write(html)
         print(f"HTML report saved to {output_file}")
 
     def generate_markdown_notes(self, output_file: str = "concepts.md") -> None:
         """Generate detailed markdown notes for all concepts."""
         source = self.expanded if HAS_EXPANDED else self.concepts
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             f.write("# Institutional Alpha – Concept Library\n\n")
-            f.write("Comprehensive reference for institutional finance concepts in the backtest engine.\n\n")
+            f.write(
+                "Comprehensive reference for institutional finance concepts in the backtest engine.\n\n"
+            )
             f.write("---\n\n")
             for i, (name, data) in enumerate(sorted(source.items()), 1):
                 f.write(f"## {i}. {name}\n\n")
-                if HAS_EXPANDED and 'extended' in data:
+                if HAS_EXPANDED and "extended" in data:
                     f.write(f"### Definition\n{data['extended']}\n\n")
                     f.write(f"### Example\n{data['example']}\n\n")
                     f.write(f"### Common Pitfall\n{data['pitfall']}\n\n")
@@ -502,18 +546,28 @@ h1, h2 { color: #1a3d72; }
                 else:
                     f.write(f"**Definition:** {data['definition']}\n\n")
                     f.write(f"**Code reference:** {data['code_ref']}\n\n")
-                    if data.get('formula'):
+                    if data.get("formula"):
                         f.write(f"**Formula:** {data['formula']}\n\n")
                 f.write("---\n\n")
         print(f"Markdown notes saved to {output_file}")
 
+
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description="Institutional Alpha Learning Module")
-    parser.add_argument("--mode", choices=["interactive", "quiz", "report", "concept", "markdown"], default="interactive",
-                        help="Mode: interactive, quiz, concept lookup, report (HTML), or markdown export")
+    parser.add_argument(
+        "--mode",
+        choices=["interactive", "quiz", "report", "concept", "markdown"],
+        default="interactive",
+        help="Mode: interactive, quiz, concept lookup, report (HTML), or markdown export",
+    )
     parser.add_argument("--concept", type=str, help="Concept name to explain (for --mode concept)")
-    parser.add_argument("--detailed", action="store_true", help="Show detailed explanation with examples (requires expanded library)")
+    parser.add_argument(
+        "--detailed",
+        action="store_true",
+        help="Show detailed explanation with examples (requires expanded library)",
+    )
     parser.add_argument("--quiz_questions", type=int, default=10, help="Number of quiz questions")
     args = parser.parse_args()
 
@@ -529,9 +583,9 @@ def main():
         lm.generate_markdown_notes()
     else:  # interactive
         while True:
-            print("\n" + "="*50)
+            print("\n" + "=" * 50)
             print("📖 Institutional Alpha Learning Module")
-            print("="*50)
+            print("=" * 50)
             print("1. Explain a concept")
             print("2. Take a quiz")
             print("3. Generate HTML report")
@@ -541,7 +595,9 @@ def main():
             choice = input("Select option: ").strip()
             if choice == "1":
                 concept = input("Enter concept name (or partial): ")
-                detailed_opt = input("Detailed explanation? (y/n, default n): ").strip().lower() == 'y'
+                detailed_opt = (
+                    input("Detailed explanation? (y/n, default n): ").strip().lower() == "y"
+                )
                 print(lm.explain_concept(concept, detailed=detailed_opt))
             elif choice == "2":
                 n = input("Number of questions (default 10): ")
@@ -559,6 +615,7 @@ def main():
             else:
                 print("Invalid choice")
         print("Goodbye!")
+
 
 if __name__ == "__main__":
     main()

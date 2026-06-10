@@ -39,7 +39,7 @@ def compute_factor_ic(factor_scores: pd.Series, forward_returns: pd.Series) -> f
 
     common_idx = factor_scores.index.intersection(forward_returns.index)
     if len(common_idx) < 2:
-        return np.nan
+        return float(np.nan)
 
     scores = factor_scores.loc[common_idx]
     returns = forward_returns.loc[common_idx]
@@ -50,7 +50,7 @@ def compute_factor_ic(factor_scores: pd.Series, forward_returns: pd.Series) -> f
     returns = returns[valid_mask]
 
     if len(scores) < 2:
-        return np.nan
+        return float(np.nan)
 
     ic, _ = spearmanr(scores, returns)
     return ic if not np.isnan(ic) else 0.0
