@@ -23,8 +23,8 @@ from urllib.parse import urlencode
 
 import numpy as np
 import pandas as pd
-import requests
-from requests.adapters import HTTPAdapter
+import requests  # type: ignore[import-untyped]
+from requests.adapters import HTTPAdapter  # type: ignore[import-untyped]
 from urllib3.util.retry import Retry
 
 try:
@@ -182,7 +182,8 @@ class SecEdgarSource:
         mapping_file = Path("./data_cache/cik_ticker.json")
         if mapping_file.exists():
             with open(mapping_file) as f:
-                return json.load(f)
+                cached_mapping: dict[str, str] = json.load(f)
+                return cached_mapping
         # Download from SEC
         url = "https://www.sec.gov/files/company_tickers.json"
         try:
@@ -205,7 +206,7 @@ class SecEdgarSource:
         if not cik:
             return {}
         cache_key = f"sec_fund_{ticker}_{as_of_date.date()}"
-        cached = self.cache.get(cache_key, source="sec")
+        cached: dict | None = self.cache.get(cache_key, source="sec")
         if cached:
             return cached
 
@@ -257,7 +258,7 @@ class YFinanceSource:
     def get_fundamentals(self, ticker: str, as_of_date: datetime) -> dict:
         """Return latest fundamentals (not point‑in‑time)."""
         cache_key = f"yf_fund_{ticker}"
-        cached = self.cache.get(cache_key, source="yfinance")
+        cached: dict | None = self.cache.get(cache_key, source="yfinance")
         if cached:
             return cached
         stock = yf.Ticker(ticker)
@@ -356,7 +357,7 @@ class MacroSource:
 
     def __init__(self, csv_path: str):
         self.csv_path = Path(csv_path)
-        self._data = None
+        self._data: pd.DataFrame | None = None
         if self.csv_path.exists():
             self._data = pd.read_csv(self.csv_path, parse_dates=["date"], index_col="date")
         else:
@@ -381,7 +382,7 @@ class MacroSource:
         )
 
     def get_series(self, series_name: str, start: datetime, end: datetime) -> pd.Series:
-        if series_name not in self._data.columns:
+        if self._data is None or series_name not in self._data.columns:
             return pd.Series()
         mask = (self._data.index >= start) & (self._data.index <= end)
         return self._data.loc[mask, series_name]
@@ -391,11 +392,11 @@ class MacroSource:
 # Main Redundant Fetcher
 # ----------------------------------------------------------------------
 class RedundantDataFetcher:
-    def __init__(self, config: DataConfig = None):
+    def __init__(self, config: DataConfig | None = None):
         self.config = config or DataConfig()
         self.cache = SQLiteCache(self.config.cache_db_path, self.config.cache_ttl_days)
 
-        self.sources = {}
+        self.sources: dict[str, Any] = {}
         # Price sources
         if "yfinance" in self.config.price_sources and yf:
             self.sources["yfinance"] = YFinanceSource(self.cache)
@@ -418,7 +419,7 @@ class RedundantDataFetcher:
             if src is None:
                 continue
             try:
-                result = src.get_fundamentals(ticker, as_of_date)
+                result: dict = src.get_fundamentals(ticker, as_of_date)
                 if result and any(v is not None for v in result.values()):
                     logger.debug(f"Fundamentals for {ticker} from {src_name}")
                     return result
