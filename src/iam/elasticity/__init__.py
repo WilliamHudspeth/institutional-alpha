@@ -23,20 +23,12 @@ The ``DurabilityStressEngine`` combines these three response functions to
 *re-price* a valuation under a named stress scenario and estimate how far
 conviction should drift.
 
-------------------------------------------------------------------------------
-HANDOFF NOTE (framework status)
-------------------------------------------------------------------------------
-This package is a *scaffold*. The data contracts in ``types`` are complete and
-stable. The small pure-math helpers in ``math_utils`` are implemented. The
-three public entry points are intentionally left ``NotImplementedError``:
-
-  * ``DurabilityScorer.score``      (durability.py)
-  * ``ElasticityScorer.profile``    (elasticity.py)
-  * ``DurabilityStressEngine.run``  (stress.py)
-
-Each carries a docstring specifying the exact formula and edge-case behavior.
-``tests/test_elasticity.py`` encodes that spec as assertions. Implement the
-three methods until the suite is green. Do not change the public type
+Status: fully implemented and wired into the pipeline. The macro overlay
+(``iam.pipeline.macro.MacroOverlay``) scales raw macro shocks by the measured
+rate/growth elasticity before gating and re-pricing, and attaches the
+resulting :class:`StressResponse` (including conviction drift) to the
+``PipelineReport`` for the Stage 7 verdict. ``tests/test_elasticity.py``
+encodes each method's spec as assertions; do not change the public type
 signatures without updating the tests.
 """
 

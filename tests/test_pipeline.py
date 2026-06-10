@@ -344,3 +344,77 @@ def test_v01_factor_scoring_still_works():
     assert result.composite is not None
     assert len(result.factor_breakdown) == 10
 
+
+
+# ---------------------------------------------------------------------------
+# v0.5 reasoning engine: Damodaran laws + elasticity-aware macro overlay
+# ---------------------------------------------------------------------------
+
+
+def test_pipeline_attaches_law_report():
+    """Every pipeline run carries the Damodaran-law audit trail."""
+    sec = Security(
+        ticker="LAWS",
+        fundamentals=Fundamentals(
+            fcf_ttm=2800,
+            shares_outstanding=1000,
+            net_income_ttm=3500,
+            revenue_history=[10000, 8500, 7200, 6100, 5200],
+            roic_history=[0.18, 0.17, 0.16],
+            operating_margin_history=[0.30, 0.25, 0.22, 0.20],
+        ),
+        market=MarketData(price=180),
+        qualitative={"forecast_growth": 0.18, "forecast_discount_rate": 0.10},
+    )
+    report = ValuationPipeline().run(sec)
+
+    assert report.law_report is not None
+    assert [c.number for c in report.law_report.checks] == [1, 2, 3, 4, 5]
+    assert "DAMODARAN LAWS" in report.summary
+    assert "DAMODARAN LAWS" in report.explain()
+    # 18% growth on these economics must draw at least one flag/violation,
+    # and the verdict must carry the law notes.
+    assert report.law_report.flags or report.law_report.violations
+    assert report.final_verdict is not None
+    assert any("LAW" in n for n in report.final_verdict.notes)
+
+
+def test_pipeline_macro_run_attaches_stress_response():
+    """A macro run that trips the overlay carries the elasticity-aware
+    StressResponse, and the verdict consumed it."""
+    from iam.data.macro import MacroConditions
+
+    sec = Security(
+        ticker="STRESS",
+        fundamentals=Fundamentals(
+            fcf_ttm=2800,
+            shares_outstanding=1000,
+            gross_margin=0.65,
+            operating_margin=0.20,
+            revenue_history=[10000, 8500, 7200, 6100, 5200],
+            fcf_history=[2800, 1100, 3400, 900],
+            operating_margin_history=[0.20, 0.32, 0.12, 0.28],
+        ),
+        market=MarketData(price=180),
+        qualitative={"forecast_growth": 0.12, "forecast_discount_rate": 0.09},
+    )
+    report = ValuationPipeline().run(sec, macro=MacroConditions(rate_change=0.0075, pmi=55.0))
+
+    response = report.stress_response
+    assert response is not None
+    assert response.elasticity.rate_elasticity is not None
+    assert response.value_change_pct is not None and response.value_change_pct < 0
+    assert response.conviction_drift is not None
+    assert "MACRO OVERLAY TRIGGERED" in report.summary
+
+
+def test_empty_security_pipeline_laws_degrade_gracefully():
+    """An empty security yields NOT_EVALUATED laws, never a crash or penalty."""
+    report = ValuationPipeline().run(Security(ticker="EMPTY"))
+    assert report.law_report is not None
+    # With no data the laws must report NOT_EVALUATED rather than guessing,
+    # and an unevaluated report must not penalise conviction.
+    assert not report.law_report.flags
+    assert not report.law_report.violations
+    assert report.law_report.conviction_multiplier == 1.0
+    assert "insufficient data" in report.law_report.narrative or report.law_report.passes

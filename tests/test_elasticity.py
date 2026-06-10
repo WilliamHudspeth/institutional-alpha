@@ -2,12 +2,11 @@
 
 Two tiers:
 
-  * ``TestMathUtils`` exercises the implemented pure-math helpers. These pass
-    today and pin the numeric primitives.
+  * ``TestMathUtils`` exercises the pure-math helpers and pins the numeric
+    primitives.
   * The scorer/engine tests encode the implementation spec from the class
-    docstrings. They fail (NotImplementedError) until the framework stubs in
-    ``iam.elasticity.{durability,elasticity,stress}`` are implemented. Make
-    them green without changing the public type signatures.
+    docstrings in ``iam.elasticity.{durability,elasticity,stress}``. Keep them
+    green; do not change the public type signatures without updating them.
 
 Expected values are derived with the same shared helpers the implementation
 must use (``two_stage_pv``, ``math_utils``) so the assertions stay exact.
