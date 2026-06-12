@@ -22,13 +22,10 @@ Usage:
     python learning_module.py [--export-format json|markdown|html]
 """
 
-from dataclasses import dataclass, asdict
-from typing import List, Dict, Optional
+import json
 import random
 import textwrap
-import json
-import sys
-from pathlib import Path
+from dataclasses import asdict, dataclass
 
 try:
     from iam.concept_library_expanded import EXPANDED_CONCEPTS
@@ -48,9 +45,9 @@ class Concept:
     category: str  # Valuation, Risk, Quantitative, Data, etc.
     definition: str
     implementation: str  # Code file and function reference
-    tags: List[str]
+    tags: list[str]
     difficulty: str = "intermediate"  # easy, intermediate, advanced
-    prerequisites: List[str] = None
+    prerequisites: list[str] = None
 
     def __post_init__(self):
         if self.prerequisites is None:
@@ -64,12 +61,12 @@ class Concept:
 class Question:
     """Represents a quiz question."""
     prompt: str
-    choices: List[str]
+    choices: list[str]
     answer: str
     explanation: str
     difficulty: str  # easy, medium, hard
     concept: str  # Links to Concept.name
-    tags: List[str] = None
+    tags: list[str] = None
 
     def __post_init__(self):
         if self.tags is None:
@@ -514,7 +511,7 @@ class LearningEngine:
         self.score = 0
         self.total = 0
 
-    def _load_concepts(self) -> List[Concept]:
+    def _load_concepts(self) -> list[Concept]:
         """Load concepts, optionally merging with expanded library."""
         concepts = CORE_CONCEPTS.copy()
 

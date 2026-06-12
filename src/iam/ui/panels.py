@@ -7,9 +7,8 @@ Each panel is responsible for one logical view section.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
 
-from iam.ui.state import SecurityState, TerminalUIState
+from iam.ui.state import TerminalUIState
 
 
 class BasePanel(ABC):
@@ -46,7 +45,7 @@ class HeaderPanel(BasePanel):
         lines = []
         lines.append("┌" + "─" * (self.width - 2) + "┐")
         lines.append(
-            f"│  ALPHA-TERMINAL // SYSTEM ACTIVE // COGNITIVE QUANTITATIVE MULTI-FACTOR ENGINE│".ljust(
+            "│  ALPHA-TERMINAL // SYSTEM ACTIVE // COGNITIVE QUANTITATIVE MULTI-FACTOR ENGINE│".ljust(
                 self.width - 1
             )
             + "│"
@@ -69,10 +68,10 @@ class DecisionSheetPanel(BasePanel):
         security = state.active_security
         lines = []
         rule = "═" * self.width
-        thin_rule = "─" * self.width
+        "─" * self.width
 
         lines.append(rule)
-        lines.append(f"║  [ EXECUTIVE DECISION SHEET ]".ljust(self.width - 1) + "║")
+        lines.append("║  [ EXECUTIVE DECISION SHEET ]".ljust(self.width - 1) + "║")
         lines.append(rule)
 
         # Format values
@@ -105,10 +104,10 @@ class ForecastMetricsPanel(BasePanel):
 
         security = state.active_security
         lines = []
-        rule = "═" * self.width
+        "═" * self.width
         thin_rule = "─" * self.width
 
-        lines.append(f"║  [ CORE FORECAST METRIC PROFILE ]".ljust(self.width - 1) + "║")
+        lines.append("║  [ CORE FORECAST METRIC PROFILE ]".ljust(self.width - 1) + "║")
         lines.append(thin_rule)
 
         growth = security.growth or "—"
@@ -131,7 +130,7 @@ class ForecastMetricsPanel(BasePanel):
             kd_str = f"{kd_val * 100:+.1f}%" if kd_val is not None else "—"
             spread_str = f"{spread_val * 100:+.1f}%" if spread_val is not None else "—"
 
-            lines.append(f"║  [ QUANTITATIVE COST OF CAPITAL DETAIL ]".ljust(self.width - 1) + "║")
+            lines.append("║  [ QUANTITATIVE COST OF CAPITAL DETAIL ]".ljust(self.width - 1) + "║")
             lines.append(thin_rule)
             lines.append(f"   Cost of Equity (Ke)  : {ke_str:<10} Cost of Debt (Kd)    : {kd_str}")
             lines.append(
@@ -152,10 +151,10 @@ class ScenarioMatrixPanel(BasePanel):
 
         security = state.active_security
         lines = []
-        rule = "═" * self.width
+        "═" * self.width
         thin_rule = "─" * self.width
 
-        lines.append(f"║  [ PROBABILISTIC SCENARIO WEIGHT MATRIX ]".ljust(self.width - 1) + "║")
+        lines.append("║  [ PROBABILISTIC SCENARIO WEIGHT MATRIX ]".ljust(self.width - 1) + "║")
         lines.append(thin_rule)
         lines.append(
             f"   {'SCENARIO CASE':<16} {'WEIGHT':<8} {'TARGET VALUE':<16} {'IMPLIED RETURN':<16} THESIS"
@@ -188,7 +187,7 @@ class DiagnosticSignalsPanel(BasePanel):
         rule = "═" * self.width
 
         lines.append(
-            f"║  [ MULTI-LENS DIAGNOSTIC INTERMEDIARY SIGNALS ]".ljust(self.width - 1) + "║"
+            "║  [ MULTI-LENS DIAGNOSTIC INTERMEDIARY SIGNALS ]".ljust(self.width - 1) + "║"
         )
         lines.append(rule)
 

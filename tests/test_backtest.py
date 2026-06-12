@@ -2,11 +2,11 @@
 
 import pytest
 
-# Skip all tests in this module if pandas is not installed
-pd = pytest.importorskip("pandas")
-
 from iam.data.security import Security
 from tests.harness import BacktestHarness
+
+# Skip all tests in this module if pandas is not installed
+pd = pytest.importorskip("pandas")
 
 
 def test_backtest_harness_run():

@@ -14,11 +14,12 @@ Use pytest to run:
     pytest tests/test_data_fetcher.py -v --cov=src.iam.data
 """
 
-import json
-import sqlite3
+# Import the fetcher (will be at src/iam/data/fetcher.py after Phase 3.1)
+# For now, use the reference implementation
+import sys
 import tempfile
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from unittest import mock
 
@@ -26,20 +27,15 @@ import numpy as np
 import pandas as pd
 import pytest
 
-# Import the fetcher (will be at src/iam/data/fetcher.py after Phase 3.1)
-# For now, use the reference implementation
-import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 from data_fetcher_reference import (
-    SQLiteCache,
-    SecEdgarSource,
-    YFinanceSource,
-    StooqSource,
-    MacroSource,
-    RedundantDataFetcher,
     DataConfig,
+    RedundantDataFetcher,
+    SecEdgarSource,
+    SQLiteCache,
+    StooqSource,
+    YFinanceSource,
 )
-
 
 # =====================================================================
 # FIXTURES (reusable test objects)
@@ -452,7 +448,8 @@ class TestIntegration:
 # =====================================================================
 
 try:
-    from hypothesis import given, strategies as st
+    from hypothesis import given
+    from hypothesis import strategies as st
 
     class TestPropertyBased:
         """Property-based tests to catch edge cases."""
@@ -477,7 +474,7 @@ except ImportError:
 # =====================================================================
 
 try:
-    import pytest_benchmark
+    import pytest_benchmark  # noqa: F401
     has_benchmark = True
 except ImportError:
     has_benchmark = False

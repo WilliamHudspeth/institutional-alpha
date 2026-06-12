@@ -171,7 +171,7 @@ def validate_security(security):
 
     # Triangulation
     tri = triangulate_growth_for_security(security)
-    print(f"\n  GROWTH TRIANGULATION")
+    print("\n  GROWTH TRIANGULATION")
     print(f"  Blended Growth:    {tri.blended_growth:>+7.2%}")
     print(f"  Raw Growth:        {tri.raw_growth:>+7.2%}")
     print(f"  Margin Adjustment: {tri.margin_adjustment:>+7.3%}")
@@ -179,7 +179,7 @@ def validate_security(security):
     print(f"  Disagreement σ:    {tri.method_disagreement:>7.2%}")
     print(f"  Dominant Method:   {tri.dominant_method}")
 
-    print(f"\n  ESTIMATOR BREAKDOWN")
+    print("\n  ESTIMATOR BREAKDOWN")
     print(f"  {'Method':<14} {'Growth':>8} {'Conf':>6} {'Weight':>8} Notes")
     for e in tri.estimates:
         print(f"  {e.method:<14} {e.value:>+8.2%} {e.confidence:>6.2f} {e.weight:>8.1f}  {e.notes}")
@@ -189,7 +189,7 @@ def validate_security(security):
     engine = AdaptiveValuationEngine()
     result = engine.run(profile)
 
-    print(f"\n  ADAPTIVE ENGINE")
+    print("\n  ADAPTIVE ENGINE")
     print(f"  Business Type:    {result['type']}")
     print(f"  Confidence Grade: {result['confidence']}")
     print(f"  Volatility:       {profile.hist_volatility:>7.2%}")
@@ -205,7 +205,7 @@ def validate_security(security):
     # Probabilistic engine comparison
     prob_eng = build_engine_from_security(security, moat_durability=0.7)
     prob_result = prob_eng.blended_growth()
-    print(f"\n  PROBABILISTIC ENGINE (brentq + regime-aware)")
+    print("\n  PROBABILISTIC ENGINE (brentq + regime-aware)")
     print(f"  Mean Growth:      {prob_result.mean_growth:>+7.2%}")
     print(f"  Std Dev:          {prob_result.std_dev:>7.2%}")
     print(f"  Growth Haircut:   {prob_result.growth_haircut:>7.2%}x")

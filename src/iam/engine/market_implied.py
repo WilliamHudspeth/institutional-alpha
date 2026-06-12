@@ -195,7 +195,7 @@ class MarketImpliedEngine:
             notes.append("Insufficient history to compare implied growth to peak.")
 
         implied_rr = min(implied_g / roe, 1.0) if roe > 0 else 1.0
-        
+
         implied = ImpliedExpectations(
             implied_revenue_growth=implied_g,
             implied_terminal_growth=self.g_terminal,

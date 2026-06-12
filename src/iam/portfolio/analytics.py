@@ -12,9 +12,8 @@ Computes:
 from __future__ import annotations
 
 import math
-from typing import Any
 
-from iam.portfolio.types import ExposureProfile, Portfolio, PortfolioMetrics
+from iam.portfolio.types import ExposureProfile, Portfolio
 
 
 class PortfolioAnalyzer:

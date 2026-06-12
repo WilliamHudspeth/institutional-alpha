@@ -10,8 +10,6 @@ Creates Unicode charts without external dependencies:
 
 from __future__ import annotations
 
-from typing import Any
-
 
 class Sparkline:
     """Simple sparkline renderer using Unicode characters."""

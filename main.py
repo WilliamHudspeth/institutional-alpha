@@ -16,7 +16,7 @@ import sys
 import urllib.parse
 import urllib.request
 
-from iam.validation import parse_growth_rate, validate_all_assumptions
+from iam.validation import parse_growth_rate
 
 
 def safe_input(prompt: str, default: str | None = None) -> str:
@@ -52,7 +52,7 @@ def print_menu() -> None:
         print("\n" * 3)
 
     print("┌" + "─" * 78 + "┐")
-    print(f"│  ALPHA-TERMINAL // SYSTEM CONSOLE // COGNITIVE MULTI-FACTOR EQUITIES PLATFORM │")
+    print("│  ALPHA-TERMINAL // SYSTEM CONSOLE // COGNITIVE MULTI-FACTOR EQUITIES PLATFORM │")
     print(
         f"│  USER: wshb         SECURE TERMINAL: ACTIVE           SYSTEM VERSION: {VERSION:<14} │"
     )
@@ -222,7 +222,6 @@ def run_thesis_engine(ticker: str) -> None:
     try:
         from iam.data.security import Assumption, Thesis
         from iam.data.yahoo import fetch_security
-        from iam.thesis.bayesian.priors import ScenarioPrior
         from iam.thesis.engine import ThesisEngine
 
         security = fetch_security(ticker)

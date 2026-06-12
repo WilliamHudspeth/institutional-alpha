@@ -1,13 +1,14 @@
+from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import patch
+
 import numpy as np
 import pandas as pd
-import pytest
-from unittest.mock import patch
-from concurrent.futures import ThreadPoolExecutor
 
 from iam.backtest.ic_runner import ICBacktest, ICBacktestConfig
-from iam.data.security import Security, Fundamentals, MarketData
-from iam.engine.composite import ScoreResult, DEFAULT_WEIGHTS
+from iam.data.security import Fundamentals, MarketData, Security
+from iam.engine.composite import DEFAULT_WEIGHTS, ScoreResult
 from iam.factors import FactorContribution
+
 
 def _make_test_securities(n=20):
     return [
@@ -41,7 +42,7 @@ def _make_mock_score_result(ticker, as_of):
         )
     # create positive correlation for one factor just to ensure IC is non-zero
     breakdown["quality"] = FactorContribution(name="quality", value=float(ticker[1:]), confidence=1.0)
-    
+
     comp = sum(fc.effective() * DEFAULT_WEIGHTS.get(name, 0.1) for name, fc in breakdown.items())
     return ScoreResult(ticker=ticker, composite=comp, factor_breakdown=breakdown, weights=dict(DEFAULT_WEIGHTS))
 
@@ -68,23 +69,23 @@ def test_ic_runner(mock_score, mock_build_snapshot):
         horizons=[1, 3],
         min_stocks_per_date=10,
     )
-    
+
     runner = ICBacktest(securities, price_block, config)
     res = runner.run()
-    
+
     assert 1 in res
     assert 3 in res
-    
+
     df1 = res[1]
     assert len(df1) > 0
     assert "ic" in df1.columns
     assert "ic_weighted" in df1.columns
     assert "ic_quality" in df1.columns
-    
+
     stats = runner.compute_statistics()
     assert 1 in stats
     assert "mean_ic" in stats[1]
-    
+
     f_stats = runner.compute_factor_statistics()
     assert not f_stats.empty
     assert "quality" in f_stats.index

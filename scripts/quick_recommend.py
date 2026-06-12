@@ -161,7 +161,7 @@ def show_recommendation(ticker: str) -> None:
 
                 # Triangulation audit trail
                 tri = result["triangulation"]
-                print(f"  GROWTH TRIANGULATION (5 estimators):")
+                print("  GROWTH TRIANGULATION (5 estimators):")
                 print(f"    Blended Growth:    {tri['blended_growth']:>+7.1%}")
                 print(f"    Raw Growth:        {tri['raw_growth']:>+7.1%}")
                 print(f"    Margin Adjustment: {tri['margin_adjustment']:>+7.2%}pp")
@@ -174,14 +174,14 @@ def show_recommendation(ticker: str) -> None:
                     )
                 print()
 
-                print(f"  Phase 2 (Divergence):")
+                print("  Phase 2 (Divergence):")
                 p2 = result["phase2"]
                 print(
                     f"    Condition:         {p2['condition']} (threshold: {p2['threshold']:.1%})"
                 )
                 print(f"    Divergence:        {p2['divergence']:.1%}")
                 print(f"    Base Growth:       {p2['base_growth']:.1%}\n")
-                print(f"  Phase 3 (10-Year Fade Path):")
+                print("  Phase 3 (10-Year Fade Path):")
                 for i, g in enumerate(fade_path, 1):
                     print(f"    Year {i:2d}:  {g:.1%}")
                 print()

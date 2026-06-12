@@ -10,8 +10,6 @@ Demonstrates:
 """
 
 from iam.portfolio import (
-    FactorBalancer,
-    OptimizationConstraints,
     Portfolio,
     PortfolioAnalyzer,
     Position,

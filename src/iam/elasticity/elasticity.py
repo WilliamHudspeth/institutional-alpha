@@ -119,7 +119,7 @@ class ElasticityScorer:
                     components["pv_base"] = pv_base
                     components["pv_up"] = pv_up
                     # raw = |pv_up / pv_base - 1| / 0.01 (%-swing per 100bps, normalized)
-                    rate_swing_raw = abs((pv_up / pv_base - 1.0)) / 0.01
+                    rate_swing_raw = abs(pv_up / pv_base - 1.0) / 0.01
                     components["rate_swing_raw"] = rate_swing_raw
 
                     # Compute baseline: 9% WACC, 0% growth, 2.5% terminal, 10y
@@ -128,7 +128,7 @@ class ElasticityScorer:
                         1.0, 0.0, n, DEFAULT_TERMINAL_GROWTH, DEFAULT_WACC + RATE_PROBE_BPS / 10000.0
                     )
                     if baseline_pv is not None and baseline_pv_up is not None and baseline_pv > 0:
-                        baseline_swing = abs((baseline_pv_up / baseline_pv - 1.0)) / 0.01
+                        baseline_swing = abs(baseline_pv_up / baseline_pv - 1.0) / 0.01
                         components["baseline_swing"] = baseline_swing
                         if baseline_swing > 0:
                             rate_elasticity = clamp(

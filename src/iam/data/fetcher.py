@@ -15,10 +15,10 @@ import logging
 import sqlite3
 import time
 import warnings
-from datetime import datetime, timedelta
+from datetime import datetime
 from functools import wraps
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Any
 from urllib.parse import urlencode
 
 import numpy as np
@@ -113,7 +113,7 @@ class SQLiteCache:
             if conn:
                 conn.close()
 
-    def get(self, key: str, source: Optional[str] = None) -> Optional[Any]:
+    def get(self, key: str, source: str | None = None) -> Any | None:
         conn = None
         try:
             conn = sqlite3.connect(self.db_path)
@@ -127,7 +127,7 @@ class SQLiteCache:
                 if (time.time() - ts) < self.ttl_seconds:
                     try:
                         return json.loads(value)
-                    except:
+                    except Exception:
                         return value
         finally:
             if conn:
@@ -166,7 +166,7 @@ class SecEdgarSource:
         self.session.mount("https://", HTTPAdapter(max_retries=retries))
         self._ticker_to_cik = self._load_cik_map()
 
-    def _load_cik_map(self) -> Dict[str, str]:
+    def _load_cik_map(self) -> dict[str, str]:
         """Load ticker -> CIK mapping from SEC (cached locally)."""
         mapping_file = Path("./data_cache/cik_ticker.json")
         if mapping_file.exists():
@@ -188,7 +188,7 @@ class SecEdgarSource:
         return {}
 
     @with_retry(max_retries=2, base_delay=1.0, rate_limit_per_sec=5)
-    def get_fundamentals(self, ticker: str, as_of_date: datetime) -> Dict:
+    def get_fundamentals(self, ticker: str, as_of_date: datetime) -> dict:
         """Return fundamental data known before as_of_date."""
         cik = self._ticker_to_cik.get(ticker.upper())
         if not cik:
@@ -240,7 +240,7 @@ class YFinanceSource:
             raise ImportError("yfinance not installed")
 
     @with_retry(max_retries=2, base_delay=1.0, rate_limit_per_sec=2)
-    def get_fundamentals(self, ticker: str, as_of_date: datetime) -> Dict:
+    def get_fundamentals(self, ticker: str, as_of_date: datetime) -> dict:
         """Return latest fundamentals (not point‑in‑time)."""
         cache_key = f"yf_fund_{ticker}"
         cached = self.cache.get(cache_key, source="yfinance")
@@ -263,7 +263,7 @@ class YFinanceSource:
             financials = stock.financials
             if not financials.empty:
                 result['net_income'] = financials.loc['Net Income'].iloc[0] if 'Net Income' in financials.index else None
-        except:
+        except Exception:
             pass
         self.cache.set(cache_key, result, source="yfinance")
         return result
@@ -379,7 +379,7 @@ class RedundantDataFetcher:
         # Macro
         self.macro = MacroSource(self.config.macro_csv_path)
 
-    def fetch_fundamentals(self, ticker: str, as_of_date: datetime) -> Dict:
+    def fetch_fundamentals(self, ticker: str, as_of_date: datetime) -> dict:
         for src_name in self.config.fundamental_sources:
             src_key = src_name if src_name != 'yfinance' else 'yfinance_fund'
             src = self.sources.get(src_key)

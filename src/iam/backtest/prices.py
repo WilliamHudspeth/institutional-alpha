@@ -4,7 +4,6 @@ Loads price data via RedundantDataFetcher, computing forward returns on the fly.
 """
 
 from typing import TYPE_CHECKING
-from datetime import datetime
 
 import pandas as pd
 import polars as pl
@@ -37,43 +36,43 @@ def load_price_block(config: "BacktestConfig") -> pl.DataFrame:
         tickers = []
 
     fetcher = RedundantDataFetcher()
-    
+
     start_dt = pd.to_datetime(config.start)
     horizon = getattr(config, "horizon_days", 21)
     all_horizons = sorted(set(getattr(config, "horizons_days", []) + [horizon]))
     max_horizon = max(all_horizons) if all_horizons else horizon
-    
+
     # We fetch extra days to compute forward returns
     end_dt = pd.to_datetime(config.end)
     end_with_horizon = (end_dt + pd.Timedelta(days=max_horizon + 15)).to_pydatetime()
-    
+
     rows = []
     for ticker in tickers:
         prices = fetcher.fetch_price_history(ticker, start_dt.to_pydatetime(), end_with_horizon)
         if prices.empty:
             continue
-            
+
         df = prices.reset_index()
         # the fetched prices might have "Date" or "index", reset_index usually names it "index" or "Date"
         df.columns = ["date", "close"]
         df["ticker"] = ticker
-        
+
         # Convert date column to string just to be safe during dict conversion
         df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
-        
+
         rows.extend(df.to_dict("records"))
 
     if not rows:
         raise ValueError("No price data found for the given universe and date range.")
 
     df_pl = pl.DataFrame(rows)
-    
+
     # Ensure correct typing
     df_pl = df_pl.with_columns([
         pl.col("date").str.to_date("%Y-%m-%d"),
         pl.col("close").cast(pl.Float64)
     ])
-    
+
     df_pl = df_pl.sort(["ticker", "date"])
 
     horizon_exprs = [

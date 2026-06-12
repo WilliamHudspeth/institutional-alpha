@@ -10,11 +10,7 @@ Usage:
     python -m iam.learning_module --mode markdown > concepts.md
 """
 
-import json
 import random
-import sys
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 try:
     from iam.concept_library_expanded import EXPANDED_CONCEPTS
@@ -411,7 +407,7 @@ class LearningModule:
 {c['code_ref']}
 """
 
-    def run_quiz(self, num_questions: int = None) -> Tuple[int, int]:
+    def run_quiz(self, num_questions: int = None) -> tuple[int, int]:
         """Run interactive quiz, return (score, total)."""
         qs = self.questions
         if num_questions and num_questions < len(qs):

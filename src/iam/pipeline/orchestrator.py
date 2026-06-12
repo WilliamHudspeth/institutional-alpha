@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from iam.data.macro import MacroConditions
 from iam.data.security import Security
+from iam.engine.market_implied import MarketImpliedEngine
 from iam.pipeline.macro import MacroOverlay
 from iam.pipeline.verdict import VerdictGenerator, VerdictResult
 from iam.valuation import (
@@ -15,7 +16,6 @@ from iam.valuation import (
     Triangulator,
     ValuationResult,
 )
-from iam.engine.market_implied import MarketImpliedEngine
 
 
 def format_assumption_table(

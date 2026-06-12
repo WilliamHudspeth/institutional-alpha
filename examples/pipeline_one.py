@@ -7,7 +7,7 @@ Run from repo root after `pip install -e .`:
     python examples/pipeline_one.py
 """
 
-from iam import Security, Fundamentals, MarketData, ValuationPipeline
+from iam import Fundamentals, MarketData, Security, ValuationPipeline
 
 
 def main() -> None:

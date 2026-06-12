@@ -14,14 +14,14 @@ from iam.analytics.attribution import AttributionEngine
 from iam.analytics.regime import RegimeDetector, RegimeIndicators
 from iam.portfolio import (
     Portfolio,
-    Position,
     PortfolioAnalyzer,
     PortfolioVerdictEngine,
+    Position,
 )
 from iam.thesis.bayesian.evidence import Evidence, ScenarioLikelihood
+from iam.thesis.bayesian.priors import ScenarioPrior
 from iam.thesis.bayesian.thesis import ThesisBuilder
 from iam.thesis.bayesian.updater import BayesianUpdater
-from iam.thesis.bayesian.priors import ScenarioPrior
 from iam.ui.sparklines import Sparkline, format_price_movement
 
 
@@ -141,7 +141,7 @@ def main() -> None:
 
     for ticker, security_data in securities_data.items():
         # Run pipeline
-        pipeline_output = create_valuation_output(security_data)
+        create_valuation_output(security_data)
 
         # Create thesis
         thesis = (

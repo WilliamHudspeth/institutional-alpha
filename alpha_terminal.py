@@ -30,12 +30,12 @@ from __future__ import annotations
 import atexit
 import json
 import os
-import re
-import sys
-import time
 import random
+import re
 import shutil
+import sys
 import threading
+import time
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -76,8 +76,8 @@ else:
 
 # ── IAM package imports (optional — graceful mock fallback) ───────────────
 try:
-    from iam.data.yahoo import fetch_security as _fetch_security
     from iam import score as _score
+    from iam.data.yahoo import fetch_security as _fetch_security
     from iam.pipeline.orchestrator import ValuationPipeline as _Pipeline
 
     _IAM_CORE = True
@@ -85,14 +85,14 @@ except ImportError:
     _IAM_CORE = False
 
 try:
-    from iam.ui.sparklines import Sparkline, ProgressBar, MiniChart
+    from iam.ui.sparklines import MiniChart, ProgressBar, Sparkline
 
     _IAM_SPARKLINES = True
 except ImportError:
     _IAM_SPARKLINES = False
 
 try:
-    from iam.portfolio.ui import format_holdings_table, format_factor_exposure_heatmap
+    from iam.portfolio.ui import format_factor_exposure_heatmap, format_holdings_table  # noqa: F401
 
     _IAM_PORTFOLIO = True
 except ImportError:
@@ -470,7 +470,7 @@ class _Panel:
     ) -> None:
         pass
 
-    def _loading(self, cv: Canvas, r0: int, r1: int, c0: int, c1: int, ticker: str) -> None:
+    def _loading(self, cv: Canvas, r0: int, r1: int, c0: int, c1: int, ticker: str, ticks: int = 0) -> None:
         mid = (r0 + r1) // 2
         sp = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"[ticks % 10]
         msg = f" {sp}  Fetching {ticker}… "
@@ -501,7 +501,7 @@ class WatchlistPanel(_Panel):
         sec: SecState | None,
         ticks: int = 0,
     ) -> None:
-        w = c1 - c0
+        c1 - c0
         cv.put(r0, c0 + 1, f"{'TICKER':<6} {'PRICE':>10}  {'CHG':>7}  {'TREND':>5}  SPARKLINE", C_DIM)
         cv.hline(r0 + 1, c0, c1)
 
@@ -555,7 +555,7 @@ class QuickRecPanel(_Panel):
         if not sec:
             return
         if sec.loading:
-            self._loading(cv, r0, r1, c0, c1, sec.ticker)
+            self._loading(cv, r0, r1, c0, c1, sec.ticker, ticks)
             return
 
         rating = sec.rating
@@ -604,7 +604,7 @@ class QuickRecPanel(_Panel):
             cv.put(r0 + 12, c0 + 2, msg, C_YELLOW)
 
         if sec.error:
-            cv.put(r0 + 14, c0 + 2, f"⚠ Live fetch failed — using mock data", C_RED + DIM)
+            cv.put(r0 + 14, c0 + 2, "⚠ Live fetch failed — using mock data", C_RED + DIM)
 
 
 # ── Deep Valuation ────────────────────────────────────────────────────────
@@ -636,7 +636,7 @@ class DeepValPanel(_Panel):
         if not sec:
             return
         if sec.loading:
-            self._loading(cv, r0, r1, c0, c1, sec.ticker)
+            self._loading(cv, r0, r1, c0, c1, sec.ticker, ticks)
             return
 
         cv.put(r0, c0 + 1, "7-Stage Valuation Pipeline", C_ACCENT + BOLD)
@@ -709,7 +709,7 @@ class FactorPanel(_Panel):
         if not sec:
             return
         if sec.loading:
-            self._loading(cv, r0, r1, c0, c1, sec.ticker)
+            self._loading(cv, r0, r1, c0, c1, sec.ticker, ticks)
             return
 
         sr = sec.score_result
@@ -742,9 +742,9 @@ class FactorPanel(_Panel):
             cv.put(r, c0 + 1, f"{label:<22}", C_WHITE)
             cv.put(r, c0 + 24, f"{val:>+5.3f}", val_col)
             cv.put(r, c0 + 31, f"{conf:.0%}", conf_col)
-            cv.put(r, c0 + 36, f"[", C_DIM)
+            cv.put(r, c0 + 36, "[", C_DIM)
             cv.put(r, c0 + 37, bar, val_col)
-            cv.put(r, c0 + 49, f"]", C_DIM)
+            cv.put(r, c0 + 49, "]", C_DIM)
 
 
 # ── Scenario & Thesis ─────────────────────────────────────────────────────
@@ -766,7 +766,7 @@ class ScenarioPanel(_Panel):
         if not sec:
             return
         if sec.loading:
-            self._loading(cv, r0, r1, c0, c1, sec.ticker)
+            self._loading(cv, r0, r1, c0, c1, sec.ticker, ticks)
             return
 
         price = sec.price or 150.0
@@ -1310,7 +1310,7 @@ class AlphaTerminal:
                 print(f"\n  {C_RED}⚠  Could not resolve '{raw}' to a valid ticker.{RESET}")
         else:
             print(f"\n  {C_DIM}No input — keeping {self._active}.{RESET}")
-        print(f"\n  Press any key to return...")
+        print("\n  Press any key to return...")
         sys.stdout.flush()
         sys.stdout.write(CURSOR_HIDE)
         _getch_block()
@@ -1339,7 +1339,7 @@ class AlphaTerminal:
             print(f"\n  {C_YELLOW}⚠ {raw} already in watchlist.{RESET}")
         else:
             print(f"\n  {C_DIM}No change.{RESET}")
-        print(f"\n  Press any key...")
+        print("\n  Press any key...")
         sys.stdout.write(CURSOR_HIDE)
         _getch_block()
         if sys.platform != "win32":

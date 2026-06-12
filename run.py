@@ -11,12 +11,12 @@ Run from the repo root:
 from __future__ import annotations
 
 import sys
-from typing import Any, Optional
+from typing import Any
 
 from iam.validation import parse_growth_rate
 
 
-def _classify_signal(upside: Optional[float], threshold: float = 0.05) -> str:
+def _classify_signal(upside: float | None, threshold: float = 0.05) -> str:
     """Map a fractional upside to BULLISH / NEUTRAL / BEARISH."""
     if upside is None:
         return "N/A"
@@ -54,13 +54,13 @@ def _scenario_thesis(name: str) -> str:
     return "Anchor assumptions"
 
 
-def _gather_lens_results(security) -> tuple[Optional[float], Optional[str]]:
+def _gather_lens_results(security) -> tuple[float | None, str | None]:
     """Run the multi-lens engine silently. Returns (synthesis_upside, error)."""
     try:
-        from iam.lenses.rate_sensitive import RateSensitiveLens
-        from iam.lenses.platform_compounder import PlatformCompounderLens
-        from iam.lenses.expectations_difficulty import ExpectationsDifficultyLens
         from iam.engine.damodaran import DamodaranEngine
+        from iam.lenses.expectations_difficulty import ExpectationsDifficultyLens
+        from iam.lenses.platform_compounder import PlatformCompounderLens
+        from iam.lenses.rate_sensitive import RateSensitiveLens
         from iam.lenses.synthesis import synthesize_lenses
 
         lens_results = [
@@ -90,7 +90,7 @@ def _gather_business_reality(security):
         return None, str(exc)
 
 
-def _gather_pipeline_report(security, synthesis_upside: Optional[float]):
+def _gather_pipeline_report(security, synthesis_upside: float | None):
     """Run the 7-stage pipeline silently. Returns (report, error)."""
     try:
         from iam.pipeline.orchestrator import ValuationPipeline
@@ -104,7 +104,7 @@ def _gather_pipeline_report(security, synthesis_upside: Optional[float]):
 def _build_ui_data(
     security,
     growth: float,
-    synthesis_upside: Optional[float],
+    synthesis_upside: float | None,
     report,
 ) -> dict[str, Any]:
     """Assemble the dict consumed by print_institutional_ui()."""

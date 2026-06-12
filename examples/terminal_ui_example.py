@@ -7,7 +7,7 @@ Shows how to:
 3. Display results using the institutional ASCII UI
 """
 
-from iam.data.security import Security, Fundamentals, MarketData
+from iam.data.security import Fundamentals, MarketData, Security
 from iam.pipeline.orchestrator import ValuationPipeline
 from iam.ui import print_institutional_ui, print_pipeline_summary
 

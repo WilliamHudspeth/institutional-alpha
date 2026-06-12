@@ -133,7 +133,7 @@ class TestInformationCoefficientWithSector:
         # Without sector: should be 0 (offsetting)
         global_ic = information_coefficient(df)
         # With sector: A has IC=1, B has IC=-1, weighted avg should be 0
-        sector_ic = information_coefficient(df, sector_col="sector")
+        information_coefficient(df, sector_col="sector")
         # Both compute differently but global is approximately 0 here
         assert abs(global_ic) < 0.5
 

@@ -5,7 +5,7 @@ Run from the repo root after `pip install -e .`:
     python examples/score_one.py
 """
 
-from iam import Security, Fundamentals, MarketData, MacroContext, score
+from iam import Fundamentals, MacroContext, MarketData, Security, score
 
 
 def main() -> None:

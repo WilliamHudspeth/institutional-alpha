@@ -13,8 +13,8 @@ expectations vector into a [-1, 1] cross-sectional score.
 from __future__ import annotations
 
 from iam.data.security import Security
-from iam.factors.base import Factor, FactorContribution
 from iam.engine.market_implied import MarketImpliedEngine
+from iam.factors.base import Factor, FactorContribution
 
 
 class ExpectationsDifficultyFactor(Factor):

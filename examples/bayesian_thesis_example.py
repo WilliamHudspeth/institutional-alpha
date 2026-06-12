@@ -16,7 +16,6 @@ from iam.thesis.bayesian.priors import ScenarioPrior
 from iam.thesis.bayesian.ui import (
     ThesisTimeline,
     format_bayesian_update_full,
-    format_scenario_migration,
 )
 from iam.thesis.bayesian.updater import BayesianUpdater
 

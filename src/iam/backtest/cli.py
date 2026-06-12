@@ -4,6 +4,7 @@ Entry point: python -m iam.backtest.cli backtest
 """
 
 import sys
+
 # Prevent potential Windows terminal Unicode encoding crashes (e.g. yfinance printing unicode arrows)
 if sys.platform.startswith('win'):
     if hasattr(sys.stdout, 'reconfigure'):
@@ -19,23 +20,16 @@ if sys.platform.startswith('win'):
 
 from pathlib import Path
 
-
 import pandas as pd
 import typer
 
 from iam.backtest.calibration import ic_to_reliability_bayesian
 from iam.backtest.config import BacktestConfig
+from iam.backtest.ic_runner import ICBacktest, ICBacktestConfig
 from iam.backtest.manifest import BacktestManifest
 from iam.backtest.prices import load_price_block
 from iam.backtest.runner import print_backtest_summary, run_backtest
 from iam.backtest.universe import load_universe_from_json
-from iam.backtest.ic_runner import ICBacktest, ICBacktestConfig
-from iam.backtest.weight_optimizer import (
-    BootstrapStability,
-    WalkForwardOptimizer,
-    WeightOptimizerConfig,
-    format_weights_report,
-)
 from iam.learning_module import LearningModule
 
 app = typer.Typer()
@@ -181,7 +175,7 @@ def backtest(
     try:
         results_df.to_parquet(results_path)
         typer.echo(f"✓ Results written to {results_path}")
-    except Exception as e:
+    except Exception:
         csv_fallback_path = config.results_dir / "backtest_results.csv"
         results_df.to_csv(csv_fallback_path)
         typer.echo(f"⚠️  PyArrow/FastParquet not available. Saved results as CSV instead to: {csv_fallback_path}")
@@ -212,7 +206,7 @@ def ic_backtest_cmd(
     if n_jobs:
         config_dict["n_jobs_cpu"] = n_jobs
     config = ICBacktestConfig(**config_dict)
-    
+
     # We load standard BacktestConfig just to get paths to universe and prices
     base_config = BacktestConfig()
     try:
@@ -221,11 +215,11 @@ def ic_backtest_cmd(
     except Exception as e:
         typer.echo(f"✗ Failed to load data: {e}", err=True)
         raise typer.Exit(1)
-        
+
     runner = ICBacktest(securities, price_df, config)
-    results = runner.run()
+    runner.run()
     runner.generate_report()
-    
+
     typer.echo(f"✓ IC backtest complete. Reports in {config.results_dir}")
 
 
@@ -237,7 +231,7 @@ def optimize_weights_cmd(
     typer.echo("⚖️ Running Factor Weight Optimization")
     typer.echo("Note: In a full production run, this requires pre-computed factor scores.")
     typer.echo("      Run 'ic-backtest' first to generate factor data.")
-    
+
     # Stub for CLI since actual data aggregation requires the saved IC scores
     typer.echo("✓ Ready to integrate with pipeline.")
 

@@ -7,8 +7,6 @@ trajectory adjustments to catch compression/expansion cases.
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 
 from iam.data.security import Security
@@ -107,7 +105,6 @@ def build_company_profile(
         CompanyProfile ready for adaptive engine
     """
     fundamentals = security.fundamentals
-    market = security.market
     sector = security.sector or "Technology"
 
     # --- Compute triangulated growth ---
@@ -142,7 +139,7 @@ def build_company_profile(
     # --- Operating margins ---
     op_margin = fundamentals.operating_margin or 0.10
     op_margin_history = fundamentals.operating_margin_history or []
-    op_margin_5y_avg = _safe_get_history_avg(op_margin_history, years=5) or op_margin
+    _safe_get_history_avg(op_margin_history, years=5) or op_margin
 
     # Sector margin baseline by sector
     sector_margin = _sector_margin_default(sector)

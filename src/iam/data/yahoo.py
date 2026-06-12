@@ -19,7 +19,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from iam.data.security import Security
+    from iam.valuation.multiples_regression import RegressionInputs
 
 logger = logging.getLogger(__name__)
 

@@ -73,20 +73,20 @@ def _fetch_snapshot_data(
     # Fetch a small window of prices to handle weekends/holidays
     start_dt = as_of_dt - pd.Timedelta(days=7)
     prices = fetcher.fetch_price_history(ticker, start_dt, as_of_dt)
-    
+
     if prices.empty:
         raise ValueError(f"No price data available for {ticker} around {as_of}")
-        
+
     valid_prices = prices[prices.index <= as_of_dt]
     if valid_prices.empty:
         raise ValueError(f"No valid price data on or before {as_of} for {ticker}")
-        
+
     price = float(valid_prices.iloc[-1])
-    
+
     fundamentals = fetcher.fetch_fundamentals(ticker, as_of_dt)
     # Map Liabilities or totalDebt depending on what's available
     debt = float(fundamentals.get('Liabilities', fundamentals.get('totalDebt', 0.0)))
-    
+
     return price, debt
 
 
@@ -118,7 +118,7 @@ def build_snapshot(
     src = fetcher if fetcher is not None else get_default_fetcher()
     try:
         price, debt = _fetch_snapshot_data(ticker, as_of_dt, src)
-    except Exception as e:
+    except Exception:
         # Fallback to base or nan
         price = float('nan')
         debt = 0.0

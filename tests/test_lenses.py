@@ -3,8 +3,8 @@
 import pytest
 
 from iam.data.security import Fundamentals, MacroContext, MarketData, Security
-from iam.lenses.base import LensResult
 from iam.engine.damodaran import DamodaranEngine
+from iam.lenses.base import LensResult
 from iam.lenses.expectations_difficulty import ExpectationsDifficultyLens
 from iam.lenses.platform_compounder import PlatformCompounderLens
 from iam.lenses.rate_sensitive import RateSensitiveLens

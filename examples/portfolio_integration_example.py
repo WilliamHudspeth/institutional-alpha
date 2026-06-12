@@ -11,13 +11,12 @@ Shows complete workflow:
 
 from iam.portfolio import (
     Portfolio,
-    Position,
     PortfolioAnalyzer,
+    Position,
     PositionSizer,
     format_concentration_warnings,
 )
 from iam.portfolio.verdicts import PortfolioVerdictEngine
-
 
 # Sample securities with verdicts
 securities = {

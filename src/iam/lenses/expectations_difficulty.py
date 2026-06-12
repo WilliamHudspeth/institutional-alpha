@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from iam.data.security import Security
-from iam.lenses.base import BaseLens, LensResult
 from iam.engine.market_implied import MarketImpliedEngine
+from iam.lenses.base import BaseLens, LensResult
 
 
 class ExpectationsDifficultyLens(BaseLens):

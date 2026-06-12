@@ -10,8 +10,8 @@ composite scores and forward returns. All optimizations enforce:
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable
 
 import numpy as np
 import pandas as pd
@@ -259,17 +259,17 @@ class WalkForwardOptimizer:
 
         window_weights = []
         window_oos_ics = []
-        
+
         step = self.config.test_window_months
         n = len(dates)
-        
+
         for i in range(0, n - self.config.train_window_months - self.config.test_window_months + 1, step):
             train_dates = dates[i : i + self.config.train_window_months]
             test_dates = dates[i + self.config.train_window_months : i + self.config.train_window_months + self.config.test_window_months]
-            
+
             train_scores = [factor_scores_by_date[d] for d in train_dates if d in factor_scores_by_date]
             train_rets = [returns_by_date[d] for d in train_dates if d in returns_by_date]
-            
+
             w_opt = optimize_weights(
                 train_scores,
                 train_rets,
@@ -279,10 +279,10 @@ class WalkForwardOptimizer:
                 max_iter=self.config.max_iter,
                 tol=self.config.tol,
             )
-            
+
             test_scores = [factor_scores_by_date[d] for d in test_dates if d in factor_scores_by_date]
             test_rets = [returns_by_date[d] for d in test_dates if d in returns_by_date]
-            
+
             ics = []
             for scores, rets in zip(test_scores, test_rets):
                 if len(rets) < 2:
@@ -293,7 +293,7 @@ class WalkForwardOptimizer:
                 ic = np.corrcoef(comp, rets)[0, 1]
                 if not np.isnan(ic):
                     ics.append(ic)
-                    
+
             if ics:
                 window_oos_ics.append(float(np.mean(ics)))
                 window_weights.append(w_opt)
@@ -344,18 +344,18 @@ class BootstrapStability:
 
         n = len(dates)
         weights = []
-        
-        # Use a local RandomState for reproducible bootstrap if seeded globally, 
+
+        # Use a local RandomState for reproducible bootstrap if seeded globally,
         # but standard random choice works fine too.
         rng = np.random.RandomState()
-        
+
         for _ in range(self.config.n_bootstrap):
             idx = rng.choice(n, size=n, replace=True)
             sampled_dates = [dates[i] for i in idx]
-            
+
             scores = [factor_scores_by_date[d] for d in sampled_dates if d in factor_scores_by_date]
             rets = [returns_by_date[d] for d in sampled_dates if d in returns_by_date]
-            
+
             w = optimize_weights(
                 scores,
                 rets,
@@ -366,7 +366,7 @@ class BootstrapStability:
                 tol=self.config.tol,
             )
             weights.append(w)
-            
+
         if not weights:
             return BootstrapResult(
                 status="failed: bootstrap optimization failed",
@@ -375,17 +375,17 @@ class BootstrapStability:
                 coefficient_of_variation=np.array([]),
                 weight_names=self.config.factor_names,
             )
-            
+
         weights_arr = np.array(weights)
         robust_w = np.median(weights_arr, axis=0)
         if np.sum(robust_w) > 0:
             robust_w /= np.sum(robust_w)
-            
+
         w_std = np.std(weights_arr, axis=0)
         cv = np.zeros_like(w_std)
         mask = robust_w > 1e-6
         cv[mask] = w_std[mask] / robust_w[mask]
-        
+
         return BootstrapResult(
             status="success",
             robust_weights=robust_w,
@@ -413,17 +413,17 @@ class RegimeOptimizer:
             if r not in regime_to_dates:
                 regime_to_dates[r] = []
             regime_to_dates[r].append(d)
-            
+
         regime_weights = {}
         regime_counts = {}
-        
+
         for r, r_dates in regime_to_dates.items():
             scores = [factor_scores_by_date[d] for d in r_dates if d in factor_scores_by_date]
             rets = [returns_by_date[d] for d in r_dates if d in returns_by_date]
-            
+
             if len(scores) < 3:
                 continue
-                
+
             w = optimize_weights(
                 scores,
                 rets,
@@ -435,9 +435,9 @@ class RegimeOptimizer:
             )
             regime_weights[r] = w
             regime_counts[r] = len(r_dates)
-            
+
         status = "success" if regime_weights else "failed: no regimes had enough data"
-        
+
         return RegimeResult(
             status=status,
             regime_weights=regime_weights,

@@ -11,8 +11,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from iam.version import VERSION
-
 WIDTH = 80
 RULE = "═" * WIDTH
 THIN_RULE = "─" * WIDTH
@@ -116,11 +114,11 @@ def print_institutional_ui(data: dict[str, Any]) -> None:
     # 1. Structured retro system HUD header
     print()
     print("┌" + "─" * 78 + "┐")
-    print(f"│  ALPHA-TERMINAL // SYSTEM ACTIVE // COGNITIVE QUANTITATIVE MULTI-FACTOR ENGINE│")
+    print("│  ALPHA-TERMINAL // SYSTEM ACTIVE // COGNITIVE QUANTITATIVE MULTI-FACTOR ENGINE│")
     print(f"│  SECURITY: {ticker:<10} NAME: {name:<26} STATUS: ONLINE         │")
     print("└" + "─" * 78 + "┘")
     print(RULE)
-    print(f"║  [ EXECUTIVE DECISION SHEET ]".ljust(WIDTH - 1) + "║")
+    print("║  [ EXECUTIVE DECISION SHEET ]".ljust(WIDTH - 1) + "║")
     print(RULE)
     print(f"   • Current Spot Price : {_fmt_currency(price):<18} • consensus rating   : {verdict}")
     print(
@@ -135,7 +133,7 @@ def print_institutional_ui(data: dict[str, Any]) -> None:
     terminal = data.get("terminal", "—")
     synthesis = data.get("synthesis")
 
-    print(f"║  [ CORE FORECAST METRIC PROFILE ]".ljust(WIDTH - 1) + "║")
+    print("║  [ CORE FORECAST METRIC PROFILE ]".ljust(WIDTH - 1) + "║")
     print(THIN_RULE)
     print(f"   Forecast Growth : {growth:<15} Discount Rate (WACC)   : {wacc}")
     print(f"   Terminal Growth : {terminal:<15} Consensus Synthesis     : {synthesis or 'N/A'}")
@@ -153,14 +151,14 @@ def print_institutional_ui(data: dict[str, Any]) -> None:
         kd_str = _fmt_pct_signed(kd_val) if kd_val is not None else "—"
         spread_str = _fmt_pct_signed(spread_val) if spread_val is not None else "—"
 
-        print(f"║  [ QUANTITATIVE COST OF CAPITAL DETAIL ]".ljust(WIDTH - 1) + "║")
+        print("║  [ QUANTITATIVE COST OF CAPITAL DETAIL ]".ljust(WIDTH - 1) + "║")
         print(THIN_RULE)
         print(f"   Cost of Equity (Ke)  : {ke_str:<10} Cost of Debt (Kd)    : {kd_str}")
         print(f"   Credit Risk Rating   : {rating_val:<10} Corporate Spread     : {spread_str}")
         print(THIN_RULE)
 
     # 3. Implied Move Gauge
-    print(f"║  [ consensus IMPLIED DIRECTION GAUGE ]".ljust(WIDTH - 1) + "║")
+    print("║  [ consensus IMPLIED DIRECTION GAUGE ]".ljust(WIDTH - 1) + "║")
     print(THIN_RULE)
     print(_draw_move_meter(move_pct))
     print(THIN_RULE)
@@ -172,7 +170,7 @@ def print_institutional_ui(data: dict[str, Any]) -> None:
     bull_val = 0.0
 
     if scenarios:
-        print(f"║  [ PROBABILISTIC SCENARIO WEIGHT MATRIX ]".ljust(WIDTH - 1) + "║")
+        print("║  [ PROBABILISTIC SCENARIO WEIGHT MATRIX ]".ljust(WIDTH - 1) + "║")
         print(THIN_RULE)
         print(
             f"   {'SCENARIO CASE':<16} {'WEIGHT':<8} {'TARGET VALUE':<16} {'IMPLIED RETURN':<16} THESIS"
@@ -203,7 +201,7 @@ def print_institutional_ui(data: dict[str, Any]) -> None:
 
     # 5. Dynamic Valuation ASCII Range Slider
     if bear_val > 0 and bull_val > 0:
-        print(f"║  [ SCENARIO VALUATION BOUNDARY GAUGE ]".ljust(WIDTH - 1) + "║")
+        print("║  [ SCENARIO VALUATION BOUNDARY GAUGE ]".ljust(WIDTH - 1) + "║")
         print(THIN_RULE)
         print(_draw_valuation_graph(price, bear_val, base_val, bull_val, pwev))
         print(THIN_RULE)
@@ -211,7 +209,7 @@ def print_institutional_ui(data: dict[str, Any]) -> None:
     # 6. Component Diagnostic Signals
     signals = data.get("signals", {})
     if signals:
-        print(f"║  [ MULTI-LENS DIAGNOSTIC INTERMEDIARY SIGNALS ]".ljust(WIDTH - 1) + "║")
+        print("║  [ MULTI-LENS DIAGNOSTIC INTERMEDIARY SIGNALS ]".ljust(WIDTH - 1) + "║")
         print(THIN_RULE)
         for engine, signal in signals.items():
             label = str(engine).replace("_", " ").title()
@@ -231,7 +229,7 @@ def print_pipeline_summary(
 
     print()
     print("┌" + "─" * 78 + "┐")
-    print(f"│  ALPHA-TERMINAL // SYSTEM DIAGNOSTIC COMPILATION PROCESS COMPLETE            │")
+    print("│  ALPHA-TERMINAL // SYSTEM DIAGNOSTIC COMPILATION PROCESS COMPLETE            │")
     print("└" + "─" * 78 + "┘")
     print(RULE)
     print(f"║  [ {ticker.upper()} VALUATION PIPELINE COMPLETE STATS ]".ljust(WIDTH - 1) + "║")
@@ -257,13 +255,13 @@ def print_bayesian_update_summary(
     """Render an immersive retro Bayesian inference update log."""
     print()
     print("┌" + "─" * 78 + "┐")
-    print(f"│  ALPHA-TERMINAL // BAYESIAN PROBABILISTIC INTERPRETATION MATRIX MODULE       │")
+    print("│  ALPHA-TERMINAL // BAYESIAN PROBABILISTIC INTERPRETATION MATRIX MODULE       │")
     print(
         f"│  TICKER: {ticker.upper():<10} EVENT TYPE: {evidence_type:<20} RELIABILITY: {evidence_reliability * 100:.0f}%      │"
     )
     print("└" + "─" * 78 + "┘")
     print(RULE)
-    print(f"║  [ COGNITIVE PROBABILITY DISTRIBUTION SHIFT DIAGNOSTIC ]".ljust(WIDTH - 1) + "║")
+    print("║  [ COGNITIVE PROBABILITY DISTRIBUTION SHIFT DIAGNOSTIC ]".ljust(WIDTH - 1) + "║")
     print(RULE)
     print(
         f"   {'SCENARIO CASE':<20} {'PRIOR WEIGHT':>15} {'POSTERIOR WEIGHT':>20} {'NET DEVIATION':>15}"
@@ -276,7 +274,6 @@ def print_bayesian_update_summary(
         change = p_posterior - p_prior
 
         # Generate a mini retro indicator bar showing the direction of weight shift
-        bar = "════"
         if change > 0.02:
             bar_indicator = "   ═►"
         elif change < -0.02:

@@ -1,4 +1,3 @@
-import os
 
 with open('pyproject.toml', 'a') as f:
     f.write('\n[tool.coverage.run]\n')

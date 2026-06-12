@@ -41,7 +41,6 @@ class VerdictGenerator:
             synthesis_upside: Optional weighted upside from multi-lens synthesis
         """
         notes = []
-        pipeline_upside = triangulation.cluster_center or 0.0
         arbitration = None
         blended_upside = None
 

@@ -12,7 +12,6 @@ Output: results_df.csv, calibrated_reliabilities.json
 
 import json
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -62,9 +61,9 @@ def main():
     horizon_days = 63
     score_field = "cost_of_equity"
 
-    print(f"Universe:        S&P 100 (static, frozen 2024-12-31)")
+    print("Universe:        S&P 100 (static, frozen 2024-12-31)")
     print(f"Period:          {start_date} to {end_date}")
-    print(f"Frequency:       Monthly (month-end)")
+    print("Frequency:       Monthly (month-end)")
     print(f"Horizon:         {horizon_days} days forward return")
     print(f"Score Field:     {score_field}")
     print()
@@ -98,7 +97,7 @@ def main():
             score_field=score_field,
         )
 
-        print(f"  ✓ Backtest completed")
+        print("  ✓ Backtest completed")
         print(f"  Results shape: {results_df.shape}")
         print(f"  Date range: {results_df.index.min()} to {results_df.index.max()}")
         print()

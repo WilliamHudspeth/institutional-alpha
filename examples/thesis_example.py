@@ -1,6 +1,8 @@
 """Demonstrates attaching bull/bear theses to a Security and calling show_spread()."""
 
 from iam.data.security import Assumption, Security, Thesis, show_spread
+from iam.thesis.bayesian.evidence import Evidence, ScenarioLikelihood
+from iam.thesis.bayesian.priors import ScenarioPrior
 from iam.thesis.engine import ThesisEngine
 
 sec = Security(
@@ -41,7 +43,7 @@ print(engine.render_report(evaluation, current_price=120.0))
 
 print("\n--- Programmatic Simulation Engine Output ---")
 # Mock a valuation function that behaves like your Intrinsic DCF stage.
-# In the real app, you'd inject something like: 
+# In the real app, you'd inject something like:
 # `lambda s: FCFEDCF().compute(s).fair_value_per_share`
 def mock_intrinsic_dcf(s: Security) -> float:
     qualitative = s.qualitative or {}
@@ -59,18 +61,14 @@ print(show_spread(sec))
 
 print("\n--- Sensitivity Analysis Output ---")
 sensitivity_results = engine.calculate_sensitivity(
-    sec, 
-    valuation_fn=mock_intrinsic_dcf, 
-    assumption_name="revenue_growth_5y", 
+    sec,
+    valuation_fn=mock_intrinsic_dcf,
+    assumption_name="revenue_growth_5y",
     perturbation=0.10
 )
 print(engine.render_sensitivity_report(sensitivity_results, "revenue_growth_5y", 0.10))
 
 print("\n=== Bayesian Updating Example ===")
-
-from iam.thesis.bayesian.priors import ScenarioPrior
-from iam.thesis.bayesian.evidence import Evidence, ScenarioLikelihood
-
 # 1. Establish Prior Beliefs
 priors = [
     ScenarioPrior("Bull", 0.30),

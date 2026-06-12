@@ -17,9 +17,8 @@ Bayesian shrinkage: posterior = (Sum w_i * g_i) / (Sum w_i + tau_prior)
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
-from typing import Literal, Optional
+from typing import Literal
 
 import numpy as np
 
