@@ -125,4 +125,3 @@ class IntrinsicValueFactor(Factor):
         if fcf_yield is None:
             return None
         return self.clamp((fcf_yield - 0.035) / 0.04)
-

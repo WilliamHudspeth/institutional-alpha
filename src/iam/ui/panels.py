@@ -68,7 +68,6 @@ class DecisionSheetPanel(BasePanel):
         security = state.active_security
         lines = []
         rule = "═" * self.width
-        "─" * self.width
 
         lines.append(rule)
         lines.append("║  [ EXECUTIVE DECISION SHEET ]".ljust(self.width - 1) + "║")
@@ -104,7 +103,6 @@ class ForecastMetricsPanel(BasePanel):
 
         security = state.active_security
         lines = []
-        "═" * self.width
         thin_rule = "─" * self.width
 
         lines.append("║  [ CORE FORECAST METRIC PROFILE ]".ljust(self.width - 1) + "║")
@@ -151,7 +149,6 @@ class ScenarioMatrixPanel(BasePanel):
 
         security = state.active_security
         lines = []
-        "═" * self.width
         thin_rule = "─" * self.width
 
         lines.append("║  [ PROBABILISTIC SCENARIO WEIGHT MATRIX ]".ljust(self.width - 1) + "║")

@@ -56,7 +56,7 @@ def market_value_of_debt(
         return book_debt
     discount_factor = (1.0 + market_rate) ** -maturity
     annuity_factor = (1.0 - discount_factor) / market_rate
-    return interest_expense * annuity_factor + book_debt * discount_factor
+    return float(interest_expense * annuity_factor + book_debt * discount_factor)
 
 
 def get_yahoo_beta(security: Security) -> float:

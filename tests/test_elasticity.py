@@ -2,12 +2,11 @@
 
 Two tiers:
 
-  * ``TestMathUtils`` exercises the implemented pure-math helpers. These pass
-    today and pin the numeric primitives.
+  * ``TestMathUtils`` exercises the pure-math helpers and pins the numeric
+    primitives.
   * The scorer/engine tests encode the implementation spec from the class
-    docstrings. They fail (NotImplementedError) until the framework stubs in
-    ``iam.elasticity.{durability,elasticity,stress}`` are implemented. Make
-    them green without changing the public type signatures.
+    docstrings in ``iam.elasticity.{durability,elasticity,stress}``. Keep them
+    green; do not change the public type signatures without updating them.
 
 Expected values are derived with the same shared helpers the implementation
 must use (``two_stage_pv``, ``math_utils``) so the assertions stay exact.
@@ -259,8 +258,12 @@ class TestDurabilityStressEngine:
         change = _expected_pv(0.03, 0.095, fcfe0) / _expected_pv(0.08, 0.09, fcfe0) - 1
         raw_loss = max(0.0, -change)
 
-        durable = DurabilityStressEngine(_FixedDurability(0.9), _NullElasticity()).run(sec, scenario)
-        fragile = DurabilityStressEngine(_FixedDurability(0.1), _NullElasticity()).run(sec, scenario)
+        durable = DurabilityStressEngine(_FixedDurability(0.9), _NullElasticity()).run(
+            sec, scenario
+        )
+        fragile = DurabilityStressEngine(_FixedDurability(0.1), _NullElasticity()).run(
+            sec, scenario
+        )
 
         assert durable.conviction_drift == pytest.approx(raw_loss * (1 - 0.9))
         assert fragile.conviction_drift == pytest.approx(raw_loss * (1 - 0.1))

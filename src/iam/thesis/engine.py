@@ -131,7 +131,7 @@ class ThesisEngine:
                 target_asm = next(
                     (a for a in thesis.assumptions if a.name == assumption_name), None
                 )
-                if not target_asm or not isinstance(target_asm.value, (int, float)):
+                if not target_asm or not isinstance(target_asm.value, int | float):
                     continue
 
                 # Reset qualitative dictionary for this thesis

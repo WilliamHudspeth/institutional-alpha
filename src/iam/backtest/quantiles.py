@@ -104,7 +104,7 @@ def quantile_turnover(
             df_previous["score"], n_deciles, labels=False, duplicates="drop"
         )
     except ValueError:
-        return np.nan
+        return float(np.nan)
 
     # Find common tickers
     if "ticker" not in df_current.index.names:
@@ -117,7 +117,7 @@ def quantile_turnover(
     common = current_tickers & previous_tickers
 
     if not common:
-        return np.nan
+        return float(np.nan)
 
     # Compare decile assignments
     changed = 0
@@ -151,7 +151,7 @@ def spread_after_costs(
         Spread minus transaction cost drag
     """
     if np.isnan(spread) or np.isnan(turnover):
-        return np.nan
+        return float(np.nan)
 
     # Cost = turnover * cost_bps / 10000 * 2 (buy + sell)
     cost = turnover * (cost_bps / 10000) * 2

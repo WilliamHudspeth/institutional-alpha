@@ -264,7 +264,6 @@ class DamodaranProvider:
             >>> crp = DamodaranProvider.get_country_risk_premium("India")
             >>> # Cost of Equity = Rf + Beta * (ERP + CRP)
         """
-
         # Normalize country name
         country_clean = country_name.lower().strip()
 

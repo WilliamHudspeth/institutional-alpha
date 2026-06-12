@@ -20,7 +20,7 @@ import json
 import logging
 import logging.handlers
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from iam.config.settings import get_settings
 
@@ -91,6 +91,7 @@ def configure_logging(structured: bool = False) -> None:
     root_logger.setLevel(log_config.level)
 
     # Choose formatter
+    formatter: logging.Formatter
     if structured:
         formatter = StructuredFormatter()
     else:
@@ -194,7 +195,7 @@ class PerformanceLogger:
     def __init__(self, logger: logging.Logger, operation: str) -> None:
         self.logger = logger
         self.operation = operation
-        self.start_time = None
+        self.start_time: float | None = None
 
     def __enter__(self) -> PerformanceLogger:
         """Start timer."""
@@ -208,5 +209,5 @@ class PerformanceLogger:
         """End timer and log."""
         import time
 
-        duration_ms = (time.time() - self.start_time) * 1000
+        duration_ms = (time.time() - cast(float, self.start_time)) * 1000
         log_performance(self.logger, self.operation, duration_ms)

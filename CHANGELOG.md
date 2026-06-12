@@ -8,6 +8,29 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- **Damodaran Laws Constraint Layer** (`src/iam/laws/`) — Phase 2.5 reasoning engine
+  - `DamodaranLawRegistry`: evaluates all five laws against the assumptions Stage 3 actually used, as theory-first consistency checks that flag fragile analyses rather than inventing numbers
+  - LAW 1 — narrative must match numbers (high growth + expanding margins demands a moat narrative; contracting margins reads as a reinvestment story)
+  - LAW 2 — growth requires reinvestment (`g = ROIC × reinvestment_rate`; explicit rate, 1 − FCF/NI estimate, or market-implied fallback)
+  - LAW 3 — terminal growth ≤ risk-free rate (folded into the law registry with a "at the ceiling" flag band)
+  - LAW 4 — excess returns fade (`excess_return_fade_path()` glide curves; flags/violates decade-long flat-growth moat assumptions)
+  - LAW 5 — risk is not double-counted (elevated WACC + haircut growth, or depressed WACC + heroic growth)
+  - `LawReport.conviction_multiplier` degrades the Stage 7 confidence band; every law check lands in the pipeline summary, `explain()`, and verdict notes
+  - Full spec in `docs/damodaran_laws.md`; 37 unit tests in `tests/test_damodaran_laws.py`
+
+- **Elasticity-Aware Macro Overlay** (`src/iam/pipeline/macro.py`) — wires the Durability + Elasticity Scoring Layer (v0.5 Engine #6) into the live pipeline
+  - The overlay gate now scales the raw rate shock by the measured rate elasticity: duration-bound businesses trigger re-pricing on smaller raw moves
+  - Triggered shocks are elasticity-scaled per leg (rate × rate_elasticity, growth × growth_elasticity) before re-pricing
+  - `DurabilityStressEngine` runs on every triggered overlay; the resulting `StressResponse` (re-priced value, conviction drift, durability/elasticity diagnostics) is attached to `PipelineReport.stress_response`
+  - Stage 7 verdict degrades the confidence band on large conviction drift (≥ 0.25 one level, ≥ 0.50 two levels)
+  - Graceful fallback to the original flat-shock behavior when the elasticity profile is unmeasurable
+
+### Changed
+
+- `PipelineReport` carries two new audit fields: `law_report` and `stress_response`
+- `VerdictGenerator.generate()` accepts optional `law_report` and `stress_response` and downgrades the confidence band on law violations/flags and macro conviction drift
+- Removed stale "framework stub / NotImplementedError" status notes from the (fully implemented) `iam.elasticity` modules
+
 - **Institutional Analytics Layer** (`src/iam/analytics/`)
   - `AttributionEngine`: Factor-by-factor alpha decomposition with `decompose()` returning `FactorContribution` objects
   - `RegimeDetector`: Macro environment classification into 6 regimes (INFLATIONARY, DISINFLATIONARY, RECESSIONARY, EXPANSIONARY, RISK_OFF, RISK_ON) with dynamic factor weighting via `RegimeWeights`

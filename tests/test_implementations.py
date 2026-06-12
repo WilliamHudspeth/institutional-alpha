@@ -1,6 +1,5 @@
 """Tests for factor implementations and un-stubbing."""
 
-
 from iam import Fundamentals, MarketData, Security, score
 
 

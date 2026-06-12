@@ -248,4 +248,3 @@ class MarketImpliedEngine:
             base
             + f" — substantially above what the business has ever delivered ({vs_max:.0%} of peak)."
         )
-

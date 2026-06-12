@@ -121,4 +121,3 @@ class ExpectationsDifficultyFactor(Factor):
             return None
         ratio = f.operating_margin / peak
         return self.clamp(-(ratio - 0.9) * 2.0)
-

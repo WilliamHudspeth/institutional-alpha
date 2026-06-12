@@ -21,89 +21,89 @@ logger = logging.getLogger(__name__)
 
 
 def ledoit_wolf_shrinkage(X: np.ndarray) -> np.ndarray:
-	"""
-	Computes the analytical Ledoit-Wolf optimal shrinkage covariance matrix.
+    """
+    Computes the analytical Ledoit-Wolf optimal shrinkage covariance matrix.
 
-	The estimator shrinks the sample covariance matrix S toward a constant
-	correlation target F using an optimal shrinkage intensity δ ∈ [0,1]:
-		Σ = (1 - δ) S + δ F
+    The estimator shrinks the sample covariance matrix S toward a constant
+    correlation target F using an optimal shrinkage intensity δ ∈ [0,1]:
+            Σ = (1 - δ) S + δ F
 
-	The optimal δ is derived by minimizing the Frobenius norm between the
-	true and estimated covariance (Ledoit & Wolf, 2004).
+    The optimal δ is derived by minimizing the Frobenius norm between the
+    true and estimated covariance (Ledoit & Wolf, 2004).
 
-	Parameters
-	----------
-	X : np.ndarray, shape (n_samples, n_features)
-		Data matrix. Rows are observations, columns are features.
-		NaNs are imputed with column means.
+    Parameters
+    ----------
+    X : np.ndarray, shape (n_samples, n_features)
+            Data matrix. Rows are observations, columns are features.
+            NaNs are imputed with column means.
 
-	Returns
-	-------
-	shrunk_cov : np.ndarray, shape (n_features, n_features)
-		Shrunken covariance matrix (symmetric positive semi‑definite).
-	"""
-	# ---------- handle edge cases and NaNs ----------
-	X = X.astype(float, copy=True)
-	# replace NaNs with column means
-	col_means = np.nanmean(X, axis=0)
-	X = np.where(np.isnan(X), col_means, X)
+    Returns
+    -------
+    shrunk_cov : np.ndarray, shape (n_features, n_features)
+            Shrunken covariance matrix (symmetric positive semi‑definite).
+    """
+    # ---------- handle edge cases and NaNs ----------
+    X = X.astype(float, copy=True)
+    # replace NaNs with column means
+    col_means = np.nanmean(X, axis=0)
+    X = np.where(np.isnan(X), col_means, X)
 
-	n, p = X.shape
-	if n == 0:
-		return np.zeros((p, p))
-	if n == 1:
-		# degenerate case: only one observation → diagonal of sample variances (all zero)
-		return np.diag(np.var(X, axis=0, ddof=0))
+    n, p = X.shape
+    if n == 0:
+        return np.zeros((p, p))
+    if n == 1:
+        # degenerate case: only one observation → diagonal of sample variances (all zero)
+        return np.diag(np.var(X, axis=0, ddof=0))
 
-	# ---------- center data ----------
-	Xc = X - X.mean(axis=0)			# shape (n, p)
+    # ---------- center data ----------
+    Xc = X - X.mean(axis=0)  # shape (n, p)
 
-	# ---------- sample covariance (MLE divisor n) ----------
-	S = (Xc.T @ Xc) / n				# shape (p, p)
+    # ---------- sample covariance (MLE divisor n) ----------
+    S = (Xc.T @ Xc) / n  # shape (p, p)
 
-	# ---------- constant correlation target F ----------
-	var = np.diag(S)				 # marginal variances
-	sqrt_var = np.sqrt(var)
+    # ---------- constant correlation target F ----------
+    var = np.diag(S)  # marginal variances
+    sqrt_var = np.sqrt(var)
 
-	# handle zero‑variance features
-	pos_var = var > 0
-	if np.sum(pos_var) >= 2:
-		idx = np.where(pos_var)[0]
-		S_nz = S[np.ix_(idx, idx)]
-		sqrt_nz = sqrt_var[idx]
-		# correlation matrix of positive‑variance features
-		R_nz = S_nz / np.outer(sqrt_nz, sqrt_nz)
-		# average correlation (off‑diagonal only)
-		r_bar = (np.sum(R_nz) - len(idx)) / (len(idx) * (len(idx) - 1))
-	else:
-		r_bar = 0.0
+    # handle zero‑variance features
+    pos_var = var > 0
+    if np.sum(pos_var) >= 2:
+        idx = np.where(pos_var)[0]
+        S_nz = S[np.ix_(idx, idx)]
+        sqrt_nz = sqrt_var[idx]
+        # correlation matrix of positive‑variance features
+        R_nz = S_nz / np.outer(sqrt_nz, sqrt_nz)
+        # average correlation (off‑diagonal only)
+        r_bar = (np.sum(R_nz) - len(idx)) / (len(idx) * (len(idx) - 1))
+    else:
+        r_bar = 0.0
 
-	# build target matrix F = (1-r_bar)*diag(var) + r_bar * (sqrt_var sqrt_var^T)
-	outer_sqrt = np.outer(sqrt_var, sqrt_var)
-	F = r_bar * outer_sqrt
-	np.fill_diagonal(F, var)			# correct diagonal to variances
+    # build target matrix F = (1-r_bar)*diag(var) + r_bar * (sqrt_var sqrt_var^T)
+    outer_sqrt = np.outer(sqrt_var, sqrt_var)
+    F = r_bar * outer_sqrt
+    np.fill_diagonal(F, var)  # correct diagonal to variances
 
-	# ---------- compute optimal shrinkage intensity δ ----------
-	# d² = Frobenius norm squared of (S - F)
-	d2 = np.sum((S - F) ** 2)
+    # ---------- compute optimal shrinkage intensity δ ----------
+    # d² = Frobenius norm squared of (S - F)
+    d2 = np.sum((S - F) ** 2)
 
-	# b² = average empirical variance of the entries of the sample covariance
-	# Let y = Xc (centered). For each feature pair (i,j):
-	#   s_ij = (1/n) Σ_t y_ti y_tj
-	#   var_hat(s_ij) = (1/n) Σ_t (y_ti y_tj - s_ij)²
-	#   then b² = (1/n) Σ_{i,j} var_hat(s_ij)
-	M = Xc ** 2					 # shape (n, p)
-	# S2[i,j] = sample variance of the product y_i y_j
-	S2 = (M.T @ M) / n - S ** 2
-	b2 = np.sum(S2) / n
+    # b² = average empirical variance of the entries of the sample covariance
+    # Let y = Xc (centered). For each feature pair (i,j):
+    #   s_ij = (1/n) Σ_t y_ti y_tj
+    #   var_hat(s_ij) = (1/n) Σ_t (y_ti y_tj - s_ij)²
+    #   then b² = (1/n) Σ_{i,j} var_hat(s_ij)
+    M = Xc**2  # shape (n, p)
+    # S2[i,j] = sample variance of the product y_i y_j
+    S2 = (M.T @ M) / n - S**2
+    b2 = np.sum(S2) / n
 
-	# shrinkage intensity δ = b² / (b² + d²)	 (clipped to [0,1])
-	shrinkage = b2 / (b2 + d2) if (b2 + d2) > 0 else 0.0
-	shrinkage = np.clip(shrinkage, 0.0, 1.0)
+    # shrinkage intensity δ = b² / (b² + d²)	 (clipped to [0,1])
+    shrinkage = b2 / (b2 + d2) if (b2 + d2) > 0 else 0.0
+    shrinkage = np.clip(shrinkage, 0.0, 1.0)
 
-	# ---------- return shrunken covariance ----------
-	shrunk_cov = (1 - shrinkage) * S + shrinkage * F
-	return shrunk_cov
+    # ---------- return shrunken covariance ----------
+    shrunk_cov = (1 - shrinkage) * S + shrinkage * F
+    return shrunk_cov
 
 
 @dataclass
@@ -263,11 +263,19 @@ class WalkForwardOptimizer:
         step = self.config.test_window_months
         n = len(dates)
 
-        for i in range(0, n - self.config.train_window_months - self.config.test_window_months + 1, step):
+        for i in range(
+            0, n - self.config.train_window_months - self.config.test_window_months + 1, step
+        ):
             train_dates = dates[i : i + self.config.train_window_months]
-            test_dates = dates[i + self.config.train_window_months : i + self.config.train_window_months + self.config.test_window_months]
+            test_dates = dates[
+                i + self.config.train_window_months : i
+                + self.config.train_window_months
+                + self.config.test_window_months
+            ]
 
-            train_scores = [factor_scores_by_date[d] for d in train_dates if d in factor_scores_by_date]
+            train_scores = [
+                factor_scores_by_date[d] for d in train_dates if d in factor_scores_by_date
+            ]
             train_rets = [returns_by_date[d] for d in train_dates if d in returns_by_date]
 
             w_opt = optimize_weights(
@@ -280,7 +288,9 @@ class WalkForwardOptimizer:
                 tol=self.config.tol,
             )
 
-            test_scores = [factor_scores_by_date[d] for d in test_dates if d in factor_scores_by_date]
+            test_scores = [
+                factor_scores_by_date[d] for d in test_dates if d in factor_scores_by_date
+            ]
             test_rets = [returns_by_date[d] for d in test_dates if d in returns_by_date]
 
             ics = []
@@ -407,7 +417,7 @@ class RegimeOptimizer:
         factor_scores_by_date: dict[pd.Timestamp, np.ndarray],
         returns_by_date: dict[pd.Timestamp, np.ndarray],
     ) -> RegimeResult:
-        regime_to_dates = {}
+        regime_to_dates: dict[str, list[pd.Timestamp]] = {}
         for d in dates:
             r = self.regime_func(d)
             if r not in regime_to_dates:

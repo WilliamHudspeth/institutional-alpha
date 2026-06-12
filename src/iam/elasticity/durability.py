@@ -1,7 +1,6 @@
 """Durability scoring: how much cash flow survives if growth stalls.
 
-STATUS: framework stub. ``DurabilityScorer.score`` raises NotImplementedError.
-The docstring below is the implementation spec; ``tests/test_elasticity.py``
+The class docstring below is the implementation spec; ``tests/test_elasticity.py``
 encodes it as assertions.
 """
 

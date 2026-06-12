@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from iam.data.security import Security
@@ -110,7 +110,8 @@ def _get_cached_data(ticker: str) -> dict[str, Any] | None:
             # Expire after 86400 seconds (24 hours)
             if age_seconds < 86400:
                 logger.debug(f"[CACHE] Hit for {ticker} (age: {age_seconds:.0f}s)")
-                return json.loads(data_str)
+                cached_data: dict[str, Any] = json.loads(data_str)
+                return cached_data
             else:
                 logger.debug(f"[CACHE] Stale for {ticker} (age: {age_seconds:.0f}s, max: 86400s)")
 
@@ -293,7 +294,7 @@ class YahooAdapter:
         for key in keys:
             value = info.get(key)
             # Check if value is a valid number (not None, not NaN)
-            if value is not None and isinstance(value, (int, float)):
+            if value is not None and isinstance(value, int | float):
                 if value == value:  # NaN != NaN, so this catches NaN
                     return float(value)
         return None
@@ -408,7 +409,7 @@ def _get_price(info: dict, *keys: str) -> float | None:
     """Get first non-None float value from info dict (mimics YahooAdapter._get)."""
     for key in keys:
         value = info.get(key)
-        if value is not None and isinstance(value, (int, float)):
+        if value is not None and isinstance(value, int | float):
             if value == value:  # NaN check
                 return float(value)
     return None
@@ -436,7 +437,7 @@ def build_regression_inputs(
     Returns:
         RegressionInputs ready for multiples regression
     """
-    from iam.valuation.multiples_regression import RegressionInputs
+    from iam.valuation.multiples_regression import Region, RegressionInputs
 
     try:
         import yfinance as yf
@@ -464,7 +465,7 @@ def build_regression_inputs(
         g = YahooAdapter._get(info, "revenueGrowth") or g_eps
 
     return RegressionInputs(
-        region=region,
+        region=cast(Region, region),
         beta=float(beta),
         g_eps=float(g_eps),
         payout=float(payout),

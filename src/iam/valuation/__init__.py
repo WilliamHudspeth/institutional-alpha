@@ -49,4 +49,3 @@ __all__ = [
     "get_yahoo_beta",
     "get_custom_beta_for_intrinsic",
 ]
-

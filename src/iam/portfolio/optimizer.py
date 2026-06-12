@@ -290,7 +290,6 @@ class Rebalancer:
             target = target_weights.get(ticker, 0.0)
             trade = trades.get(ticker, 0.0)
 
-            (target - current) * 100
             direction = "↑ BUY" if trade > 0 else "↓ SELL" if trade < 0 else "= HOLD"
 
             lines.append(

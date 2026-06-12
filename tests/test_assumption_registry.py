@@ -1,6 +1,5 @@
 """Tests for centralized assumption registry."""
 
-
 from iam.assumptions import (
     AGGRESSIVE_PROFILE,
     BASE_PROFILE,

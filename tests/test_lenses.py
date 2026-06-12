@@ -263,4 +263,3 @@ def test_synthesize_returns_all_narratives():
     result = synthesize_lenses(lenses)
     assert any("narrative-a" in n for n in result.narratives)
     assert any("narrative-b" in n for n in result.narratives)
-

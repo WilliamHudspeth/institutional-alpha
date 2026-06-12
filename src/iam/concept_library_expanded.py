@@ -32,7 +32,7 @@ EXPANDED_CONCEPTS = {
             "Grinold, R. & Kahn, R. (2000). 'Active Portfolio Management' – defines IC as the cornerstone of the "
             "fundamental law of active management. CFA Level III curriculum covers IC as part of factor analysis."
         ),
-        "code_ref": "src/iam/backtest/metrics.py: ic_spearman() → uses scipy.stats.spearmanr(score_ranks, return_ranks)"
+        "code_ref": "src/iam/backtest/metrics.py: ic_spearman() → uses scipy.stats.spearmanr(score_ranks, return_ranks)",
     },
     "IC Information Ratio (ICIR)": {
         "extended": (
@@ -56,7 +56,7 @@ EXPANDED_CONCEPTS = {
             "Grinold & Kahn (2000). Also Damodaran's lectures on factor performance and robustness. "
             "CFA curriculum on performance evaluation and information ratio."
         ),
-        "code_ref": "src/iam/backtest/metrics.py: compute_statistics() → icir = mean_ic / std_ic with Newey-West t-stat"
+        "code_ref": "src/iam/backtest/metrics.py: compute_statistics() → icir = mean_ic / std_ic with Newey-West t-stat",
     },
     "Newey‑West HAC Standard Errors": {
         "extended": (
@@ -80,7 +80,7 @@ EXPANDED_CONCEPTS = {
             "Newey, W. & West, K. (1987). 'A Simple, Positive Semi‑Definite, Heteroskedasticity and Autocorrelation Consistent Covariance Matrix.' "
             "Econometrica 55, 703-708."
         ),
-        "code_ref": "src/iam/backtest/metrics.py: compute_statistics() → uses statsmodels.stats.sandwich_covariance.cov_hac()"
+        "code_ref": "src/iam/backtest/metrics.py: compute_statistics() → uses statsmodels.stats.sandwich_covariance.cov_hac()",
     },
     "Walk‑Forward Optimization": {
         "extended": (
@@ -107,7 +107,7 @@ EXPANDED_CONCEPTS = {
             "Pardo, R. (2008). 'The Evaluation and Optimization of Trading Strategies.' Wiley. "
             "Arnott, R., et al. (2016). 'How Can 'Smart Beta' Go Horribly Wrong?' discusses overfitting risks."
         ),
-        "code_ref": "src/iam/backtest/weight_optimizer.py: WalkForwardOptimizer.run() – rolling window with no look‑ahead"
+        "code_ref": "src/iam/backtest/weight_optimizer.py: WalkForwardOptimizer.run() – rolling window with no look‑ahead",
     },
     "Multi‑Horizon IC": {
         "extended": (
@@ -130,7 +130,7 @@ EXPANDED_CONCEPTS = {
             "Grinold & Kahn (2000) – Chapter on 'The Information Horizon.' "
             "Mclean, R. & Pontiff, J. (2016). 'Does Academic Research Destroy Stock Return Predictability?' studies decay in anomaly strength."
         ),
-        "code_ref": "src/iam/backtest/runner.py: discovers fwd_ret_21d, fwd_ret_63d, fwd_ret_126d, fwd_ret_252d columns and computes IC for each"
+        "code_ref": "src/iam/backtest/runner.py: discovers fwd_ret_21d, fwd_ret_63d, fwd_ret_126d, fwd_ret_252d columns and computes IC for each",
     },
     "Value‑Weighted IC": {
         "extended": (
@@ -152,7 +152,7 @@ EXPANDED_CONCEPTS = {
             "Fama, E. & French, K. (1993). 'Common risk factors in the returns on stocks and bonds.' "
             "Blitz, D., et al. (2011). 'Evaluating Multiple Criteria for Scorecard Assessment' discusses IC measurement."
         ),
-        "code_ref": "src/iam/backtest/metrics.py: ic_value_weighted() – weighted Spearman rank correlation using market cap as weights"
+        "code_ref": "src/iam/backtest/metrics.py: ic_value_weighted() – weighted Spearman rank correlation using market cap as weights",
     },
     "Sector Neutralization": {
         "extended": (
@@ -171,7 +171,7 @@ EXPANDED_CONCEPTS = {
             "Use a broader sector definition (e.g., GICS 2‑digit) rather than sub‑industries."
         ),
         "reference": "Arnott, R., et al. 'Fundamental Indexation' discusses the importance of factor purity.",
-        "code_ref": "src/iam/backtest/metrics.py: ic_sector_neutral() – weighted average of within‑sector IC"
+        "code_ref": "src/iam/backtest/metrics.py: ic_sector_neutral() – weighted average of within‑sector IC",
     },
     "Shrinkage (Bayesian / Empirical)": {
         "extended": (
@@ -196,7 +196,7 @@ EXPANDED_CONCEPTS = {
             "Ledoit, O. & Wolf, M. (2004). 'Honey, I Shrunk the Sample Covariance Matrix.' "
             "James, W. & Stein, C. (1961). 'Estimation with Quadratic Loss.' Proc. Fourth Berkeley Symposium."
         ),
-        "code_ref": "src/iam/backtest/weight_optimizer.py: OptimizerConfig.shrinkage_lambda – applied in weight_optimizer.run()"
+        "code_ref": "src/iam/backtest/weight_optimizer.py: OptimizerConfig.shrinkage_lambda – applied in weight_optimizer.run()",
     },
     "Reverse DCF (Expectations Investing)": {
         "extended": (
@@ -221,7 +221,7 @@ EXPANDED_CONCEPTS = {
             "Mauboussin, M. & Rappaport, A. (2021). 'Expectations Investing: Reading Market Prices for Better Returns.' "
             "Damodaran, A. (2012). 'Implicit Growth Rates' lecture on valuation."
         ),
-        "code_ref": "src/iam/backtest/runner.py – reverse DCF computed as part of Stage 1 snapshot valuation"
+        "code_ref": "src/iam/backtest/runner.py – reverse DCF computed as part of Stage 1 snapshot valuation",
     },
     "Commodity P/E vs. Franchise P/E (PVGO)": {
         "extended": (
@@ -244,7 +244,7 @@ EXPANDED_CONCEPTS = {
             "Miller, M. & Modigliani, F. (1961). 'Dividend Policy, Growth, and the Valuation of Shares.' "
             "Damodaran, A. (2012). 'Growth and PVGO' in Investment Valuation."
         ),
-        "code_ref": "src/iam/backtest/runner.py – P/E decomposition in snapshot and report generation"
+        "code_ref": "src/iam/backtest/runner.py – P/E decomposition in snapshot and report generation",
     },
     "Geographic‑Mix‑Weighted ERP": {
         "extended": (
@@ -267,7 +267,7 @@ EXPANDED_CONCEPTS = {
             "Damodaran, A. (2026). 'Country Risk and Equity Risk Premiums – April 2026 update.' "
             "Stulz, R. (1995). 'The Cost of Capital in Internationally Integrated Markets.'"
         ),
-        "code_ref": "src/iam/backtest/runner.py – geo_blended_erp() uses Damodaran country ERP file"
+        "code_ref": "src/iam/backtest/runner.py – geo_blended_erp() uses Damodaran country ERP file",
     },
     "Terminal Growth Capped at Risk‑Free Rate": {
         "extended": (
@@ -290,7 +290,7 @@ EXPANDED_CONCEPTS = {
             "Damodaran, A. (2012). 'Investment Valuation' – Chapter 11 on Terminal Value. "
             "Gordon, M. (1962). 'The Investment, Financing, and Valuation of the Corporation.' perpetuity formula origin."
         ),
-        "code_ref": "src/iam/backtest/runner.py – terminal_growth = min(estimated_growth, risk_free_rate)"
+        "code_ref": "src/iam/backtest/runner.py – terminal_growth = min(estimated_growth, risk_free_rate)",
     },
     "Through‑Cycle Normalisation": {
         "extended": (
@@ -318,7 +318,7 @@ EXPANDED_CONCEPTS = {
             "Damodaran, A. (2012). 'Cyclical and Commodity Companies' lecture. "
             "Damodaran sector‑specific tools include through‑cycle templates."
         ),
-        "code_ref": "src/iam/backtest/runner.py – normalised_earnings() weights phases by duration"
+        "code_ref": "src/iam/backtest/runner.py – normalised_earnings() weights phases by duration",
     },
     "Operating Leverage as Disguised Beta": {
         "extended": (
@@ -342,7 +342,7 @@ EXPANDED_CONCEPTS = {
             "Damodaran, A. (2012). 'The Determinants of Betas: Operating and Financial Leverage.' "
             "Hamada, R. (1972). 'The Effect of the Firm's Capital Structure on Systemic Risk.'"
         ),
-        "code_ref": "src/iam/backtest/runner.py – fixed_cost_ratio → beta_adjusted = beta_industry * (1 + leverage_factor)"
+        "code_ref": "src/iam/backtest/runner.py – fixed_cost_ratio → beta_adjusted = beta_industry * (1 + leverage_factor)",
     },
     "Bottom‑Up Beta": {
         "extended": (
@@ -368,7 +368,7 @@ EXPANDED_CONCEPTS = {
             "Damodaran, A. (2026). 'Betas by Sector – April 2026' dataset with unlevered and levered betas by industry. "
             "Hamada, R. (1972). 'The Effect of the Firm's Capital Structure on Systemic Risk.'"
         ),
-        "code_ref": "src/iam/backtest/runner.py – get_damodaran_beta(sector) returns unlevered, then relever using target D/E"
+        "code_ref": "src/iam/backtest/runner.py – get_damodaran_beta(sector) returns unlevered, then relever using target D/E",
     },
     "Two‑Stage DCF with Linear Fade": {
         "extended": (
@@ -395,7 +395,7 @@ EXPANDED_CONCEPTS = {
             "Damodaran, A. (2012). 'DCF with Fading Growth' lecture notes and templates. "
             "Copeland, Koller, Murrin (2000). 'Valuation: Measuring and Managing the Value of Companies' – multi‑stage DCF models."
         ),
-        "code_ref": "src/iam/backtest/runner.py – two_stage_dcf() with linear fade in fcfe forecast"
+        "code_ref": "src/iam/backtest/runner.py – two_stage_dcf() with linear fade in fcfe forecast",
     },
     "Probability‑Weighted Scenarios": {
         "extended": (
@@ -420,7 +420,7 @@ EXPANDED_CONCEPTS = {
             "Damodaran, A. (2012). 'Probabilistic Approaches to Valuation: Scenarios and Simulation.' "
             "Copeland, Koller, Murrin (2000). Multiple scenario valuation."
         ),
-        "code_ref": "src/iam/backtest/runner.py – Aladdin example with bear/base/bull weights 0.2/0.6/0.2"
+        "code_ref": "src/iam/backtest/runner.py – Aladdin example with bear/base/bull weights 0.2/0.6/0.2",
     },
     "Exponentially Weighted Average (EWA) Forecaster": {
         "extended": (
@@ -444,7 +444,7 @@ EXPANDED_CONCEPTS = {
             "Brown, R. (1959). 'Statistical Forecasting for Inventory Control.' Wiley. "
             "Hastie, T., Tibshirani, R., Friedman, J. (2009). 'The Elements of Statistical Learning' – exponential smoothing chapter."
         ),
-        "code_ref": "src/iam/backtest/weight_optimizer.py – used in online learning and factor return forecasting (see comments)"
+        "code_ref": "src/iam/backtest/weight_optimizer.py – used in online learning and factor return forecasting (see comments)",
     },
     "Multi‑Armed Bandit / Hedge Algorithm": {
         "extended": (
@@ -470,7 +470,7 @@ EXPANDED_CONCEPTS = {
             "Auer, P., Cesa‑Bianchi, N., & Freund, Y. (2002). 'The Nonstochastic Multiarmed Bandit Problem.' SIAM Journal on Computing, 32, 48-77. "
             "Arora, S., Hazan, E., & Kale, S. (2012). 'The Multiplicative Weights Update Method: A Meta‑Algorithm and Applications.' Theory of Computing."
         ),
-        "code_ref": "src/iam/backtest/weight_optimizer.py – online_update() function shows Hedge algorithm example"
+        "code_ref": "src/iam/backtest/weight_optimizer.py – online_update() function shows Hedge algorithm example",
     },
     "Bayesian Thesis Engine / Posterior Updating": {
         "extended": (
@@ -497,7 +497,7 @@ EXPANDED_CONCEPTS = {
             "Tufano, P. (1996). 'Bayesian Analysis in Finance' – case studies in probabilistic thesis updating. "
             "Gelman, A., et al. (2013). 'Bayesian Data Analysis' – comprehensive treatment of Bayesian inference."
         ),
-        "code_ref": "src/iam/backtest/runner.py – thesis engine to be implemented in Phase 3.2; currently stores thesis in metadata"
+        "code_ref": "src/iam/backtest/runner.py – thesis engine to be implemented in Phase 3.2; currently stores thesis in metadata",
     },
     "Load‑Bearing Assumption Drift Detection": {
         "extended": (
@@ -516,7 +516,7 @@ EXPANDED_CONCEPTS = {
             "Also, a single quarter of miss should not trigger an alert – use a rolling 3‑quarter or annual average to reduce noise."
         ),
         "reference": "Risk management standard in quantitative funds (e.g., BlackRock's Aladdin Risk, RiskMetrics).",
-        "code_ref": "src/iam/backtest/runner.py – drift_monitor logic planned for Phase 3.2"
+        "code_ref": "src/iam/backtest/runner.py – drift_monitor logic planned for Phase 3.2",
     },
     "Narrative‑Consistency Validation": {
         "extended": (
@@ -540,7 +540,7 @@ EXPANDED_CONCEPTS = {
             "Damodaran, A. (2012). 'The Consistency Rule' in Investment Valuation. "
             "Palepu, K., Healy, P., Bernard, V. (2004). 'Business Analysis and Valuation' – consistency analysis chapter."
         ),
-        "code_ref": "src/iam/backtest/runner.py – validate_growth_consistency() checks g ≤ ROIC * reinvestment_rate"
+        "code_ref": "src/iam/backtest/runner.py – validate_growth_consistency() checks g ≤ ROIC * reinvestment_rate",
     },
     "Manifest.json Reproducibility": {
         "extended": (
@@ -568,6 +568,6 @@ EXPANDED_CONCEPTS = {
             "if a library like numpy or scipy released a new version with algorithmic improvements."
         ),
         "reference": "Open science best practices – reproducible research (cf. Nature reproducibility guidance).",
-        "code_ref": "src/iam/backtest/manifest.py – BacktestManifest class, generated in runner.py after backtest completion"
+        "code_ref": "src/iam/backtest/manifest.py – BacktestManifest class, generated in runner.py after backtest completion",
     },
 }

@@ -1,10 +1,33 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from iam.data.security import Security
 from iam.pipeline.arbitration import ArbitrationResult, ConsensusEngine
 from iam.valuation.types import TriangulationResult, ValuationResult
+
+if TYPE_CHECKING:
+    from iam.elasticity.types import StressResponse
+    from iam.laws.types import LawReport
+
+# Damodaran-law conviction multipliers at/below these levels downgrade the
+# confidence band by one / two levels (see iam.laws.types for the penalties
+# that produce the multiplier).
+LAW_MULTIPLIER_SOFT = 0.85
+LAW_MULTIPLIER_HARD = 0.70
+# Elasticity-aware stress: conviction drift at/above these levels downgrades
+# the confidence band by one / two levels.
+DRIFT_SOFT = 0.25
+DRIFT_HARD = 0.50
+
+
+def _downgrade_band(band: str, levels: int = 1) -> str:
+    """Step a confidence band down (HIGH -> MEDIUM -> LOW)."""
+    order = ["LOW", "MEDIUM", "HIGH"]
+    if band not in order:
+        return band
+    return order[max(0, order.index(band) - levels)]
 
 
 @dataclass
@@ -31,6 +54,8 @@ class VerdictGenerator:
         relative: ValuationResult,
         security: Security,
         synthesis_upside: float | None = None,
+        law_report: LawReport | None = None,
+        stress_response: StressResponse | None = None,
     ) -> VerdictResult:
         """Generate verdict using Master Arbitration Layer if synthesis available.
 
@@ -39,6 +64,10 @@ class VerdictGenerator:
             relative: Stage 2 relative valuation result
             security: Security object
             synthesis_upside: Optional weighted upside from multi-lens synthesis
+            law_report: Optional Damodaran-law consistency report; violations
+                and flags degrade the confidence band
+            stress_response: Optional elasticity-aware stress response; large
+                conviction drift degrades the confidence band
         """
         notes = []
         arbitration = None
@@ -106,7 +135,40 @@ class VerdictGenerator:
                 f"[PEER RANKING] Trades at a ~{abs(rel_ratio):.0%} {premium_discount} to {security.sector} peers/history."
             )
 
-        # 4. Apply Penalties (e.g., Leverage Risk)
+        # 4. Damodaran Laws: theory-consistency degrades conviction
+        if law_report is not None:
+            for check in law_report.violations:
+                notes.append(f"[LAW {check.number} VIOLATED] {check.narrative}")
+            for check in law_report.flags:
+                notes.append(f"[LAW {check.number} FLAGGED] {check.narrative}")
+            multiplier = law_report.conviction_multiplier
+            if multiplier <= LAW_MULTIPLIER_HARD:
+                new_band = _downgrade_band(band, 2)
+            elif multiplier <= LAW_MULTIPLIER_SOFT:
+                new_band = _downgrade_band(band, 1)
+            else:
+                new_band = band
+            if new_band != band:
+                band = new_band
+                notes.append(
+                    f"Conviction downgraded to {band}: Damodaran-law conviction "
+                    f"multiplier {multiplier:.2f}."
+                )
+
+        # 5. Elasticity-aware stress: conviction drift degrades conviction
+        if stress_response is not None and stress_response.conviction_drift is not None:
+            drift = stress_response.conviction_drift
+            if drift >= DRIFT_SOFT:
+                levels = 2 if drift >= DRIFT_HARD else 1
+                new_band = _downgrade_band(band, levels)
+                if new_band != band:
+                    band = new_band
+                    notes.append(
+                        f"Conviction downgraded to {band}: macro stress conviction "
+                        f"drift {drift:.2f} on '{stress_response.scenario.name}'."
+                    )
+
+        # 6. Apply Penalties (e.g., Leverage Risk)
         # You can expand this to incorporate the Fragility / Execution Risk penalties from v0.1.0
         f = security.fundamentals
         if f.total_debt is not None and f.ebitda_ttm is not None and f.ebitda_ttm > 0:

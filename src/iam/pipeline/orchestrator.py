@@ -4,7 +4,10 @@ from dataclasses import dataclass
 
 from iam.data.macro import MacroConditions
 from iam.data.security import Security
+from iam.elasticity.types import StressResponse
 from iam.engine.market_implied import MarketImpliedEngine
+from iam.laws import DamodaranLawRegistry
+from iam.laws.types import LawReport
 from iam.pipeline.macro import MacroOverlay
 from iam.pipeline.verdict import VerdictGenerator, VerdictResult
 from iam.valuation import (
@@ -69,6 +72,8 @@ class PipelineReport:
     summary: str = ""
     final_verdict: VerdictResult | None = None
     synthesis_upside: float | None = None  # Multi-lens synthesis weighted implied move
+    law_report: LawReport | None = None  # Damodaran-law consistency checks
+    stress_response: StressResponse | None = None  # Elasticity-aware macro stress
 
     def explain(self, verbose: bool = False) -> str:
         if verbose:
@@ -116,6 +121,13 @@ class PipelineReport:
             lines.append(f"> Summary: {self.summary}")
             lines.append("")
 
+            if self.law_report:
+                lines.append("### Damodaran Laws — Consistency Checks")
+                lines.append(f"> {self.law_report.narrative}")
+                for check in self.law_report.violations + self.law_report.flags:
+                    lines.append(f"> • LAW {check.number}: {check.narrative}")
+                lines.append("")
+
             if self.final_verdict:
                 lines.append(EXPLAIN_STAGE_7)
                 lines.append(f"> VERDICT: {self.final_verdict.rating}")
@@ -149,6 +161,12 @@ class PipelineReport:
         for note in self.triangulation.notes:
             lines.append(f"  • {note}")
         lines.append("")
+
+        if self.law_report:
+            lines.append(f"DAMODARAN LAWS — {self.law_report.narrative}")
+            for check in self.law_report.violations + self.law_report.flags:
+                lines.append(f"  • LAW {check.number}: {check.narrative}")
+            lines.append("")
 
         lines.append(f"SUMMARY: {self.summary}")
 
@@ -263,6 +281,15 @@ class ValuationPipeline:
             summary=triangulation_res.verdict,
         )
 
+        # Damodaran Laws: test the assumptions Stage 3 actually used for
+        # internal consistency. Violations/flags degrade the Stage 7 verdict.
+        report.law_report = DamodaranLawRegistry().evaluate(
+            security,
+            intrinsic_res.assumptions or {},
+            implied=market_implied_engine_res.implied,
+        )
+        report.summary += f"\n[DAMODARAN LAWS]: {report.law_report.narrative}"
+
         # Stages 5 & 6: Macro Overlay
         if macro:
             report = self.macro_overlay.apply(report, security, macro)
@@ -279,7 +306,8 @@ class ValuationPipeline:
             report.relative,
             security,
             synthesis_upside=synthesis_upside,
+            law_report=report.law_report,
+            stress_response=report.stress_response,
         )
 
         return report
-

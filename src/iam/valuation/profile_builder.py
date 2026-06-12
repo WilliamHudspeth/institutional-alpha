@@ -45,7 +45,7 @@ def _compute_revenue_cagr(revenue_history: list[float], years: int = 5) -> float
     start_value = clean[n]  # N years ago
     if start_value <= 0:
         return None
-    return (end_value / start_value) ** (1.0 / n) - 1.0
+    return float((end_value / start_value) ** (1.0 / n) - 1.0)
 
 
 def _compute_eps_volatility(revenue_history: list[float], fcf_history: list[float]) -> float | None:
@@ -139,7 +139,6 @@ def build_company_profile(
     # --- Operating margins ---
     op_margin = fundamentals.operating_margin or 0.10
     op_margin_history = fundamentals.operating_margin_history or []
-    _safe_get_history_avg(op_margin_history, years=5) or op_margin
 
     # Sector margin baseline by sector
     sector_margin = _sector_margin_default(sector)

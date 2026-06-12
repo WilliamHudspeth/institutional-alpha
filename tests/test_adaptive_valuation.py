@@ -1,6 +1,5 @@
 """Tests for adaptive valuation engine and profile builder."""
 
-
 from iam.data.security import Fundamentals, MarketData, Security
 from iam.valuation.adaptive import (
     AdaptiveValuationEngine,

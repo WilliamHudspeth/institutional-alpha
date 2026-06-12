@@ -36,7 +36,9 @@ logger = logging.getLogger(__name__)
 class ICBacktestConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    horizons: list[int] = Field(default_factory=lambda: [1, 3, 6, 12], description="Horizons in months")
+    horizons: list[int] = Field(
+        default_factory=lambda: [1, 3, 6, 12], description="Horizons in months"
+    )
     min_stocks_per_date: int = Field(30, description="Minimum stocks required per evaluation date")
     rebalance_freq: str = Field("ME", description="Evaluation frequency (ME=month-end)")
     start_date: str = Field("2018-01-31", description="Start date (YYYY-MM-DD)")
@@ -170,14 +172,16 @@ class ICBacktest:
         if denom_score <= 0 or denom_fwd <= 0:
             return float("nan")
 
-        return numerator / np.sqrt(denom_score * denom_fwd)
+        return float(numerator / np.sqrt(denom_score * denom_fwd))
 
     def run(self) -> dict[int, pd.DataFrame]:
         self.config.validate_paths()
-        dates_range = pd.date_range(self.config.start_date, self.config.end_date, freq=self.config.rebalance_freq)
+        dates_range = pd.date_range(
+            self.config.start_date, self.config.end_date, freq=self.config.rebalance_freq
+        )
         dates = dates_range.strftime("%Y-%m-%d").tolist()
 
-        all_results = {h: [] for h in self.config.horizons}
+        all_results: dict[int, list] = {h: [] for h in self.config.horizons}
 
         with ProcessPoolExecutor(max_workers=self.config.n_jobs_cpu) as executor:
             for date in tqdm(dates, desc="IC Backtest"):
@@ -191,7 +195,7 @@ class ICBacktest:
                     scores = {}
                     sectors = {}
                     mcaps = {}
-                    factor_scores = {f: {} for f in self.factor_names}
+                    factor_scores: dict[str, dict] = {f: {} for f in self.factor_names}
 
                     for future in futures:
                         ticker, comp, f_vals, mcap, sector = future.result()
@@ -215,21 +219,29 @@ class ICBacktest:
                     if rets is None:
                         continue
 
-                    common_tickers = [t for t in scores.keys() if t in rets.index and not pd.isna(rets[t])]
+                    common_tickers = [
+                        t for t in scores.keys() if t in rets.index and not pd.isna(rets[t])
+                    ]
                     if len(common_tickers) < self.config.min_stocks_per_date:
                         continue
 
-                    df = pd.DataFrame({
-                        "ticker": common_tickers,
-                        "score": [scores[t] for t in common_tickers],
-                        "fwd": [rets[t] for t in common_tickers],
-                        "sector": [sectors[t] for t in common_tickers],
-                        "mcap": [mcaps[t] for t in common_tickers],
-                    })
+                    df = pd.DataFrame(
+                        {
+                            "ticker": common_tickers,
+                            "score": [scores[t] for t in common_tickers],
+                            "fwd": [rets[t] for t in common_tickers],
+                            "sector": [sectors[t] for t in common_tickers],
+                            "mcap": [mcaps[t] for t in common_tickers],
+                        }
+                    )
 
                     # Compute composite metrics
                     ic = information_coefficient(df)
-                    ic_sn = ic_sector_neutral(df, sector_col="sector") if "sector" in df.columns else float("nan")
+                    ic_sn = (
+                        ic_sector_neutral(df, sector_col="sector")
+                        if "sector" in df.columns
+                        else float("nan")
+                    )
                     ic_weighted = self._compute_weighted_ic(df)
                     hr = hit_rate(df)
                     spreads = decile_spread(df)
@@ -248,7 +260,9 @@ class ICBacktest:
 
                     # Per-factor IC
                     for f in self.factor_names:
-                        f_series = pd.Series([factor_scores[f].get(t, float("nan")) for t in common_tickers])
+                        f_series = pd.Series(
+                            [factor_scores[f].get(t, float("nan")) for t in common_tickers]
+                        )
                         f_df = pd.DataFrame({"score": f_series, "fwd": df["fwd"]})
                         row[f"ic_{f}"] = information_coefficient(f_df)
 
@@ -266,7 +280,7 @@ class ICBacktest:
         return self.results
 
     def compute_statistics(self) -> dict[int, dict]:
-        stats = {}
+        stats: dict[int, dict] = {}
         for h, df in self.results.items():
             if df.empty:
                 stats[h] = {}
@@ -274,7 +288,13 @@ class ICBacktest:
 
             ic_series = df["ic"].dropna()
             if len(ic_series) < 3:
-                stats[h] = {"mean_ic": np.nan, "icir": np.nan, "t_stat": np.nan, "p_value": np.nan, "n_obs": len(ic_series)}
+                stats[h] = {
+                    "mean_ic": np.nan,
+                    "icir": np.nan,
+                    "t_stat": np.nan,
+                    "p_value": np.nan,
+                    "n_obs": len(ic_series),
+                }
                 continue
 
             mean_ic = ic_series.mean()
@@ -313,14 +333,16 @@ class ICBacktest:
             icir = mean_ic / std_ic if std_ic > 0 else float("nan")
             t_stat, p_value, _ = newey_west_se_rigorous(ic_series, nlags=self.config.nw_lags)
 
-            rows.append({
-                "factor": f,
-                "ic_mean": mean_ic,
-                "ic_std": std_ic,
-                "icir": icir,
-                "t_stat": t_stat,
-                "p_value": p_value,
-            })
+            rows.append(
+                {
+                    "factor": f,
+                    "ic_mean": mean_ic,
+                    "ic_std": std_ic,
+                    "icir": icir,
+                    "t_stat": t_stat,
+                    "p_value": p_value,
+                }
+            )
 
         return pd.DataFrame(rows).set_index("factor") if rows else pd.DataFrame()
 

@@ -48,4 +48,3 @@ class ExpectationsDifficultyLens(BaseLens):
                 "growth_vs_max": growth_vs_max if growth_vs_max is not None else 0.0,
             },
         )
-

@@ -5,9 +5,8 @@ produce an *elasticity-aware* stress response: not "value drops 5% if rates
 rise 50bps" but "this business is duration-bound; the move has 3x the baseline
 impact and conviction should fall hard."
 
-STATUS: framework stub. ``DurabilityStressEngine.run`` raises
-NotImplementedError. The docstring below is the implementation spec;
-``tests/test_elasticity.py`` encodes it as assertions.
+The class docstring below is the implementation spec; ``tests/test_elasticity.py``
+encodes it as assertions.
 """
 
 from __future__ import annotations
@@ -89,11 +88,7 @@ class DurabilityStressEngine:
         f = security.fundamentals
         q = security.qualitative or {}
 
-        if (
-            f.fcf_ttm is None
-            or f.shares_outstanding is None
-            or f.shares_outstanding == 0
-        ):
+        if f.fcf_ttm is None or f.shares_outstanding is None or f.shares_outstanding == 0:
             return StressResponse(
                 scenario=scenario,
                 base_fair_value=None,
@@ -143,11 +138,13 @@ class DurabilityStressEngine:
             conviction_drift = clamp(raw_loss * fragility * MAX_CONVICTION_DRIFT, 0.0, 1.0)
 
         # Build narrative
-        direction = "upside" if value_change_pct is not None and value_change_pct > 0 else "downside"
-        pct_str = f"{abs(value_change_pct * 100):.1f}%" if value_change_pct is not None else "unknown"
-        narrative = (
-            f"Stress scenario '{scenario.name}' re-prices to {pct_str} {direction}. "
+        direction = (
+            "upside" if value_change_pct is not None and value_change_pct > 0 else "downside"
         )
+        pct_str = (
+            f"{abs(value_change_pct * 100):.1f}%" if value_change_pct is not None else "unknown"
+        )
+        narrative = f"Stress scenario '{scenario.name}' re-prices to {pct_str} {direction}. "
 
         if elasticity.rate_elasticity is not None:
             narrative += f"Rate elasticity {elasticity.rate_elasticity:.2f}. "

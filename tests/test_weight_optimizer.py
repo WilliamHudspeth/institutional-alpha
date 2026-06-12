@@ -24,6 +24,7 @@ def test_optimize_weights_sum_to_one():
     assert np.all(w >= -1e-6)
     assert w[0] > w[1]  # Because factor 0 has stronger signal
 
+
 def test_walk_forward_runs():
     rng = np.random.RandomState(42)
     dates = pd.date_range("2020-01-31", periods=36, freq="ME")
@@ -47,6 +48,7 @@ def test_walk_forward_runs():
     assert len(res.window_weights) > 0
     assert np.isfinite(res.avg_oos_ic)
 
+
 def test_bootstrap_robustness():
     rng = np.random.RandomState(42)
     dates = pd.date_range("2020-01-31", periods=10, freq="ME")
@@ -61,6 +63,7 @@ def test_bootstrap_robustness():
     assert res.status == "success"
     assert np.isclose(np.sum(res.robust_weights), 1.0)
     assert np.all(np.isfinite(res.coefficient_of_variation))
+
 
 def test_regime_optimizer():
     rng = np.random.RandomState(42)
@@ -81,6 +84,7 @@ def test_regime_optimizer():
     assert "A" in res.regime_weights
     assert "B" in res.regime_weights
 
+
 def test_format_weights_report():
     names = ["f1", "f2"]
     curr = np.array([0.5, 0.5])
@@ -94,6 +98,7 @@ def test_format_weights_report():
 # =====================================================================
 # LEDOIT-WOLF SHRINKAGE TESTS
 # =====================================================================
+
 
 class TestLedoitWolfShrinkage:
     """Test Ledoit-Wolf shrinkage covariance properties."""
@@ -111,7 +116,9 @@ class TestLedoitWolfShrinkage:
         X = rng.randn(100, 5)
         Sigma = ledoit_wolf_shrinkage(X)
         eigenvalues = np.linalg.eigvals(Sigma)
-        assert np.all(eigenvalues >= -1e-10), f"Non-PSD matrix: min eigenvalue = {np.min(eigenvalues)}"
+        assert np.all(
+            eigenvalues >= -1e-10
+        ), f"Non-PSD matrix: min eigenvalue = {np.min(eigenvalues)}"
 
     def test_ledoit_wolf_handles_nan_values(self):
         """Assert that NaN values are imputed with column means."""

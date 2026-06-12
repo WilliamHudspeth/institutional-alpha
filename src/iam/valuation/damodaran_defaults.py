@@ -181,6 +181,7 @@ COUNTRY_ERPS = {
     "Zimbabwe": 0.1589,
 }
 
+
 @dataclass
 class CompanyProfile:
     ticker: str

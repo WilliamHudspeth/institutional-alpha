@@ -35,7 +35,7 @@ NEUTRAL_RELIABILITIES = {
 class ReliabilityLoader:
     """Load and validate calibrated reliability weights."""
 
-    def __init__(self, calibration_path: Path = None):
+    def __init__(self, calibration_path: Path | None = None):
         """Initialize loader.
 
         Args:
@@ -46,9 +46,9 @@ class ReliabilityLoader:
             calibration_path = Path(__file__).parent / "calibrated_reliabilities.json"
 
         self.path = calibration_path
-        self._data = None
+        self._data: dict[str, float] | None = None
         self._is_empirical = False
-        self._metadata = {}
+        self._metadata: dict = {}
 
     def load(self) -> dict[str, float]:
         """Load reliabilities with validation.
@@ -98,7 +98,7 @@ class ReliabilityLoader:
             logger.warning(f"Unknown calibration source: {data_source}, using defaults")
             return DEFAULT_RELIABILITIES
 
-    def get_reliability(self, signal_name: str, data_source: str = None) -> float:
+    def get_reliability(self, signal_name: str, data_source: str | None = None) -> float:
         """Get reliability for a specific signal.
 
         Args:

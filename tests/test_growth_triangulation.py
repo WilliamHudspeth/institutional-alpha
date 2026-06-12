@@ -9,7 +9,6 @@ Covers:
 - Cyclical handling (AMD, MPC)
 """
 
-
 from iam.data.security import Fundamentals, MarketData, Security
 from iam.valuation.growth_triangulator import (
     GrowthEstimate,

@@ -60,7 +60,7 @@ The theory: Apply **Mauboussin's expectations-investing framework** (what does t
 | 3 | **Business Reality** | Revenue durability, cash-flow quality, capital efficiency, management discipline | ✅ | Business logic layer (Damodaran) |
 | 4 | **Relative Reality** | Justified premium/discount based on competitive durability, not just multiples | Partial → enhance | "Does it *deserve* this premium?" |
 | 5 | **Intrinsic Valuation** | Fair value from bottom-up DCF, independent of market | ✅ | Damodaran DCF with bottom-up risk |
-| 6 | **Macro Stress** | Fair value swing when rates move / growth contracts, calibrated by business durability | Partial → enhance | Elasticity-aware, not flat shocks |
+| 6 | **Macro Stress** | Fair value swing when rates move / growth contracts, calibrated by business durability | ✅ | Elasticity-aware overlay (`iam.elasticity` + `iam.pipeline.macro`), not flat shocks |
 | 7 | **Synthesis** | Weight competing theses by durability and disagreement; output verdict + confidence drift | Partial → refine | Valuation Battlefield + Drift Detection |
 
 ### Damodaran Laws — Theory-First Consistency Checks
@@ -75,9 +75,7 @@ These become consistency checks that **flag fragile analyses** rather than inven
 
 ### The Core Enhancement: Theory-First Stress Testing
 
-**Current state:** Macro overlay applies uniform rate/growth shocks. Gates on large moves ("this name is rate-sensitive") but doesn't reason about *why*.
-
-**Target (v0.5):** Build a **Durability + Elasticity Scoring Layer** that decodes how a *specific* business responds to macro stress, then applies those response functions to re-price the three valuations.
+**Status: ✅ Shipped.** The **Durability + Elasticity Scoring Layer** (`iam.elasticity`) is implemented and wired into the macro overlay (`iam.pipeline.macro`): raw shocks are scaled by the measured rate/growth elasticity before gating and re-pricing, and the resulting `StressResponse` (including conviction drift, dampened by durability) feeds the Stage 7 verdict.
 
 **Theory:**
 - **Durability score** (0–1): What % of cash flows persist if growth stalls? Asset managers: low (unless fees are sticky). Software with subscriptions: high. Cyclicals: very low. Comes from analyzing revenue mix, customer stickiness, recurring vs transactional.
@@ -773,12 +771,13 @@ The user should never manually update. Security patches, factor improvements, da
 ### Phase 2.5: Reasoning-Engine Evolution (Weeks 10-18)
 **Focus**: Turn the valuation pipeline into a disagreement-first reasoning engine (see "The Reasoning-Engine Direction" above)
 
-- [ ] **Damodaran Laws constraint layer**
-  - Enforce `g = ROIC × reinvestment_rate` (growth requires reinvestment)
-  - Narrative-vs-numbers consistency check (reject impossible narratives)
-  - ROIC decay / excess-return fade curves
-  - Risk double-counting guard (cash flows OR discount rate, not both)
-  - Terminal-growth ≤ Rf (already enforced — fold into the law registry)
+- [x] **Damodaran Laws constraint layer** (`iam.laws`) — see `docs/damodaran_laws.md`
+  - [x] Enforce `g = ROIC × reinvestment_rate` (growth requires reinvestment)
+  - [x] Narrative-vs-numbers consistency check (flag unexplained moat stories)
+  - [x] ROIC decay / excess-return fade curves (`excess_return_fade_path`)
+  - [x] Risk double-counting guard (cash flows OR discount rate, not both)
+  - [x] Terminal-growth ≤ Rf folded into the law registry (input guard retained)
+  - [x] Wired into the pipeline: `LawReport.conviction_multiplier` degrades the Stage 7 verdict
 
 - [x] **Business Reality Engine** (`iam.reasoning` / new lens) — see `docs/business_reality.md`
   - [x] Revenue-quality classification (recurring / transactional / cyclical / regulated)
@@ -1045,6 +1044,6 @@ Proprietary Research Platform. See LICENSE for details.
 
 ---
 
-**Last Updated**: 2026-05-28  
+**Last Updated**: 2026-06-10  
 **Status**: Release Candidate (v0.4.0-rc1)  
 **Next Review**: 2026-06-28

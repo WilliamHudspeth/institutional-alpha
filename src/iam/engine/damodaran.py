@@ -96,4 +96,3 @@ class DamodaranEngine:
                 "high_growth_years": float(HIGH_GROWTH_YEARS),
             },
         )
-

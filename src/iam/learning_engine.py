@@ -29,6 +29,7 @@ from dataclasses import asdict, dataclass
 
 try:
     from iam.concept_library_expanded import EXPANDED_CONCEPTS
+
     HAS_EXPANDED = True
 except ImportError:
     HAS_EXPANDED = False
@@ -38,9 +39,11 @@ except ImportError:
 # DATA MODELS
 # ============================================================
 
+
 @dataclass
 class Concept:
     """Represents a core institutional finance concept."""
+
     name: str
     category: str  # Valuation, Risk, Quantitative, Data, etc.
     definition: str
@@ -60,6 +63,7 @@ class Concept:
 @dataclass
 class Question:
     """Represents a quiz question."""
+
     prompt: str
     choices: list[str]
     answer: str
@@ -92,9 +96,8 @@ CORE_CONCEPTS = [
         implementation="src/iam/backtest/runner.py → reverse DCF computed in Stage 1",
         tags=["expectations investing", "intrinsic value", "DCF"],
         difficulty="intermediate",
-        prerequisites=[]
+        prerequisites=[],
     ),
-
     Concept(
         name="Information Coefficient (IC)",
         category="Quantitative Finance",
@@ -106,9 +109,8 @@ CORE_CONCEPTS = [
         implementation="src/iam/backtest/metrics.py → ic_spearman()",
         tags=["factor investing", "alpha", "signal"],
         difficulty="intermediate",
-        prerequisites=[]
+        prerequisites=[],
     ),
-
     Concept(
         name="IC Information Ratio (ICIR)",
         category="Quantitative Finance",
@@ -120,9 +122,8 @@ CORE_CONCEPTS = [
         implementation="src/iam/backtest/metrics.py → compute_statistics() → icir",
         tags=["risk adjusted alpha", "factor stability"],
         difficulty="intermediate",
-        prerequisites=["Information Coefficient (IC)"]
+        prerequisites=["Information Coefficient (IC)"],
     ),
-
     Concept(
         name="Multi-Horizon IC",
         category="Quantitative Finance",
@@ -134,9 +135,8 @@ CORE_CONCEPTS = [
         implementation="src/iam/backtest/runner.py → discovers fwd_ret_* columns",
         tags=["factor timing", "signal decay"],
         difficulty="advanced",
-        prerequisites=["Information Coefficient (IC)"]
+        prerequisites=["Information Coefficient (IC)"],
     ),
-
     Concept(
         name="Value-Weighted IC",
         category="Quantitative Finance",
@@ -147,9 +147,8 @@ CORE_CONCEPTS = [
         implementation="src/iam/backtest/metrics.py → ic_value_weighted()",
         tags=["portfolio construction", "institutional"],
         difficulty="advanced",
-        prerequisites=["Information Coefficient (IC)"]
+        prerequisites=["Information Coefficient (IC)"],
     ),
-
     Concept(
         name="SOTP Valuation",
         category="Valuation",
@@ -161,9 +160,8 @@ CORE_CONCEPTS = [
         implementation="src/iam/backtest/runner.py → SOTP logic",
         tags=["segments", "conglomerate", "DCF"],
         difficulty="advanced",
-        prerequisites=["Reverse DCF"]
+        prerequisites=["Reverse DCF"],
     ),
-
     Concept(
         name="Geographic ERP",
         category="Risk",
@@ -175,9 +173,8 @@ CORE_CONCEPTS = [
         implementation="src/iam/backtest/runner.py → geo_blended_erp()",
         tags=["country risk", "cost of equity"],
         difficulty="advanced",
-        prerequisites=[]
+        prerequisites=[],
     ),
-
     Concept(
         name="Terminal Growth Cap",
         category="Valuation",
@@ -188,9 +185,8 @@ CORE_CONCEPTS = [
         implementation="src/iam/backtest/runner.py → terminal_growth = min(g, Rf)",
         tags=["terminal value", "perpetuity"],
         difficulty="intermediate",
-        prerequisites=[]
+        prerequisites=[],
     ),
-
     Concept(
         name="Through-Cycle Normalization",
         category="Valuation",
@@ -202,9 +198,8 @@ CORE_CONCEPTS = [
         implementation="src/iam/backtest/runner.py → normalised_earnings()",
         tags=["cyclicals", "mean reversion"],
         difficulty="advanced",
-        prerequisites=[]
+        prerequisites=[],
     ),
-
     Concept(
         name="Operating Leverage",
         category="Risk",
@@ -215,9 +210,8 @@ CORE_CONCEPTS = [
         implementation="src/iam/backtest/runner.py → beta_adjusted for leverage",
         tags=["beta", "fixed costs"],
         difficulty="intermediate",
-        prerequisites=[]
+        prerequisites=[],
     ),
-
     Concept(
         name="Walk-Forward Optimization",
         category="Backtesting",
@@ -228,9 +222,8 @@ CORE_CONCEPTS = [
         implementation="src/iam/backtest/weight_optimizer.py → WalkForwardOptimizer",
         tags=["backtesting", "quant"],
         difficulty="intermediate",
-        prerequisites=[]
+        prerequisites=[],
     ),
-
     Concept(
         name="Bootstrap Stability",
         category="Statistics",
@@ -241,9 +234,8 @@ CORE_CONCEPTS = [
         implementation="src/iam/backtest/weight_optimizer.py → BootstrapStability",
         tags=["monte carlo", "resampling"],
         difficulty="advanced",
-        prerequisites=[]
+        prerequisites=[],
     ),
-
     Concept(
         name="Shrinkage (Bayesian)",
         category="Statistics",
@@ -254,9 +246,8 @@ CORE_CONCEPTS = [
         implementation="src/iam/backtest/weight_optimizer.py → shrinkage_lambda",
         tags=["regularization", "bias-variance"],
         difficulty="advanced",
-        prerequisites=[]
+        prerequisites=[],
     ),
-
     Concept(
         name="Bayesian Thesis Updating",
         category="Decision Theory",
@@ -268,9 +259,8 @@ CORE_CONCEPTS = [
         implementation="src/iam/backtest/runner.py → thesis engine (Phase 3.2)",
         tags=["probability", "posterior", "priors"],
         difficulty="advanced",
-        prerequisites=[]
+        prerequisites=[],
     ),
-
     Concept(
         name="Narrative-Consistency Validation",
         category="Validation",
@@ -282,9 +272,8 @@ CORE_CONCEPTS = [
         implementation="src/iam/backtest/runner.py → validate_growth_consistency()",
         tags=["model integrity", "sanity checks"],
         difficulty="intermediate",
-        prerequisites=[]
+        prerequisites=[],
     ),
-
     Concept(
         name="Point-In-Time Data",
         category="Data Engineering",
@@ -296,9 +285,8 @@ CORE_CONCEPTS = [
         implementation="src/iam/backtest/prices.py → load_price_block() with date checks",
         tags=["backtesting", "data integrity"],
         difficulty="intermediate",
-        prerequisites=[]
+        prerequisites=[],
     ),
-
     Concept(
         name="Survivorship Bias",
         category="Data Engineering",
@@ -310,9 +298,8 @@ CORE_CONCEPTS = [
         implementation="src/iam/backtest/universe.py → include delistings",
         tags=["bias", "historical data"],
         difficulty="easy",
-        prerequisites=[]
+        prerequisites=[],
     ),
-
     Concept(
         name="Manifest.json Reproducibility",
         category="Engineering",
@@ -323,9 +310,8 @@ CORE_CONCEPTS = [
         implementation="src/iam/backtest/manifest.py → BacktestManifest",
         tags=["reproducibility", "audit"],
         difficulty="easy",
-        prerequisites=[]
+        prerequisites=[],
     ),
-
     Concept(
         name="Redundant Data Fetching",
         category="Data Engineering",
@@ -336,9 +322,8 @@ CORE_CONCEPTS = [
         implementation="src/iam/data/fetcher.py → RedundantDataFetcher",
         tags=["data resilience", "fault tolerance"],
         difficulty="intermediate",
-        prerequisites=[]
+        prerequisites=[],
     ),
-
     Concept(
         name="Epistemic Humility",
         category="Philosophy",
@@ -349,7 +334,7 @@ CORE_CONCEPTS = [
         implementation="src/iam/backtest/runner.py → scenario_valuation()",
         tags=["uncertainty", "risk"],
         difficulty="easy",
-        prerequisites=[]
+        prerequisites=[],
     ),
 ]
 
@@ -365,7 +350,7 @@ CORE_QUESTIONS = [
             "Past intrinsic value",
             "Implied market growth expectations",
             "Historical beta",
-            "Enterprise value only"
+            "Enterprise value only",
         ],
         answer="Implied market growth expectations",
         explanation=(
@@ -373,16 +358,15 @@ CORE_QUESTIONS = [
             "the current stock price, revealing what the market is pricing in."
         ),
         difficulty="easy",
-        concept="Reverse DCF"
+        concept="Reverse DCF",
     ),
-
     Question(
         prompt="Why is Point-In-Time data critical?",
         choices=[
             "It increases volatility",
             "It reduces memory usage",
             "It prevents lookahead bias in backtests",
-            "It improves chart rendering"
+            "It improves chart rendering",
         ],
         answer="It prevents lookahead bias in backtests",
         explanation=(
@@ -390,16 +374,15 @@ CORE_QUESTIONS = [
             "PIT ensures only information available at that date is used."
         ),
         difficulty="easy",
-        concept="Point-In-Time Data"
+        concept="Point-In-Time Data",
     ),
-
     Question(
         prompt="What does Information Coefficient (IC) measure?",
         choices=[
             "Cash flow stability",
             "Factor predictive power via rank correlation",
             "Market beta",
-            "Volatility clustering"
+            "Volatility clustering",
         ],
         answer="Factor predictive power via rank correlation",
         explanation=(
@@ -407,16 +390,15 @@ CORE_QUESTIONS = [
             "Higher IC = stronger predictive signal."
         ),
         difficulty="medium",
-        concept="Information Coefficient (IC)"
+        concept="Information Coefficient (IC)",
     ),
-
     Question(
         prompt="Why should terminal growth be capped at Rf?",
         choices=[
             "To reduce taxes",
             "Because firms cannot outgrow the economy forever",
             "To increase DCF speed",
-            "Because CAPM requires it"
+            "Because CAPM requires it",
         ],
         answer="Because firms cannot outgrow the economy forever",
         explanation=(
@@ -424,16 +406,15 @@ CORE_QUESTIONS = [
             "reality. Rf approximates long-run nominal GDP growth."
         ),
         difficulty="medium",
-        concept="Terminal Growth Cap"
+        concept="Terminal Growth Cap",
     ),
-
     Question(
         prompt="What problem does Walk-Forward optimization solve?",
         choices=[
             "Inflation risk",
             "Overfitting to historical data",
             "Liquidity constraints",
-            "Accounting fraud detection"
+            "Accounting fraud detection",
         ],
         answer="Overfitting to historical data",
         explanation=(
@@ -441,16 +422,15 @@ CORE_QUESTIONS = [
             "revealing true robustness vs. data-fitting artifacts."
         ),
         difficulty="medium",
-        concept="Walk-Forward Optimization"
+        concept="Walk-Forward Optimization",
     ),
-
     Question(
         prompt="What is survivorship bias?",
         choices=[
             "Ignoring bankrupt companies from backtest data",
             "Using only monthly returns",
             "Overestimating tax impacts",
-            "Incorrect beta calculation"
+            "Incorrect beta calculation",
         ],
         answer="Ignoring bankrupt companies from backtest data",
         explanation=(
@@ -458,16 +438,15 @@ CORE_QUESTIONS = [
             "Bankrupt companies deliver -100% returns and must be included."
         ),
         difficulty="easy",
-        concept="Survivorship Bias"
+        concept="Survivorship Bias",
     ),
-
     Question(
         prompt="What does ICIR measure?",
         choices=[
             "Average factor predictive power",
             "Consistency of factor predictive power",
             "Volatility of stock returns",
-            "Correlation with market index"
+            "Correlation with market index",
         ],
         answer="Consistency of factor predictive power",
         explanation=(
@@ -475,16 +454,15 @@ CORE_QUESTIONS = [
             "low ICIR means it's erratic even if the mean IC is positive."
         ),
         difficulty="medium",
-        concept="IC Information Ratio (ICIR)"
+        concept="IC Information Ratio (ICIR)",
     ),
-
     Question(
         prompt="Why use Through-Cycle normalization for cyclicals?",
         choices=[
             "To increase earnings",
             "To average earnings across boom and bust cycles",
             "To reduce tax liability",
-            "Because regulators require it"
+            "Because regulators require it",
         ],
         answer="To average earnings across boom and bust cycles",
         explanation=(
@@ -492,7 +470,7 @@ CORE_QUESTIONS = [
             "cycle gives a true sustainable earnings power estimate."
         ),
         difficulty="medium",
-        concept="Through-Cycle Normalization"
+        concept="Through-Cycle Normalization",
     ),
 ]
 
@@ -500,6 +478,7 @@ CORE_QUESTIONS = [
 # ============================================================
 # LEARNING ENGINE
 # ============================================================
+
 
 class LearningEngine:
     """Interactive learning platform for institutional finance concepts."""
@@ -519,14 +498,16 @@ class LearningEngine:
             # Add expanded concepts as Concept dataclass instances
             for name, data in EXPANDED_CONCEPTS.items():
                 if not any(c.name == name for c in concepts):
-                    concepts.append(Concept(
-                        name=name,
-                        category=data.get('category', 'Other'),
-                        definition=data['extended'][:200] + "...",
-                        implementation=data['code_ref'],
-                        tags=[],
-                        difficulty="intermediate"
-                    ))
+                    concepts.append(
+                        Concept(
+                            name=name,
+                            category=data.get("category", "Other"),
+                            definition=data["extended"][:200] + "...",
+                            implementation=data["code_ref"],
+                            tags=[],
+                            difficulty="intermediate",
+                        )
+                    )
 
         return concepts
 
@@ -678,7 +659,8 @@ class LearningEngine:
         query = input("\nSearch concept (name or tag): ").lower().strip()
 
         results = [
-            c for c in self.concepts
+            c
+            for c in self.concepts
             if query in c.name.lower() or any(query in tag.lower() for tag in c.tags)
         ]
 
@@ -786,7 +768,9 @@ class LearningEngine:
                 if c.tags:
                     f.write(f'    <div class="tags">Tags: {", ".join(c.tags)}</div>\n')
                 if c.prerequisites:
-                    f.write(f'    <p><strong>Prerequisites:</strong> {", ".join(c.prerequisites)}</p>\n')
+                    f.write(
+                        f"    <p><strong>Prerequisites:</strong> {', '.join(c.prerequisites)}</p>\n"
+                    )
                 f.write("</div>\n")
 
             f.write("""
@@ -800,6 +784,7 @@ class LearningEngine:
 # ============================================================
 # MAIN
 # ============================================================
+
 
 def main():
     """Main entry point."""

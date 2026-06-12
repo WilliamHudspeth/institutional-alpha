@@ -85,7 +85,7 @@ def _fetch_snapshot_data(
 
     fundamentals = fetcher.fetch_fundamentals(ticker, as_of_dt)
     # Map Liabilities or totalDebt depending on what's available
-    debt = float(fundamentals.get('Liabilities', fundamentals.get('totalDebt', 0.0)))
+    debt = float(fundamentals.get("Liabilities", fundamentals.get("totalDebt", 0.0)))
 
     return price, debt
 
@@ -113,14 +113,15 @@ def build_snapshot(
 
     cache = get_snapshot_cache(cache_dir)
     if cache_key in cache:
-        return cache[cache_key]
+        cached: Security = cache[cache_key]
+        return cached
 
     src = fetcher if fetcher is not None else get_default_fetcher()
     try:
         price, debt = _fetch_snapshot_data(ticker, as_of_dt, src)
     except Exception:
         # Fallback to base or nan
-        price = float('nan')
+        price = float("nan")
         debt = 0.0
 
     shares = (
@@ -149,5 +150,6 @@ def load_snapshot(
     cache_key = f"{ticker}_{as_of}"
     cache = get_snapshot_cache(cache_dir)
     if cache_key in cache:
-        return cache[cache_key]
+        cached: Security = cache[cache_key]
+        return cached
     return None

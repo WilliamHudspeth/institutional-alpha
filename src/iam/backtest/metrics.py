@@ -30,10 +30,10 @@ def information_coefficient(df: pd.DataFrame, sector_col: str | None = None) -> 
         return ic_sector_neutral(df, sector_col=sector_col)
 
     if df["score"].nunique() < 2:
-        return np.nan
+        return float(np.nan)
 
     corr, _ = spearmanr(df["score"], df["fwd"], nan_policy="omit")
-    return corr
+    return float(corr)
 
 
 def hit_rate(df: pd.DataFrame) -> float:
@@ -45,10 +45,10 @@ def hit_rate(df: pd.DataFrame) -> float:
     long_case = df[df["score"] > median_score]
 
     if len(long_case) == 0:
-        return np.nan
+        return float(np.nan)
 
     positive_returns = (long_case["fwd"] > 0).sum()
-    return positive_returns / len(long_case)
+    return float(positive_returns / len(long_case))
 
 
 def information_ratio(ic_series: pd.Series) -> float:
@@ -62,7 +62,7 @@ def information_ratio(ic_series: pd.Series) -> float:
     if std_ic == 0:
         return 0.0
 
-    return mean_ic / std_ic
+    return float(mean_ic / std_ic)
 
 
 def rolling_ic_stability(ic_series: pd.Series, window: int = 12) -> pd.Series:
@@ -146,7 +146,7 @@ def newey_west_se(ic_mean: float, ic_std: float, n: int, nlags: int = 3) -> floa
     adjustment_factor = np.sqrt(1 + 2 * rho_avg)
     base_se = ic_std / np.sqrt(n)
 
-    return base_se * adjustment_factor
+    return float(base_se * adjustment_factor)
 
 
 def newey_west_se_rigorous(ic_series: pd.Series, nlags: int = 3) -> tuple[float, float, float]:
@@ -201,7 +201,7 @@ def ic_value_weighted(
         valid = valid.dropna()
 
     if len(valid) < 5:
-        return np.nan
+        return float(np.nan)
 
     # Rank both series (average ties)
     rank_score = valid[score_col].rank(method="average")
@@ -216,12 +216,12 @@ def ic_value_weighted(
         var_s = np.dot(w, (rank_score.values - mu_s) ** 2)
         var_f = np.dot(w, (rank_fwd.values - mu_f) ** 2)
         if var_s <= 0 or var_f <= 0:
-            return np.nan
+            return float(np.nan)
         return float(cov / np.sqrt(var_s * var_f))
 
     # No market cap — fall back to equal-weight Spearman
     corr, _ = spearmanr(rank_score, rank_fwd, nan_policy="omit")
-    return corr
+    return float(corr)
 
 
 def ic_sector_neutral(df: pd.DataFrame, sector_col: str = "sector") -> float:
@@ -238,7 +238,7 @@ def ic_sector_neutral(df: pd.DataFrame, sector_col: str = "sector") -> float:
         Weighted average sector-neutral IC, or NaN if insufficient data
     """
     if sector_col not in df.columns:
-        return np.nan
+        return float(np.nan)
 
     ics = []
     weights = []
@@ -251,10 +251,10 @@ def ic_sector_neutral(df: pd.DataFrame, sector_col: str = "sector") -> float:
                 weights.append(len(group))
 
     if not ics:
-        return np.nan
+        return float(np.nan)
 
     # Weighted average
-    return np.average(ics, weights=weights)
+    return float(np.average(ics, weights=weights))
 
 
 def fisher_mean(correlations: np.ndarray) -> float:
@@ -278,4 +278,4 @@ def fisher_mean(correlations: np.ndarray) -> float:
     z_mean = np.nanmean(z)
 
     # Inverse transformation
-    return np.tanh(z_mean)
+    return float(np.tanh(z_mean))

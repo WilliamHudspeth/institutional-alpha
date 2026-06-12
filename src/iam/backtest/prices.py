@@ -68,10 +68,9 @@ def load_price_block(config: "BacktestConfig") -> pl.DataFrame:
     df_pl = pl.DataFrame(rows)
 
     # Ensure correct typing
-    df_pl = df_pl.with_columns([
-        pl.col("date").str.to_date("%Y-%m-%d"),
-        pl.col("close").cast(pl.Float64)
-    ])
+    df_pl = df_pl.with_columns(
+        [pl.col("date").str.to_date("%Y-%m-%d"), pl.col("close").cast(pl.Float64)]
+    )
 
     df_pl = df_pl.sort(["ticker", "date"])
 

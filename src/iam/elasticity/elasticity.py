@@ -1,8 +1,7 @@
 """Elasticity scoring: how sharply value re-prices under stress.
 
-STATUS: framework stub. ``ElasticityScorer.profile`` raises
-NotImplementedError. The docstring below is the implementation spec;
-``tests/test_elasticity.py`` encodes it as assertions.
+The class docstring below is the implementation spec; ``tests/test_elasticity.py``
+encodes it as assertions.
 """
 
 from __future__ import annotations
@@ -125,7 +124,11 @@ class ElasticityScorer:
                     # Compute baseline: 9% WACC, 0% growth, 2.5% terminal, 10y
                     baseline_pv = two_stage_pv(1.0, 0.0, n, DEFAULT_TERMINAL_GROWTH, DEFAULT_WACC)
                     baseline_pv_up = two_stage_pv(
-                        1.0, 0.0, n, DEFAULT_TERMINAL_GROWTH, DEFAULT_WACC + RATE_PROBE_BPS / 10000.0
+                        1.0,
+                        0.0,
+                        n,
+                        DEFAULT_TERMINAL_GROWTH,
+                        DEFAULT_WACC + RATE_PROBE_BPS / 10000.0,
                     )
                     if baseline_pv is not None and baseline_pv_up is not None and baseline_pv > 0:
                         baseline_swing = abs(baseline_pv_up / baseline_pv - 1.0) / 0.01

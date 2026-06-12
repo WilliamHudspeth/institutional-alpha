@@ -282,4 +282,3 @@ class TestStage3CAPMWiring:
         FCFEDCF().compute(sec)
         assert "beta_unlevered" in sec.qualitative
         assert "beta_stage3" in sec.qualitative
-

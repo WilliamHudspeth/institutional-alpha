@@ -76,7 +76,7 @@ class Evidence:
         val = self.likelihoods.get(scenario_label)
         if isinstance(val, ScenarioLikelihood):
             raw_prob = val.probability
-        elif isinstance(val, (float, int)):
+        elif isinstance(val, float | int):
             raw_prob = float(val)
         else:
             raw_prob = 1.0

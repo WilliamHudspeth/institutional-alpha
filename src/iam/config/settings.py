@@ -41,7 +41,7 @@ class FactorWeightsConfig(BaseModel):
 
     def as_dict(self) -> dict[str, float]:
         """Convert to dict."""
-        return {k: v for k, v in self.dict().items() if isinstance(v, (int, float))}
+        return {k: v for k, v in self.dict().items() if isinstance(v, int | float)}
 
     def total_weight(self) -> float:
         """Sum of all weights."""
@@ -54,7 +54,7 @@ class FactorWeightsConfig(BaseModel):
             return self
 
         data = self.dict()
-        normalized = {k: v / total for k, v in data.items() if isinstance(v, (int, float))}
+        normalized = {k: v / total for k, v in data.items() if isinstance(v, int | float)}
         return FactorWeightsConfig(**normalized)
 
 
@@ -161,7 +161,7 @@ class TerminalSettings(BaseModel):
             raise FileNotFoundError(f"Settings file not found: {path}")
 
         try:
-            import yaml
+            import yaml  # type: ignore[import-untyped]
 
             with open(path) as f:
                 data = yaml.safe_load(f)
@@ -207,7 +207,8 @@ class TerminalSettings(BaseModel):
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dict."""
-        return self.model_dump(by_alias=True)
+        data: dict[str, Any] = self.model_dump(by_alias=True)
+        return data
 
     def to_file(self, path: str | Path) -> None:
         """Save settings to file."""

@@ -23,15 +23,15 @@ from iam.engine.composite import DEFAULT_WEIGHTS, ScoreResult, score
 from iam.pipeline import PipelineReport, ValuationPipeline
 
 # Prevent potential Windows terminal Unicode encoding crashes (e.g. yfinance printing unicode arrows)
-if sys.platform.startswith('win'):
-    if hasattr(sys.stdout, 'reconfigure'):
+if sys.platform.startswith("win"):
+    if hasattr(sys.stdout, "reconfigure"):
         try:
-            sys.stdout.reconfigure(errors='backslashreplace')
+            sys.stdout.reconfigure(errors="backslashreplace")
         except Exception:
             pass
-    if hasattr(sys.stderr, 'reconfigure'):
+    if hasattr(sys.stderr, "reconfigure"):
         try:
-            sys.stderr.reconfigure(errors='backslashreplace')
+            sys.stderr.reconfigure(errors="backslashreplace")
         except Exception:
             pass
 
