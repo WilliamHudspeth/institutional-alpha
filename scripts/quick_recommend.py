@@ -87,7 +87,7 @@ def format_rating_box(
     return "\n".join(lines)
 
 
-def show_recommendation(ticker: str) -> None:
+def show_recommendation(ticker: str, force_details: bool = False) -> None:
     """Fetch security, run adaptive valuation, show recommendation."""
     print("\n  ⏳ Fetching data and running adaptive valuation...\n")
 
@@ -149,9 +149,15 @@ def show_recommendation(ticker: str) -> None:
         print()
 
         # Ask if user wants details
-        while True:
-            details = input("  See detailed metrics? (y/n): ").strip().lower()
-            if details == "y":
+        if force_details:
+            show_details = True
+        elif not sys.stdin.isatty():
+            show_details = False
+        else:
+            show_details = None
+
+        if show_details is not None:
+            if show_details:
                 print("\n" + "=" * 76)
                 print("  ADAPTIVE VALUATION ANALYSIS")
                 print("=" * 76 + "\n")
@@ -185,12 +191,51 @@ def show_recommendation(ticker: str) -> None:
                 for i, g in enumerate(fade_path, 1):
                     print(f"    Year {i:2d}:  {g:.1%}")
                 print()
-                break
-            elif details == "n":
-                print("\n  ✓ Done!\n")
-                break
             else:
-                print("  Please enter 'y' or 'n'\n")
+                print("\n  ✓ Done!\n")
+        else:
+            while True:
+                details = input("  See detailed metrics? (y/n): ").strip().lower()
+                if details == "y":
+                    print("\n" + "=" * 76)
+                    print("  ADAPTIVE VALUATION ANALYSIS")
+                    print("=" * 76 + "\n")
+                    print(f"  Ticker:              {result['ticker']}")
+                    print(f"  Business Type:       {result['type']}")
+                    print(f"  Confidence:          {result['confidence']}\n")
+
+                    # Triangulation audit trail
+                    tri = result["triangulation"]
+                    print("  GROWTH TRIANGULATION (5 estimators):")
+                    print(f"    Blended Growth:    {tri['blended_growth']:>+7.1%}")
+                    print(f"    Raw Growth:        {tri['raw_growth']:>+7.1%}")
+                    print(f"    Margin Adjustment: {tri['margin_adjustment']:>+7.2%}pp")
+                    print(f"    Disagreement σ:    {tri['method_disagreement']:>7.1%}")
+                    print(f"    Dominant Method:   {tri['dominant_method']}\n")
+                    print(f"    {'Method':<14} {'Growth':>8} {'Conf':>6} {'Weight':>8}")
+                    for e in tri["estimates"]:
+                        print(
+                            f"    {e['method']:<14} {e['value']:>+8.1%} {e['confidence']:>6.2f} {e['weight']:>8.1f}"
+                        )
+                    print()
+
+                    print("  Phase 2 (Divergence):")
+                    p2 = result["phase2"]
+                    print(
+                        f"    Condition:         {p2['condition']} (threshold: {p2['threshold']:.1%})"
+                    )
+                    print(f"    Divergence:        {p2['divergence']:.1%}")
+                    print(f"    Base Growth:       {p2['base_growth']:.1%}\n")
+                    print("  Phase 3 (10-Year Fade Path):")
+                    for i, g in enumerate(fade_path, 1):
+                        print(f"    Year {i:2d}:  {g:.1%}")
+                    print()
+                    break
+                elif details == "n":
+                    print("\n  ✓ Done!\n")
+                    break
+                else:
+                    print("  Please enter 'y' or 'n'\n")
 
     except RuntimeError as e:
         print(f"  ❌ Could not fetch data for '{ticker}'")
@@ -201,7 +246,22 @@ def show_recommendation(ticker: str) -> None:
 
 def main() -> None:
     """Main entry point."""
+    import argparse
+    parser = argparse.ArgumentParser(description="Quick Recommendation Tool")
+    parser.add_argument("ticker", nargs="?", help="Ticker symbol")
+    parser.add_argument("--details", action="store_true", help="Show detailed metrics automatically")
+    args = parser.parse_args()
+
     print_banner()
+
+    if args.ticker:
+        show_recommendation(args.ticker, force_details=args.details)
+        return
+
+    if not sys.stdin.isatty():
+        print("Non-interactive session: running default analysis on AAPL")
+        show_recommendation("AAPL", force_details=True)
+        return
 
     while True:
         ticker = get_ticker()

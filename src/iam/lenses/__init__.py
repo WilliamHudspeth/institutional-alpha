@@ -1,6 +1,5 @@
 """Valuation lenses for alternative views of fair value."""
 
-from iam.engine.damodaran import DamodaranEngine
 from iam.lenses.base import BaseLens, LensResult, two_stage_pv
 from iam.lenses.business_reality_lens import BusinessRealityLens
 from iam.lenses.expectations_difficulty import ExpectationsDifficultyLens
@@ -15,7 +14,6 @@ __all__ = [
     "RateSensitiveLens",
     "PlatformCompounderLens",
     "ExpectationsDifficultyLens",
-    "DamodaranEngine",
     "BusinessRealityLens",
     "synthesize_lenses",
     "SynthesisResult",

@@ -150,7 +150,7 @@ def _build_ui_data(
         "scenarios": _build_scenarios(intrinsic_components),
         "wacc_info": wacc_info,
         "signals": {
-            "reverse_dcf": _classify_signal(report.reverse_dcf.fair_value_to_price)
+            "reverse_dcf": _classify_signal(report.market_implied_engine.fair_value_to_price)
             if report
             else "N/A",
             "platform_compounder": _classify_signal(synthesis_upside),
@@ -164,16 +164,34 @@ def _build_ui_data(
 
 def main() -> None:
     from iam.ui.institutional_terminal import print_institutional_ui
+    import argparse
 
-    # ----- Input -----
-    ticker = input("Ticker symbol: ").strip().upper()
+    parser = argparse.ArgumentParser(description="Interactive CLI for the multi-lens valuation engine.")
+    parser.add_argument("ticker", nargs="?", help="Ticker symbol (e.g., AAPL)")
+    parser.add_argument("--growth", help="Forecast growth (e.g. 13 or 0.13 for 13%%)")
+    args = parser.parse_args()
+
+    ticker = args.ticker
+    g_input = args.growth
+
+    if not ticker:
+        if sys.stdin.isatty():
+            ticker = input("Ticker symbol: ").strip().upper()
+        else:
+            ticker = "AAPL"
+            print("Non-interactive session: defaulting to AAPL")
+
     if not ticker:
         print("No ticker entered. Exiting.")
         sys.exit(0)
 
-    g_input = input(
-        "Forecast growth (e.g. 13 or 0.13 for 13%) [Enter for default 8%]: "
-    ).strip()
+    if g_input is None:
+        if sys.stdin.isatty():
+            g_input = input(
+                "Forecast growth (e.g. 13 or 0.13 for 13%) [Enter for default 8%]: "
+            ).strip()
+        else:
+            g_input = ""
 
     # ----- Silent data fetch -----
     try:
