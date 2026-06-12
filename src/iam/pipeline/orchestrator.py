@@ -200,7 +200,7 @@ class ValuationPipeline:
             return None
 
         ebit = None
-        if getattr(f, "revenue_ttm", None) and getattr(f, "operating_margin", None):
+        if f.revenue_ttm and f.operating_margin:
             ebit = f.revenue_ttm * f.operating_margin
         if ebit is None:
             ebit = getattr(f, "ebitda_ttm", None) or 0.0

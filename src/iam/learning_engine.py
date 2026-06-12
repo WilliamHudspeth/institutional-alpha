@@ -50,7 +50,7 @@ class Concept:
     implementation: str  # Code file and function reference
     tags: list[str]
     difficulty: str = "intermediate"  # easy, intermediate, advanced
-    prerequisites: list[str] = None
+    prerequisites: list[str] | None = None
 
     def __post_init__(self):
         if self.prerequisites is None:
@@ -70,7 +70,7 @@ class Question:
     explanation: str
     difficulty: str  # easy, medium, hard
     concept: str  # Links to Concept.name
-    tags: list[str] = None
+    tags: list[str] | None = None
 
     def __post_init__(self):
         if self.tags is None:

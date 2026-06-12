@@ -125,7 +125,7 @@ def run_backtest(
                 ]
 
                 scores: dict[str, float] = {}
-                sectors: dict[str, str] = {}
+                sectors: dict[str, str | None] = {}
                 mcaps: dict[str, float | None] = {}
                 for future in futures:
                     ticker, score, sector, market_cap = future.result()

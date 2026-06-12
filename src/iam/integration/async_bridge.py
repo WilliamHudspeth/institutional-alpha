@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from iam.data.async_loader import get_async_loader
 from iam.ui.events import EventType, emit_event
@@ -66,7 +66,10 @@ class AsyncPipelineAdapter:
                 raise
 
         self.loader.compute_pipeline_async(
-            ticker, wrapped_pipeline, on_complete=on_complete, on_error=on_error
+            ticker,
+            wrapped_pipeline,  # type: ignore[arg-type]
+            on_complete=on_complete,
+            on_error=on_error,
         )
 
         return task_id
@@ -75,7 +78,7 @@ class AsyncPipelineAdapter:
         """Wait for and retrieve pipeline result."""
         task_id = f"pipeline_{ticker}"
         _, result = self.loader.wait_for_task(task_id, timeout=timeout)
-        return result
+        return cast("dict[str, Any]", result)
 
 
 class AsyncFactorAdapter:
@@ -102,14 +105,14 @@ class AsyncFactorAdapter:
         Returns:
             Task ID
         """
-        self.loader.score_factors_async(ticker, factor_fn, on_complete, on_error)
+        self.loader.score_factors_async(ticker, factor_fn, on_complete, on_error)  # type: ignore[call-arg]
         return f"factors_{ticker}"
 
     def get_factor_result(self, ticker: str, timeout: float = 30.0) -> dict[str, float]:
         """Wait for and retrieve factor scores."""
         task_id = f"factors_{ticker}"
         _, result = self.loader.wait_for_task(task_id, timeout=timeout)
-        return result
+        return cast("dict[str, float]", result)
 
 
 class AsyncSecurityDataAdapter:
@@ -143,7 +146,7 @@ class AsyncSecurityDataAdapter:
         """Wait for and retrieve security data."""
         task_id = f"security_{ticker}"
         _, result = self.loader.wait_for_task(task_id, timeout=timeout)
-        return result
+        return cast("dict[str, Any]", result)
 
 
 class ParallelWorkflow:
@@ -192,7 +195,7 @@ class ParallelWorkflow:
 
     def execute_and_wait(self, timeout: float = 60.0) -> dict[str, Any]:
         """Execute all tasks and wait for completion."""
-        results = {}
+        results: dict[str, Any] = {}
 
         for task_name in self.tasks:
             try:

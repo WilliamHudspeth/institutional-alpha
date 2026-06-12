@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 from iam.data.ground_truth import GroundTruthProvider
 from iam.data.security import Security
@@ -141,7 +142,7 @@ class FCFEDCF:
         # Bear (20%):  -40% growth, +150bps WACC, -20% Terminal Growth
         # Base (60%):  Anchor assumptions
         # Bull (20%):  +30% growth, -100bps WACC, +20% Terminal Growth
-        scenarios = [
+        scenarios: list[dict[str, Any]] = [
             {
                 "name": "Bear Case",
                 "prob": 0.20,
@@ -166,7 +167,7 @@ class FCFEDCF:
         ]
 
         pwev_target = 0.0
-        matrix_results = {}
+        matrix_results: dict[str, Any] = {}
 
         # Run the DCF math for each scenario
         for s in scenarios:
@@ -230,7 +231,7 @@ class FCFEDCF:
             confidence=confidence,
             components={
                 "pwev_target": pwev_target,
-                "scenarios": matrix_results,
+                "scenarios": matrix_results,  # type: ignore[dict-item]
                 "base_ni_per_share": ni_per_share,
             },
             assumptions={

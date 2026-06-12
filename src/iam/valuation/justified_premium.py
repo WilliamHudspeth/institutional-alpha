@@ -14,7 +14,7 @@ premium/discount vs the premium/discount the company deserves.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -31,7 +31,7 @@ class JustifiedPremiumResult:
     actual_premium: float | None = None
     deserved_premium: float | None = None
     premium_gap: float | None = None
-    notes: list[str] = None
+    notes: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         if self.notes is None:

@@ -226,7 +226,7 @@ def triangulate_growth_for_security(
         operating_margin=fundamentals.operating_margin,
         operating_margin_history=fundamentals.operating_margin_history,
     )
-    margin_adjustment = margin_info["adjustment"]
+    margin_adjustment = float(margin_info["adjustment"])
 
     # --- Triangulate ---
     return triangulate_growth(

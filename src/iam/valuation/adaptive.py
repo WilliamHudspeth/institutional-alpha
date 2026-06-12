@@ -36,7 +36,7 @@ class AdaptiveValuationEngine:
     """Adaptive valuation without hard-coded growth assumptions."""
 
     # Business type classification map (extensible)
-    TYPE_MAP = {
+    TYPE_MAP: dict[str, BusinessType] = {
         "KO": "stable",
         "WMT": "stable",
         "CVS": "stable",
@@ -211,7 +211,7 @@ class AdaptiveValuationEngine:
             Dict with classification, fade path, confidence grade, metrics
         """
         p2 = self.phase2_divergence(p)
-        fade = self.phase3_fade(p, p2["base_growth"])
+        fade = self.phase3_fade(p, float(p2["base_growth"]))
         conf = self.phase4_confidence(p, p2)
 
         return {

@@ -449,7 +449,7 @@ class LearningModule:
 {c["code_ref"]}
 """
 
-    def run_quiz(self, num_questions: int = None) -> tuple[int, int]:
+    def run_quiz(self, num_questions: int | None = None) -> tuple[int, int]:
         """Run interactive quiz, return (score, total)."""
         qs = self.questions
         if num_questions and num_questions < len(qs):
