@@ -163,8 +163,9 @@ def _build_ui_data(
 
 
 def main() -> None:
-    from iam.ui.institutional_terminal import print_institutional_ui
     import argparse
+
+    from iam.ui.institutional_terminal import print_institutional_ui
 
     parser = argparse.ArgumentParser(description="Interactive CLI for the multi-lens valuation engine.")
     parser.add_argument("ticker", nargs="?", help="Ticker symbol (e.g., AAPL)")
