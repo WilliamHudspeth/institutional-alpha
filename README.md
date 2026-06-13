@@ -13,7 +13,7 @@ It is built as a **probabilistic equity reasoning engine**, not a screener. A sc
 
 **v0.4.0-rc1** — Institutional infrastructure complete. The factor scoring engine, seven-stage valuation pipeline, Bayesian thesis engine, hardened backtest stack, institutional portfolio analytics, and modern modular terminal are all implemented and tested. Next: empirical IC run on real market data (v0.4.0) and probabilistic reasoning engine (v0.5.0).
 
-- 502 tests passing (with enhanced CI/CD coverage)
+- 720 tests passing (with enhanced CI/CD coverage)
 - 13 orthogonal factors (10 additive + 3 penalty)
 - 7-stage valuation pipeline
 - **Institutional portfolio layer** (analytics, position sizing, verdict generation)

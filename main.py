@@ -266,7 +266,8 @@ def run_thesis_engine(ticker: str) -> None:
         print("  THESIS ANALYSIS")
         print("-" * 70)
         print(f"  Fair value range: ${evaluation.worst_case:.2f} – ${evaluation.best_case:.2f}")
-        print(f"  Expected value: ${evaluation.expected_value:.2f}")
+        expected = f"${evaluation.expected_value:.2f}" if evaluation.expected_value is not None else "N/A"
+        print(f"  Expected value: {expected}")
         print()
 
     except ValueError:
@@ -363,12 +364,22 @@ def run_quick_recommendation(ticker: str) -> None:
         print()
 
         # Interpretation
-        if rating == "BUY":
+        if rating == "STRONG_BUY":
+            print("  🔥 High conviction! Stock is deeply undervalued with strong fundamentals.\n")
+        elif rating == "BUY":
             print("  🟢 Stock appears undervalued with >15% potential upside\n")
+        elif rating == "SPECULATIVE_BUY":
+            print("  🟣 Speculative Buy: Intrinsic value is high, but market expectations are also very rich.\n")
         elif rating == "SELL":
             print("  🔴 Stock appears overvalued with >10% potential downside\n")
         else:
             print("  🟡 Stock appears fairly valued within -10% to +15% range\n")
+
+        if report.battlefield:
+            # Shift the summary slightly right for alignment if needed, or just print
+            for line in report.battlefield.summary().split('\n'):
+                print(f"  {line}")
+            print()
 
         # Ask for details
         print()

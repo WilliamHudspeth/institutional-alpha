@@ -79,6 +79,7 @@ try:
     from iam import score as _score
     from iam.data.yahoo import fetch_security as _fetch_security
     from iam.pipeline.orchestrator import ValuationPipeline as _Pipeline
+    from iam.learning_module import LearningModule as _LearningModule
 
     _IAM_CORE = True
 except ImportError:
@@ -1030,6 +1031,66 @@ class SysInfoPanel(_Panel):
 # ── Switch Security ───────────────────────────────────────────────────────
 
 
+class LearningPanel(_Panel):
+    title = "LEARNING & GLOSSARY"
+
+    def __init__(self) -> None:
+        self.lm = _LearningModule() if _IAM_CORE else None
+        self.current_concept: str | None = None
+        self._next_concept()
+
+    def _next_concept(self) -> None:
+        import random
+        if self.lm and hasattr(self.lm, "concepts") and self.lm.concepts:
+            self.current_concept = random.choice(list(self.lm.concepts.keys()))
+
+    def render(
+        self,
+        cv: Canvas,
+        r0: int,
+        r1: int,
+        c0: int,
+        c1: int,
+        sec: SecState | None,
+        ticks: int = 0,
+    ) -> None:
+        cv.put(r0 + 1, c0 + 2, "Educational & Reference Material", C_GOLD + BOLD)
+        
+        if not _IAM_CORE:
+            cv.put(r0 + 3, c0 + 2, "Learning Module unavailable in mock mode.", C_RED)
+            return
+
+        if self.current_concept and self.lm:
+            data = self.lm.concepts[self.current_concept]
+            cv.put(r0 + 3, c0 + 2, f"Concept: {self.current_concept}", C_WHITE + BOLD)
+            
+            def_text = data.get("definition", "")
+            words = def_text.split()
+            lines = []
+            cur_line = ""
+            for w in words:
+                if len(cur_line) + len(w) + 1 < (c1 - c0 - 4):
+                    cur_line += (w + " ")
+                else:
+                    lines.append(cur_line)
+                    cur_line = w + " "
+            if cur_line: lines.append(cur_line)
+            
+            for i, line in enumerate(lines):
+                if r0 + 5 + i > r1 - 5: break
+                cv.put(r0 + 5 + i, c0 + 2, line, C_WHITE)
+            
+            end_r = r0 + 5 + len(lines)
+            cv.put(end_r + 1, c0 + 2, "Code Reference:", C_DIM)
+            cv.put(end_r + 2, c0 + 2, data.get("code_ref", "N/A"), C_ACCENT)
+            
+            if "formula" in data:
+                cv.put(end_r + 4, c0 + 2, "Formula:", C_DIM)
+                cv.put(end_r + 5, c0 + 2, data["formula"], C_WHITE)
+
+        cv.hline(r1 - 2, c0, c1)
+        cv.put(r1 - 1, c0 + 1, "Press [C] for another concept.", C_DIM)
+
 class SwitchPanel(_Panel):
     title = "SWITCH ACTIVE SECURITY"
 
@@ -1066,6 +1127,7 @@ class AlphaTerminal:
         "Scenario & Thesis",
         "Backtest Efficacy",
         "Portfolio Overview",
+        "Learning & Glossary",
         "Matrix Digital Rain",
         "System Info",
         "Switch Security",
@@ -1094,6 +1156,7 @@ class AlphaTerminal:
             "Scenario & Thesis":    ScenarioPanel(),
             "Backtest Efficacy":    BacktestPanel(),
             "Portfolio Overview":   PortfolioPanel(),
+            "Learning & Glossary":  LearningPanel(),
             "Matrix Digital Rain":  MatrixPanel(),
             "System Info":          SysInfoPanel(),
             "Switch Security":      SwitchPanel(),
@@ -1187,6 +1250,13 @@ class AlphaTerminal:
             self._switch_flow()
         elif key.lower() == b"r":
             self._force_reload()
+        elif key.lower() == b"c":
+            if self.MENU_ITEMS[self._menu_idx] == "Learning & Glossary":
+                panel = self._panels["Learning & Glossary"]
+                if hasattr(panel, "_next_concept"):
+                    panel._next_concept()
+                if self._canvas:
+                    self._canvas._dirty = True
         elif key.lower() == b"w":
             self._add_to_watchlist_flow()
         elif key == b"\r":

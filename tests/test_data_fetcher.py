@@ -247,11 +247,13 @@ class TestSecEdgarSource:
 class TestYFinanceSource:
     """Test yfinance data fetching."""
 
-    @mock.patch("yfinance.Ticker")
-    def test_get_fundamentals(self, mock_ticker, cache_7day, sample_ticker, mock_yfinance_info):
+    def test_get_fundamentals(self, mock_yf_global, cache_7day, sample_ticker, mock_yfinance_info):
         """Test fetching fundamentals from yfinance."""
-        mock_ticker.return_value.info = mock_yfinance_info
-        mock_ticker.return_value.financials = pd.DataFrame()
+        mock_yf_global.set_ticker_info(sample_ticker, mock_yfinance_info)
+        
+        # We need a dummy financials dataframe for the mock if accessed directly
+        ticker_obj = mock_yf_global.Ticker(sample_ticker)
+        ticker_obj.financials = pd.DataFrame()
 
         source = YFinanceSource(cache_7day)
         result = source.get_fundamentals(sample_ticker, datetime.now())
@@ -259,14 +261,13 @@ class TestYFinanceSource:
         assert result["market_cap"] == 3.0e12
         assert result["currentPrice"] == 223.45
 
-    @mock.patch("yfinance.download")
     def test_get_price_history(
-        self, mock_download, cache_7day, sample_ticker, sample_prices, sample_start_end
+        self, mock_yf_global, cache_7day, sample_ticker, sample_prices, sample_start_end
     ):
         """Test fetching price history from yfinance."""
-        mock_download.return_value = pd.DataFrame(
+        mock_yf_global.set_download_data(pd.DataFrame(
             {"Adj Close": sample_prices}, index=sample_prices.index
-        )
+        ))
 
         source = YFinanceSource(cache_7day)
         start, end = sample_start_end
@@ -334,13 +335,13 @@ class TestStooqSource:
 class TestRedundantDataFetcher:
     """Test the main RedundantDataFetcher orchestrator."""
 
-    @mock.patch("yfinance.Ticker")
     def test_fetch_fundamentals_yfinance(
-        self, mock_ticker, cache_7day, sample_ticker, mock_yfinance_info
+        self, mock_yf_global, cache_7day, sample_ticker, mock_yfinance_info
     ):
         """Test fetching fundamentals via yfinance."""
-        mock_ticker.return_value.info = mock_yfinance_info
-        mock_ticker.return_value.financials = pd.DataFrame()
+        mock_yf_global.set_ticker_info(sample_ticker, mock_yfinance_info)
+        ticker_obj = mock_yf_global.Ticker(sample_ticker)
+        ticker_obj.financials = pd.DataFrame()
 
         config = DataConfig()
         config.fundamental_sources = ["yfinance"]
@@ -350,14 +351,13 @@ class TestRedundantDataFetcher:
 
         assert result["market_cap"] == 3.0e12
 
-    @mock.patch("yfinance.download")
     def test_fetch_price_history_fallback(
-        self, mock_download, cache_7day, sample_ticker, sample_prices, sample_start_end
+        self, mock_yf_global, cache_7day, sample_ticker, sample_prices, sample_start_end
     ):
         """Test price fetching with source priority."""
-        mock_download.return_value = pd.DataFrame(
+        mock_yf_global.set_download_data(pd.DataFrame(
             {"Adj Close": sample_prices}, index=sample_prices.index
-        )
+        ))
 
         config = DataConfig()
         config.price_sources = ["yfinance", "stooq"]
@@ -370,15 +370,15 @@ class TestRedundantDataFetcher:
         assert len(result) > 0
 
     @mock.patch("requests.Session.get")
-    @mock.patch("yfinance.Ticker")
     def test_fetch_fundamentals_fallback(
-        self, mock_ticker, mock_get, cache_7day, sample_ticker, sample_date, mock_yfinance_info
+        self, mock_get, mock_yf_global, cache_7day, sample_ticker, sample_date, mock_yfinance_info
     ):
         """Test fundamental fetching with fallback (SEC → yfinance)."""
         # SEC fails, yfinance succeeds
         mock_get.side_effect = Exception("SEC API error")
-        mock_ticker.return_value.info = mock_yfinance_info
-        mock_ticker.return_value.financials = pd.DataFrame()
+        mock_yf_global.set_ticker_info(sample_ticker, mock_yfinance_info)
+        ticker_obj = mock_yf_global.Ticker(sample_ticker)
+        ticker_obj.financials = pd.DataFrame()
 
         config = DataConfig()
         config.fundamental_sources = ["sec", "yfinance"]
@@ -408,12 +408,9 @@ class TestRedundantDataFetcher:
 class TestIntegration:
     """Integration tests for complete workflows."""
 
-    @mock.patch("yfinance.download")
-    @mock.patch("yfinance.Ticker")
     def test_full_backtest_workflow(
         self,
-        mock_ticker,
-        mock_download,
+        mock_yf_global,
         cache_7day,
         sample_prices,
         mock_yfinance_info,
@@ -421,11 +418,13 @@ class TestIntegration:
     ):
         """Test a complete backtest data fetch workflow."""
         # Setup mocks
-        mock_download.return_value = pd.DataFrame(
+        mock_yf_global.set_download_data(pd.DataFrame(
             {"Adj Close": sample_prices}, index=sample_prices.index
-        )
-        mock_ticker.return_value.info = mock_yfinance_info
-        mock_ticker.return_value.financials = pd.DataFrame()
+        ))
+        
+        for t in ["AAPL", "MSFT"]:
+            mock_yf_global.set_ticker_info(t, mock_yfinance_info)
+            mock_yf_global.Ticker(t).financials = pd.DataFrame()
 
         # Fetch data
         config = DataConfig()
@@ -514,19 +513,17 @@ class TestPerformance:
         result = benchmark(lookup)
         assert result is not None
 
-    def test_serial_fetches_speed(self, benchmark):
+    def test_serial_fetches_speed(self, mock_yf_global, benchmark):
         """Benchmark time to fetch multiple tickers."""
         config = DataConfig()
 
-        with mock.patch("yfinance.download") as mock_download:
-            mock_download.return_value = pd.DataFrame({"Adj Close": [100, 101, 102]})
+        mock_yf_global.set_download_data(pd.DataFrame({"Adj Close": [100, 101, 102]}))
+        def fetch_batch():
+            fetcher = RedundantDataFetcher(config)
+            for ticker in ["AAPL", "MSFT", "GOOGL"]:
+                fetcher.fetch_price_history(ticker, datetime(2024, 1, 1), datetime(2024, 1, 3))
 
-            def fetch_batch():
-                fetcher = RedundantDataFetcher(config)
-                for ticker in ["AAPL", "MSFT", "GOOGL"]:
-                    fetcher.fetch_price_history(ticker, datetime(2024, 1, 1), datetime(2024, 1, 3))
-
-            benchmark(fetch_batch)
+        benchmark(fetch_batch)
 
 
 if __name__ == "__main__":

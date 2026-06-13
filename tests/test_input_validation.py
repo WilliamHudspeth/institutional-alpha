@@ -8,6 +8,8 @@ from iam.validation import (
     sanity_check_valuation,
     validate_discount_rate,
     validate_growth_rate,
+    validate_ticker,
+    validate_date,
 )
 
 
@@ -62,52 +64,52 @@ class TestGrowthRateParser:
 
 
 class TestGrowthValidation:
-    """Test growth rate validation."""
+    """Test growth rate validation using parametrized tests."""
 
-    def test_forecast_growth_valid(self):
-        """Valid forecast growth (8%) should pass."""
-        validate_growth_rate(0.08, growth_type="forecast")
+    @pytest.mark.parametrize("growth, growth_type, expect_pass", [
+        (0.08, "forecast", True),
+        (0.39, "forecast", True),
+        (0.41, "forecast", False),
+        (0.03, "terminal", True),
+        (0.049, "terminal", True),
+        (0.051, "terminal", False),
+    ])
+    def test_growth_validation_scenarios(self, growth, growth_type, expect_pass):
+        if expect_pass:
+            validate_growth_rate(growth, growth_type=growth_type)
+        else:
+            with pytest.raises(ValueError):
+                validate_growth_rate(growth, growth_type=growth_type)
 
-    def test_forecast_growth_too_high(self):
-        """Forecast growth > 40% should raise ValueError."""
-        with pytest.raises(ValueError):
-            validate_growth_rate(0.50, growth_type="forecast")
-
-    def test_terminal_growth_valid(self):
-        """Valid terminal growth (3%) should pass."""
-        validate_growth_rate(0.03, growth_type="terminal")
-
-    def test_terminal_growth_too_high(self):
-        """Terminal growth > 5% should raise ValueError."""
-        with pytest.raises(ValueError):
-            validate_growth_rate(0.08, growth_type="terminal")
-
-    def test_negative_growth_allowed(self):
-        """Negative growth should be allowed by default."""
-        validate_growth_rate(-0.05, allow_negative=True)
-
-    def test_negative_growth_not_allowed(self):
-        """Negative growth should raise error if not allowed."""
-        with pytest.raises(ValueError):
-            validate_growth_rate(-0.05, allow_negative=False)
+    @pytest.mark.parametrize("growth, allow_neg, expect_pass", [
+        (-0.05, True, True),
+        (-0.05, False, False),
+        (0.05, False, True),
+    ])
+    def test_negative_growth_scenarios(self, growth, allow_neg, expect_pass):
+        if expect_pass:
+            validate_growth_rate(growth, allow_negative=allow_neg)
+        else:
+            with pytest.raises(ValueError):
+                validate_growth_rate(growth, allow_negative=allow_neg)
 
 
 class TestWACCValidation:
-    """Test WACC (discount rate) validation."""
+    """Test WACC (discount rate) validation using parametrized tests."""
 
-    def test_wacc_valid(self):
-        """Valid WACC (9%) should pass."""
-        validate_discount_rate(0.09)
-
-    def test_wacc_too_low(self):
-        """WACC < 4% should raise ValueError."""
-        with pytest.raises(ValueError):
-            validate_discount_rate(0.02)
-
-    def test_wacc_too_high(self):
-        """WACC > 25% should raise ValueError."""
-        with pytest.raises(ValueError):
-            validate_discount_rate(0.30)
+    @pytest.mark.parametrize("wacc, expect_pass", [
+        (0.09, True),
+        (0.04, True),
+        (0.25, True),
+        (0.039, False),
+        (0.251, False),
+    ])
+    def test_wacc_validation_scenarios(self, wacc, expect_pass):
+        if expect_pass:
+            validate_discount_rate(wacc)
+        else:
+            with pytest.raises(ValueError):
+                validate_discount_rate(wacc)
 
 
 class TestValuationSanityCheck:
@@ -168,3 +170,47 @@ class TestRealWorldScenarios:
         growth = parse_growth_rate(user_input)
         with pytest.raises(ValueError):
             validate_growth_rate(growth, growth_type="forecast")
+
+
+class TestTickerAndDateValidation:
+    """Test ticker and date validation helper methods."""
+
+    def test_ticker_valid(self):
+        validate_ticker("AAPL")
+        validate_ticker("MSFT")
+        validate_ticker("A")
+
+    def test_ticker_invalid_chars(self):
+        with pytest.raises(ValueError, match="Invalid ticker symbol"):
+            validate_ticker("AAP1")
+        with pytest.raises(ValueError, match="Invalid ticker symbol"):
+            validate_ticker("aapl")
+
+    def test_ticker_invalid_length(self):
+        with pytest.raises(ValueError, match="Invalid ticker symbol"):
+            validate_ticker("GOOGLE")
+        with pytest.raises(ValueError, match="Invalid ticker symbol"):
+            validate_ticker("")
+
+    def test_ticker_not_string(self):
+        with pytest.raises(ValueError, match="Ticker must be a string"):
+            validate_ticker(123)
+
+    def test_date_valid(self):
+        validate_date("2026-06-13")
+        validate_date("1999-12-31")
+
+    def test_date_invalid_format(self):
+        with pytest.raises(ValueError, match="Invalid date format"):
+            validate_date("06/13/2026")
+        with pytest.raises(ValueError, match="Invalid date format"):
+            validate_date("2026-6-13")
+
+    def test_date_invalid_values(self):
+        with pytest.raises(ValueError, match="Invalid date format"):
+            validate_date("2026-02-30")
+
+    def test_date_not_string(self):
+        with pytest.raises(ValueError, match="Date must be a string"):
+            validate_date(None)
+

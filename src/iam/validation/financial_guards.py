@@ -176,3 +176,45 @@ def validate_all_assumptions(
             warnings.append(f"Forecast Margin: {e}")
 
     return warnings
+
+
+def validate_ticker(ticker: str) -> None:
+    """
+    Validate ticker symbol format to protect against SQL/path injection.
+    Only allows uppercase letters, length 1 to 5.
+
+    Raises:
+        ValueError: If ticker violates regex format constraint.
+    """
+    import re
+    if not isinstance(ticker, str):
+        raise ValueError("Ticker must be a string")
+    pattern = r"^[A-Z]{1,5}$"
+    if not re.match(pattern, ticker):
+        raise ValueError(
+            f"Invalid ticker symbol '{ticker}'. Must be 1 to 5 uppercase characters (A-Z)."
+        )
+
+
+def validate_date(date_str: str) -> None:
+    """
+    Validate date string to ensure it strictly conforms to ISO 8601 (YYYY-MM-DD).
+    No format inference.
+
+    Raises:
+        ValueError: If date_str is not in YYYY-MM-DD format or is an invalid date.
+    """
+    from datetime import datetime
+    import re
+    if not isinstance(date_str, str):
+        raise ValueError("Date must be a string")
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
+        raise ValueError(
+            f"Invalid date format '{date_str}'. Must strictly conform to ISO 8601 YYYY-MM-DD format."
+        )
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError as e:
+        raise ValueError(
+            f"Invalid date format '{date_str}'. Must strictly conform to ISO 8601 YYYY-MM-DD format."
+        ) from e

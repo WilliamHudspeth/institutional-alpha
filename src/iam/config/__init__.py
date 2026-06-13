@@ -42,6 +42,7 @@ from iam.config.settings import (
     get_settings,
     set_settings,
 )
+from iam.config.secrets import SecretsManager
 
 __all__ = [
     # Settings classes
@@ -53,6 +54,7 @@ __all__ = [
     "AsyncConfig",
     "LoggingConfig",
     "RiskLimitsConfig",
+    "SecretsManager",
     # Settings functions
     "get_settings",
     "set_settings",

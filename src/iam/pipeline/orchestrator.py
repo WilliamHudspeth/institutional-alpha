@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 
 from iam.data.macro import MacroConditions
 from iam.data.security import Security
@@ -19,6 +20,11 @@ from iam.valuation import (
     Triangulator,
     ValuationResult,
 )
+from iam.valuation.expectations_battlefield import ExpectationBattlefieldExplicit, ExpectationsBattlefieldEngine, ScenarioDistribution, Scenario
+from iam.thesis.drift import DriftReport
+
+logger = logging.getLogger(__name__)
+
 
 
 def format_assumption_table(
@@ -74,6 +80,8 @@ class PipelineReport:
     synthesis_upside: float | None = None  # Multi-lens synthesis weighted implied move
     law_report: LawReport | None = None  # Damodaran-law consistency checks
     stress_response: StressResponse | None = None  # Elasticity-aware macro stress
+    battlefield: ExpectationBattlefieldExplicit | None = None
+    drift_report: DriftReport | None = None
 
     def explain(self, verbose: bool = False) -> str:
         if verbose:
@@ -112,6 +120,16 @@ class PipelineReport:
             for note in self.triangulation.notes:
                 lines.append(f"> • {note}")
             lines.append("")
+
+            if self.battlefield:
+                lines.append(self.battlefield.summary())
+
+            if self.drift_report:
+                lines.append("### Thesis Drift Detector — Registered Constraints")
+                lines.append(f"> Breaches: {len(self.drift_report.breaches)}")
+                for note in self.drift_report.notes():
+                    lines.append(f"> • {note}")
+                lines.append("")
 
             lines.append(EXPLAIN_STAGE_5)
             lines.append("> (Macro check details are summarized below if triggered)")
@@ -161,6 +179,18 @@ class PipelineReport:
         for note in self.triangulation.notes:
             lines.append(f"  • {note}")
         lines.append("")
+
+        if self.battlefield:
+            lines.append("STAGE 4b — VALUATION BATTLEFIELD")
+            lines.append(f"  Key Disagreement: {self.battlefield.primary_disagreement}")
+            lines.append(f"  Mismatch Score: {self.battlefield.expectation_mismatch_score:.0f}/100")
+            lines.append("")
+
+        if self.drift_report:
+            lines.append(f"THESIS DRIFT — {len(self.drift_report.breaches)} breaches detected")
+            for note in self.drift_report.notes():
+                lines.append(f"  • {note}")
+            lines.append("")
 
         if self.law_report:
             lines.append(f"DAMODARAN LAWS — {self.law_report.narrative}")
@@ -251,7 +281,12 @@ class ValuationPipeline:
             self.market_implied_engine.r = original_r
 
         # Stage 2: Relative Valuation
-        relative_res = self.relative.compute(security)
+        from iam.data.yahoo import build_regression_inputs
+        try:
+            reg_inputs = build_regression_inputs(security.ticker)
+        except Exception:
+            reg_inputs = None
+        relative_res = self.relative.compute(security, regression_inputs=reg_inputs)
 
         # Stage 3: Intrinsic DCF / SOTP
         if (
@@ -271,6 +306,61 @@ class ValuationPipeline:
             market_implied_engine_res, relative_res, intrinsic_res
         )
 
+        # Stage 4b: Valuation Battlefield
+        battlefield_res = None
+        if market_implied_engine_res.implied is not None and intrinsic_res.assumptions:
+            try:
+                # Build Intrinsic Scenarios
+                int_g = intrinsic_res.assumptions.get("high_growth", 0.08)
+                int_r = intrinsic_res.assumptions.get("roe", 0.15)
+                int_m = getattr(security.fundamentals, "operating_margin", None) or 0.20
+                
+                intrinsic_dist = ScenarioDistribution([
+                    Scenario(0.20, growth=int_g * 0.60, margin=int_m * 0.90, roic=int_r * 0.80),
+                    Scenario(0.60, growth=int_g, margin=int_m, roic=int_r),
+                    Scenario(0.20, growth=int_g * 1.30, margin=int_m * 1.10, roic=int_r * 1.20),
+                ])
+                
+                # Build Market Scenarios
+                mkt_g = market_implied_engine_res.implied.implied_revenue_growth
+                mkt_r = getattr(market_implied_engine_res.implied, "implied_roic", int_r)
+                mkt_m = int_m  # Assume market margin is base margin if not solved
+                
+                market_dist = ScenarioDistribution([
+                    Scenario(0.20, growth=mkt_g * 0.80, margin=mkt_m * 0.95, roic=mkt_r * 0.90),
+                    Scenario(0.50, growth=mkt_g, margin=mkt_m, roic=mkt_r),
+                    Scenario(0.30, growth=mkt_g * 1.20, margin=mkt_m * 1.05, roic=mkt_r * 1.10),
+                ])
+                
+                battle_engine = ExpectationsBattlefieldEngine(intrinsic_dist, market_dist)
+                battlefield_res = battle_engine.compute()
+            except Exception as e:
+                logger.warning(f"Failed to build valuation battlefield for {security.ticker}: {e}")
+
+        # Stage 4c: Thesis Drift Detection
+        from pathlib import Path
+        from iam.thesis.drift import DriftDetector, load_constraints
+        
+        drift_report = None
+        constraints_path = Path("data/constraints") / f"{security.ticker}.yml"
+        if not constraints_path.exists():
+            constraints_path = Path("data/constraints") / f"{security.ticker}.example.yml"
+            
+        if constraints_path.exists():
+            try:
+                _, constraints = load_constraints(constraints_path)
+                detector = DriftDetector()
+                from iam.reasoning.business_reality import BusinessRealityEngine
+                br = BusinessRealityEngine().assess(security)
+                drift_report = detector.evaluate(
+                    ticker=security.ticker,
+                    constraints=constraints,
+                    business_reality=br,
+                    fundamentals=security.fundamentals,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to evaluate thesis drift for {security.ticker}: {e}")
+
         report = PipelineReport(
             ticker=security.ticker,
             market_implied_engine=market_implied_engine_res,
@@ -279,6 +369,8 @@ class ValuationPipeline:
             triangulation=triangulation_res,
             implied_move_pct=triangulation_res.cluster_center,
             summary=triangulation_res.verdict,
+            battlefield=battlefield_res,
+            drift_report=drift_report,
         )
 
         # Damodaran Laws: test the assumptions Stage 3 actually used for
@@ -308,6 +400,8 @@ class ValuationPipeline:
             synthesis_upside=synthesis_upside,
             law_report=report.law_report,
             stress_response=report.stress_response,
+            drift_report=report.drift_report,
+            mismatch_score=report.battlefield.expectation_mismatch_score if report.battlefield else None,
         )
 
         return report

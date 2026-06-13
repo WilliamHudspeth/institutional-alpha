@@ -8,16 +8,7 @@ import pytest
 from iam.data.yahoo import fetch_security
 
 
-@pytest.fixture
-def mock_yfinance():
-    """Mocks the yfinance module to prevent live network calls during tests."""
-    yf_mock = MagicMock()
-    # Patch sys.modules so the local `import yfinance as yf` uses our mock
-    with patch.dict(sys.modules, {"yfinance": yf_mock}):
-        yield yf_mock
-
-
-def test_fetch_security_primary_keys_respected(mock_yfinance):
+def test_fetch_security_primary_keys_respected(mock_yf_global):
     """Ensures exact keys are used if Yahoo Finance actually provides them."""
     mock_info = {
         "currentPrice": 150.0,
@@ -27,9 +18,7 @@ def test_fetch_security_primary_keys_respected(mock_yfinance):
         "ebitda": 2000.0,
         "freeCashflow": 1200.0,
     }
-    mock_ticker = MagicMock()
-    mock_ticker.info = mock_info
-    mock_yfinance.Ticker.return_value = mock_ticker
+    mock_yf_global.set_ticker_info("MOCK", mock_info)
 
     sec = fetch_security("MOCK")
 
@@ -40,7 +29,7 @@ def test_fetch_security_primary_keys_respected(mock_yfinance):
     assert sec.fundamentals.fcf_ttm == 1200.0
 
 
-def test_fetch_security_math_fallbacks(mock_yfinance):
+def test_fetch_security_math_fallbacks(mock_yf_global):
     """Ensures missing keys are mathematically derived from available metrics."""
     mock_info = {
         "currentPrice": 150.0,
@@ -51,9 +40,7 @@ def test_fetch_security_math_fallbacks(mock_yfinance):
         "operatingCashflow": 1500.0,
         # Purposely missing: shares, net income, ebitda, and fcf
     }
-    mock_ticker = MagicMock()
-    mock_ticker.info = mock_info
-    mock_yfinance.Ticker.return_value = mock_ticker
+    mock_yf_global.set_ticker_info("MOCK", mock_info)
 
     sec = fetch_security("MOCK")
 
@@ -63,23 +50,19 @@ def test_fetch_security_math_fallbacks(mock_yfinance):
     assert sec.fundamentals.fcf_ttm == 1200.0  # 1500 * 0.8
 
 
-def test_fetch_security_ultimate_fcf_fallback(mock_yfinance):
+def test_fetch_security_ultimate_fcf_fallback(mock_yf_global):
     """Ensures FCF falls all the way back to Net Income if OCF is also missing."""
     mock_info = {"currentPrice": 10.0, "marketCap": 1000.0, "trailingPE": 10.0}
-    mock_ticker = MagicMock()
-    mock_ticker.info = mock_info
-    mock_yfinance.Ticker.return_value = mock_ticker
+    mock_yf_global.set_ticker_info("MOCK", mock_info)
 
     sec = fetch_security("MOCK")
     assert sec.fundamentals.fcf_ttm == 100.0  # Falls back to 1000 / 10
 
 
-def test_fetch_security_mostly_empty_info(mock_yfinance):
+def test_fetch_security_mostly_empty_info(mock_yf_global):
     """Ensures that missing fundamental data gracefully results in None fields, not crashes."""
     mock_info = {"currentPrice": 10.0}
-    mock_ticker = MagicMock()
-    mock_ticker.info = mock_info
-    mock_yfinance.Ticker.return_value = mock_ticker
+    mock_yf_global.set_ticker_info("MOCK", mock_info)
 
     sec = fetch_security("MOCK")
 
@@ -89,11 +72,9 @@ def test_fetch_security_mostly_empty_info(mock_yfinance):
     assert sec.fundamentals.shares_outstanding is None
 
 
-def test_fetch_security_completely_missing_data_raises_error(mock_yfinance):
+def test_fetch_security_completely_missing_data_raises_error(mock_yf_global):
     """Ensures a RuntimeError is raised if even the price is missing."""
-    mock_ticker = MagicMock()
-    mock_ticker.info = {}
-    mock_yfinance.Ticker.return_value = mock_ticker
+    mock_yf_global.set_ticker_info("MOCK", {})
 
     with pytest.raises(RuntimeError, match="returned no price data"):
         fetch_security("MOCK")

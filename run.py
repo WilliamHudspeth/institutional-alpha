@@ -234,6 +234,37 @@ def main() -> None:
     ui_data = _build_ui_data(security, growth, synthesis_upside, report)
     print_institutional_ui(ui_data)
 
+    # ----- Stage 4b & 4c: Battlefield and Drift reports -----
+    if report.battlefield:
+        print("\n" + "=" * 80)
+        print(f" VALUATION BATTLEFIELD (Stage 4b) | KEY DISAGREEMENT: {report.battlefield.key_disagreement.upper()}")
+        print("-" * 80)
+        print(f"  • Base Intrinsic Value : ${report.battlefield.base_value:.2f}")
+        print(f"  • Target Price         : ${report.battlefield.target_value:.2f}")
+        print(f"  • Valuation Gap        : ${report.battlefield.total_gap:+.2f}")
+        print("  • Attribution Shares (Ceteris-Paribus swap sensitivity):")
+        for c in report.battlefield.contributions:
+            print(f"    - {c.parameter:<16} : intrinsic {c.value_intrinsic:.4f} vs market-implied {c.value_market:.4f} | share: {c.share * 100:.1f}%")
+        print("  • Notes:")
+        for note in report.battlefield.notes:
+            print(f"    - {note}")
+        print("=" * 80)
+
+    if report.drift_report:
+        print("\n" + "=" * 80)
+        print(f" THESIS DRIFT DETECTOR | STATUS: {'DRIFT BREACH' if report.drift_report.has_drift else 'PASS'}")
+        print("-" * 80)
+        if report.drift_report.has_drift:
+            print(f"  • Breaches Detected ({len(report.drift_report.breaches)}):")
+            for breach in report.drift_report.breaches:
+                print(f"    - {breach.describe()}")
+            print(f"  • Total Confidence Degradation: -{report.drift_report.degrade_levels} levels")
+        else:
+            print("  • All registered constraints satisfied.")
+        if report.drift_report.skipped:
+            print(f"  • Skipped constraints (missing data): {', '.join(report.drift_report.skipped)}")
+        print("=" * 80)
+
     # ----- Business Reality reasoning (diagnostic, non-fatal) -----
     business_reality, br_error = _gather_business_reality(security)
     if business_reality:

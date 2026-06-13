@@ -10,6 +10,7 @@ from iam.valuation.types import TriangulationResult, ValuationResult
 if TYPE_CHECKING:
     from iam.elasticity.types import StressResponse
     from iam.laws.types import LawReport
+    from iam.thesis.drift import DriftReport
 
 # Damodaran-law conviction multipliers at/below these levels downgrade the
 # confidence band by one / two levels (see iam.laws.types for the penalties
@@ -56,6 +57,8 @@ class VerdictGenerator:
         synthesis_upside: float | None = None,
         law_report: LawReport | None = None,
         stress_response: StressResponse | None = None,
+        drift_report: DriftReport | None = None,
+        mismatch_score: float | None = None,
     ) -> VerdictResult:
         """Generate verdict using Master Arbitration Layer if synthesis available.
 
@@ -68,6 +71,9 @@ class VerdictGenerator:
                 and flags degrade the confidence band
             stress_response: Optional elasticity-aware stress response; large
                 conviction drift degrades the confidence band
+            drift_report: Optional thesis drift report; constraint breaches
+                degrade the confidence band
+            mismatch_score: Expectation mismatch score from ExpectationsBattlefield (0=aligned, 100=extreme mismatch)
         """
         notes = []
         arbitration = None
@@ -112,6 +118,17 @@ class VerdictGenerator:
                     rating = "SELL"
                 else:
                     rating = "HOLD"
+
+                # Apply expectation mismatch adjustment
+                if mismatch_score is not None:
+                    if rating in ("BUY", "STRONG_BUY") and mismatch_score > 60:
+                        rating = "SPECULATIVE_BUY"
+                    elif rating == "SPECULATIVE_BUY" and mismatch_score < 30:
+                        if upside >= self.buy_threshold * 1.5:  # Pseudo-strong buy threshold
+                            rating = "STRONG_BUY"
+                        else:
+                            rating = "BUY"
+
                 notes.append(f"Rating '{rating}' derived from {upside:+.1%} triangulated upside.")
 
         # 2. Determine Base Confidence
@@ -167,6 +184,20 @@ class VerdictGenerator:
                         f"Conviction downgraded to {band}: macro stress conviction "
                         f"drift {drift:.2f} on '{stress_response.scenario.name}'."
                     )
+
+        # 5b. Thesis Drift: registered constraints breaches degrade conviction
+        if drift_report is not None and drift_report.has_drift:
+            levels = drift_report.degrade_levels
+            if levels > 0:
+                new_band = _downgrade_band(band, levels)
+                if new_band != band:
+                    band = new_band
+                    notes.append(
+                        f"Conviction downgraded to {band}: thesis drift detected "
+                        f"({len(drift_report.breaches)} breaches)."
+                    )
+                    for b_note in drift_report.notes():
+                        notes.append(f"  ↳ {b_note}")
 
         # 6. Apply Penalties (e.g., Leverage Risk)
         # You can expand this to incorporate the Fragility / Execution Risk penalties from v0.1.0
