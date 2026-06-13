@@ -186,6 +186,13 @@ def main() -> None:
         print("No ticker entered. Exiting.")
         sys.exit(0)
 
+    from iam.validation import validate_ticker
+    try:
+        validate_ticker(ticker)
+    except ValueError as e:
+        print(f"Invalid ticker: {e}")
+        sys.exit(1)
+
     if g_input is None:
         if sys.stdin.isatty():
             g_input = input(
@@ -211,6 +218,8 @@ def main() -> None:
     if g_input:
         try:
             growth = parse_growth_rate(g_input, default=0.08)
+            from iam.validation import validate_growth_rate
+            validate_growth_rate(growth, growth_type="forecast")
             if security.qualitative is None:
                 security.qualitative = {}
             security.qualitative["forecast_growth"] = growth

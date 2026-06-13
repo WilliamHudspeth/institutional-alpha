@@ -448,7 +448,12 @@ def _resolve_ticker(query: str) -> tuple[str, str | None]:
 
 
 def _valid_ticker(t: str) -> bool:
-    return bool(re.match(r"^[A-Z0-9\-\.]{1,15}$", t))
+    from iam.validation import validate_ticker as strict_validate
+    try:
+        strict_validate(t)
+        return True
+    except ValueError:
+        return False
 
 
 # ═══════════════════════════════════════════════════════════════════════════

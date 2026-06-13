@@ -19,6 +19,10 @@ from src.iam.valuation.profile_builder import (
     build_company_profile,
     triangulate_growth_for_security,
 )
+from src.iam.valuation.expectations_battlefield import (
+    ExpectationsBattlefieldEngine,
+    build_distributions,
+)
 
 
 def print_banner() -> None:
@@ -32,7 +36,12 @@ def print_banner() -> None:
 
 def validate_ticker(ticker: str) -> bool:
     """Validate ticker format."""
-    return bool(re.match(r"^[A-Z0-9\-\.]{1,15}$", ticker))
+    from src.iam.validation import validate_ticker as strict_validate
+    try:
+        strict_validate(ticker)
+        return True
+    except ValueError:
+        return False
 
 
 def get_ticker() -> str:
@@ -146,6 +155,15 @@ def show_recommendation(ticker: str, force_details: bool = False) -> None:
         else:
             print("  ⚠ LOW confidence: High divergence or uncertain business type.")
 
+        print()
+
+        # Run Expectations Battlefield
+        intrinsic_dist, market_dist = build_distributions(profile, triangulation)
+        battlefield_engine = ExpectationsBattlefieldEngine(intrinsic_dist, market_dist)
+        battlefield_result = battlefield_engine.compute()
+
+        # Print Battlefield Summary unconditionally
+        print(battlefield_result.summary().replace("\n", "\n  "))
         print()
 
         # Ask if user wants details

@@ -86,8 +86,13 @@ def resolve_ticker(query: str) -> tuple[str, str | None]:
 
 
 def validate_ticker(ticker: str) -> bool:
-    """Validate ticker format."""
-    return bool(re.match(r"^[A-Z0-9\-\.]{1,15}$", ticker))
+    """Validate ticker format using strict centralized guards."""
+    from iam.validation import validate_ticker as strict_validate
+    try:
+        strict_validate(ticker)
+        return True
+    except ValueError:
+        return False
 
 
 def get_security_input() -> str:
@@ -143,6 +148,8 @@ def run_valuation_pipeline(ticker: str) -> None:
 
             try:
                 forecast_growth = parse_growth_rate(g_input, default=0.08)
+                from iam.validation import validate_growth_rate
+                validate_growth_rate(forecast_growth, growth_type="forecast")
                 security.qualitative["forecast_growth"] = forecast_growth
                 print(f"  Using forecast growth: {forecast_growth:.1%}\n")
             except ValueError as e:

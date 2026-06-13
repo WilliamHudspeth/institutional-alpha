@@ -260,3 +260,37 @@ class ExpectationsBattlefieldEngine:
             primary_disagreement=primary,
             expectation_mismatch_score=mismatch_score,
         )
+
+
+def build_distributions(profile, triangulation) -> Tuple[ScenarioDistribution, ScenarioDistribution]:
+    """Helper to generate intrinsic and market scenario distributions.
+    
+    Args:
+        profile: CompanyProfile
+        triangulation: TriangulatedGrowth
+        
+    Returns:
+        (intrinsic_dist, market_dist)
+    """
+    mkt_g = profile.implied_growth
+    mkt_m = profile.op_margin
+    mkt_r = profile.roic
+    
+    market_dist = ScenarioDistribution([
+        Scenario(probability=0.20, growth=mkt_g - 0.05, margin=mkt_m - 0.02, roic=mkt_r - 0.02),
+        Scenario(probability=0.60, growth=mkt_g,        margin=mkt_m,        roic=mkt_r),
+        Scenario(probability=0.20, growth=mkt_g + 0.05, margin=mkt_m + 0.02, roic=mkt_r + 0.02),
+    ])
+
+    int_g = triangulation.blended_growth
+    int_m = profile.op_margin
+    int_r = profile.roic
+    spread = profile.hist_volatility
+
+    intrinsic_dist = ScenarioDistribution([
+        Scenario(probability=0.20, growth=int_g - spread, margin=int_m - 0.02, roic=int_r - 0.02),
+        Scenario(probability=0.60, growth=int_g,          margin=int_m,        roic=int_r),
+        Scenario(probability=0.20, growth=int_g + spread, margin=int_m + 0.02, roic=int_r + 0.02),
+    ])
+
+    return intrinsic_dist, market_dist
