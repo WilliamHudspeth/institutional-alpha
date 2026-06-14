@@ -1,11 +1,19 @@
-"""Tests for the Yahoo Finance data adapter and its math fallbacks."""
-
 import sys
 from unittest.mock import MagicMock, patch
-
+import sqlite3
 import pytest
+from iam.data.providers.yfinance_adapter import RUNTIME_CACHE_PATH, fetch_security
 
-from iam.data.yahoo import fetch_security
+
+@pytest.fixture(autouse=True)
+def clear_cache():
+    """Clear SQLite cache before each test to prevent cross-test cache pollution."""
+    import os
+    os.makedirs(os.path.dirname(RUNTIME_CACHE_PATH), exist_ok=True)
+    conn = sqlite3.connect(RUNTIME_CACHE_PATH)
+    conn.execute("DELETE FROM ticker_cache")
+    conn.commit()
+    conn.close()
 
 
 def test_fetch_security_primary_keys_respected(mock_yf_global):

@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 import sys
 
-from src.iam.data.yahoo import fetch_security
+from iam.data.providers.yfinance_adapter import fetch_security
 from src.iam.valuation.adaptive import AdaptiveValuationEngine
 from src.iam.valuation.profile_builder import (
     build_company_profile,

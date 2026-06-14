@@ -13,7 +13,7 @@ Usage:
 import random
 
 try:
-    from iam.concept_library_expanded import EXPANDED_CONCEPTS
+    from iam.learning.concept_library_expanded import EXPANDED_CONCEPTS
 
     HAS_EXPANDED = True
 except ImportError:

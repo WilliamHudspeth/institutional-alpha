@@ -7,7 +7,7 @@ import re
 import urllib.parse
 import urllib.request
 
-from iam.data.yahoo import fetch_security
+from iam.data.providers.yfinance_adapter import fetch_security
 from iam.pipeline import ValuationPipeline
 
 

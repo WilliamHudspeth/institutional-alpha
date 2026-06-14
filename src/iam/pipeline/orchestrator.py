@@ -281,7 +281,7 @@ class ValuationPipeline:
             self.market_implied_engine.r = original_r
 
         # Stage 2: Relative Valuation
-        from iam.data.yahoo import build_regression_inputs
+        from iam.data.providers.yfinance_adapter import build_regression_inputs
         try:
             reg_inputs = build_regression_inputs(security.ticker)
         except Exception:

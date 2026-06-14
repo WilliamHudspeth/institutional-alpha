@@ -63,7 +63,8 @@ def print_menu() -> None:
     print("  3. Factor scoring (10 factors + 3 penalties)")
     print("  4. Scenario analysis with thesis engine")
     print("  5. Backtest factor efficacy (historical analysis)")
-    print("  6. Exit")
+    print("  6. Settings / System Administration")
+    print("  7. Exit")
     print()
 
 
@@ -126,13 +127,14 @@ def run_valuation_pipeline(ticker: str) -> None:
     print("\n" + "-" * 70)
     print(f"  Fetching {ticker} from Yahoo Finance...")
     try:
-        from iam.data.yahoo import fetch_security
+        from iam.data.providers.yfinance_adapter import fetch_security
         from iam.engine.damodaran import DamodaranEngine
         from iam.lenses.expectations_difficulty import ExpectationsDifficultyLens
         from iam.lenses.platform_compounder import PlatformCompounderLens
         from iam.lenses.rate_sensitive import RateSensitiveLens
         from iam.lenses.synthesis import synthesize_lenses
         from iam.pipeline.orchestrator import ValuationPipeline, print_assumption_table
+        from iam.arbitration.reliability_loader import get_reliabilities, is_empirical_calibration
 
         security = fetch_security(ticker)
         print(f"  ✓ {security.name or ticker} loaded")
@@ -173,7 +175,8 @@ def run_valuation_pipeline(ticker: str) -> None:
                 ExpectationsDifficultyLens().compute(security),
                 DamodaranEngine().compute(security),
             ]
-            synthesis = synthesize_lenses(lens_results)
+            reliabilities = get_reliabilities() if is_empirical_calibration() else None
+            synthesis = synthesize_lenses(lens_results, reliabilities=reliabilities)
             synthesis_upside = synthesis.weighted_implied_move_pct
         except Exception:
             # If synthesis fails, pipeline still works with traditional signals only
@@ -200,7 +203,7 @@ def run_factor_scoring(ticker: str) -> None:
     print(f"  Fetching {ticker} from Yahoo Finance...")
     try:
         from iam import score
-        from iam.data.yahoo import fetch_security
+        from iam.data.providers.yfinance_adapter import fetch_security
 
         security = fetch_security(ticker)
         print(f"  ✓ {security.name or ticker} loaded")
@@ -228,7 +231,7 @@ def run_thesis_engine(ticker: str) -> None:
     print(f"  Fetching {ticker} from Yahoo Finance...")
     try:
         from iam.data.security import Assumption, Thesis
-        from iam.data.yahoo import fetch_security
+        from iam.data.providers.yfinance_adapter import fetch_security
         from iam.thesis.engine import ThesisEngine
 
         security = fetch_security(ticker)
@@ -325,7 +328,7 @@ def run_quick_recommendation(ticker: str) -> None:
     print()
 
     try:
-        from iam.data.yahoo import fetch_security
+        from iam.data.providers.yfinance_adapter import fetch_security
         from iam.pipeline.orchestrator import ValuationPipeline
 
         security = fetch_security(ticker)
@@ -407,6 +410,50 @@ def run_quick_recommendation(ticker: str) -> None:
         print(f"  ERROR: {e}")
 
 
+def run_settings_menu() -> None:
+    """Run the Settings / System Administration submenu."""
+    import os
+    from iam.config.credentials import status, configure_interactive
+    while True:
+        try:
+            os.system("cls" if os.name == "nt" else "clear")
+        except Exception:
+            print("\n" * 3)
+
+        print("┌" + "─" * 78 + "┐")
+        print("│  ALPHA-TERMINAL // SETTINGS & SYSTEM ADMINISTRATION                         │")
+        print("└" + "─" * 78 + "┘")
+        print("What would you like to configure?\n")
+        
+        # Check credentials status for suggestions
+        st = status()
+        missing_premium = not st["fmp"]["configured"] or not st["tiingo"]["configured"]
+        if missing_premium:
+            print("  * Suggestion: Set up free data API keys (FMP/Tiingo) for premium data. *")
+            print()
+
+        print("  1. Generate Desktop Shortcut / Launcher")
+        print("  2. Manage Data API Keys (Credentials Wizard)")
+        print("  3. Back to Main Menu")
+        print()
+
+        choice = safe_input("Enter choice (1-3): ", default="3").strip()
+        if choice == "1":
+            from scripts.create_shortcut import create_shortcut
+            print()
+            success, msg = create_shortcut()
+            if success:
+                print(f"  ✅ {msg}")
+            else:
+                print(f"  ❌ Failed: {msg}")
+            safe_input("\nPress Enter to return to Settings...")
+        elif choice == "2":
+            configure_interactive()
+            safe_input("\nPress Enter to return to Settings...")
+        elif choice == "3":
+            break
+
+
 def main() -> None:
     """Main interactive loop."""
     print_header()
@@ -416,7 +463,7 @@ def main() -> None:
 
     while True:
         print_menu()
-        choice = safe_input("Enter your choice (1-6): ", default="6").strip()
+        choice = safe_input("Enter your choice (1-7): ", default="7").strip()
 
         if choice == "1":
             ticker = get_security_input()
@@ -433,10 +480,12 @@ def main() -> None:
         elif choice == "5":
             run_backtest_harness()
         elif choice == "6":
+            run_settings_menu()
+        elif choice == "7":
             print("  Thank you for using IAM. Goodbye!")
             sys.exit(0)
         else:
-            print("  Invalid choice. Please enter 1-6.\n")
+            print("  Invalid choice. Please enter 1-7.\n")
             continue
 
         # Ask if user wants to analyze another security

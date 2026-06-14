@@ -1,4 +1,14 @@
-"""Manifest system for backtest reproducibility (git SHA, file hashes, config snapshot)."""
+"""Manifest system for backtest reproducibility (git SHA, file hashes, config snapshot).
+
+Extended to capture **data provenance**: which data tiers/sources actually served
+a run, and whether any field fell back to a degraded tier. Pass the
+`TieredDataSource.audit_summary()` dict as `data_provenance` and it is recorded
+in the manifest alongside code/config hashes, so a run that leaned on a degraded
+source is reproducible and visible rather than silent.
+
+The new argument is optional and defaults to None, so existing callers are
+unaffected.
+"""
 
 import hashlib
 import json
@@ -12,11 +22,24 @@ if TYPE_CHECKING:
 
 
 class BacktestManifest:
-    """Captures code and data state for audit trail."""
+    """Captures code, data, and provenance state for audit trail."""
 
-    def __init__(self, config: "BacktestConfig"):
-        """Initialize manifest with git state and file hashes."""
+    def __init__(
+        self,
+        config: "BacktestConfig",
+        data_provenance: dict[str, Any] | None = None,
+    ):
+        """Initialize manifest with git state, file hashes, and optional provenance.
+
+        Args:
+            config: the frozen backtest config.
+            data_provenance: optional dict from ``TieredDataSource.audit_summary()``
+                describing which sources/tiers served the run. When provided, a
+                ``data_provenance`` block (and a top-level ``degraded`` flag) is
+                added to the manifest.
+        """
         self.config = config
+        self.data_provenance = data_provenance
         self.git_sha = self._get_git_sha()
         self.timestamp = datetime.utcnow().isoformat()
         self.file_hashes = self._compute_file_hashes()
@@ -41,6 +64,15 @@ class BacktestManifest:
             "src/iam/backtest/runner.py",
             "src/iam/backtest/calibration.py",
             "src/iam/backtest/universe.py",
+            # Data layer — hashing these ties results to the exact source/router code.
+            "src/iam/backtest/sources/base.py",
+            "src/iam/backtest/sources/composite.py",
+            "src/iam/backtest/sources/tiers.py",
+            "src/iam/backtest/sources/yfinance_source.py",
+            "src/iam/backtest/sources/stooq_source.py",
+            "src/iam/backtest/sources/fmp_source.py",
+            "src/iam/backtest/sources/tiingo_source.py",
+            "src/iam/backtest/sources/sec_edgar_source.py",
         ]
 
         hashes = {}
@@ -66,7 +98,7 @@ class BacktestManifest:
         # Pydantic model_dump() returns PosixPath objects; stringify for JSON
         config_dict = self.config.model_dump()
         config_dict = {k: (str(v) if isinstance(v, Path) else v) for k, v in config_dict.items()}
-        return {
+        out: dict[str, Any] = {
             "_meta": {
                 "version": "v0.4.0",
                 "git_sha": self.git_sha,
@@ -75,6 +107,11 @@ class BacktestManifest:
             "config": config_dict,
             "file_hashes": self.file_hashes,
         }
+        if self.data_provenance is not None:
+            out["data_provenance"] = self.data_provenance
+            # Surface a top-level flag so a degraded run is obvious at a glance.
+            out["_meta"]["degraded_data"] = bool(self.data_provenance.get("degraded_count", 0))
+        return out
 
     def write(self, path: Path) -> None:
         """Write manifest to JSON file."""

@@ -76,7 +76,7 @@ class RegressionInputs:
     are intentionally conservative — missing inputs reduce signal quality rather
     than crashing the pipeline.
 
-    Construct manually or via ``iam.data.yahoo.build_regression_inputs(ticker)``.
+    Construct manually or via ``iam.data.providers.yfinance_adapter.build_regression_inputs(ticker)``.
     """
 
     region: Region = "US"

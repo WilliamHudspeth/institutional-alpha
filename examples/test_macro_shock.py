@@ -1,5 +1,5 @@
-﻿from iam.data.macro import MacroConditions
-from iam.data.yahoo import fetch_security
+from iam.data.macro import MacroConditions
+from iam.data.providers.yfinance_adapter import fetch_security
 from iam.pipeline.orchestrator import ValuationPipeline
 
 

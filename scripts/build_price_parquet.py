@@ -17,7 +17,7 @@ import polars as pl
 import typer
 
 from iam.backtest.config import BacktestConfig
-from iam.backtest.sources import default_chain
+from iam.backtest.sources import build_tiered_source
 from iam.backtest.universe import load_universe_tickers
 
 app = typer.Typer()
@@ -48,10 +48,10 @@ def build_prices(
 
     typer.echo()
 
-    # Download prices via the shared yfinance → Stooq fallback chain.
+    # Download prices via the tiered data source chain.
     # Per-ticker so one ticker's failure can't abort the whole batch, and so
     # each row's serving source is recorded for the provenance/audit trail.
-    chain = default_chain()
+    chain = build_tiered_source()
     typer.echo(f"📊 Downloading {len(tickers)} tickers via {chain!r}...")
     # Extend download window to cover all horizons, not just the primary one.
     max_horizon = max(config.horizons_days + [horizon])

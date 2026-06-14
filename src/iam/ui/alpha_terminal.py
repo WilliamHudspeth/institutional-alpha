@@ -77,9 +77,9 @@ else:
 # ── IAM package imports (optional — graceful mock fallback) ───────────────
 try:
     from iam import score as _score
-    from iam.data.yahoo import fetch_security as _fetch_security
+    from iam.data.providers.yfinance_adapter import fetch_security as _fetch_security
     from iam.pipeline.orchestrator import ValuationPipeline as _Pipeline
-    from iam.learning_module import LearningModule as _LearningModule
+    from iam.learning.learning_module import LearningModule as _LearningModule
 
     _IAM_CORE = True
 except ImportError:

@@ -57,6 +57,7 @@ def _scenario_thesis(name: str) -> str:
 def _gather_lens_results(security) -> tuple[float | None, str | None]:
     """Run the multi-lens engine silently. Returns (synthesis_upside, error)."""
     try:
+        from iam.arbitration.reliability_loader import get_reliabilities, is_empirical_calibration
         from iam.engine.damodaran import DamodaranEngine
         from iam.lenses.expectations_difficulty import ExpectationsDifficultyLens
         from iam.lenses.platform_compounder import PlatformCompounderLens
@@ -69,7 +70,8 @@ def _gather_lens_results(security) -> tuple[float | None, str | None]:
             ExpectationsDifficultyLens().compute(security),
             DamodaranEngine().compute(security),
         ]
-        synthesis = synthesize_lenses(lens_results)
+        reliabilities = get_reliabilities() if is_empirical_calibration() else None
+        synthesis = synthesize_lenses(lens_results, reliabilities=reliabilities)
         return synthesis.weighted_implied_move_pct, None
     except Exception as exc:
         return None, str(exc)
@@ -170,7 +172,19 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Interactive CLI for the multi-lens valuation engine.")
     parser.add_argument("ticker", nargs="?", help="Ticker symbol (e.g., AAPL)")
     parser.add_argument("--growth", help="Forecast growth (e.g. 13 or 0.13 for 13%%)")
+    parser.add_argument("--menu", "-m", action="store_true", help="Launch the interactive menu CLI")
+    parser.add_argument("--terminal", "-t", action="store_true", help="Launch the retro terminal TUI")
     args = parser.parse_args()
+
+    if args.menu:
+        from iam.ui.menu import main as menu_main
+        menu_main()
+        return
+
+    if args.terminal:
+        from iam.ui.alpha_terminal import main as terminal_main
+        terminal_main()
+        return
 
     ticker = args.ticker
     g_input = args.growth
@@ -203,7 +217,7 @@ def main() -> None:
 
     # ----- Silent data fetch -----
     try:
-        from iam.data.yahoo import fetch_security
+        from iam.data.providers.yfinance_adapter import fetch_security
 
         security = fetch_security(ticker)
     except (ImportError, RuntimeError) as exc:

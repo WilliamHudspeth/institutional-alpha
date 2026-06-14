@@ -1,4 +1,4 @@
-from iam.data.yahoo import fetch_security
+from iam.data.providers.yfinance_adapter import fetch_security
 from iam.valuation.damodaran_defaults import DamodaranUniverse
 from iam.valuation.relative import RelativeValuation
 

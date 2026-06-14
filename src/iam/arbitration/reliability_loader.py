@@ -40,10 +40,15 @@ class ReliabilityLoader:
 
         Args:
             calibration_path: Path to calibrated_reliabilities.json
-                             Defaults to src/iam/arbitration/calibrated_reliabilities.json
+                             Defaults to src/iam/arbitration/calibrated_reliabilities_empirical.json if it exists,
+                             otherwise falling back to calibrated_reliabilities.json
         """
         if calibration_path is None:
-            calibration_path = Path(__file__).parent / "calibrated_reliabilities.json"
+            empirical_path = Path(__file__).parent / "calibrated_reliabilities_empirical.json"
+            if empirical_path.exists():
+                calibration_path = empirical_path
+            else:
+                calibration_path = Path(__file__).parent / "calibrated_reliabilities.json"
 
         self.path = calibration_path
         self._data: dict[str, float] | None = None

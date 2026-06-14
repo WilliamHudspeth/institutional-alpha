@@ -58,8 +58,10 @@ Homepage = "https://github.com/YOUR_USERNAME/institutional-alpha"
 Issues = "https://github.com/YOUR_USERNAME/institutional-alpha/issues"
 
 [project.scripts]
-iam-learn = "iam.learning_module:main"
-iam-engine = "iam.learning_engine:main"
+iam-learn = "iam.learning.learning_module:main"
+iam-engine = "iam.learning.learning_engine:main"
+iam-terminal = "iam.ui.alpha_terminal:main"
+iam-menu = "iam.ui.menu:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

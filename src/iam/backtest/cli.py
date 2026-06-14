@@ -30,7 +30,7 @@ from iam.backtest.manifest import BacktestManifest
 from iam.backtest.prices import load_price_block
 from iam.backtest.runner import print_backtest_summary, run_backtest
 from iam.backtest.universe import load_universe_from_json
-from iam.learning_module import LearningModule
+from iam.learning.learning_module import LearningModule
 
 app = typer.Typer()
 
