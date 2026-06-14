@@ -47,7 +47,7 @@ class AsyncPipelineAdapter:
         """
         task_id = f"pipeline_{ticker}"
 
-        def wrapped_pipeline() -> dict[str, Any]:
+        def wrapped_pipeline(_tkr: str) -> dict[str, Any]:
             """Wrapped pipeline that emits progress events."""
             try:
                 result = pipeline_fn(ticker)

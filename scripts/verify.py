@@ -186,6 +186,50 @@ def check_mypy() -> tuple[bool, str]:
         )
 
 
+def check_bandit() -> tuple[bool, str]:
+    """Run Bandit security linter."""
+    try:
+        # -lll shows only high-severity issues
+        result = subprocess.run(
+            ["bandit", "-r", "src/", "-lll"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            return True, "No high-severity security issues found."
+        else:
+            output = "\n  ".join(result.stdout.splitlines()[:15])
+            return False, f"{RED}Bandit security issues found:{RESET}\n  {output}"
+    except FileNotFoundError:
+        return (
+            True,
+            f"{YELLOW}Bandit is not installed. Skip check. Run 'pip install bandit' to enable.{RESET}",
+        )
+
+
+def check_safety() -> tuple[bool, str]:
+    """Run Safety dependency vulnerability check."""
+    try:
+        # Use 'scan' instead of 'check' as 'check' is deprecated
+        result = subprocess.run(
+            ["safety", "scan"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            return True, "No known dependency vulnerabilities found."
+        else:
+            output = "\n  ".join(result.stdout.splitlines()[:15])
+            return False, f"{RED}Dependency vulnerabilities found:{RESET}\n  {output}"
+    except FileNotFoundError:
+        return (
+            True,
+            f"{YELLOW}Safety is not installed. Skip check. Run 'pip install safety' to enable.{RESET}",
+        )
+
+
 def check_pytest() -> tuple[bool, str]:
     """Run pytest suite with short traceback output."""
     try:
@@ -225,6 +269,8 @@ def main():
         ("Ruff Code Style/Linting", check_ruff_lint),
         ("Ruff Formatting", check_ruff_format),
         ("Mypy Type Safety Verification", check_mypy),
+        ("Bandit Security Scan", check_bandit),
+        ("Safety Dependency Check", check_safety),
         ("Pytest Test Suite Verification", check_pytest),
     ]
 

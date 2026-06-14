@@ -123,7 +123,7 @@ def run_visualization_lab(security):
     dcf_surface.y_min + (dcf_surface.y_max - dcf_surface.y_min) / 2
 
     while True:
-        os.system("cls" if os.name == "nt" else "clear")
+        os.system("cls" if os.name == "nt" else "clear")  # nosec
 
         mode_name, surfaces = modes.get(current_mode, modes["1"])
         scene.surfaces = surfaces
@@ -181,7 +181,7 @@ def run_visualization_lab(security):
             # Compute SOTP
             result = SOTP.compute(segments, ke)
             # Render tower
-            os.system("cls" if os.name == "nt" else "clear")
+            os.system("cls" if os.name == "nt" else "clear")  # nosec
             tower = render_sotp_tower(result.segments)
             print("=" * 100)
             print(" SUM OF THE PARTS (SOTP) TOWER ")

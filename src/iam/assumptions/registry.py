@@ -253,7 +253,7 @@ SECTOR_OVERRIDES: dict[str, dict[RiskProfile, dict[str, float]]] = {
 class AssumptionRegistry:
     """Central registry for assumption profiles and sector overrides."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize with default profiles."""
         self.profiles: dict[RiskProfile, AssumptionSet] = {
             RiskProfile.CONSERVATIVE: CONSERVATIVE_PROFILE,

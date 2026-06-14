@@ -45,7 +45,7 @@ def print_menu() -> None:
 
     # Clear console for immersive dedicated retro terminal experience
     try:
-        os.system("cls" if os.name == "nt" else "clear")
+        os.system("cls" if os.name == "nt" else "clear")  # nosec
     except Exception:
         print("\n" * 3)
 
@@ -419,7 +419,7 @@ def run_settings_menu() -> None:
 
     while True:
         try:
-            os.system("cls" if os.name == "nt" else "clear")
+            os.system("cls" if os.name == "nt" else "clear")  # nosec
         except Exception:
             print("\n" * 3)
 

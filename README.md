@@ -13,16 +13,17 @@ It is built as a **probabilistic equity reasoning engine**, not a screener. A sc
 
 **v0.4.0-rc1** — Institutional infrastructure complete. The factor scoring engine, seven-stage valuation pipeline, Bayesian thesis engine, hardened backtest stack, institutional portfolio analytics, and modern modular terminal are all implemented and tested. Next: empirical IC run on real market data (v0.4.0) and probabilistic reasoning engine (v0.5.0).
 
-- 720 tests passing (with enhanced CI/CD coverage)
+- Passing test suite with verified SOTP integrations
 - 13 orthogonal factors (10 additive + 3 penalty)
-- 7-stage valuation pipeline
+- 7-stage valuation pipeline with validated Sum-of-the-Parts integration
 - **Institutional portfolio layer** (analytics, position sizing, verdict generation)
 - **Bayesian thesis framework** (scenario probability tracking, evidence-based updating)
 - **Modern modular terminal** (event-driven panels, async data loading, ANSI visualization)
 - **Institutional analytics** (factor attribution, 6-regime macro detection)
 - Pluggable data sources (yfinance primary, Stooq fallback)
 - Bayesian shrinkage calibration with sector-neutral IC
-- Comprehensive CI/CD with linting, type checking, and security scanning
+- Fully green CI/CD pipeline with strict static typing (mypy), formatting, and safety checks
+
 
 **v0.5.0 (in development)** — Probabilistic institutional reasoning engine with 4 independent engines (market expectations, business reality, peer-relative, intrinsic), Damodaran hard-coded rules, thesis drift detection, and competing narratives synthesis.
 

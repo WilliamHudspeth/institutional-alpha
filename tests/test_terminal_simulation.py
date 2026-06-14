@@ -101,15 +101,13 @@ class TestTerminalSimulation(unittest.TestCase):
         # Set key fields to None to simulate incomplete data
         self.sec.score_result = MagicMock()
         self.sec.score_result.composite = None
-        self.sec.score_result.factor_breakdown = {
-            "quality": MagicMock(value=None, confidence=None)
-        }
+        self.sec.score_result.factor_breakdown = {"quality": MagicMock(value=None, confidence=None)}
 
         self.sec.pipeline_result = MagicMock()
         self.sec.pipeline_result.final_verdict = MagicMock()
         self.sec.pipeline_result.final_verdict.rating = None
         self.sec.pipeline_result.final_verdict.blended_upside = None
-        
+
         self.sec.pipeline_result.triangulation = MagicMock()
         self.sec.pipeline_result.triangulation.cluster_center = None
         self.sec.pipeline_result.triangulation.spread = None
