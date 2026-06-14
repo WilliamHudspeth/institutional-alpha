@@ -66,7 +66,10 @@ class AsyncPipelineAdapter:
                 raise
 
         self.loader.compute_pipeline_async(
-            ticker, wrapped_pipeline, on_complete=on_complete, on_error=on_error  # type: ignore
+            ticker,
+            wrapped_pipeline,
+            on_complete=on_complete,
+            on_error=on_error,  # type: ignore
         )
 
         return task_id

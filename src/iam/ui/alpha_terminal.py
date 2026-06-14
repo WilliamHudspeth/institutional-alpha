@@ -80,6 +80,9 @@ try:
     from iam.data.providers.yfinance_adapter import fetch_security as _fetch_security
     from iam.learning.learning_module import LearningModule as _LearningModule
     from iam.pipeline.orchestrator import ValuationPipeline as _Pipeline
+    from iam.ui.visualization_lab import render_dcf_surface as _render_dcf_surface
+    from iam.valuation.sensitivity import DCFValuationSurface
+    from iam.valuation.topology import compute_gradients as _compute_gradients
 
     _IAM_CORE = True
 except ImportError:
@@ -98,6 +101,14 @@ try:
     _IAM_PORTFOLIO = True
 except ImportError:
     _IAM_PORTFOLIO = False
+
+try:
+    from iam.ui.state import SystemState
+
+    _IAM_STATE = True
+except ImportError:
+    _IAM_STATE = False
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  ANSI PRIMITIVES
@@ -376,6 +387,8 @@ class SecState:
     score_result: Any = None
     pipeline_result: Any = None
     history: list[float] = field(default_factory=list)
+    terrain_render: str | None = None
+    topology_metrics: dict[str, Any] | None = None
     last_updated: datetime = field(default_factory=datetime.now)
     loading: bool = False
     error: str | None = None
@@ -483,6 +496,7 @@ class _Panel:
         c0: int,
         c1: int,
         sec: SecState | None,
+        system_state: SystemState | None = None,
         ticks: int = 0,
     ) -> None:
         pass
@@ -518,6 +532,7 @@ class WatchlistPanel(_Panel):
         c0: int,
         c1: int,
         sec: SecState | None,
+        system_state: SystemState | None = None,
         ticks: int = 0,
     ) -> None:
         c1 - c0
@@ -571,6 +586,7 @@ class QuickRecPanel(_Panel):
         c0: int,
         c1: int,
         sec: SecState | None,
+        system_state: SystemState | None = None,
         ticks: int = 0,
     ) -> None:
         if not sec:
@@ -627,6 +643,21 @@ class QuickRecPanel(_Panel):
         if sec.error:
             cv.put(r0 + 14, c0 + 2, "⚠ Live fetch failed — using mock data", C_RED + DIM)
 
+        # Stage 7 Law Checks
+        pr = sec.pipeline_result
+        if pr and getattr(pr, "law_report", None):
+            lr = pr.law_report
+            if lr.violations or lr.flags:
+                cv.hline(r1 - 4, c0, c1)
+                cv.put(r1 - 3, c0 + 1, "DAMODARAN CONSISTENCY CHECKS:", C_ACCENT + BOLD)
+                for i, check in enumerate(lr.violations + lr.flags):
+                    if i > 1:
+                        break
+                    col = C_RED if check in lr.violations else C_YELLOW
+                    cv.put(
+                        r1 - 2 + i, c0 + 2, f"• LAW {check.number}: {check.narrative[:50]}...", col
+                    )
+
 
 # ── Deep Valuation ────────────────────────────────────────────────────────
 
@@ -652,6 +683,7 @@ class DeepValPanel(_Panel):
         c0: int,
         c1: int,
         sec: SecState | None,
+        system_state: SystemState | None = None,
         ticks: int = 0,
     ) -> None:
         if not sec:
@@ -725,6 +757,7 @@ class FactorPanel(_Panel):
         c0: int,
         c1: int,
         sec: SecState | None,
+        system_state: SystemState | None = None,
         ticks: int = 0,
     ) -> None:
         if not sec:
@@ -782,6 +815,7 @@ class ScenarioPanel(_Panel):
         c0: int,
         c1: int,
         sec: SecState | None,
+        system_state: SystemState | None = None,
         ticks: int = 0,
     ) -> None:
         if not sec:
@@ -873,27 +907,42 @@ class BacktestPanel(_Panel):
         c0: int,
         c1: int,
         sec: SecState | None,
+        system_state: SystemState | None = None,
         ticks: int = 0,
     ) -> None:
-        cv.put(r0, c0 + 1, "Empirical Factor Backtest Summary (v0.5 live)", C_ACCENT + BOLD)
-        cv.put(r0 + 1, c0 + 1, "IC / p-value / Top-vs-Bottom-Quintile spread", C_DIM)
+        cv.put(r0, c0 + 1, "Empirical Factor Backtest Summary (v0.5 Live)", C_ACCENT + BOLD)
+        cv.put(r0 + 1, c0 + 1, "Spearman Rank IC / p-value / Quintile Spreads", C_DIM)
         cv.hline(r0 + 2, c0, c1)
+
+        if not system_state or system_state.loading or not system_state.backtest_metrics:
+            self._loading(cv, r0, r1, c0, c1, "Backtest", ticks)
+            return
+
+        metrics = system_state.backtest_metrics
         cv.put(r0 + 3, c0 + 1, f"{'Factor':<22} {'IC':>6}  {'p-val':>6}  {'Spread':>7}  Sig", C_DIM)
         cv.hline(r0 + 4, c0, c1)
 
-        max_rows = min(len(self.ROWS), r1 - r0 - 15)
-        for idx in range(max_rows):
-            name, ic, pval, spread, sig = self.ROWS[idx]
+        # Draw factor-level metrics
+        idx = 0
+        for factor, m in metrics.factor_metrics.items():
             r = r0 + 5 + idx
+            if r > r1 - 15:
+                break
+            ic = m.get("ic", 0.0)
+            pv = m.get("p_value", 1.0)
+            spr = m.get("spread", 0.0)
+            sig = pv < 0.05
             col = C_GREEN if sig else C_RED
-            cv.put(r, c0 + 1, f"{name:<22}", C_WHITE)
-            cv.put(r, c0 + 24, f"{ic:>6}", col)
-            cv.put(r, c0 + 32, f"{pval:>6}", C_WHITE)
-            cv.put(r, c0 + 40, f"{spread:>7}", col)
+
+            cv.put(r, c0 + 1, f"{factor:<22}", C_WHITE)
+            cv.put(r, c0 + 24, f"{ic:>+6.3f}", col)
+            cv.put(r, c0 + 32, f"{pv:>6.3f}", C_WHITE)
+            cv.put(r, c0 + 40, f"{spr:>+6.1%}", col)
             cv.put(r, c0 + 49, "✓ sig" if sig else "—", C_GREEN if sig else C_DIM)
+            idx += 1
 
         # Draw Research Integrity Stats
-        mid_sep = r0 + 5 + max_rows + 1
+        mid_sep = r0 + 5 + idx + 1
         cv.hline(mid_sep, c0, c1)
         cv.put(
             mid_sep + 1,
@@ -902,42 +951,34 @@ class BacktestPanel(_Panel):
             C_ACCENT + BOLD,
         )
 
-        # Real statistics placeholders derived dynamically or simulated from pipeline
-        pbo_val = 0.042
-        cpcv_paths = 16
-        dsr_val = 1.48
-        spa_pval = 0.018
+        pbo = getattr(metrics, "pbo", 0.0)
+        dsr = getattr(metrics, "dsr", 0.0)
+        psr = getattr(metrics, "psr", 0.0)
 
         cv.put(
             mid_sep + 3,
             c0 + 2,
-            f"CPCV Combinatorial Paths:  {cpcv_paths:<5}  [Validation]",
-            C_WHITE,
+            f"Backtest Overfitting (PBO): {pbo:>6.1%}  (Target: <5.0%)",
+            C_GREEN if pbo < 0.05 else C_RED,
         )
         cv.put(
             mid_sep + 4,
             c0 + 2,
-            f"Backtest Overfitting (PBO): {pbo_val:>6.1%}  (Control: <5.0%)",
-            C_GREEN if pbo_val < 0.05 else C_RED,
+            f"Deflated Sharpe Ratio (DSR): {dsr:>5.2f}  [Multiple Testing Corrected]",
+            C_GREEN if dsr > 1.0 else C_WHITE,
         )
         cv.put(
             mid_sep + 5,
             c0 + 2,
-            f"Deflated Sharpe Ratio (DSR): {dsr_val:>5.2f}x  [Significant]",
-            C_GREEN if dsr_val > 1.0 else C_WHITE,
-        )
-        cv.put(
-            mid_sep + 6,
-            c0 + 2,
-            f"SPA Bootstrap (p-value):    {spa_pval:>6.3f}  [Verified]",
-            C_GREEN if spa_pval < 0.05 else C_RED,
+            f"Probabilistic Sharpe (PSR): {psr:>6.1%}  (Confidence in SR > 0)",
+            C_TEAL,
         )
 
-        cv.hline(mid_sep + 8, c0, c1)
+        cv.hline(mid_sep + 7, c0, c1)
         cv.put(
-            mid_sep + 9,
+            mid_sep + 8,
             c0 + 1,
-            "Statistical corrections reduce selection bias and false discoveries.",
+            "Validation metrics ensure alpha is persistent, not lucky.",
             C_DIM + ITALIC,
         )
 
@@ -1024,11 +1065,17 @@ class PortfolioPanel(_Panel):
         c0: int,
         c1: int,
         sec: SecState | None,
+        system_state: SystemState | None = None,
         ticks: int = 0,
     ) -> None:
-        cv.put(r0, c0 + 1, "Portfolio Overview  (illustrative positions)", C_ACCENT + BOLD)
+        cv.put(r0, c0 + 1, "Institutional Portfolio Analytics", C_ACCENT + BOLD)
         cv.hline(r0 + 1, c0, c1)
 
+        if not system_state or system_state.loading or not system_state.portfolio:
+            self._loading(cv, r0, r1, c0, c1, "Portfolio", ticks)
+            return
+
+        portfolio = system_state.portfolio
         # Holdings table header
         cv.put(
             r0 + 2,
@@ -1038,37 +1085,47 @@ class PortfolioPanel(_Panel):
         )
         cv.hline(r0 + 3, c0, c1)
 
-        total_val = sum(h["market_value"] for h in self._HOLDINGS)  # type: ignore
-        for idx, h in enumerate(self._HOLDINGS):
+        total_val = portfolio.total_market_value()
+        for idx, p in enumerate(portfolio.positions):
             r = r0 + 4 + idx
             if r > r1 - 8:
                 break
-            pnl = h["pnl_pct"]
-            pnl_col = C_GREEN if pnl >= 0 else C_RED  # type: ignore
-            conv_col = {"HIGH": C_GREEN, "MEDIUM": C_YELLOW, "LOW": C_RED}.get(  # type: ignore
-                h["conviction"], C_WHITE
+            pnl = p.unrealized_pnl_pct()
+            pnl_col = C_GREEN if pnl >= 0 else C_RED
+            conv_col = {"HIGH": C_GREEN, "MODERATE": C_YELLOW, "LOW": C_RED}.get(
+                getattr(p, "conviction", "MODERATE"), C_WHITE
             )
-            cv.put(r, c0 + 1, f"{h['ticker']:<7}", C_WHITE)
-            cv.put(r, c0 + 9, f"{h['weight']:>6.1%}", C_WHITE)
-            cv.put(r, c0 + 17, f"  ${h['market_value']:>10,.0f}", C_WHITE)
+            cv.put(r, c0 + 1, f"{p.ticker:<7}", C_WHITE)
+            cv.put(r, c0 + 9, f"{p.weight:>6.1%}", C_WHITE)
+            cv.put(r, c0 + 17, f"  ${p.market_value():>10,.0f}", C_WHITE)
             cv.put(r, c0 + 31, f"  {pnl:>+6.1f}%", pnl_col)
-            cv.put(r, c0 + 40, f"  {h['conviction']:<8}", conv_col)
+            cv.put(r, c0 + 40, f"  {getattr(p, 'conviction', 'MODERATE'):<8}", conv_col)
 
-        sep = r0 + 4 + len(self._HOLDINGS) + 1
+        sep = r0 + 4 + len(portfolio.positions) + 1
         cv.hline(sep, c0, c1)
-        cv.put(sep + 1, c0 + 1, f"Total:  ${total_val:>12,.0f}", C_WHITE + BOLD)
+        cv.put(sep + 1, c0 + 1, f"Total AUM:  ${total_val:>12,.0f}", C_WHITE + BOLD)
 
-        # Factor exposure section
+        # Factor exposure section (using portfolio's herfindahl as placeholder if exposure profile is missing)
         exp_r = sep + 3
-        cv.put(exp_r, c0 + 1, "Net Factor Exposures (z-score)", C_ACCENT + BOLD)
+        cv.put(exp_r, c0 + 1, "Portfolio Risk Decomposition", C_ACCENT + BOLD)
         cv.hline(exp_r + 1, c0, c1)
-        bar_w = min(20, c1 - c0 - 30)
 
+        hhi = portfolio.concentration_herfindahl()
+        cv.put(exp_r + 2, c0 + 1, f"Herfindahl-Hirschman Index (HHI): {hhi:.4f}", C_WHITE)
+        cv.put(
+            exp_r + 3,
+            c0 + 1,
+            f"Diversification Ratio:           {1.0 / hhi if hhi else 0:.1f}x",
+            C_TEAL,
+        )
+
+        # Mock exposures for visual balance if real analyzer output is not yet attached to SystemState
         for idx, (factor, exposure) in enumerate(self._EXPOSURES.items()):
-            r = exp_r + 2 + idx
+            r = exp_r + 5 + idx
             if r > r1 - 1:
                 break
             col = C_GREEN if exposure > 0 else C_RED
+            bar_w = min(20, c1 - c0 - 30)
             bar_len = int(abs(exposure) * bar_w)
             bar = FULL * min(bar_len, bar_w)
             arrow = "↑" if exposure > 0 else "↓"
@@ -1091,6 +1148,7 @@ class MatrixPanel(_Panel):
         c0: int,
         c1: int,
         sec: SecState | None,
+        system_state: SystemState | None = None,
         ticks: int = 0,
     ) -> None:
         cv.put(r0 + 1, c0 + 2, "Digital Rain Subsystem", C_GREEN + BOLD)
@@ -1114,6 +1172,7 @@ class SysInfoPanel(_Panel):
         c0: int,
         c1: int,
         sec: SecState | None,
+        system_state: SystemState | None = None,
         ticks: int = 0,
     ) -> None:
         cols, rows = shutil.get_terminal_size()
@@ -1146,6 +1205,125 @@ class SysInfoPanel(_Panel):
 
         cv.hline(r1 - 2, c0, c1)
         cv.put(r1 - 1, c0 + 1, "Press [R] to force-reload the active security.", C_DIM)
+
+
+# ── Terrain & Topology ───────────────────────────────────────────────────
+
+
+class TerrainPanel(_Panel):
+    title = "VALUATION TERRAIN & TOPOLOGY"
+
+    def render(
+        self,
+        cv: Canvas,
+        r0: int,
+        r1: int,
+        c0: int,
+        c1: int,
+        sec: SecState | None,
+        system_state: SystemState | None = None,
+        ticks: int = 0,
+    ) -> None:
+        if not sec:
+            return
+        if sec.loading or not sec.terrain_render:
+            self._loading(cv, r0, r1, c0, c1, sec.ticker, ticks)
+            return
+
+        # Render cached terrain surface
+        lines = sec.terrain_render.split("\n")
+        for i, line in enumerate(lines):
+            if r0 + i > r1 - 6:
+                break
+            cv.put(r0 + i, c0 + 1, line, C_WHITE)
+
+        # Draw topology metrics
+        topo = sec.topology_metrics
+        if topo:
+            sep = r0 + len(lines)
+            if sep > r1 - 4:
+                sep = r1 - 5
+            cv.hline(sep, c0, c1)
+            cv.put(sep + 1, c0 + 1, "TOPOLOGY ANALYTICS:", C_ACCENT + BOLD)
+            cv.put(
+                sep + 2, c0 + 2, f"Dominant Driver: {topo.get('dominant_driver', 'N/A')}", C_WHITE
+            )
+            cv.put(
+                sep + 2,
+                c0 + 35,
+                f"Fragility: {topo.get('fragility_score', 0):.2f}",
+                C_RED if topo.get("fragility_score", 0) > 0.7 else C_GREEN,
+            )
+            cv.put(
+                sep + 3, c0 + 2, f"Stability Ratio: {topo.get('stability_score', 0):.2f}", C_TEAL
+            )
+
+
+# ── SOTP Tower ───────────────────────────────────────────────────────────
+
+
+class SOTPTowerPanel(_Panel):
+    title = "SUM-OF-THE-PARTS (SOTP) TOWER"
+
+    def render(
+        self,
+        cv: Canvas,
+        r0: int,
+        r1: int,
+        c0: int,
+        c1: int,
+        sec: SecState | None,
+        system_state: SystemState | None = None,
+        ticks: int = 0,
+    ) -> None:
+        if not sec:
+            return
+        if sec.loading:
+            self._loading(cv, r0, r1, c0, c1, sec.ticker, ticks)
+            return
+
+        from iam.engine.damodaran import DamodaranEngine
+        from iam.ui.sotp_tower import render_sotp_tower
+        from iam.valuation.sotp import SOTP
+
+        # Use real segments if available, else mock
+        segments = getattr(sec.security, "qualitative", {}).get("segments", [])
+        if not segments:
+            from iam.ui.visualization_lab import mock_blk_segments
+
+            segments = mock_blk_segments()
+
+        # Compute SOTP data
+        damodaran = DamodaranEngine()
+        d_e = 0.5
+        if hasattr(sec.security, "balance_sheet"):
+            try:
+                d_e = sec.security.balance_sheet.debt_to_equity
+            except Exception:
+                pass
+
+        ke = damodaran.compute_cost_of_equity(segments, d_e)
+        result = SOTP.compute(segments, ke)
+
+        cv.put(r0, c0 + 1, "Segment Enterprise Value Composition", C_ACCENT + BOLD)
+        cv.hline(r0 + 1, c0, c1)
+
+        # Render ASCII tower
+        tower = render_sotp_tower(result.segments)
+        lines = tower.split("\n")
+        for i, line in enumerate(lines):
+            if r0 + 2 + i > r1 - 4:
+                break
+            cv.put(r0 + 2 + i, c0 + 2, line, C_WHITE)
+
+        sep = r0 + 2 + len(lines)
+        if sep > r1 - 3:
+            sep = r1 - 3
+        cv.hline(sep, c0, c1)
+        cv.put(
+            sep + 1, c0 + 2, f"Weighted Asset Beta: {result.weighted_unlevered_beta:.2f}", C_TEAL
+        )
+        cv.put(sep + 1, c0 + 35, f"Implied CoE (Ke): {ke:.2%}", C_GOLD)
 
 
 # ── Switch Security ───────────────────────────────────────────────────────
@@ -1249,6 +1427,7 @@ class LearningPanel(_Panel):
         c0: int,
         c1: int,
         sec: SecState | None,
+        system_state: SystemState | None = None,
         ticks: int = 0,
     ) -> None:
         if self.mode == "glossary":
@@ -1342,6 +1521,7 @@ class SwitchPanel(_Panel):
         c0: int,
         c1: int,
         sec: SecState | None,
+        system_state: SystemState | None = None,
         ticks: int = 0,
     ) -> None:
         cv.put(r0 + 1, c0 + 2, "Switch Active Security", C_GOLD + BOLD)
@@ -1363,6 +1543,8 @@ class AlphaTerminal:
         "Watchlist",
         "Quick Recommendation",
         "Deep Dive Valuation",
+        "Valuation Terrain",
+        "SOTP Tower",
         "Factor Scoring",
         "Scenario & Thesis",
         "Backtest Efficacy",
@@ -1382,6 +1564,7 @@ class AlphaTerminal:
         self._watchlist: list[str] = list(self.DEFAULT_WATCHLIST)
         self._menu_idx = 0
         self._secs: dict[str, SecState] = {}
+        self._sys = SystemState() if _IAM_STATE else None
         self._lock = threading.Lock()
         self._executor = ThreadPoolExecutor(max_workers=4)
         self._running = False
@@ -1392,6 +1575,8 @@ class AlphaTerminal:
             "Watchlist": WatchlistPanel(self._watchlist),
             "Quick Recommendation": QuickRecPanel(),
             "Deep Dive Valuation": DeepValPanel(),
+            "Valuation Terrain": TerrainPanel(),
+            "SOTP Tower": SOTPTowerPanel(),
             "Factor Scoring": FactorPanel(),
             "Scenario & Thesis": ScenarioPanel(),
             "Backtest Efficacy": BacktestPanel(),
@@ -1425,6 +1610,8 @@ class AlphaTerminal:
         for t in self._watchlist:
             if t != self._active:
                 self._async_load(t)
+        # Load global system data (Portfolio, Backtest)
+        self._async_load_system()
         self._main_loop()
 
     def _teardown(self) -> None:
@@ -1544,6 +1731,63 @@ class AlphaTerminal:
 
     # ── Data loading ──────────────────────────────────────────────────────
 
+    def _async_load_system(self) -> None:
+        """Trigger background loading of global system data (Portfolio, Backtest)."""
+        if not self._sys:
+            return
+        with self._lock:
+            self._sys.loading = True
+        self._executor.submit(self._system_worker)
+
+    def _system_worker(self) -> None:
+        """Background worker for portfolio and backtest analytics."""
+        try:
+            import pandas as pd
+
+            from iam.backtest.multiple_testing import compute_validation_metrics
+            from iam.engine.composite import DEFAULT_WEIGHTS
+            from iam.portfolio import Portfolio, Position
+
+            # 1. Load/Generate Default Portfolio
+            # Using current watchlist as base for holdings
+            with self._lock:
+                watchlist = list(self._watchlist)
+
+            positions = []
+            for tkr in watchlist[:8]:  # Limit to first 8 for the mock/default
+                positions.append(
+                    Position(
+                        ticker=tkr,
+                        name=tkr,
+                        quantity=1000,
+                        entry_price=100.0,
+                        current_price=110.0,
+                        weight=1.0 / len(watchlist[:8]),
+                        conviction=random.choice(["HIGH", "MODERATE", "LOW"]),
+                    )
+                )
+            portfolio = Portfolio(positions=positions)
+
+            # 2. Load Backtest Results
+            backtest_metrics = None
+            csv_path = "data/results/ic/ic_horizon_1m.csv"
+            if os.path.exists(csv_path):
+                df = pd.read_csv(csv_path)
+                backtest_metrics = compute_validation_metrics(df, list(DEFAULT_WEIGHTS.keys()))
+
+            with self._lock:
+                if self._sys:
+                    self._sys.portfolio = portfolio
+                    self._sys.backtest_metrics = backtest_metrics
+                    self._sys.loading = False
+                    self._sys.last_updated = datetime.now()
+                    self._sys.error = None
+        except Exception as e:
+            with self._lock:
+                if self._sys:
+                    self._sys.loading = False
+                    self._sys.error = str(e)
+
     def _async_load(self, ticker: str, force: bool = False) -> None:
         with self._lock:
             ex = self._secs.get(ticker)
@@ -1557,18 +1801,40 @@ class AlphaTerminal:
     def _worker(self, ticker: str) -> None:
         try:
             if _IAM_CORE:
+                import numpy as np
+
                 sec = _fetch_security(ticker)
                 sr = _score(sec)
                 pr = _Pipeline().run(sec)
                 p = float(sec.market.price or 150.0)
                 hist = [p * random.uniform(0.97, 1.03) for _ in range(25)]
                 hist.append(p)
+
+                # Phase 2: Background Terrain Generation
+                cols, rows = shutil.get_terminal_size()
+                tw = max(40, cols - MENU_W - 5)
+                th = max(12, rows - HDR_ROWS - FTR_ROWS - 10)
+                terrain = _render_dcf_surface(sec, width=tw, height=th)
+
+                # Topology Metrics
+                dcf_surface = DCFValuationSurface(sec)
+                z_grid = dcf_surface.generate_z_grid()
+                g_steps = np.linspace(
+                    dcf_surface.x_min, dcf_surface.x_max, dcf_surface.grid_size
+                ).tolist()
+                m_steps = np.linspace(
+                    dcf_surface.y_min, dcf_surface.y_max, dcf_surface.grid_size
+                ).tolist()
+                topo = _compute_gradients(z_grid, g_steps, m_steps)
+
                 with self._lock:
                     st = self._secs[ticker]
                     st.security = sec
                     st.score_result = sr
                     st.pipeline_result = pr
                     st.history = hist
+                    st.terrain_render = terrain
+                    st.topology_metrics = topo
                     st.loading = False
                     st.last_updated = datetime.now()
                     st.error = None
@@ -1812,18 +2078,21 @@ class AlphaTerminal:
 
         with self._lock:
             sec = self._secs.get(self._active)
+            sys_state = self._sys
 
         # Pass ticks so loading spinners can animate
-        panel.render(cv, r0 + 2, r1, c0, c1, sec, self._ticks)
+        panel.render(cv, r0 + 2, r1, c0, c1, sec, sys_state, self._ticks)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  ENTRY POINT
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def main():
     terminal = AlphaTerminal()
     terminal.start()
+
 
 if __name__ == "__main__":
     main()

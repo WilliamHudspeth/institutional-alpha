@@ -1,5 +1,9 @@
-import streamlit as st
+import os
 import traceback
+
+import pandas as pd
+import streamlit as st
+
 from iam.data import Security
 from iam.integration.orchestrator import Orchestrator
 from iam.pipeline.orchestrator import ValuationPipeline
@@ -17,13 +21,13 @@ st.markdown(
     """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');
-    
+
     html, body, [data-testid="stAppViewContainer"] {
         background-color: #0d1117;
         color: #c9d1d9;
         font-family: 'Outfit', sans-serif;
     }
-    
+
     .stTextInput>div>div>input {
         background-color: #161b22;
         color: #f0f6fc;
@@ -31,7 +35,7 @@ st.markdown(
         border-radius: 6px;
         font-family: 'JetBrains Mono', monospace;
     }
-    
+
     .stButton>button {
         background: linear-gradient(135deg, #1f6feb 0%, #094cb5 100%);
         color: white;
@@ -42,13 +46,13 @@ st.markdown(
         transition: all 0.3s ease;
         box-shadow: 0 4px 12px rgba(31, 111, 235, 0.3);
     }
-    
+
     .stButton>button:hover {
         background: linear-gradient(135deg, #388bfd 0%, #1f6feb 100%);
         box-shadow: 0 6px 16px rgba(31, 111, 235, 0.5);
         transform: translateY(-1px);
     }
-    
+
     .card {
         background-color: #161b22;
         border: 1px solid #30363d;
@@ -56,21 +60,21 @@ st.markdown(
         padding: 1.5rem;
         margin-bottom: 1rem;
     }
-    
+
     .metric-value {
         font-family: 'JetBrains Mono', monospace;
         font-size: 2rem;
         font-weight: 700;
         color: #58a6ff;
     }
-    
+
     .metric-label {
         font-size: 0.9rem;
         text-transform: uppercase;
         color: #8b949e;
         letter-spacing: 1px;
     }
-    
+
     .terminal-header {
         font-family: 'JetBrains Mono', monospace;
         color: #58a6ff;
@@ -79,13 +83,13 @@ st.markdown(
         padding-bottom: 0.5rem;
         margin-bottom: 1rem;
     }
-    
+
     .table-container {
         font-family: 'JetBrains Mono', monospace;
         width: 100%;
         border-collapse: collapse;
     }
-    
+
     .table-container th {
         background-color: #21262d;
         color: #8b949e;
@@ -93,12 +97,12 @@ st.markdown(
         padding: 8px;
         border-bottom: 2px solid #30363d;
     }
-    
+
     .table-container td {
         padding: 8px;
         border-bottom: 1px solid #21262d;
     }
-    
+
     .badge {
         display: inline-block;
         padding: 0.25em 0.6em;
@@ -110,19 +114,19 @@ st.markdown(
         vertical-align: baseline;
         border-radius: 0.25rem;
     }
-    
+
     .badge-bullish {
         background-color: rgba(46, 160, 67, 0.15);
         color: #3fb950;
         border: 1px solid rgba(46, 160, 67, 0.3);
     }
-    
+
     .badge-bearish {
         background-color: rgba(248, 81, 73, 0.15);
         color: #f85149;
         border: 1px solid rgba(248, 81, 73, 0.3);
     }
-    
+
     .badge-neutral {
         background-color: rgba(139, 148, 158, 0.15);
         color: #8b949e;
@@ -134,13 +138,52 @@ st.markdown(
 )
 
 # Header
-st.markdown("<h1 style='color: #f0f6fc;'>🏛️ Institutional Alpha Terminal</h1>", unsafe_allow_html=True)
-st.markdown("<p style='color: #8b949e;'>Multi-lens equity scoring, valuation arbitration, & expectation battlefield engine.</p>", unsafe_allow_html=True)
+st.markdown(
+    "<h1 style='color: #f0f6fc;'>🏛️ Institutional Alpha Terminal</h1>", unsafe_allow_html=True
+)
+st.markdown(
+    "<p style='color: #8b949e;'>Multi-lens equity scoring, valuation arbitration, & expectation battlefield engine.</p>",
+    unsafe_allow_html=True,
+)
 
 # Layout: Sidebar controls
 st.sidebar.markdown("### Valuation Control Center")
 ticker = st.sidebar.text_input("Ticker Symbol", "BLK").upper().strip()
-growth_override = st.sidebar.slider("Forecast Growth Override (%)", min_value=0.0, max_value=30.0, value=8.0, step=0.5)
+growth_override = st.sidebar.slider(
+    "Forecast Growth Override (%)", min_value=0.0, max_value=30.0, value=8.0, step=0.5
+)
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🧬 Research Integrity")
+
+# Load live backtest integrity stats
+try:
+    from iam.backtest.multiple_testing import compute_validation_metrics
+    from iam.engine.composite import DEFAULT_WEIGHTS
+
+    ic_path = "data/results/ic/ic_horizon_1m.csv"
+    if os.path.exists(ic_path):
+        df_ic = pd.read_csv(ic_path)
+        val_metrics = compute_validation_metrics(df_ic, list(DEFAULT_WEIGHTS.keys()))
+        pbo = getattr(val_metrics, "pbo", 0.042)
+        dsr = getattr(val_metrics, "dsr", 1.48)
+
+        pbo_col = "#7ee787" if pbo < 0.05 else "#ff7b72"
+        dsr_col = "#7ee787" if dsr > 1.0 else "#8b949e"
+
+        st.sidebar.markdown(
+            f"""
+            <div style="font-size: 0.85rem; color: #8b949e; margin-bottom: 1.0rem;">
+                Backtest Overfitting (PBO): <b style="color: {pbo_col};">{pbo:.1%}</b><br>
+                Deflated Sharpe (DSR): <b style="color: {dsr_col};">{dsr:.2f}x</b>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.sidebar.info("Backtest results not found for integrity audit.")
+except Exception:
+    st.sidebar.warning("Integrity layer initialization failed.")
 
 run_button = st.sidebar.button("Run Valuation Engine")
 
@@ -155,13 +198,13 @@ if run_button:
 
             orch = Orchestrator()
             orch_result = orch.value_security(security)
-            
+
             # 2. Run valuation pipeline (full 7-stages)
             pipeline = ValuationPipeline()
             # Simulate or fetch synthesis upside
             synthesis_upside = 0.02  # Default baseline
             report = pipeline.run(security, synthesis_upside=synthesis_upside)
-            
+
             # 3. Assess Business Reality narrative
             try:
                 reality_assessment = BusinessRealityEngine().assess(security)
@@ -171,23 +214,27 @@ if run_button:
 
             # ----- Render Dashboard -----
             col1, col2, col3 = st.columns(3)
-            
+
             with col1:
                 st.markdown(
                     f"""
                     <div class="card">
                         <div class="metric-label">Institutional Verdict</div>
-                        <div class="metric-value">{orch_result['recommendation']}</div>
+                        <div class="metric-value">{orch_result["recommendation"]}</div>
                         <div style="color: #8b949e; margin-top: 0.5rem; font-size: 0.9rem;">
-                            Arbitrated Cost of Equity: <b>{orch_result['model_result'].value * 100:.2f}%</b>
+                            Arbitrated Cost of Equity: <b>{orch_result["model_result"].value * 100:.2f}%</b>
                         </div>
                     </div>
                     """,
-                    unsafe_allow_html=True
+                    unsafe_allow_html=True,
                 )
-                
+
             with col2:
-                pwev_target = report.intrinsic.components.get("pwev_target", 0.0) if report and report.intrinsic else 0.0
+                pwev_target = (
+                    report.intrinsic.components.get("pwev_target", 0.0)
+                    if report and report.intrinsic
+                    else 0.0
+                )
                 st.markdown(
                     f"""
                     <div class="card">
@@ -198,11 +245,15 @@ if run_button:
                         </div>
                     </div>
                     """,
-                    unsafe_allow_html=True
+                    unsafe_allow_html=True,
                 )
-                
+
             with col3:
-                discount_rate = report.intrinsic.assumptions.get("discount_rate", 0.09) if report and report.intrinsic else 0.09
+                discount_rate = (
+                    report.intrinsic.assumptions.get("discount_rate", 0.09)
+                    if report and report.intrinsic
+                    else 0.09
+                )
                 st.markdown(
                     f"""
                     <div class="card">
@@ -213,29 +264,36 @@ if run_button:
                         </div>
                     </div>
                     """,
-                    unsafe_allow_html=True
+                    unsafe_allow_html=True,
                 )
 
             # Row 2: Scenario Matrix & Battlefield
             col_left, col_right = st.columns(2)
-            
+
             with col_left:
-                st.markdown("<div class='terminal-header'>📊 Probabilistic Scenario Weight Matrix</div>", unsafe_allow_html=True)
+                st.markdown(
+                    "<div class='terminal-header'>📊 Probabilistic Scenario Weight Matrix</div>",
+                    unsafe_allow_html=True,
+                )
                 if report and report.intrinsic and "scenarios" in report.intrinsic.components:
                     scenarios = report.intrinsic.components["scenarios"]
                     rows_html = ""
                     for case_name, data in scenarios.items():
                         implied_ret = data.get("upside", 0.0)
-                        ret_class = "badge-bullish" if implied_ret > 0.05 else ("badge-bearish" if implied_ret < -0.05 else "badge-neutral")
+                        ret_class = (
+                            "badge-bullish"
+                            if implied_ret > 0.05
+                            else ("badge-bearish" if implied_ret < -0.05 else "badge-neutral")
+                        )
                         rows_html += f"""
                         <tr>
                             <td><b>{case_name}</b></td>
-                            <td>{data.get('prob', 0.0)*100:.0f}%</td>
-                            <td>${data.get('target', 0.0):.2f}</td>
-                            <td><span class="badge {ret_class}">{implied_ret*100:+.1f}%</span></td>
+                            <td>{data.get("prob", 0.0) * 100:.0f}%</td>
+                            <td>${data.get("target", 0.0):.2f}</td>
+                            <td><span class="badge {ret_class}">{implied_ret * 100:+.1f}%</span></td>
                         </tr>
                         """
-                    
+
                     st.markdown(
                         f"""
                         <table class="table-container">
@@ -252,13 +310,16 @@ if run_button:
                             </tbody>
                         </table>
                         """,
-                        unsafe_allow_html=True
+                        unsafe_allow_html=True,
                     )
                 else:
                     st.info("No scenario metrics available.")
-                    
+
             with col_right:
-                st.markdown("<div class='terminal-header'>⚔️ Valuation Battlefield (Stage 4b)</div>", unsafe_allow_html=True)
+                st.markdown(
+                    "<div class='terminal-header'>⚔️ Valuation Battlefield (Stage 4b)</div>",
+                    unsafe_allow_html=True,
+                )
                 if report and report.battlefield:
                     bf = report.battlefield
                     st.markdown(
@@ -280,21 +341,21 @@ if run_button:
                                 <tbody>
                                     <tr>
                                         <td>Growth</td>
-                                        <td>{bf.market_growth*100:.1f}%</td>
-                                        <td>{bf.intrinsic_growth*100:.1f}%</td>
-                                        <td>{bf.growth_gap*100:+.1f}%</td>
+                                        <td>{bf.market_growth * 100:.1f}%</td>
+                                        <td>{bf.intrinsic_growth * 100:.1f}%</td>
+                                        <td>{bf.growth_gap * 100:+.1f}%</td>
                                     </tr>
                                     <tr>
                                         <td>Margin</td>
-                                        <td>{bf.market_margin*100:.1f}%</td>
-                                        <td>{bf.intrinsic_margin*100:.1f}%</td>
-                                        <td>{bf.margin_gap*100:+.1f}%</td>
+                                        <td>{bf.market_margin * 100:.1f}%</td>
+                                        <td>{bf.intrinsic_margin * 100:.1f}%</td>
+                                        <td>{bf.margin_gap * 100:+.1f}%</td>
                                     </tr>
                                     <tr>
                                         <td>ROIC</td>
-                                        <td>{bf.market_roic*100:.1f}%</td>
-                                        <td>{bf.intrinsic_roic*100:.1f}%</td>
-                                        <td>{bf.roic_gap*100:+.1f}%</td>
+                                        <td>{bf.market_roic * 100:.1f}%</td>
+                                        <td>{bf.intrinsic_roic * 100:.1f}%</td>
+                                        <td>{bf.roic_gap * 100:+.1f}%</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -306,7 +367,7 @@ if run_button:
                             </div>
                         </div>
                         """,
-                        unsafe_allow_html=True
+                        unsafe_allow_html=True,
                     )
                 else:
                     st.info("Valuation battlefield telemetry is not active.")
@@ -314,18 +375,24 @@ if run_button:
             # Row 3: Business Reality & Drift Detector
             col_b1, col_b2 = st.columns(2)
             with col_b1:
-                st.markdown("<div class='terminal-header'>🧠 Business Reality Narrative</div>", unsafe_allow_html=True)
+                st.markdown(
+                    "<div class='terminal-header'>🧠 Business Reality Narrative</div>",
+                    unsafe_allow_html=True,
+                )
                 st.markdown(
                     f"""
                     <div class="card" style="font-size: 0.95rem; line-height: 1.6; color: #8b949e;">
                         {reality_narrative}
                     </div>
                     """,
-                    unsafe_allow_html=True
+                    unsafe_allow_html=True,
                 )
-                
+
             with col_b2:
-                st.markdown("<div class='terminal-header'>🚨 Thesis Drift Detector</div>", unsafe_allow_html=True)
+                st.markdown(
+                    "<div class='terminal-header'>🚨 Thesis Drift Detector</div>",
+                    unsafe_allow_html=True,
+                )
                 if report and report.drift_report:
                     dr = report.drift_report
                     status_class = "badge-bearish" if dr.has_drift else "badge-bullish"
@@ -341,7 +408,7 @@ if run_button:
                             </div>
                         </div>
                         """,
-                        unsafe_allow_html=True
+                        unsafe_allow_html=True,
                     )
                 else:
                     st.info("Thesis drift metrics unavailable.")

@@ -299,36 +299,39 @@ class ValuationPipeline:
             and security.fundamentals
             and getattr(security.fundamentals, "segments", None)
         ):
-            from iam.valuation.sotp import Segment
             from iam.engine.damodaran import DamodaranEngine
+            from iam.valuation.sotp import Segment
             from iam.valuation.types import Method
-            
+
             segments_data = getattr(security.fundamentals, "segments", [])
             segments = [Segment(**s) if isinstance(s, dict) else s for s in segments_data]
-            
+
             damodaran = DamodaranEngine()
             total_debt = getattr(security.fundamentals, "total_debt", 0.0) or 0.0
             market_cap = getattr(security.market, "market_cap", 1.0) or 1.0
             debt_equity = total_debt / market_cap if market_cap > 0 else 0.0
             tax_rate = 0.21  # default corporate tax rate
-            cost_of_equity = damodaran.compute_cost_of_equity(segments, debt_to_equity=debt_equity, tax_rate=tax_rate)
-            
+            cost_of_equity = damodaran.compute_cost_of_equity(
+                segments, debt_to_equity=debt_equity, tax_rate=tax_rate
+            )
+
             sotp_result = self.sotp.compute(segments, cost_of_equity)
             shares = getattr(security.fundamentals, "shares_outstanding", 1.0) or 1.0
-            
+
             intrinsic_res = ValuationResult(
                 method=Method.INTRINSIC,
                 fair_value_per_share=sotp_result.total_ev / shares,
                 notes=[
                     f"Weighted unlevered beta: {sotp_result.weighted_unlevered_beta:.3f}",
                     f"Cost of equity: {cost_of_equity:.2%}",
-                ] + [f"{seg['name']}: ${seg['ev']:,.0f}" for seg in sotp_result.segments],
+                ]
+                + [f"{seg['name']}: ${seg['ev']:,.0f}" for seg in sotp_result.segments],
                 assumptions={
                     "high_growth": 0.08,
                     "roe": 0.15,
                     "cost_of_equity": cost_of_equity,
                     "debt_equity": debt_equity,
-                }
+                },
             )
         else:
             intrinsic_res = self.intrinsic_dcf.compute(security, fcfe_assumptions)

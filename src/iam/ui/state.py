@@ -119,3 +119,14 @@ class BayesianState:
     evidence_type: str
     evidence_reliability: float
     timestamp: datetime = field(default_factory=datetime.now)
+
+
+@dataclass
+class SystemState:
+    """State for global system analytics (Portfolio, Backtest)."""
+
+    portfolio: Any = None
+    backtest_metrics: Any = None
+    last_updated: datetime = field(default_factory=datetime.now)
+    loading: bool = False
+    error: str | None = None
