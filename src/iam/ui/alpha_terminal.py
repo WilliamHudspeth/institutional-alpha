@@ -1821,6 +1821,9 @@ class AlphaTerminal:
 #  ENTRY POINT
 # ═══════════════════════════════════════════════════════════════════════════
 
-if __name__ == "__main__":
+def main():
     terminal = AlphaTerminal()
     terminal.start()
+
+if __name__ == "__main__":
+    main()
