@@ -546,6 +546,41 @@ results = run_backtest(
 
 See [`examples/`](examples/) for runnable end-to-end demos.
 
+## Research Integrity Layer
+
+To prevent selection bias, data mining, and lookahead leakage in quantitative strategies, the framework embeds a rigorous statistical validation layer based on modern quant finance literature:
+
+### 1. Core Validation Pipeline
+
+```text
+Factor Generation
+        │
+        ▼
+Factor Validation (Holm / BH)
+        │
+        ▼
+Weight Optimization
+        │
+        ▼
+CPCV Validation
+        │
+        ▼
+Portfolio Construction
+        │
+        ▼
+Performance Evaluation
+        │
+        ▼
+DSR / SPA / PBO
+```
+
+### 2. Key Statistical Protocols
+*   **Combinatorial Purged Cross-Validation (CPCV)**: Chronologically partitions datasets while applying a variable *purge window* (before and after test groups) and an *embargo window* (following test groups) to eliminate lookahead bias and temporal leakage.
+*   **Probability of Backtest Overfitting (PBO)**: Calculates the probability (via CSCV) that a strategy chosen as optimal in-sample degrades to worse than the median candidate out-of-sample.
+*   **Deflated Sharpe Ratio (DSR)**: Deflates observed Sharpe/IR statistics to account for the size of the search space (number of weight optimizations/trials evaluated) and trial variance.
+*   **Superior Predictive Ability (SPA)**: Employs Hansen's SPA bootstrap to test whether the selected composite model genuinely outperforms a naive equal-weighted factor benchmark.
+*   **Holm / Benjamini-Hochberg**: Gathers factor-level t-statistics and adjusts p-values for Family-Wise Error Rate (Holm) and False Discovery Rate (BH) using the eigenvalues of the signal correlation matrix to determine the *effective* number of independent tests.
+
 ## Architecture
 
 ```

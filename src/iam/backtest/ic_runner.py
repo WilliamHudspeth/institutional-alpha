@@ -86,6 +86,16 @@ def _score_worker(
         return base.ticker, float("nan"), {}, float("nan"), base.sector or ""
 
 
+from iam.backtest.multiple_testing import ValidationMetrics, compute_validation_metrics
+
+
+class BacktestResult(dict):
+    """Subclass of dict holding multi-horizon backtest DataFrames and validation metrics."""
+    def __init__(self, horizons_dict: dict[int, pd.DataFrame], validation: ValidationMetrics):
+        super().__init__(horizons_dict)
+        self.validation = validation
+
+
 class ICBacktest:
     def __init__(
         self,
@@ -278,7 +288,21 @@ class ICBacktest:
             else:
                 self.results[h] = pd.DataFrame()
 
-        return self.results
+        # Compute validation metrics on 1-month horizon if present
+        df1 = self.results.get(1, pd.DataFrame())
+        if not df1.empty:
+            validation = compute_validation_metrics(df1, self.factor_names)
+        else:
+            validation = ValidationMetrics(
+                psr=float("nan"),
+                dsr=float("nan"),
+                pbo=float("nan"),
+                spa_pvalue=float("nan"),
+                effective_tests=float("nan"),
+                fwer_significant_factors=0,
+                fdr_significant_factors=0,
+            )
+        return BacktestResult(self.results, validation)
 
     def compute_statistics(self) -> dict[int, dict]:
         stats: dict[int, dict] = {}
@@ -387,6 +411,10 @@ class ICBacktest:
         self.config.validate_paths()
 
         stats = self.compute_statistics()
+        df1 = self.results.get(1, pd.DataFrame())
+        val = None
+        if not df1.empty:
+            val = compute_validation_metrics(df1, self.factor_names)
 
         summary_path = self.config.results_dir / "ic_summary.txt"
         with open(summary_path, "w") as f:
@@ -402,28 +430,16 @@ class ICBacktest:
                 f.write(f"  p-value: {s.get('p_value', np.nan):.6f}\n")
                 f.write(f"  n_obs:   {s.get('n_obs', 0)}\n\n")
 
-            # Calculate SPA for the 1-month horizon (composite vs equal weight)
-            if 1 in self.results and not self.results[1].empty:
-                df1 = self.results[1]
-                if "ic" in df1.columns:
-                    composite_ic = df1["ic"].dropna()
-                    factor_cols = [c for c in df1.columns if c.startswith("ic_") and c != "ic_sector_neutral" and c != "ic_weighted"]
-                    if factor_cols:
-                        equal_weight_ic = df1[factor_cols].mean(axis=1).reindex(composite_ic.index).dropna()
-                        common_idx = composite_ic.index.intersection(equal_weight_ic.index)
-                        if len(common_idx) > 10:
-                            from iam.backtest.spa import superior_predictive_ability
-                            strat_returns = composite_ic.loc[common_idx].values.reshape(-1, 1)
-                            bench_returns = equal_weight_ic.loc[common_idx].values
-                            
-                            spa_res = superior_predictive_ability(
-                                strat_returns, benchmark_returns=bench_returns, seed=42
-                            )
-                            f.write("Superior Predictive Ability (SPA)\n")
-                            f.write("---------------------------------\n")
-                            f.write(f"  Composite vs Equal-Weight Benchmark (1m Horizon)\n")
-                            f.write(f"  SPA p-value: {spa_res['spa_pvalue']:.4f}\n")
-                            f.write(f"  Reject Null: {spa_res['reject']}\n\n")
+            if val:
+                f.write("Research Validation\n")
+                f.write("-------------------\n")
+                f.write(f"  PSR:                      {val.psr:.4f}\n" if not np.isnan(val.psr) else "  PSR:                      N/A\n")
+                f.write(f"  DSR:                      {val.dsr:.4f}\n" if not np.isnan(val.dsr) else "  DSR:                      N/A\n")
+                f.write(f"  PBO:                      {val.pbo:.4f}\n" if not np.isnan(val.pbo) else "  PBO:                      N/A\n")
+                f.write(f"  SPA p-value:              {val.spa_pvalue:.4f}\n" if not np.isnan(val.spa_pvalue) else "  SPA p-value:              N/A\n")
+                f.write(f"  Effective Tests:          {val.effective_tests:.2f}\n" if not np.isnan(val.effective_tests) else "  Effective Tests:          N/A\n")
+                f.write(f"  FWER Significant Factors: {val.fwer_significant_factors}\n")
+                f.write(f"  FDR Significant Factors:  {val.fdr_significant_factors}\n\n")
 
         factor_stats = self.compute_factor_statistics()
         if not factor_stats.empty:

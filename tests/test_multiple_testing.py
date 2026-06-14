@@ -143,3 +143,34 @@ def test_empty_input_is_safe():
     report = correct_factor_tests({})
     assert report.n_factors == 0
     assert report.survivors_holm == []
+
+
+def test_compute_validation_metrics():
+    import pandas as pd
+    from iam.backtest.multiple_testing import compute_validation_metrics
+    
+    # Create mock DataFrame of ICs across dates
+    dates = pd.date_range("2020-01-31", periods=15, freq="ME")
+    # Simulate a strong factor "quality" and a noisy "momentum"
+    # and a positive composite IC
+    data = {
+        "ic": np.random.normal(0.04, 0.01, 15),
+        "ic_quality": np.random.normal(0.05, 0.02, 15),
+        "ic_relative_value": np.random.normal(0.02, 0.03, 15),
+        "ic_intrinsic_value": np.random.normal(0.01, 0.04, 15),
+        "ic_momentum": np.random.normal(-0.01, 0.05, 15),
+    }
+    df = pd.DataFrame(data, index=dates)
+    
+    factor_names = ["quality", "relative_value", "intrinsic_value", "momentum"]
+    metrics = compute_validation_metrics(df, factor_names)
+    
+    # Assert validation dataclass has valid numeric/bool fields
+    assert not np.isnan(metrics.psr)
+    assert not np.isnan(metrics.dsr)
+    assert not np.isnan(metrics.pbo)
+    assert not np.isnan(metrics.effective_tests)
+    assert metrics.effective_tests > 0
+    assert isinstance(metrics.fwer_significant_factors, int)
+    assert isinstance(metrics.fdr_significant_factors, int)
+

@@ -306,3 +306,160 @@ def correct_factor_tests(
         fdr_alpha=fdr_alpha,
         notes=notes,
     )
+
+
+# --------------------------------------------------------------------------- #
+# Validation Metrics Suite
+# --------------------------------------------------------------------------- #
+@dataclass
+class ValidationMetrics:
+    psr: float
+    dsr: float
+    pbo: float
+    spa_pvalue: float
+    effective_tests: float
+    fwer_significant_factors: int = 0
+    fdr_significant_factors: int = 0
+
+
+def compute_validation_metrics(df: pd.DataFrame, factor_names: list[str]) -> ValidationMetrics:
+    """Compute comprehensive validation metrics for a backtest result DataFrame."""
+    import pandas as pd
+    import warnings
+
+    # 1. psr (Probabilistic Sharpe Ratio)
+    psr_val = float("nan")
+    if "ic" in df.columns:
+        ic_series = df["ic"].dropna()
+        if len(ic_series) > 2:
+            avg_ic = ic_series.mean()
+            std_ic = ic_series.std()
+            ir = avg_ic / std_ic if std_ic > 0 else 0.0
+            skew = float(ic_series.skew()) if not pd.isna(ic_series.skew()) else 0.0
+            kurt = float(ic_series.kurtosis()) + 3.0 if not pd.isna(ic_series.kurtosis()) else 3.0
+            psr_val = probabilistic_sharpe_ratio(ir, len(ic_series), skew, kurt, sr_benchmark=0.0)
+
+    # 2. dsr (Deflated Sharpe Ratio)
+    dsr_val = float("nan")
+    if "ic" in df.columns:
+        ic_series = df["ic"].dropna()
+        if len(ic_series) > 2:
+            avg_ic = ic_series.mean()
+            std_ic = ic_series.std()
+            ir = avg_ic / std_ic if std_ic > 0 else 0.0
+            skew = float(ic_series.skew()) if not pd.isna(ic_series.skew()) else 0.0
+            kurt = float(ic_series.kurtosis()) + 3.0 if not pd.isna(ic_series.kurtosis()) else 3.0
+            
+            # calculate individual factor irs
+            factor_irs = []
+            for f in factor_names:
+                col = f"ic_{f}"
+                if col in df.columns:
+                    s_f = df[col].dropna()
+                    if len(s_f) > 2:
+                        ir_f = s_f.mean() / s_f.std() if s_f.std() > 0 else 0.0
+                        factor_irs.append(ir_f)
+            var_trials = np.var(factor_irs) if len(factor_irs) > 1 else 0.01
+            # n_trials represents the count of factors evaluated
+            n_trials = len(factor_names)
+            
+            if var_trials > 0:
+                # DSR explicitly uses actual trials without eigenvalue adjustment
+                dsr_val = deflated_sharpe_ratio(
+                    observed_sr=ir,
+                    n_obs=len(ic_series),
+                    n_trials=n_trials,
+                    var_trials=var_trials,
+                    skew=skew,
+                    kurt=kurt,
+                    mean_trials=0.0,
+                    effective_trials=None
+                )
+
+    # 3. pbo (Probability of Backtest Overfitting)
+    pbo_val = float("nan")
+    factor_cols = [f"ic_{f}" for f in factor_names if f"ic_{f}" in df.columns]
+    if factor_cols:
+        clean_df = df[factor_cols].dropna()
+        if len(clean_df) >= 4 and len(factor_cols) >= 2:
+            perf_matrix = clean_df.values
+            n_partitions = min(16, len(perf_matrix) // 2)
+            if n_partitions % 2 != 0:
+                n_partitions -= 1
+            if n_partitions >= 2:
+                from iam.backtest.overfitting import probability_of_backtest_overfitting
+                try:
+                    pbo_val = probability_of_backtest_overfitting(perf_matrix, n_partitions=n_partitions)
+                except Exception:
+                    pass
+
+    # 4. spa_pvalue (Hansen's Superior Predictive Ability against alternative single factors)
+    spa_val = float("nan")
+    if "ic" in df.columns:
+        composite_ic = df["ic"].dropna()
+        if factor_cols:
+            equal_weight_ic = df[factor_cols].mean(axis=1).reindex(composite_ic.index).dropna()
+            
+            alts_dict = {"composite": composite_ic}
+            for f_key in ["quality", "relative_value", "intrinsic_value", "momentum"]:
+                col_name = f"ic_{f_key}"
+                if col_name in df.columns:
+                    alts_dict[f_key] = df[col_name]
+            
+            alts_df = pd.DataFrame(alts_dict)
+            alts_df["benchmark"] = equal_weight_ic
+            alts_df = alts_df.dropna()
+            
+            if len(alts_df) > 10:
+                from iam.backtest.spa import superior_predictive_ability
+                strat_returns = alts_df[list(alts_dict.keys())].values
+                bench_returns = alts_df["benchmark"].values
+                try:
+                    spa_res = superior_predictive_ability(
+                        strat_returns, benchmark_returns=bench_returns, seed=42
+                    )
+                    spa_val = spa_res["spa_pvalue"]
+                except Exception:
+                    pass
+
+    # 5. effective_tests
+    m_eff = float("nan")
+    if len(factor_cols) > 1:
+        ic_df = df[factor_cols].copy()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            corr_df = ic_df.fillna(0).corr(method="spearman").clip(-0.999, 0.999)
+        corr_df = corr_df.fillna(0.0)
+        corr_matrix = corr_df.values.copy()
+        np.fill_diagonal(corr_matrix, 1.0)
+        m_eff = effective_num_tests(corr_matrix)
+
+    # 6. FWER and FDR significant factor counts
+    fwer_sig = 0
+    fdr_sig = 0
+    t_stats_dict = {}
+    for f in factor_names:
+        col = f"ic_{f}"
+        if col in df.columns:
+            s_f = df[col].dropna()
+            if len(s_f) > 2:
+                from iam.backtest.metrics import newey_west_se_rigorous
+                t_stat, _, _ = newey_west_se_rigorous(s_f, nlags=3)
+                if not np.isnan(t_stat):
+                    t_stats_dict[f] = t_stat
+
+    if t_stats_dict:
+        mt_report = correct_factor_tests(t_stats_dict, effective_tests=m_eff if not np.isnan(m_eff) else None)
+        fwer_sig = len(mt_report.survivors_holm)
+        fdr_sig = len(mt_report.survivors_bh)
+
+    return ValidationMetrics(
+        psr=psr_val,
+        dsr=dsr_val,
+        pbo=pbo_val,
+        spa_pvalue=spa_val,
+        effective_tests=m_eff,
+        fwer_significant_factors=fwer_sig,
+        fdr_significant_factors=fdr_sig,
+    )
+

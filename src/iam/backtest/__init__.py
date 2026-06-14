@@ -27,6 +27,14 @@ from .metrics import (
     rolling_ic_stability,
     statistical_significance,
 )
+from .multiple_testing import (
+    correct_factor_tests,
+    effective_num_tests,
+    deflated_sharpe_ratio,
+    probabilistic_sharpe_ratio,
+    ValidationMetrics,
+    compute_validation_metrics,
+)
 from .prices import load_price_block, load_price_block_for_date
 from .quantiles import decile_spread, quantile_spread_by_date, quantile_turnover, spread_after_costs
 from .runner import print_backtest_summary, run_backtest
@@ -80,11 +88,14 @@ __all__ = [
     "ic_to_reliability_bayesian",
     "summarize_backtest",
     "write_calibration",
+    "format_weights_report",
     # Weight Optimizer
     "WeightOptimizerConfig",
     "optimize_weights",
     "WalkForwardOptimizer",
     "BootstrapStability",
     "RegimeOptimizer",
-    "format_weights_report",
+    # Validation
+    "ValidationMetrics",
+    "compute_validation_metrics",
 ]
