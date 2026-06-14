@@ -93,6 +93,34 @@ class TestTerminalSimulation(unittest.TestCase):
             except Exception as e:
                 self.fail(f"Panel '{name}' failed to render with populated data: {e}")
 
+    def test_panels_with_none_values(self):
+        """Ensure panels handle None values for key metrics without crashing."""
+        self.sec.loading = False
+        self.sys.loading = False
+
+        # Set key fields to None to simulate incomplete data
+        self.sec.score_result = MagicMock()
+        self.sec.score_result.composite = None
+        self.sec.score_result.factor_breakdown = {
+            "quality": MagicMock(value=None, confidence=None)
+        }
+
+        self.sec.pipeline_result = MagicMock()
+        self.sec.pipeline_result.final_verdict = MagicMock()
+        self.sec.pipeline_result.final_verdict.rating = None
+        self.sec.pipeline_result.final_verdict.blended_upside = None
+        
+        self.sec.pipeline_result.triangulation = MagicMock()
+        self.sec.pipeline_result.triangulation.cluster_center = None
+        self.sec.pipeline_result.triangulation.spread = None
+        self.sec.pipeline_result.triangulation.verdict = None
+
+        for name, panel in self.terminal._panels.items():
+            try:
+                panel.render(self.canvas, 5, 20, 28, 78, self.sec, self.sys, ticks=1)
+            except Exception as e:
+                self.fail(f"Panel '{name}' crashed with None values: {e}")
+
 
 if __name__ == "__main__":
     unittest.main()

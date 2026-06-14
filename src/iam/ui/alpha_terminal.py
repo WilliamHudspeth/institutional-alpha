@@ -152,7 +152,9 @@ C_MENU_HL = bg(17) + fg(39) + BOLD
 C_HDR = bg(234)
 
 
-def _rc(rating: str) -> str:
+def _rc(rating: str | None) -> str:
+    if rating is None:
+        return C_WHITE
     return {
         "BUY": C_GREEN,
         "STRONG BUY": C_GREEN + BOLD,
@@ -162,7 +164,9 @@ def _rc(rating: str) -> str:
     }.get(rating.upper(), C_WHITE)
 
 
-def _vc(val: float, threshold: float = 0.05) -> str:
+def _vc(val: float | None, threshold: float = 0.05) -> str:
+    if val is None:
+        return C_WHITE
     if val > threshold:
         return C_GREEN
     if val < -threshold:
@@ -225,8 +229,10 @@ def _spark_trend(history: list[float]) -> str:
     return "↑" if delta > 0 else ("↓" if delta < 0 else "→")
 
 
-def _meter(val: float, lo: float = -1.0, hi: float = 1.0, width: int = 18) -> str:
+def _meter(val: float | None, lo: float = -1.0, hi: float = 1.0, width: int = 18) -> str:
     """Block progress meter. Uses iam.ui.sparklines.ProgressBar if available."""
+    if val is None:
+        return EMPTY * width
     if _IAM_SPARKLINES:
         norm = (val - lo) / (hi - lo) if (hi - lo) else 0.5
         return ProgressBar.bar(norm, 1.0, width)
@@ -599,9 +605,9 @@ class QuickRecPanel(_Panel):
         confidence = sec.confidence
         upside = sec.upside
         price = sec.price
-        fair = price * (1.0 + upside)
+        fair = price * (1.0 + upside) if (price is not None and upside is not None) else 0
         rc = _rc(rating)
-        up_col = C_GREEN if upside > 0 else C_RED
+        up_col = C_GREEN if (upside is not None and upside > 0) else C_RED
 
         # Main verdict box
         bw = min(c1 - c0 - 3, 52)
@@ -615,13 +621,15 @@ class QuickRecPanel(_Panel):
 
         cv.put(by + 3, bx + 3, f"Current:     ${price:>9.2f}", C_WHITE)
         cv.put(by + 3, bx + 30, f"Fair Value: ${fair:>9.2f}", C_WHITE)
-        cv.put(by + 4, bx + 3, f"Implied Move: {upside:>+.1%}", up_col + BOLD)
+
+        up_text = f"{upside:>+.1%}" if upside is not None else "    N/A"
+        cv.put(by + 4, bx + 3, f"Implied Move: {up_text}", up_col + BOLD)
         cv.put(by + 5, bx + 3, f"Updated: {sec.last_updated:%H:%M:%S}", C_DIM)
 
         # Composite score meter
         comp = sec.composite
         comp_style = _vc(comp)
-        comp_100 = int((comp + 1.0) * 50.0)
+        comp_100 = int((comp + 1.0) * 50.0) if comp is not None else 0
         mtr = _meter(comp, -1, 1, 28)
         cv.put(r0 + 9, c0 + 1, "Factor Score:", C_DIM)
         cv.put(r0 + 9, c0 + 15, "[", C_DIM)
@@ -716,16 +724,21 @@ class DeepValPanel(_Panel):
 
             # Visual range bar using MiniChart if available
             price = sec.price
-            fair = price * (1.0 + cc) if price else 0
-            bear = price * 0.72
-            bull = price * 1.38
-            if _IAM_SPARKLINES and price > 0:
+            fair = price * (1.0 + cc) if (price is not None and cc is not None) else 0
+            bear = price * 0.72 if price is not None else 0
+            bull = price * 1.38 if price is not None else 0
+            if _IAM_SPARKLINES and price and cc is not None:
                 range_bar = MiniChart.range_bar(fair, bear, bull, width=18)
             else:
                 range_bar = _meter(cc, -0.4, 0.4, 18)
 
-            cv.put(sep + 2, c0 + 3, f"Cluster Center:   {cc:>+7.1%}", cc_col)
-            cv.put(sep + 3, c0 + 3, f"Valuation Spread: {tr.spread:>7.1%}", C_WHITE)
+            cc_text = f"{cc:>+7.1%}" if cc is not None else "    N/A"
+            spr_text = (
+                f"{tr.spread:>7.1%}" if getattr(tr, "spread", None) is not None else "    N/A"
+            )
+
+            cv.put(sep + 2, c0 + 3, f"Cluster Center:   {cc_text}", cc_col)
+            cv.put(sep + 3, c0 + 3, f"Valuation Spread: {spr_text}", C_WHITE)
             cv.put(sep + 4, c0 + 3, f"Profile:          {vt}", vt_col)
             cv.put(sep + 5, c0 + 3, f"Range Position: [{range_bar}]", cc_col)
 
@@ -768,11 +781,12 @@ class FactorPanel(_Panel):
 
         sr = sec.score_result
         comp = sec.composite
-        comp_100 = int((comp + 1.0) * 50.0)
+        comp_100 = int((comp + 1.0) * 50.0) if comp is not None else 0
         cs = _vc(comp)
 
         # Composite header
-        cv.put(r0, c0 + 1, f"Composite Score: {comp_100}/100  ({comp:>+.4f})", C_ACCENT + BOLD)
+        cc_text = f"{comp:>+.4f}" if comp is not None else " N/A"
+        cv.put(r0, c0 + 1, f"Composite Score: {comp_100}/100  ({cc_text})", C_ACCENT + BOLD)
         mtr = _meter(comp, -1, 1, 30)
         cv.put(r0 + 1, c0 + 1, "[", C_DIM)
         cv.put(r0 + 1, c0 + 2, mtr, cs)
@@ -788,13 +802,24 @@ class FactorPanel(_Panel):
             if r > r1 - 1:
                 break
             contrib = breakdown.get(key)
-            val = float(contrib.value) if contrib else 0.0
-            conf = float(getattr(contrib, "confidence", 1.0)) if contrib else 0.0
+            val = (
+                float(contrib.value)
+                if (contrib and getattr(contrib, "value", None) is not None)
+                else None
+            )
+            conf = (
+                float(getattr(contrib, "confidence", 1.0))
+                if (contrib and getattr(contrib, "confidence", None) is not None)
+                else 0.0
+            )
+
             val_col = _vc(val)
             conf_col = C_DIM if conf < 0.5 else (C_YELLOW if conf < 0.75 else C_WHITE)
             bar = _meter(val, -1, 1, 12)
+
+            val_text = f"{val:>+5.3f}" if val is not None else "  N/A"
             cv.put(r, c0 + 1, f"{label:<22}", C_WHITE)
-            cv.put(r, c0 + 24, f"{val:>+5.3f}", val_col)
+            cv.put(r, c0 + 24, val_text, val_col)
             cv.put(r, c0 + 31, f"{conf:.0%}", conf_col)
             cv.put(r, c0 + 36, "[", C_DIM)
             cv.put(r, c0 + 37, bar, val_col)
