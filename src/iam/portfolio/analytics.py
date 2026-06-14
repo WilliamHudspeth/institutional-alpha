@@ -226,6 +226,7 @@ class PortfolioAnalyzer:
     def compute_diversification_ratio(
         portfolio: Portfolio,
         position_volatilities: dict[str, float],
+        correlation_matrix: dict[str, dict[str, float]],
     ) -> float:
         """Compute diversification ratio.
 
@@ -235,6 +236,7 @@ class PortfolioAnalyzer:
         Args:
             portfolio: Portfolio
             position_volatilities: Dict mapping ticker -> volatility
+            correlation_matrix: Position correlations
 
         Returns:
             Diversification ratio (1.0+ means diversified)
@@ -250,9 +252,27 @@ class PortfolioAnalyzer:
         if weighted_avg_vol == 0:
             return 1.0
 
-        # TODO: Compute actual portfolio volatility from returns
-        # For now, approximate from position correlation
-        portfolio_vol = weighted_avg_vol * 0.8  # Simplified
+        # Compute actual portfolio volatility from position volatilities and correlations
+        # Variance = sum(w_i^2 * sigma_i^2) + sum(sum(w_i * w_j * sigma_i * sigma_j * rho_ij))
+        variance = 0.0
+        tickers = [p.ticker for p in portfolio.positions]
+        weights = {p.ticker: p.weight for p in portfolio.positions}
+
+        for i, t_i in enumerate(tickers):
+            sig_i = position_volatilities.get(t_i, 0.01)
+            w_i = weights[t_i]
+            # Contribution from variance
+            variance += (w_i**2) * (sig_i**2)
+
+            for j in range(i + 1, len(tickers)):
+                t_j = tickers[j]
+                sig_j = position_volatilities.get(t_j, 0.01)
+                w_j = weights[t_j]
+                rho_ij = correlation_matrix.get(t_i, {}).get(t_j, 0.0)
+                # Contribution from covariance (multiplied by 2 for symmetry)
+                variance += 2 * (w_i * w_j * sig_i * sig_j * rho_ij)
+
+        portfolio_vol = math.sqrt(max(0, variance))
 
         if portfolio_vol == 0:
             return 1.0
