@@ -2104,9 +2104,8 @@ class AlphaTerminal:
             self._secs.get(self._active)
 
         # New Ribbon
-        ribbon = render_ribbon()
+        render_ribbon(cv, 1, w, self._ticks)
         cv.put(1, 0, V2, C_ACCENT)
-        cv.put(1, 1, ribbon, "")
         cv.put(1, w - 1, V2, C_ACCENT)
         # Separator
         cv.put(2, 0, MID_L + H2 * (w - 2) + MID_R, C_ACCENT)

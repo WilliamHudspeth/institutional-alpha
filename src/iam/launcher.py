@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import subprocess
 import sys
 import time
 
@@ -76,6 +77,60 @@ def run_demo():
     input("\nPress Enter to return to menu...")
 
 
+def run_scripts_menu():
+    """Sub-menu for specialized analytical and data scripts."""
+    while True:
+        os.system("cls" if os.name == "nt" else "clear")  # nosec
+        console.print(
+            Panel(
+                Text(
+                    "Scripts & Utilities\nSpecialized Data & Research Tools",
+                    justify="center",
+                    style="bold yellow",
+                ),
+                border_style="bright_yellow",
+            )
+        )
+
+        console.print("\n[bold]AVAILABLE SCRIPTS[/bold]")
+        console.print("1. [cyan]analyze.py[/cyan] - Factor Correlation & Signal Analysis")
+        console.print("2. [cyan]dataset_pipeline.py[/cyan] - Build/Update Research Dataset")
+        console.print("3. [cyan]build_price_parquet.py[/cyan] - Optimize Price Data Storage")
+        console.print("4. [cyan]validate_growth_model.py[/cyan] - Growth Calibration Audit")
+        console.print("5. [cyan]quick_recommend.py[/cyan] - Direct CLI Recommendation Engine")
+        console.print("6. [cyan]verify.py[/cyan] - Run Full Integrity Audit (Quality Gate)")
+        console.print("B. [bold]Back to Main Menu[/bold]")
+
+        choice = input("\nSelect Script to Run: ").strip().upper()
+
+        if choice == "B":
+            break
+
+        script_map = {
+            "1": "scripts/analyze.py",
+            "2": "scripts/dataset_pipeline.py",
+            "3": "scripts/build_price_parquet.py",
+            "4": "scripts/validate_growth_model.py",
+            "5": "scripts/quick_recommend.py",
+            "6": "scripts/verify.py",
+        }
+
+        if choice in script_map:
+            script_path = script_map[choice]
+            console.print(f"\n[bold green]Launching {script_path}...[/bold green]\n")
+            try:
+                # Run the script using the current python executable
+                # Pass through the current sys.argv for any necessary flags?
+                # For now just simple execution.
+                subprocess.check_call([sys.executable, script_path])
+            except subprocess.CalledProcessError as e:
+                console.print(f"\n[bold red]Script execution failed: {e}[/bold red]")
+            except Exception as e:
+                console.print(f"\n[bold red]Unexpected error: {e}[/bold red]")
+
+            input("\nScript execution complete. Press Enter to return to menu...")
+
+
 def main_menu():
     """Main interactive menu loop."""
     while True:
@@ -93,6 +148,7 @@ def main_menu():
         console.print("8. Backtesting")
         console.print("9. Research Dashboard")
         console.print("10. Settings")
+        console.print("11. Scripts & Utilities")
 
         console.print("\n[bold cyan]UI OPTIONS[/bold cyan]")
         console.print("T. Launch Rich TUI")
@@ -161,6 +217,8 @@ def main_menu():
             # Research Dashboard placeholder
             console.print("\n[yellow]Research Dashboard module coming in v0.5.0.[/yellow]")
             input("\nPress Enter to return to menu...")
+        elif choice == "11":
+            run_scripts_menu()
         elif choice == "T":
             from iam.ui.alpha_terminal import main as run_tui
 
