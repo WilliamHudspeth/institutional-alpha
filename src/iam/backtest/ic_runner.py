@@ -11,6 +11,7 @@ Extends the existing runner with:
 from __future__ import annotations
 
 import logging
+import warnings
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -320,6 +321,28 @@ class ICBacktest:
         df1 = self.results[1]
         rows = []
 
+        from iam.backtest.multiple_testing import correct_factor_tests, effective_num_tests
+
+        # Calculate robust Spearman correlation for effective tests (M_eff)
+        factor_cols = [f"ic_{f}" for f in self.factor_names if f"ic_{f}" in df1.columns]
+        if len(factor_cols) > 1:
+            ic_df = df1[factor_cols].copy()
+            # Suppress constant input warnings for Spearman correlation
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                corr_df = ic_df.fillna(0).corr(method="spearman").clip(-0.999, 0.999)
+            
+            # Fill NaNs from zero-variance columns with 0, but enforce 1.0 on the diagonal
+            corr_df = corr_df.fillna(0.0)
+            corr_matrix = corr_df.values.copy()
+            np.fill_diagonal(corr_matrix, 1.0)
+            
+            m_eff = effective_num_tests(corr_matrix)
+        else:
+            m_eff = 1.0
+
+        t_stats_dict = {}
+
         for f in self.factor_names:
             col = f"ic_{f}"
             if col not in df1.columns:
@@ -332,6 +355,7 @@ class ICBacktest:
             std_ic = ic_series.std()
             icir = mean_ic / std_ic if std_ic > 0 else float("nan")
             t_stat, p_value, _ = newey_west_se_rigorous(ic_series, nlags=self.config.nw_lags)
+            t_stats_dict[f] = t_stat
 
             rows.append(
                 {
@@ -344,7 +368,20 @@ class ICBacktest:
                 }
             )
 
-        return pd.DataFrame(rows).set_index("factor") if rows else pd.DataFrame()
+        if not rows:
+            return pd.DataFrame()
+
+        # Apply FWER (Holm) and FDR (BH) corrections
+        mt_report = correct_factor_tests(t_stats_dict, effective_tests=m_eff)
+        for row in rows:
+            v = next((x for x in mt_report.verdicts if x.name == row["factor"]), None)
+            if v:
+                row["holm_p"] = v.holm_p
+                row["bh_p"] = v.bh_p
+                row["survives_holm"] = v.survives_holm
+                row["survives_bh"] = v.survives_bh
+
+        return pd.DataFrame(rows).set_index("factor")
 
     def generate_report(self) -> None:
         self.config.validate_paths()
@@ -364,6 +401,29 @@ class ICBacktest:
                 f.write(f"  t-stat:  {s.get('t_stat', np.nan):.4f}\n")
                 f.write(f"  p-value: {s.get('p_value', np.nan):.6f}\n")
                 f.write(f"  n_obs:   {s.get('n_obs', 0)}\n\n")
+
+            # Calculate SPA for the 1-month horizon (composite vs equal weight)
+            if 1 in self.results and not self.results[1].empty:
+                df1 = self.results[1]
+                if "ic" in df1.columns:
+                    composite_ic = df1["ic"].dropna()
+                    factor_cols = [c for c in df1.columns if c.startswith("ic_") and c != "ic_sector_neutral" and c != "ic_weighted"]
+                    if factor_cols:
+                        equal_weight_ic = df1[factor_cols].mean(axis=1).reindex(composite_ic.index).dropna()
+                        common_idx = composite_ic.index.intersection(equal_weight_ic.index)
+                        if len(common_idx) > 10:
+                            from iam.backtest.spa import superior_predictive_ability
+                            strat_returns = composite_ic.loc[common_idx].values.reshape(-1, 1)
+                            bench_returns = equal_weight_ic.loc[common_idx].values
+                            
+                            spa_res = superior_predictive_ability(
+                                strat_returns, benchmark_returns=bench_returns, seed=42
+                            )
+                            f.write("Superior Predictive Ability (SPA)\n")
+                            f.write("---------------------------------\n")
+                            f.write(f"  Composite vs Equal-Weight Benchmark (1m Horizon)\n")
+                            f.write(f"  SPA p-value: {spa_res['spa_pvalue']:.4f}\n")
+                            f.write(f"  Reject Null: {spa_res['reject']}\n\n")
 
         factor_stats = self.compute_factor_statistics()
         if not factor_stats.empty:

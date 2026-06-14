@@ -105,6 +105,7 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
   - Stage 5: Macro Overlay (regime-dependent adjustments)
   - Stage 6: Thesis Engine (Bayesian scenario analysis)
   - Stage 7: Verdict (buy/hold/sell with conviction)
+  - Research Integrity: CPCV, PBO, SPA, and DSR evaluations
 
 ### ✅ Factor Framework
 - [x] **10 Orthogonal Factors**

@@ -17,6 +17,10 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import Bounds, minimize
 
+from iam.backtest.cpcv import get_cpcv_splits
+from iam.backtest.multiple_testing import deflated_sharpe_ratio
+from iam.backtest.overfitting import probability_of_backtest_overfitting
+
 logger = logging.getLogger(__name__)
 
 
@@ -121,7 +125,15 @@ class WeightOptimizerConfig:
 
 
 @dataclass
-class WalkForwardResult:
+class StatisticalValidation:
+    pbo_score: float | None = None
+    cpcv_stability_score: float | None = None
+    dsr: float | None = None
+    n_trials_searched: int | None = None
+
+
+@dataclass
+class OptimizerResult:
     status: str
     final_weights: np.ndarray
     avg_oos_ic: float
@@ -129,6 +141,11 @@ class WalkForwardResult:
     window_weights: list[np.ndarray]
     window_oos_ics: list[float]
     weight_names: list[str]
+    validation: StatisticalValidation | None = None
+
+
+# Backwards compatibility alias
+WalkForwardResult = OptimizerResult
 
 
 @dataclass
@@ -190,11 +207,11 @@ def optimize_weights(
     regularization_penalty: float = 0.05,
     max_iter: int = 500,
     tol: float = 1e-6,
-) -> np.ndarray:
+    return_nfev: bool = False,
+) -> np.ndarray | tuple[np.ndarray, int]:
     if not factor_scores_list:
-        if prior_weights is not None:
-            return prior_weights.copy()
-        return np.array([])
+        fallback = prior_weights.copy() if prior_weights is not None else np.array([])
+        return (fallback, 0) if return_nfev else fallback
 
     n_factors = factor_scores_list[0].shape[1]
 
@@ -233,6 +250,8 @@ def optimize_weights(
     if w_sum > 0:
         w_final /= w_sum
 
+    if return_nfev:
+        return w_final, getattr(res, "nfev", 1)
     return w_final
 
 
@@ -259,6 +278,7 @@ class WalkForwardOptimizer:
 
         window_weights = []
         window_oos_ics = []
+        total_nfev = 0
 
         step = self.config.test_window_months
         n = len(dates)
@@ -278,7 +298,7 @@ class WalkForwardOptimizer:
             ]
             train_rets = [returns_by_date[d] for d in train_dates if d in returns_by_date]
 
-            w_opt = optimize_weights(
+            w_opt, nfev = optimize_weights(
                 train_scores,
                 train_rets,
                 prior_weights=self.config.prior_weights,
@@ -286,7 +306,9 @@ class WalkForwardOptimizer:
                 regularization_penalty=self.config.regularization_penalty,
                 max_iter=self.config.max_iter,
                 tol=self.config.tol,
+                return_nfev=True,
             )
+            total_nfev += nfev
 
             test_scores = [
                 factor_scores_by_date[d] for d in test_dates if d in factor_scores_by_date
@@ -309,7 +331,7 @@ class WalkForwardOptimizer:
                 window_weights.append(w_opt)
 
         if not window_weights:
-            return WalkForwardResult(
+            return OptimizerResult(
                 status="failed: no valid windows",
                 final_weights=np.array([]),
                 avg_oos_ic=0.0,
@@ -322,14 +344,72 @@ class WalkForwardOptimizer:
         final_weights = np.median(window_weights, axis=0)
         final_weights /= np.sum(final_weights)
 
-        return WalkForwardResult(
+        # Build Performance Matrix for PBO
+        # Rows = time periods, Cols = candidate configurations (window_weights)
+        perf_matrix = np.zeros((len(dates), len(window_weights)))
+        for i, d in enumerate(dates):
+            if d not in factor_scores_by_date or d not in returns_by_date:
+                perf_matrix[i, :] = np.nan
+                continue
+            s = factor_scores_by_date[d]
+            r = returns_by_date[d]
+            if len(r) < 2 or np.std(r) == 0:
+                perf_matrix[i, :] = np.nan
+                continue
+            
+            for j, w in enumerate(window_weights):
+                comp = s @ w
+                if np.std(comp) == 0:
+                    perf_matrix[i, j] = np.nan
+                else:
+                    perf_matrix[i, j] = np.corrcoef(comp, r)[0, 1]
+                    
+        # Compute PBO (we need an even number of partitions, min 2)
+        valid_rows = ~np.isnan(perf_matrix).all(axis=1)
+        clean_matrix = perf_matrix[valid_rows]
+        n_partitions = min(16, len(clean_matrix) // 2)
+        if n_partitions % 2 != 0:
+            n_partitions -= 1
+            
+        pbo_score = None
+        if n_partitions >= 2 and clean_matrix.shape[1] >= 2:
+            try:
+                pbo_score = probability_of_backtest_overfitting(clean_matrix, n_partitions=n_partitions)
+            except Exception:
+                pbo_score = None
+                
+        # Compute DSR using actual number of trials (total_nfev)
+        avg_ic = float(np.mean(window_oos_ics))
+        std_ic = float(np.std(window_oos_ics))
+        n_obs = len(window_oos_ics)
+        ir = avg_ic / std_ic if std_ic > 0 else 0.0
+        
+        dsr_val = None
+        if total_nfev > 1 and n_obs > 2 and std_ic > 0:
+            # We treat the variance of trials as the variance of the ICs generated across configurations
+            var_trials = np.var(np.nanmean(perf_matrix, axis=0)) if clean_matrix.shape[1] > 1 else 0.001
+            if var_trials > 0:
+                dsr_val = deflated_sharpe_ratio(
+                    observed_sr=ir,
+                    n_obs=n_obs,
+                    n_trials=total_nfev,
+                    var_trials=var_trials,
+                    mean_trials=0.0
+                )
+
+        return OptimizerResult(
             status="success",
             final_weights=final_weights,
-            avg_oos_ic=float(np.mean(window_oos_ics)),
-            std_oos_ic=float(np.std(window_oos_ics)),
+            avg_oos_ic=avg_ic,
+            std_oos_ic=std_ic,
             window_weights=window_weights,
             window_oos_ics=window_oos_ics,
             weight_names=self.config.factor_names,
+            validation=StatisticalValidation(
+                pbo_score=pbo_score,
+                dsr=dsr_val,
+                n_trials_searched=total_nfev
+            )
         )
 
 
@@ -453,6 +533,94 @@ class RegimeOptimizer:
             regime_weights=regime_weights,
             regime_counts=regime_counts,
             weight_names=self.config.factor_names,
+        )
+
+
+class CPCVOptimizer:
+    def __init__(self, config: WeightOptimizerConfig, n_groups: int = 6, k_test_groups: int = 2, purge_days: int = 15, embargo_days: int = 15):
+        self.config = config
+        self.n_groups = n_groups
+        self.k_test_groups = k_test_groups
+        self.purge_days = purge_days
+        self.embargo_days = embargo_days
+
+    def run(
+        self,
+        dates: list[pd.Timestamp],
+        factor_scores_by_date: dict[pd.Timestamp, np.ndarray],
+        returns_by_date: dict[pd.Timestamp, np.ndarray],
+    ) -> OptimizerResult:
+        if not dates:
+            return OptimizerResult("failed", np.array([]), 0.0, 0.0, [], [], self.config.factor_names)
+
+        try:
+            splits = get_cpcv_splits(
+                dates,
+                n_groups=self.n_groups,
+                k_test_groups=self.k_test_groups,
+                purge_days=self.purge_days,
+                embargo_days=self.embargo_days
+            )
+        except ValueError:
+            return OptimizerResult("failed: too few dates", np.array([]), 0.0, 0.0, [], [], self.config.factor_names)
+
+        path_weights = []
+        path_oos_ics = []
+        total_nfev = 0
+
+        for train_idx, test_idx in splits:
+            train_dates = [dates[i] for i in train_idx]
+            test_dates = [dates[i] for i in test_idx]
+
+            train_scores = [factor_scores_by_date[d] for d in train_dates if d in factor_scores_by_date]
+            train_rets = [returns_by_date[d] for d in train_dates if d in returns_by_date]
+
+            w_opt, nfev = optimize_weights(
+                train_scores, train_rets, prior_weights=self.config.prior_weights,
+                shrinkage_lambda=self.config.shrinkage_lambda, regularization_penalty=self.config.regularization_penalty,
+                max_iter=self.config.max_iter, tol=self.config.tol, return_nfev=True
+            )
+            total_nfev += nfev
+
+            test_scores = [factor_scores_by_date[d] for d in test_dates if d in factor_scores_by_date]
+            test_rets = [returns_by_date[d] for d in test_dates if d in returns_by_date]
+
+            ics = []
+            for scores, rets in zip(test_scores, test_rets):
+                if len(rets) < 2: continue
+                comp = scores @ w_opt
+                if np.std(comp) == 0 or np.std(rets) == 0: continue
+                ic = np.corrcoef(comp, rets)[0, 1]
+                if not np.isnan(ic): ics.append(ic)
+
+            if ics:
+                path_oos_ics.append(float(np.mean(ics)))
+                path_weights.append(w_opt)
+
+        if not path_weights:
+            return OptimizerResult("failed: no valid paths", np.array([]), 0.0, 0.0, [], [], self.config.factor_names)
+
+        final_weights = np.median(path_weights, axis=0)
+        final_weights /= np.sum(final_weights)
+
+        # CPCV Stability Score
+        avg_ic = float(np.mean(path_oos_ics))
+        std_ic = float(np.std(path_oos_ics))
+        stability_score = avg_ic / std_ic if std_ic > 0 else 0.0
+
+        return OptimizerResult(
+            status="success",
+            final_weights=final_weights,
+            avg_oos_ic=avg_ic,
+            std_oos_ic=std_ic,
+            window_weights=path_weights,
+            window_oos_ics=path_oos_ics,
+            weight_names=self.config.factor_names,
+            validation=StatisticalValidation(
+                pbo_score=None,  # We could compute PBO here too
+                cpcv_stability_score=stability_score,
+                n_trials_searched=total_nfev
+            )
         )
 
 

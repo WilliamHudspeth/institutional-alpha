@@ -632,6 +632,7 @@ Full conceptual documentation:
 - [x] **Modern modular terminal**: event-driven panels, async data, ANSI visualization (v0.4.0-rc1)
 - [x] **Institutional analytics**: factor attribution, 6-regime macro detection (v0.4.0-rc1)
 - [x] **Configuration system**: Pydantic settings, structured logging (v0.4.0-rc1)
+- [x] **Research Integrity Layer**: CPCV, PBO, Deflated Sharpe, SPA, and FWER/FDR multiple testing corrections (v0.4.0-rc1)
 - [ ] Empirical IC run on real S&P 100 data (v0.4.0)
 - [ ] Multi-horizon IC measurement (21d / 63d / 126d / 252d)
 

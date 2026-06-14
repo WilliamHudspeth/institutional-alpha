@@ -25,6 +25,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - Stage 7 verdict degrades the confidence band on large conviction drift (≥ 0.25 one level, ≥ 0.50 two levels)
   - Graceful fallback to the original flat-shock behavior when the elasticity profile is unmeasurable
 
+- **Research Integrity & Statistical Validation Layer** (`src/iam/backtest/`)
+  - `multiple_testing.py`: FWER (Holm) and FDR (Benjamini-Hochberg) corrections with eigenvalue-based effective test count ($M_{eff}$).
+  - `spa.py`: Hansen's Superior Predictive Ability (SPA) testing via stationary block bootstrap.
+  - `overfitting.py`: Combinatorial Symmetric Cross-Validation (CSCV) to calculate the Probability of Backtest Overfitting (PBO).
+  - `cpcv.py`: Combinatorial Purged Cross-Validation (CPCV) split generation with strict purging and embargoing bounds.
+  - Integration with `ic_runner.py` and `weight_optimizer.py` to seamlessly report Deflated Sharpe Ratio (DSR) using actual optimization iteration counts.
+
 ### Changed
 
 - `PipelineReport` carries two new audit fields: `law_report` and `stress_response`
