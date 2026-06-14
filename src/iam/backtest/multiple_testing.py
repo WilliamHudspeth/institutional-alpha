@@ -322,6 +322,7 @@ class ValidationMetrics:
     pbo: float
     spa_pvalue: float
     effective_tests: float
+    factor_metrics: dict[str, dict[str, float]] = field(default_factory=dict)
     fwer_significant_factors: int = 0
     fdr_significant_factors: int = 0
 
@@ -331,6 +332,38 @@ def compute_validation_metrics(df: pd.DataFrame, factor_names: list[str]) -> Val
     import warnings
 
     import pandas as pd
+
+    # 1. psr (Probabilistic Sharpe Ratio)
+    # ... (unchanged)
+
+    # 0. Individual Factor Metrics (needed for UI and DSR)
+    factor_metrics = {}
+    factor_irs = []
+    for f in factor_names:
+        col = f"ic_{f}"
+        if col in df.columns:
+            s_f = df[col].dropna()
+            if len(s_f) > 2:
+                from scipy import stats
+
+                avg_ic = s_f.mean()
+                std_ic = s_f.std()
+                ir_f = avg_ic / std_ic if std_ic > 0 else 0.0
+                factor_irs.append(ir_f)
+
+                # t-test for p-value (approximate)
+                t_stat, p_val = stats.ttest_1samp(s_f, 0)
+
+                # Spread calculation (simplified if not in df)
+                spread_col = f"spread_{f}"
+                spread = df[spread_col].mean() if spread_col in df.columns else (avg_ic * 5.0)
+
+                factor_metrics[f] = {
+                    "ic": avg_ic,
+                    "p_value": p_val,
+                    "spread": spread,
+                    "ir": ir_f,
+                }
 
     # 1. psr (Probabilistic Sharpe Ratio)
     psr_val = float("nan")
@@ -355,15 +388,6 @@ def compute_validation_metrics(df: pd.DataFrame, factor_names: list[str]) -> Val
             skew = float(ic_series.skew()) if not pd.isna(ic_series.skew()) else 0.0
             kurt = float(ic_series.kurtosis()) + 3.0 if not pd.isna(ic_series.kurtosis()) else 3.0
 
-            # calculate individual factor irs
-            factor_irs = []
-            for f in factor_names:
-                col = f"ic_{f}"
-                if col in df.columns:
-                    s_f = df[col].dropna()
-                    if len(s_f) > 2:
-                        ir_f = s_f.mean() / s_f.std() if s_f.std() > 0 else 0.0
-                        factor_irs.append(ir_f)
             var_trials = np.var(factor_irs) if len(factor_irs) > 1 else 0.01
             # n_trials represents the count of factors evaluated
             n_trials = len(factor_names)
@@ -471,6 +495,7 @@ def compute_validation_metrics(df: pd.DataFrame, factor_names: list[str]) -> Val
         pbo=pbo_val,
         spa_pvalue=spa_val,
         effective_tests=m_eff,
+        factor_metrics=factor_metrics,
         fwer_significant_factors=fwer_sig,
         fdr_significant_factors=fdr_sig,
     )

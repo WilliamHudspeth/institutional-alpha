@@ -924,7 +924,8 @@ class BacktestPanel(_Panel):
 
         # Draw factor-level metrics
         idx = 0
-        for factor, m in metrics.factor_metrics.items():
+        factor_metrics = getattr(metrics, "factor_metrics", {})
+        for factor, m in factor_metrics.items():
             r = r0 + 5 + idx
             if r > r1 - 15:
                 break
