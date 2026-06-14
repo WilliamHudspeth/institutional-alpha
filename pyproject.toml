@@ -21,10 +21,17 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Office/Business :: Financial :: Investment",
 ]
-dependencies = ["tqdm>=4.60.0", "yfinance>=0.2"]
+dependencies = [
+    "tqdm>=4.60.0",
+    "yfinance>=0.2",
+    "rich>=13.0.0",
+    "textual>=0.40.0",
+    "pydantic>=2.0.0",
+    "PyYAML>=6.0",
+]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0", "pytest-cov", "pytest-timeout"]
+dev = ["pytest>=7.0", "pytest-cov", "pytest-timeout", "build", "twine"]
 data = ["pandas>=2.0", "numpy>=1.24", "scipy>=1.10"]
 live = [
     "yfinance>=0.2",
@@ -64,6 +71,7 @@ Homepage = "https://github.com/YOUR_USERNAME/institutional-alpha"
 Issues = "https://github.com/YOUR_USERNAME/institutional-alpha/issues"
 
 [project.scripts]
+institutional-alpha = "iam.launcher:main"
 iam-learn = "iam.learning.learning_module:main"
 iam-engine = "iam.learning.learning_engine:main"
 iam-terminal = "iam.ui.alpha_terminal:main"

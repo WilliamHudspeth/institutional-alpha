@@ -13,6 +13,8 @@ MINOR = 4
 PATCH = 0
 PRERELEASE = "rc1"
 
+__version__ = VERSION
+
 
 def version_string() -> str:
     """Return full version string."""

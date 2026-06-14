@@ -309,94 +309,36 @@ Stage 7: Verdict           → Buy/Hold/Sell + conviction band + peer-relative r
 
 **Modern modular terminal** (`iam.ui`) — event-driven, asynchronous rendering. Immutable state management (`SecurityState`, `TerminalUIState`), pub/sub event bus, composable panel architecture (`BasePanel` with 5 implementations), and ANSI sparklines. `ModernTerminal` accepts async data sources and progressively renders updates. See [`README_SYSTEM.md`](README_SYSTEM.md).
 
-## Install
+## Quick Start
+
+Experience Institutional Alpha in under 60 seconds.
 
 ```bash
 git clone https://github.com/WilliamHudspeth/institutional-alpha.git
 cd institutional-alpha
-pip install -e .
+python launcher.py
 ```
 
-For live market data:
+The launcher will automatically detect your environment, install missing dependencies, and open an interactive research menu.
+
+### Direct Commands
+
+- **Rich TUI**: `python launcher.py --tui`
+- **Power Shell**: `python launcher.py --shell`
+- **Diagnostics**: Run the launcher and select option `D`.
+
+### Installation as a Package
+
+If you prefer to install it as a system-wide tool:
 
 ```bash
-pip install -e ".[live]"
+pip install .
 ```
 
-## Quick Start
-
-### 1. Download Data (One-Time, Optional)
-
-For offline backtesting, download 20+ years of price and fundamental data:
+After installation, you can launch the platform directly from any terminal:
 
 ```bash
-# Downloads ~20GB to local cache, takes ~1-2 hours (one-time)
-python scripts/data_fetcher.py --prefetch --start_year 2015
-
-# After this, all backtests work offline — no internet required
-```
-
-No API keys needed. Uses free public APIs: yfinance, SEC EDGAR, Stooq.
-
-### 2. Run a Backtest
-
-```bash
-# Validate config and universe
-python -m iam.backtest.cli validate
-
-# Run multi-horizon IC backtest on composite score
-python -m iam.backtest.cli backtest
-
-# Output: Information Coefficient, Sharpe ratio, hit rate, sector-neutral IC
-```
-
-### 3. Score a Single Stock
-
-```python
-from iam.data import Security
-from iam.engine.composite import score
-
-nvda = Security(
-    ticker="NVDA",
-    sector="Semiconductors",
-    revenue_mix={"US": 0.50, "CN": 0.25, "TW": 0.15, "EU": 0.10}
-)
-
-result = score(nvda)
-print(f"Composite Score: {result.composite:+.3f}")
-print(f"Factors: {result.explain()}")
-```
-
-### 4. Run the Full Valuation Pipeline
-
-```python
-from iam.data import Security
-from iam.integration.orchestrator import Orchestrator
-
-nvda = Security(ticker="NVDA", sector="Semiconductors", ...)
-orch = Orchestrator()
-result = orch.value_security(nvda)
-
-print(f"Fair Value: ${result['model_result'].value:.2f}")
-print(f"Verdict: {result['recommendation']}")
-```
-
-See [`docs/`](docs/) for detailed examples.
-
-For the full backtest stack:
-
-```bash
-pip install -e ".[backtest]"
-```
-
-Requires Python 3.10+. Core dependencies are `numpy` and `pandas` only. The backtest extras add `polars`, `diskcache`, `statsmodels`, `tenacity`, `typer`, and `pydantic`.
-
-## Quick start
-
-### Interactive welcome screen
-
-```bash
-python main.py
+institutional-alpha
 ```
 
 A guided menu that lets you:
