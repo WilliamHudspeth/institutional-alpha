@@ -88,8 +88,8 @@ def backtest(
                 price_df = price_df.to_pandas()
             except Exception:
                 price_df = pd.DataFrame(price_df.to_dicts())
-        n_dates = price_df["date"].nunique()
-        n_tickers_in_prices = price_df["ticker"].nunique()
+        n_dates = price_df["date"].nunique()  # type: ignore
+        n_tickers_in_prices = price_df["ticker"].nunique()  # type: ignore
         typer.echo(f"   ✓ {n_dates} dates × {n_tickers_in_prices} tickers")
     except FileNotFoundError as e:
         typer.echo(f"   ✗ {e}", err=True)

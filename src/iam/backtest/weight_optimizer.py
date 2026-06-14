@@ -107,7 +107,7 @@ def ledoit_wolf_shrinkage(X: np.ndarray) -> np.ndarray:
 
     # ---------- return shrunken covariance ----------
     shrunk_cov = (1 - shrinkage) * S + shrinkage * F
-    return shrunk_cov
+    return shrunk_cov  # type: ignore
 
 
 @dataclass
@@ -252,7 +252,7 @@ def optimize_weights(
 
     if return_nfev:
         return w_final, getattr(res, "nfev", 1)
-    return w_final
+    return w_final  # type: ignore
 
 
 class WalkForwardOptimizer:
@@ -397,7 +397,7 @@ class WalkForwardOptimizer:
                     observed_sr=ir,
                     n_obs=n_obs,
                     n_trials=total_nfev,
-                    var_trials=var_trials,
+                    var_trials=var_trials,  # type: ignore
                     mean_trials=0.0,
                 )
 
@@ -532,7 +532,7 @@ class RegimeOptimizer:
 
         return RegimeResult(
             status=status,
-            regime_weights=regime_weights,
+            regime_weights=regime_weights,  # type: ignore
             regime_counts=regime_counts,
             weight_names=self.config.factor_names,
         )

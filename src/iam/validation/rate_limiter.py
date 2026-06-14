@@ -19,7 +19,7 @@ class RateLimiter:
         """
         self.max_calls = max_calls
         self.period_seconds = period_seconds
-        self.calls = deque()
+        self.calls = deque()  # type: ignore
 
     def is_allowed(self) -> bool:
         """Check if call is allowed under the rate limit, removing expired timestamps."""

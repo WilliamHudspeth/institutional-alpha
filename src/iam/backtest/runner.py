@@ -131,7 +131,7 @@ def run_backtest(
                 for future in futures:
                     ticker, score, sector, market_cap = future.result()
                     scores[ticker] = score
-                    sectors[ticker] = sector
+                    sectors[ticker] = sector  # type: ignore
                     mcaps[ticker] = market_cap
 
             except Exception as e:

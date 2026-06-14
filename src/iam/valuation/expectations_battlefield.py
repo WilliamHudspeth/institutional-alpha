@@ -59,7 +59,7 @@ class ScenarioDistribution:
         probs = probs[order]
         cum = np.cumsum(probs)
         idx = np.searchsorted(cum, q * cum[-1])
-        return vals[min(idx, len(vals) - 1)]
+        return vals[min(idx, len(vals) - 1)]  # type: ignore
 
     def variance_growth(self) -> float:
         m = self.mean_growth()
@@ -106,7 +106,7 @@ def distribution_overlap(
 
     bin_width = bin_edges[1] - bin_edges[0]
     overlap = np.sum(np.minimum(hist_a, hist_b)) * bin_width
-    return min(overlap, 1.0)
+    return min(overlap, 1.0)  # type: ignore
 
 
 def alignment_score(intrinsic: ScenarioDistribution, market: ScenarioDistribution) -> float:
@@ -139,7 +139,7 @@ def alignment_score(intrinsic: ScenarioDistribution, market: ScenarioDistributio
         + 0.15 * max(0, (1 - median_dist))
         + 0.15 * var_ratio
     )
-    return max(0.0, min(100.0, raw * 100))
+    return max(0.0, min(100.0, raw * 100))  # type: ignore
 
 
 # ---------------------------------------------------------------------------
@@ -273,7 +273,7 @@ class ExpectationsBattlefieldEngine:
             "Margin": abs(mkt_m - int_m),
             "ROIC": abs(mkt_r - int_r),
         }
-        primary = max(gaps, key=gaps.get)
+        primary = max(gaps, key=gaps.get)  # type: ignore
 
         # Overlap and alignment
         growth_overlap = distribution_overlap(self.intrinsic, self.market, "growth")

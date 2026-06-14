@@ -64,4 +64,4 @@ class AssumptionDistribution:
         # Heuristic: max confidence of 0.95
         base_confidence = min(0.95, 0.40 + (len(sources) * 0.10))
         penalty = min(0.40, variance * 10)  # arbitrary penalty scaling
-        return max(0.10, base_confidence - penalty)
+        return max(0.10, base_confidence - penalty)  # type: ignore

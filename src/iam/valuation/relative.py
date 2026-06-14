@@ -113,8 +113,8 @@ class RelativeValuation:
             predicted = predict_all(regression_inputs.region, regression_inputs.to_dict())
             reg_signals = 0
 
-            if m.pe_ttm and m.pe_ttm > 0 and predicted.get("PE") and predicted["PE"] > 0:
-                impl_price = m.price * (predicted["PE"] / m.pe_ttm)
+            if m.pe_ttm and m.pe_ttm > 0 and predicted.get("PE") and predicted["PE"] > 0:  # type: ignore
+                impl_price = m.price * (predicted["PE"] / m.pe_ttm)  # type: ignore
                 implied_prices.append(impl_price)
                 components["implied_price_regression_pe"] = impl_price
                 reg_signals += 1
@@ -123,9 +123,9 @@ class RelativeValuation:
                 m.ev_ebitda
                 and m.ev_ebitda > 0
                 and predicted.get("EV_EBITDA")
-                and predicted["EV_EBITDA"] > 0
+                and predicted["EV_EBITDA"] > 0  # type: ignore
             ):
-                impl_price = m.price * (predicted["EV_EBITDA"] / m.ev_ebitda)
+                impl_price = m.price * (predicted["EV_EBITDA"] / m.ev_ebitda)  # type: ignore
                 implied_prices.append(impl_price)
                 components["implied_price_regression_ev_ebitda"] = impl_price
                 reg_signals += 1

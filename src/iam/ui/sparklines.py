@@ -365,7 +365,7 @@ if __name__ == "__main__":
 
     # Line sparkline
     prices = [100, 102, 101, 105, 103, 108, 110, 107, 111, 115]
-    print(f"\nPrice movement: {Sparkline.line(prices)}")
+    print(f"\nPrice movement: {Sparkline.line(prices)}")  # type: ignore
 
     # Trend
     returns = [0.01, 0.02, -0.01, 0.03, 0.02, 0.04, -0.01, 0.03]

@@ -172,15 +172,15 @@ def test_sotp_empty_segment_list():
 def test_sotp_growth_rate_equal_cost_of_equity():
     seg = Segment("A", 100, 20, 1.0, 0.2, 0.10, 10)
     res = SOTP.compute([seg], cost_of_equity=0.10)
-    assert res.segments[0]["ev"] is float("inf")
-    assert res.total_ev is float("inf")
+    assert res.segments[0]["ev"] == float("inf")
+    assert res.total_ev == float("inf")
 
 
 def test_sotp_growth_rate_exceeds_cost_of_equity():
     seg = Segment("A", 100, 20, 1.0, 0.2, 0.12, 10)
     res = SOTP.compute([seg], cost_of_equity=0.10)
-    assert res.segments[0]["ev"] is float("inf")
-    assert res.total_ev is float("inf")
+    assert res.segments[0]["ev"] == float("inf")
+    assert res.total_ev == float("inf")
 
 
 def test_sotp_negative_growth_rate():
@@ -210,7 +210,7 @@ def test_sotp_multiple_infinite_segments():
         Segment("B", 100, 20, 1.0, 0.2, 0.15, 10),
     ]
     res = SOTP.compute(segs, cost_of_equity=0.10)
-    assert res.total_ev is float("inf")
+    assert res.total_ev == float("inf")
 
 
 def test_sotp_finite_and_infinite_segments():
@@ -219,7 +219,7 @@ def test_sotp_finite_and_infinite_segments():
         Segment("B", 100, 20, 1.0, 0.2, 0.10, 10),
     ]
     res = SOTP.compute(segs, cost_of_equity=0.10)
-    assert res.total_ev is float("inf")
+    assert res.total_ev == float("inf")
 
 
 # ==============================================================================
@@ -735,7 +735,7 @@ def test_integration_growth_rate_approaching_ke_bound():
     seg = Segment("A", 100, 10, 1.0, 0.2, 0.10, 10)
     try:
         res = SOTP.compute([seg], cost_of_equity=0.10)
-        assert res.total_ev is float("inf")
+        assert res.total_ev == float("inf")
     except ZeroDivisionError:
         pytest.fail("SOTP.compute raised ZeroDivisionError!")
 

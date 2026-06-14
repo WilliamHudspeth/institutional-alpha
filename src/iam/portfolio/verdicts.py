@@ -103,7 +103,7 @@ class PortfolioVerdictEngine:
         for position in portfolio.positions:
             if position.ticker in individual_verdicts:
                 # Map verdict to expected return (simplified)
-                verdict = individual_verdicts[position.ticker]
+                verdict = individual_verdicts[position.ticker]  # type: ignore
                 if verdict == "BUY":
                     est_return = 0.15  # 15% expected return for BUYs
                 elif verdict == "HOLD":

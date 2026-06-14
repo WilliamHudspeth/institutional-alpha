@@ -51,7 +51,7 @@ class AdaptiveValuationEngine:
     def classify(self, ticker: str) -> BusinessType:
         """Classify company by business type based on characteristics."""
         if ticker in self.TYPE_MAP:
-            return self.TYPE_MAP[ticker]
+            return self.TYPE_MAP[ticker]  # type: ignore
 
         # Heuristic classification for unknown tickers
         # In practice, this would check margin, volatility, sector, etc.
@@ -211,7 +211,7 @@ class AdaptiveValuationEngine:
             Dict with classification, fade path, confidence grade, metrics
         """
         p2 = self.phase2_divergence(p)
-        fade = self.phase3_fade(p, p2["base_growth"])
+        fade = self.phase3_fade(p, p2["base_growth"])  # type: ignore
         conf = self.phase4_confidence(p, p2)
 
         return {

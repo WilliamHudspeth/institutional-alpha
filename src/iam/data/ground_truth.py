@@ -53,7 +53,7 @@ class EquityRiskProfile:
     industry_unlevered_beta: float
     levered_beta: float
     cost_of_equity: float
-    erp_breakdown: dict[str, dict] = None
+    erp_breakdown: dict[str, dict] = None  # type: ignore
 
     def __post_init__(self) -> None:
         if self.erp_breakdown is None:

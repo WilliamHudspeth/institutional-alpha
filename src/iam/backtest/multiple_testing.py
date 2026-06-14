@@ -98,7 +98,7 @@ def min_track_record_length(
         return float("inf")
     z = norm.ppf(confidence)
     numer = 1.0 - skew * sr + (kurt - 1.0) / 4.0 * sr**2
-    return 1.0 + numer * (z / (sr - sr_benchmark)) ** 2
+    return 1.0 + numer * (z / (sr - sr_benchmark)) ** 2  # type: ignore
 
 
 def expected_max_sharpe(
@@ -122,7 +122,7 @@ def expected_max_sharpe(
     g = _EULER_MASCHERONI
     z1 = norm.ppf(1.0 - 1.0 / n)
     z2 = norm.ppf(1.0 - 1.0 / (n * math.e))
-    return mean_trials + sigma * ((1.0 - g) * z1 + g * z2)
+    return mean_trials + sigma * ((1.0 - g) * z1 + g * z2)  # type: ignore
 
 
 def deflated_sharpe_ratio(

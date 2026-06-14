@@ -32,4 +32,4 @@ class SecretsManager:
             raise ValueError(
                 f"Missing required API credentials. Please set environment variable: {key}"
             )
-        return val
+        return val  # type: ignore

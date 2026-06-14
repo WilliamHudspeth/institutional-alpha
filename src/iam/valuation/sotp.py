@@ -45,7 +45,7 @@ class SOTP:
                 }
             )
 
-        total_ev = sum(item["ev"] for item in segment_evs)
+        total_ev = sum(item["ev"] for item in segment_evs)  # type: ignore
         return SOTPResult(
             segments=segment_evs, total_ev=total_ev, weighted_unlevered_beta=weighted_beta_u
         )

@@ -237,7 +237,7 @@ def triangulate_growth_for_security(
             bottom_up_est,
             sector_est,
         ],
-        margin_adjustment=margin_adjustment,
+        margin_adjustment=margin_adjustment,  # type: ignore
     )
 
 

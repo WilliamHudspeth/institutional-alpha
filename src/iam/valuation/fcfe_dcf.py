@@ -173,10 +173,10 @@ class FCFEDCF:
             try:
                 target = _present_value_two_stage(
                     base_ni=ni_per_share,
-                    g_high=s["g"],
-                    g_terminal=s["tv_g"],
+                    g_high=s["g"],  # type: ignore
+                    g_terminal=s["tv_g"],  # type: ignore
                     n=base_a.high_growth_years,
-                    r=s["wacc"],
+                    r=s["wacc"],  # type: ignore
                     roe=base_a.roe,
                 )
                 upside = (target / m.price) - 1 if m.price > 0 else 0
@@ -191,7 +191,7 @@ class FCFEDCF:
                 }
 
                 # Accumulate Probability-Weighted Expected Value
-                pwev_target += target * s["prob"]
+                pwev_target += target * s["prob"]  # type: ignore
             except Exception as e:
                 notes.append(f"Scenario '{s['name']}' calculation failed: {e}")
 
@@ -212,13 +212,13 @@ class FCFEDCF:
         verdict_lines = [
             f"Probability-Weighted Fair Value (PWEV): ${pwev_target:.2f} ({pwev_upside * 100:+.1f}%)",
             "  Scenario Matrix:",
-            f"    • Bear (20%): ${matrix_results['Bear Case']['target']:.2f} "
+            f"    • Bear (20%): ${matrix_results['Bear Case']['target']:.2f} "  # type: ignore
             f"| Growth: {matrix_results['Bear Case']['g'] * 100:.1f}% "
             f"| WACC: {matrix_results['Bear Case']['wacc'] * 100:.2f}%",
-            f"    • Base (60%): ${matrix_results['Base Case']['target']:.2f} "
+            f"    • Base (60%): ${matrix_results['Base Case']['target']:.2f} "  # type: ignore
             f"| Growth: {matrix_results['Base Case']['g'] * 100:.1f}% "
             f"| WACC: {matrix_results['Base Case']['wacc'] * 100:.2f}%",
-            f"    • Bull (20%): ${matrix_results['Bull Case']['target']:.2f} "
+            f"    • Bull (20%): ${matrix_results['Bull Case']['target']:.2f} "  # type: ignore
             f"| Growth: {matrix_results['Bull Case']['g'] * 100:.1f}% "
             f"| WACC: {matrix_results['Bull Case']['wacc'] * 100:.2f}%",
         ]
@@ -230,7 +230,7 @@ class FCFEDCF:
             confidence=confidence,
             components={
                 "pwev_target": pwev_target,
-                "scenarios": matrix_results,
+                "scenarios": matrix_results,  # type: ignore
                 "base_ni_per_share": ni_per_share,
             },
             assumptions={

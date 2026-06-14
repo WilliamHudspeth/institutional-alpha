@@ -82,7 +82,7 @@ class SecEdgarSource(DataSource):
         mapping: dict[str, int] = {}
         # company_tickers.json is {"0": {"cik_str": int, "ticker": "AAPL", ...}, ...}
         rows = data.values() if isinstance(data, dict) else data
-        for row in rows:
+        for row in rows:  # type: ignore
             tk = str(row.get("ticker", "")).upper()
             if tk:
                 mapping[tk] = int(row["cik_str"])

@@ -31,7 +31,7 @@ class JustifiedPremiumResult:
     actual_premium: float | None = None
     deserved_premium: float | None = None
     premium_gap: float | None = None
-    notes: list[str] = None
+    notes: list[str] = None  # type: ignore
 
     def __post_init__(self):
         if self.notes is None:

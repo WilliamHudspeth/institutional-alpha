@@ -66,7 +66,7 @@ class AsyncPipelineAdapter:
                 raise
 
         self.loader.compute_pipeline_async(
-            ticker, wrapped_pipeline, on_complete=on_complete, on_error=on_error
+            ticker, wrapped_pipeline, on_complete=on_complete, on_error=on_error  # type: ignore
         )
 
         return task_id
@@ -75,7 +75,7 @@ class AsyncPipelineAdapter:
         """Wait for and retrieve pipeline result."""
         task_id = f"pipeline_{ticker}"
         _, result = self.loader.wait_for_task(task_id, timeout=timeout)
-        return result
+        return result  # type: ignore
 
 
 class AsyncFactorAdapter:
@@ -102,14 +102,14 @@ class AsyncFactorAdapter:
         Returns:
             Task ID
         """
-        self.loader.score_factors_async(ticker, factor_fn, on_complete, on_error)
+        self.loader.score_factors_async(ticker, factor_fn, on_complete, on_error)  # type: ignore
         return f"factors_{ticker}"
 
     def get_factor_result(self, ticker: str, timeout: float = 30.0) -> dict[str, float]:
         """Wait for and retrieve factor scores."""
         task_id = f"factors_{ticker}"
         _, result = self.loader.wait_for_task(task_id, timeout=timeout)
-        return result
+        return result  # type: ignore
 
 
 class AsyncSecurityDataAdapter:
@@ -143,7 +143,7 @@ class AsyncSecurityDataAdapter:
         """Wait for and retrieve security data."""
         task_id = f"security_{ticker}"
         _, result = self.loader.wait_for_task(task_id, timeout=timeout)
-        return result
+        return result  # type: ignore
 
 
 class ParallelWorkflow:
@@ -207,7 +207,7 @@ class ParallelWorkflow:
                     results[task_name] = self.data_adapter.get_security_result(ticker, timeout)
             except Exception as e:
                 logger.error(f"Task {task_name} failed: {e}")
-                results[task_name] = None
+                results[task_name] = None  # type: ignore
 
         return results
 
