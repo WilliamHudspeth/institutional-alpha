@@ -187,6 +187,7 @@ def validate_ticker(ticker: str) -> None:
         ValueError: If ticker violates regex format constraint.
     """
     import re
+
     if not isinstance(ticker, str):
         raise ValueError("Ticker must be a string")
     pattern = r"^[A-Z]{1,5}$"
@@ -204,8 +205,9 @@ def validate_date(date_str: str) -> None:
     Raises:
         ValueError: If date_str is not in YYYY-MM-DD format or is an invalid date.
     """
-    from datetime import datetime
     import re
+    from datetime import datetime
+
     if not isinstance(date_str, str):
         raise ValueError("Date must be a string")
     if not re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):

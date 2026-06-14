@@ -1,14 +1,46 @@
-import pytest
-from iam.valuation.sotp import SOTP, Segment
 from iam.engine.damodaran import DamodaranEngine
+from iam.valuation.sotp import SOTP, Segment
+
 
 def test_sotp_and_bottom_up_beta():
     # Setup test segments (Page 6/7 BLK methodology parameters)
     segments = [
-        Segment("iShares",      revenue=5000, ebit=2000, unlevered_beta=0.60, tax_rate=0.21, growth_rate=0.04, fcfe=1500),
-        Segment("Aladdin",      revenue=3000, ebit=1500, unlevered_beta=1.14, tax_rate=0.21, growth_rate=0.05, fcfe=1100),
-        Segment("GIP",          revenue=2000, ebit=900,  unlevered_beta=0.95, tax_rate=0.21, growth_rate=0.03, fcfe=700),
-        Segment("HPS",          revenue=1000, ebit=400,  unlevered_beta=1.05, tax_rate=0.21, growth_rate=0.04, fcfe=300),
+        Segment(
+            "iShares",
+            revenue=5000,
+            ebit=2000,
+            unlevered_beta=0.60,
+            tax_rate=0.21,
+            growth_rate=0.04,
+            fcfe=1500,
+        ),
+        Segment(
+            "Aladdin",
+            revenue=3000,
+            ebit=1500,
+            unlevered_beta=1.14,
+            tax_rate=0.21,
+            growth_rate=0.05,
+            fcfe=1100,
+        ),
+        Segment(
+            "GIP",
+            revenue=2000,
+            ebit=900,
+            unlevered_beta=0.95,
+            tax_rate=0.21,
+            growth_rate=0.03,
+            fcfe=700,
+        ),
+        Segment(
+            "HPS",
+            revenue=1000,
+            ebit=400,
+            unlevered_beta=1.05,
+            tax_rate=0.21,
+            growth_rate=0.04,
+            fcfe=300,
+        ),
     ]
 
     # Calculate weighted average unlevered beta
@@ -39,5 +71,5 @@ def test_sotp_and_bottom_up_beta():
     # Check EV calculations for segments
     # iShares: EV = 1500 * 1.04 / (0.099414 - 0.04) = 1560 / 0.059414 ≈ 26256
     # Aladdin: EV = 1100 * 1.05 / (0.099414 - 0.05) = 1155 / 0.049414 ≈ 23374
-    ishares_ev = [item['ev'] for item in result.segments if item['name'] == 'iShares'][0]
+    ishares_ev = [item["ev"] for item in result.segments if item["name"] == "iShares"][0]
     assert round(ishares_ev, 0) == 26256

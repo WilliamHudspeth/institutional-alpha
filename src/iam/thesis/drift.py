@@ -36,9 +36,10 @@ human-auditable) — see `thesis/constraints/AAPL.example.yml`.
 from __future__ import annotations
 
 import operator
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 # --------------------------------------------------------------------------- #
 # Metric registry — the closed set of things a constraint may test.
@@ -221,6 +222,7 @@ def load_constraints(path: str | Path) -> tuple[str, list[ThesisConstraint]]:
     data = yaml.safe_load(Path(path).read_text())
     ticker = data["ticker"]
     from iam.validation import validate_ticker
+
     validate_ticker(ticker)
     constraints = [
         ThesisConstraint(

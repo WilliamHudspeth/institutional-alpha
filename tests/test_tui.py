@@ -3,20 +3,19 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import MagicMock
 
 from iam.ui.alpha_terminal import (
+    BacktestPanel,
     Canvas,
-    SecState,
-    WatchlistPanel,
-    QuickRecPanel,
     DeepValPanel,
     FactorPanel,
-    ScenarioPanel,
-    BacktestPanel,
-    PortfolioPanel,
-    SysInfoPanel,
     LearningPanel,
+    PortfolioPanel,
+    QuickRecPanel,
+    ScenarioPanel,
+    SecState,
+    SysInfoPanel,
+    WatchlistPanel,
 )
 
 
@@ -44,7 +43,7 @@ class TestTUIElements(unittest.TestCase):
             SysInfoPanel(),
             LearningPanel(),
         ]
-        
+
         for panel in panels:
             # Check render operates without exceptions
             panel.render(self.canvas, 2, 28, 28, 98, self.sec, ticks=0)

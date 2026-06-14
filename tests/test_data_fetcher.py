@@ -250,7 +250,7 @@ class TestYFinanceSource:
     def test_get_fundamentals(self, mock_yf_global, cache_7day, sample_ticker, mock_yfinance_info):
         """Test fetching fundamentals from yfinance."""
         mock_yf_global.set_ticker_info(sample_ticker, mock_yfinance_info)
-        
+
         # We need a dummy financials dataframe for the mock if accessed directly
         ticker_obj = mock_yf_global.Ticker(sample_ticker)
         ticker_obj.financials = pd.DataFrame()
@@ -265,9 +265,9 @@ class TestYFinanceSource:
         self, mock_yf_global, cache_7day, sample_ticker, sample_prices, sample_start_end
     ):
         """Test fetching price history from yfinance."""
-        mock_yf_global.set_download_data(pd.DataFrame(
-            {"Adj Close": sample_prices}, index=sample_prices.index
-        ))
+        mock_yf_global.set_download_data(
+            pd.DataFrame({"Adj Close": sample_prices}, index=sample_prices.index)
+        )
 
         source = YFinanceSource(cache_7day)
         start, end = sample_start_end
@@ -355,9 +355,9 @@ class TestRedundantDataFetcher:
         self, mock_yf_global, cache_7day, sample_ticker, sample_prices, sample_start_end
     ):
         """Test price fetching with source priority."""
-        mock_yf_global.set_download_data(pd.DataFrame(
-            {"Adj Close": sample_prices}, index=sample_prices.index
-        ))
+        mock_yf_global.set_download_data(
+            pd.DataFrame({"Adj Close": sample_prices}, index=sample_prices.index)
+        )
 
         config = DataConfig()
         config.price_sources = ["yfinance", "stooq"]
@@ -418,10 +418,10 @@ class TestIntegration:
     ):
         """Test a complete backtest data fetch workflow."""
         # Setup mocks
-        mock_yf_global.set_download_data(pd.DataFrame(
-            {"Adj Close": sample_prices}, index=sample_prices.index
-        ))
-        
+        mock_yf_global.set_download_data(
+            pd.DataFrame({"Adj Close": sample_prices}, index=sample_prices.index)
+        )
+
         for t in ["AAPL", "MSFT"]:
             mock_yf_global.set_ticker_info(t, mock_yfinance_info)
             mock_yf_global.Ticker(t).financials = pd.DataFrame()
@@ -518,6 +518,7 @@ class TestPerformance:
         config = DataConfig()
 
         mock_yf_global.set_download_data(pd.DataFrame({"Adj Close": [100, 101, 102]}))
+
         def fetch_batch():
             fetcher = RedundantDataFetcher(config)
             for ticker in ["AAPL", "MSFT", "GOOGL"]:

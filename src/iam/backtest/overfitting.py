@@ -8,7 +8,6 @@ strategy out-of-sample, indicating overfitting (Bailey et al. 2015).
 from __future__ import annotations
 
 import itertools
-import math
 
 import numpy as np
 

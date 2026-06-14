@@ -40,6 +40,7 @@ import math
 from dataclasses import dataclass, field
 
 import numpy as np
+import pandas as pd
 from scipy.stats import norm
 
 _EULER_MASCHERONI = 0.5772156649015329
@@ -148,7 +149,9 @@ def deflated_sharpe_ratio(
     Returns P(true Sharpe > expected-max-under-selection) in [0, 1]. A DSR below
     ~0.95 means the result is not distinguishable from the best of N lucky tries.
     """
-    sr_star = expected_max_sharpe(n_trials, var_trials, mean_trials, effective_trials=effective_trials)
+    sr_star = expected_max_sharpe(
+        n_trials, var_trials, mean_trials, effective_trials=effective_trials
+    )
     return probabilistic_sharpe_ratio(observed_sr, n_obs, skew, kurt, sr_benchmark=sr_star)
 
 
@@ -250,8 +253,9 @@ def correct_factor_tests(
     names = list(t_stats)
     m = len(names)
     if m == 0:
-        return MultipleTestingReport([], 0, effective_tests, fwer_alpha, fdr_alpha,
-                                     notes=["No factors supplied."])
+        return MultipleTestingReport(
+            [], 0, effective_tests, fwer_alpha, fdr_alpha, notes=["No factors supplied."]
+        )
 
     raw_p = {n: _two_sided_p_from_t(t_stats[n]) for n in names}
     m_eff = effective_tests if effective_tests is not None else float(m)
@@ -324,8 +328,9 @@ class ValidationMetrics:
 
 def compute_validation_metrics(df: pd.DataFrame, factor_names: list[str]) -> ValidationMetrics:
     """Compute comprehensive validation metrics for a backtest result DataFrame."""
-    import pandas as pd
     import warnings
+
+    import pandas as pd
 
     # 1. psr (Probabilistic Sharpe Ratio)
     psr_val = float("nan")
@@ -349,7 +354,7 @@ def compute_validation_metrics(df: pd.DataFrame, factor_names: list[str]) -> Val
             ir = avg_ic / std_ic if std_ic > 0 else 0.0
             skew = float(ic_series.skew()) if not pd.isna(ic_series.skew()) else 0.0
             kurt = float(ic_series.kurtosis()) + 3.0 if not pd.isna(ic_series.kurtosis()) else 3.0
-            
+
             # calculate individual factor irs
             factor_irs = []
             for f in factor_names:
@@ -362,7 +367,7 @@ def compute_validation_metrics(df: pd.DataFrame, factor_names: list[str]) -> Val
             var_trials = np.var(factor_irs) if len(factor_irs) > 1 else 0.01
             # n_trials represents the count of factors evaluated
             n_trials = len(factor_names)
-            
+
             if var_trials > 0:
                 # DSR explicitly uses actual trials without eigenvalue adjustment
                 dsr_val = deflated_sharpe_ratio(
@@ -373,7 +378,7 @@ def compute_validation_metrics(df: pd.DataFrame, factor_names: list[str]) -> Val
                     skew=skew,
                     kurt=kurt,
                     mean_trials=0.0,
-                    effective_trials=None
+                    effective_trials=None,
                 )
 
     # 3. pbo (Probability of Backtest Overfitting)
@@ -388,8 +393,11 @@ def compute_validation_metrics(df: pd.DataFrame, factor_names: list[str]) -> Val
                 n_partitions -= 1
             if n_partitions >= 2:
                 from iam.backtest.overfitting import probability_of_backtest_overfitting
+
                 try:
-                    pbo_val = probability_of_backtest_overfitting(perf_matrix, n_partitions=n_partitions)
+                    pbo_val = probability_of_backtest_overfitting(
+                        perf_matrix, n_partitions=n_partitions
+                    )
                 except Exception:
                     pass
 
@@ -399,19 +407,20 @@ def compute_validation_metrics(df: pd.DataFrame, factor_names: list[str]) -> Val
         composite_ic = df["ic"].dropna()
         if factor_cols:
             equal_weight_ic = df[factor_cols].mean(axis=1).reindex(composite_ic.index).dropna()
-            
+
             alts_dict = {"composite": composite_ic}
             for f_key in ["quality", "relative_value", "intrinsic_value", "momentum"]:
                 col_name = f"ic_{f_key}"
                 if col_name in df.columns:
                     alts_dict[f_key] = df[col_name]
-            
+
             alts_df = pd.DataFrame(alts_dict)
             alts_df["benchmark"] = equal_weight_ic
             alts_df = alts_df.dropna()
-            
+
             if len(alts_df) > 10:
                 from iam.backtest.spa import superior_predictive_ability
+
                 strat_returns = alts_df[list(alts_dict.keys())].values
                 bench_returns = alts_df["benchmark"].values
                 try:
@@ -444,12 +453,15 @@ def compute_validation_metrics(df: pd.DataFrame, factor_names: list[str]) -> Val
             s_f = df[col].dropna()
             if len(s_f) > 2:
                 from iam.backtest.metrics import newey_west_se_rigorous
+
                 t_stat, _, _ = newey_west_se_rigorous(s_f, nlags=3)
                 if not np.isnan(t_stat):
                     t_stats_dict[f] = t_stat
 
     if t_stats_dict:
-        mt_report = correct_factor_tests(t_stats_dict, effective_tests=m_eff if not np.isnan(m_eff) else None)
+        mt_report = correct_factor_tests(
+            t_stats_dict, effective_tests=m_eff if not np.isnan(m_eff) else None
+        )
         fwer_sig = len(mt_report.survivors_holm)
         fdr_sig = len(mt_report.survivors_bh)
 
@@ -462,4 +474,3 @@ def compute_validation_metrics(df: pd.DataFrame, factor_names: list[str]) -> Val
         fwer_significant_factors=fwer_sig,
         fdr_significant_factors=fdr_sig,
     )
-

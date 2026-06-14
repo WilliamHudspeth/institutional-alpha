@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import List
 from iam.data.security import Security
 from iam.lenses.base import LensResult, two_stage_pv
 from iam.valuation.sotp import Segment
@@ -31,15 +30,12 @@ class DamodaranEngine:
         self.erp = equity_risk_premium
 
     def compute_cost_of_equity(
-        self,
-        segments: List[Segment],
-        debt_to_equity: float,
-        tax_rate: float = 0.21
+        self, segments: list[Segment], debt_to_equity: float, tax_rate: float = 0.21
     ) -> float:
         # 1. Weighted average unlevered beta
         total_revenue = sum(s.revenue for s in segments)
         if total_revenue == 0:
-            beta_u = 1.0   # fallback
+            beta_u = 1.0  # fallback
         else:
             beta_u = sum(s.revenue * s.unlevered_beta for s in segments) / total_revenue
 
@@ -88,7 +84,9 @@ class DamodaranEngine:
         segments = q.get("segments", [])
         if segments:
             # Determine D/E ratio
-            if hasattr(security, "balance_sheet") and hasattr(security.balance_sheet, "debt_to_equity"):
+            if hasattr(security, "balance_sheet") and hasattr(
+                security.balance_sheet, "debt_to_equity"
+            ):
                 d_e = security.balance_sheet.debt_to_equity
             elif "current_de_ratio" in q:
                 d_e = q["current_de_ratio"]
@@ -96,7 +94,7 @@ class DamodaranEngine:
                 book_debt = float(f.total_debt or 0.0)
                 equity = float(m.market_cap or 1.0)
                 d_e = book_debt / equity if equity > 0 else 0.0
-            
+
             tax_rate = float(q.get("tax_rate", 0.21))
             wacc = self.compute_cost_of_equity(segments, d_e, tax_rate)
         else:

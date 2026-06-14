@@ -31,7 +31,6 @@ import atexit
 import json
 import os
 import random
-import re
 import shutil
 import sys
 import threading
@@ -42,6 +41,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
+from unittest.mock import MagicMock
 
 # ── Platform key-input helpers ────────────────────────────────────────────
 if sys.platform == "win32":
@@ -78,8 +78,8 @@ else:
 try:
     from iam import score as _score
     from iam.data.providers.yfinance_adapter import fetch_security as _fetch_security
-    from iam.pipeline.orchestrator import ValuationPipeline as _Pipeline
     from iam.learning.learning_module import LearningModule as _LearningModule
+    from iam.pipeline.orchestrator import ValuationPipeline as _Pipeline
 
     _IAM_CORE = True
 except ImportError:
@@ -127,16 +127,16 @@ def bg(n: int) -> str:
 
 
 # Semantic palette
-C_ACCENT = fg(39)       # Bright cyan
-C_GOLD = fg(220)        # Amber — active / highlights
-C_GREEN = fg(82)        # Bright green
-C_RED = fg(196)         # Bright red
-C_YELLOW = fg(226)      # Yellow
-C_DIM = fg(240)         # Dark grey
-C_WHITE = fg(255)       # Near-white
-C_BLUE = fg(33)         # Blue
-C_MAGENTA = fg(135)     # Magenta
-C_TEAL = fg(51)         # Teal
+C_ACCENT = fg(39)  # Bright cyan
+C_GOLD = fg(220)  # Amber — active / highlights
+C_GREEN = fg(82)  # Bright green
+C_RED = fg(196)  # Bright red
+C_YELLOW = fg(226)  # Yellow
+C_DIM = fg(240)  # Dark grey
+C_WHITE = fg(255)  # Near-white
+C_BLUE = fg(33)  # Blue
+C_MAGENTA = fg(135)  # Magenta
+C_TEAL = fg(51)  # Teal
 C_MENU_HL = bg(17) + fg(39) + BOLD
 C_HDR = bg(234)
 
@@ -189,6 +189,7 @@ def mv(row: int, col: int) -> str:
 
 # ── Local sparkline helpers (used even if iam.ui.sparklines unavailable) ──
 
+
 def _spark_line(history: list[float], width: int) -> str:
     """Render a sparkline using iam.ui.sparklines if available, else fallback."""
     if not history or len(history) < 2:
@@ -198,7 +199,9 @@ def _spark_line(history: list[float], width: int) -> str:
     window = history[-width:]
     lo, hi = min(window), max(window)
     span = hi - lo or 1.0
-    return "".join(SPARK_CHARS[min(8, max(0, int((v - lo) / span * 8)))] for v in window).ljust(width)
+    return "".join(SPARK_CHARS[min(8, max(0, int((v - lo) / span * 8)))] for v in window).ljust(
+        width
+    )
 
 
 def _spark_trend(history: list[float]) -> str:
@@ -318,9 +321,16 @@ class _MockContrib:
 
 class _MockScore:
     FACTOR_NAMES = [
-        "quality", "intrinsic_value", "relative_value", "sentiment",
-        "momentum", "macro_regime", "reflexivity", "runway",
-        "expectations_difficulty", "crowding",
+        "quality",
+        "intrinsic_value",
+        "relative_value",
+        "sentiment",
+        "momentum",
+        "macro_regime",
+        "reflexivity",
+        "runway",
+        "expectations_difficulty",
+        "crowding",
     ]
 
     def __init__(self) -> None:
@@ -420,7 +430,7 @@ class SecState:
 
 MIN_COLS = 80
 MIN_ROWS = 24
-MENU_W = 27    # menu column width (incl border)
+MENU_W = 27  # menu column width (incl border)
 HDR_ROWS = 3
 FTR_ROWS = 2
 
@@ -449,6 +459,7 @@ def _resolve_ticker(query: str) -> tuple[str, str | None]:
 
 def _valid_ticker(t: str) -> bool:
     from iam.validation import validate_ticker as strict_validate
+
     try:
         strict_validate(t)
         return True
@@ -476,7 +487,9 @@ class _Panel:
     ) -> None:
         pass
 
-    def _loading(self, cv: Canvas, r0: int, r1: int, c0: int, c1: int, ticker: str, ticks: int = 0) -> None:
+    def _loading(
+        self, cv: Canvas, r0: int, r1: int, c0: int, c1: int, ticker: str, ticks: int = 0
+    ) -> None:
         mid = (r0 + r1) // 2
         sp = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"[ticks % 10]
         msg = f" {sp}  Fetching {ticker}… "
@@ -508,7 +521,9 @@ class WatchlistPanel(_Panel):
         ticks: int = 0,
     ) -> None:
         c1 - c0
-        cv.put(r0, c0 + 1, f"{'TICKER':<6} {'PRICE':>10}  {'CHG':>7}  {'TREND':>5}  SPARKLINE", C_DIM)
+        cv.put(
+            r0, c0 + 1, f"{'TICKER':<6} {'PRICE':>10}  {'CHG':>7}  {'TREND':>5}  SPARKLINE", C_DIM
+        )
         cv.hline(r0 + 1, c0, c1)
 
         for idx, tkr in enumerate(self._wl):
@@ -620,13 +635,13 @@ class DeepValPanel(_Panel):
     title = "DEEP DIVE VALUATION"
 
     STAGES = [
-        ("Stage 1", "Reverse DCF",         "Implied growth rate extracted from price"),
-        ("Stage 2", "Relative Multiples",  "Peer-adjusted EV/Sales, P/E, P/B"),
-        ("Stage 3", "FCFE Intrinsic DCF",  "Explicit free-cash-flow valuation"),
-        ("Stage 4", "Triangulation",       "Consensus across all three methods"),
-        ("Stage 5", "Macro Overlay",       "Regime-dependent discount adjustment"),
-        ("Stage 6", "Thesis Engine",       "Bayesian scenario weighting"),
-        ("Stage 7", "Verdict",             "Final BUY / HOLD / SELL signal"),
+        ("Stage 1", "Reverse DCF", "Implied growth rate extracted from price"),
+        ("Stage 2", "Relative Multiples", "Peer-adjusted EV/Sales, P/E, P/B"),
+        ("Stage 3", "FCFE Intrinsic DCF", "Explicit free-cash-flow valuation"),
+        ("Stage 4", "Triangulation", "Consensus across all three methods"),
+        ("Stage 5", "Macro Overlay", "Regime-dependent discount adjustment"),
+        ("Stage 6", "Thesis Engine", "Bayesian scenario weighting"),
+        ("Stage 7", "Verdict", "Final BUY / HOLD / SELL signal"),
     ]
 
     def render(
@@ -690,16 +705,16 @@ class FactorPanel(_Panel):
     title = "FACTOR SCORING ANALYSIS"
 
     FACTORS = [
-        ("quality",                 "Quality"),
-        ("intrinsic_value",         "Intrinsic Value"),
-        ("relative_value",          "Relative Value"),
-        ("sentiment",               "Sentiment"),
-        ("momentum",                "Momentum"),
-        ("macro_regime",            "Macro Regime"),
-        ("reflexivity",             "Reflexivity"),
-        ("runway",                  "Runway"),
+        ("quality", "Quality"),
+        ("intrinsic_value", "Intrinsic Value"),
+        ("relative_value", "Relative Value"),
+        ("sentiment", "Sentiment"),
+        ("momentum", "Momentum"),
+        ("macro_regime", "Macro Regime"),
+        ("reflexivity", "Reflexivity"),
+        ("runway", "Runway"),
         ("expectations_difficulty", "Expectations"),
-        ("crowding",                "Crowding"),
+        ("crowding", "Crowding"),
     ]
 
     def render(
@@ -788,9 +803,9 @@ class ScenarioPanel(_Panel):
 
         # Scenario table (matches iam.ui.panels.ScenarioMatrixPanel format)
         scenarios = [
-            ("Bear Case",  "20%", bear, f"{(bear - price) / price:>+.1%}", "Stressed execution"),
-            ("Base Case",  "60%", base, f"{(base - price) / price:>+.1%}", "Anchor assumptions"),
-            ("Bull Case",  "20%", bull, f"{(bull - price) / price:>+.1%}", "Platform leverage"),
+            ("Bear Case", "20%", bear, f"{(bear - price) / price:>+.1%}", "Stressed execution"),
+            ("Base Case", "60%", base, f"{(base - price) / price:>+.1%}", "Anchor assumptions"),
+            ("Bull Case", "20%", bull, f"{(bull - price) / price:>+.1%}", "Platform leverage"),
         ]
         hdrs = f"{'SCENARIO':<14} {'PROB':<6} {'TARGET':>12}  {'RETURN':>8}  THESIS"
         cv.put(r0 + 2, c0 + 2, hdrs, C_DIM)
@@ -823,7 +838,12 @@ class ScenarioPanel(_Panel):
         prem_col = C_GREEN if prem >= 0 else C_RED
         cv.put(bar_r + 5, c0 + 2, f"Expected Value:  ${exp:.2f}", C_WHITE)
         cv.put(bar_r + 5, c0 + 26, f"  vs Current: {prem:>+.1%}", prem_col + BOLD)
-        cv.put(bar_r + 6, c0 + 2, "Run main.py → Option 4 to enter custom Bull/Bear inputs.", C_DIM + ITALIC)
+        cv.put(
+            bar_r + 6,
+            c0 + 2,
+            "Run main.py → Option 4 to enter custom Bull/Bear inputs.",
+            C_DIM + ITALIC,
+        )
 
 
 # ── Backtest ──────────────────────────────────────────────────────────────
@@ -833,16 +853,16 @@ class BacktestPanel(_Panel):
     title = "BACKTEST & RESEARCH INTEGRITY"
 
     ROWS = [
-        ("Quality",          "+0.084", "0.012", "+5.2%", True),
-        ("Intrinsic Value",  "+0.112", "0.005", "+6.8%", True),
-        ("Relative Value",   "+0.091", "0.008", "+5.9%", True),
-        ("Sentiment",        "+0.023", "0.254", "+1.4%", False),
-        ("Momentum",         "+0.067", "0.031", "+4.3%", True),
-        ("Macro Regime",     "+0.055", "0.044", "+3.8%", True),
+        ("Quality", "+0.084", "0.012", "+5.2%", True),
+        ("Intrinsic Value", "+0.112", "0.005", "+6.8%", True),
+        ("Relative Value", "+0.091", "0.008", "+5.9%", True),
+        ("Sentiment", "+0.023", "0.254", "+1.4%", False),
+        ("Momentum", "+0.067", "0.031", "+4.3%", True),
+        ("Macro Regime", "+0.055", "0.044", "+3.8%", True),
         ("Earnings Quality", "+0.078", "0.019", "+4.9%", True),
-        ("Expectations",     "+0.041", "0.112", "+2.6%", False),
-        ("Runway",           "+0.034", "0.178", "+2.1%", False),
-        ("Crowding",         "-0.019", "0.310", "-1.2%", False),
+        ("Expectations", "+0.041", "0.112", "+2.6%", False),
+        ("Runway", "+0.034", "0.178", "+2.1%", False),
+        ("Crowding", "-0.019", "0.310", "-1.2%", False),
     ]
 
     def render(
@@ -875,21 +895,51 @@ class BacktestPanel(_Panel):
         # Draw Research Integrity Stats
         mid_sep = r0 + 5 + max_rows + 1
         cv.hline(mid_sep, c0, c1)
-        cv.put(mid_sep + 1, c0 + 1, "RESEARCH INTEGRITY LAYER (Statistical Validation)", C_ACCENT + BOLD)
-        
+        cv.put(
+            mid_sep + 1,
+            c0 + 1,
+            "RESEARCH INTEGRITY LAYER (Statistical Validation)",
+            C_ACCENT + BOLD,
+        )
+
         # Real statistics placeholders derived dynamically or simulated from pipeline
         pbo_val = 0.042
         cpcv_paths = 16
         dsr_val = 1.48
         spa_pval = 0.018
-        
-        cv.put(mid_sep + 3, c0 + 2, f"CPCV Combinatorial Paths:  {cpcv_paths:<5}  [Validation]", C_WHITE)
-        cv.put(mid_sep + 4, c0 + 2, f"Backtest Overfitting (PBO): {pbo_val:>6.1%}  (Control: <5.0%)", C_GREEN if pbo_val < 0.05 else C_RED)
-        cv.put(mid_sep + 5, c0 + 2, f"Deflated Sharpe Ratio (DSR): {dsr_val:>5.2f}x  [Significant]", C_GREEN if dsr_val > 1.0 else C_WHITE)
-        cv.put(mid_sep + 6, c0 + 2, f"SPA Bootstrap (p-value):    {spa_pval:>6.3f}  [Verified]", C_GREEN if spa_pval < 0.05 else C_RED)
+
+        cv.put(
+            mid_sep + 3,
+            c0 + 2,
+            f"CPCV Combinatorial Paths:  {cpcv_paths:<5}  [Validation]",
+            C_WHITE,
+        )
+        cv.put(
+            mid_sep + 4,
+            c0 + 2,
+            f"Backtest Overfitting (PBO): {pbo_val:>6.1%}  (Control: <5.0%)",
+            C_GREEN if pbo_val < 0.05 else C_RED,
+        )
+        cv.put(
+            mid_sep + 5,
+            c0 + 2,
+            f"Deflated Sharpe Ratio (DSR): {dsr_val:>5.2f}x  [Significant]",
+            C_GREEN if dsr_val > 1.0 else C_WHITE,
+        )
+        cv.put(
+            mid_sep + 6,
+            c0 + 2,
+            f"SPA Bootstrap (p-value):    {spa_pval:>6.3f}  [Verified]",
+            C_GREEN if spa_pval < 0.05 else C_RED,
+        )
 
         cv.hline(mid_sep + 8, c0, c1)
-        cv.put(mid_sep + 9, c0 + 1, "Statistical corrections reduce selection bias and false discoveries.", C_DIM + ITALIC)
+        cv.put(
+            mid_sep + 9,
+            c0 + 1,
+            "Statistical corrections reduce selection bias and false discoveries.",
+            C_DIM + ITALIC,
+        )
 
 
 # ── Portfolio Overview ────────────────────────────────────────────────────
@@ -906,22 +956,64 @@ class PortfolioPanel(_Panel):
 
     # Mock watchlist as simulated portfolio
     _HOLDINGS = [
-        {"ticker": "AAPL",  "weight": 0.22, "market_value": 52400, "pnl_pct": 18.2,  "conviction": "HIGH"},
-        {"ticker": "MSFT",  "weight": 0.18, "market_value": 43200, "pnl_pct": 11.4,  "conviction": "HIGH"},
-        {"ticker": "NVDA",  "weight": 0.15, "market_value": 36000, "pnl_pct": 72.1,  "conviction": "MEDIUM"},
-        {"ticker": "TSLA",  "weight": 0.12, "market_value": 28800, "pnl_pct": -8.3,  "conviction": "LOW"},
-        {"ticker": "AMD",   "weight": 0.10, "market_value": 24000, "pnl_pct": 5.6,   "conviction": "MEDIUM"},
-        {"ticker": "GOOG",  "weight": 0.13, "market_value": 31200, "pnl_pct": 14.7,  "conviction": "HIGH"},
-        {"ticker": "AMZN",  "weight": 0.10, "market_value": 24000, "pnl_pct": 9.3,   "conviction": "MEDIUM"},
+        {
+            "ticker": "AAPL",
+            "weight": 0.22,
+            "market_value": 52400,
+            "pnl_pct": 18.2,
+            "conviction": "HIGH",
+        },
+        {
+            "ticker": "MSFT",
+            "weight": 0.18,
+            "market_value": 43200,
+            "pnl_pct": 11.4,
+            "conviction": "HIGH",
+        },
+        {
+            "ticker": "NVDA",
+            "weight": 0.15,
+            "market_value": 36000,
+            "pnl_pct": 72.1,
+            "conviction": "MEDIUM",
+        },
+        {
+            "ticker": "TSLA",
+            "weight": 0.12,
+            "market_value": 28800,
+            "pnl_pct": -8.3,
+            "conviction": "LOW",
+        },
+        {
+            "ticker": "AMD",
+            "weight": 0.10,
+            "market_value": 24000,
+            "pnl_pct": 5.6,
+            "conviction": "MEDIUM",
+        },
+        {
+            "ticker": "GOOG",
+            "weight": 0.13,
+            "market_value": 31200,
+            "pnl_pct": 14.7,
+            "conviction": "HIGH",
+        },
+        {
+            "ticker": "AMZN",
+            "weight": 0.10,
+            "market_value": 24000,
+            "pnl_pct": 9.3,
+            "conviction": "MEDIUM",
+        },
     ]
 
     _EXPOSURES = {
-        "Quality":       0.82,
-        "Momentum":      0.61,
-        "Value":        -0.24,
-        "Sentiment":     0.35,
-        "Macro Regime":  0.10,
-        "Crowding":     -0.47,
+        "Quality": 0.82,
+        "Momentum": 0.61,
+        "Value": -0.24,
+        "Sentiment": 0.35,
+        "Macro Regime": 0.10,
+        "Crowding": -0.47,
     }
 
     def render(
@@ -938,7 +1030,12 @@ class PortfolioPanel(_Panel):
         cv.hline(r0 + 1, c0, c1)
 
         # Holdings table header
-        cv.put(r0 + 2, c0 + 1, f"{'Ticker':<7} {'Weight':>7}  {'Mkt Value':>12}  {'P&L %':>7}  Conviction", C_DIM)
+        cv.put(
+            r0 + 2,
+            c0 + 1,
+            f"{'Ticker':<7} {'Weight':>7}  {'Mkt Value':>12}  {'P&L %':>7}  Conviction",
+            C_DIM,
+        )
         cv.hline(r0 + 3, c0, c1)
 
         total_val = sum(h["market_value"] for h in self._HOLDINGS)
@@ -948,7 +1045,9 @@ class PortfolioPanel(_Panel):
                 break
             pnl = h["pnl_pct"]
             pnl_col = C_GREEN if pnl >= 0 else C_RED
-            conv_col = {"HIGH": C_GREEN, "MEDIUM": C_YELLOW, "LOW": C_RED}.get(h["conviction"], C_WHITE)
+            conv_col = {"HIGH": C_GREEN, "MEDIUM": C_YELLOW, "LOW": C_RED}.get(
+                h["conviction"], C_WHITE
+            )
             cv.put(r, c0 + 1, f"{h['ticker']:<7}", C_WHITE)
             cv.put(r, c0 + 9, f"{h['weight']:>6.1%}", C_WHITE)
             cv.put(r, c0 + 17, f"  ${h['market_value']:>10,.0f}", C_WHITE)
@@ -1021,23 +1120,25 @@ class SysInfoPanel(_Panel):
         cv.put(r0, c0 + 1, "Platform Parameters", C_ACCENT + BOLD)
         cv.hline(r0 + 1, c0, c1)
         rows_data = [
-            ("OS",           sys.platform.upper()),
-            ("Terminal",     f"{cols}×{rows} cells"),
-            ("Python",       sys.version.split()[0]),
-            ("IAM Core",     "Available ✓" if _IAM_CORE else "Unavailable (mock mode)"),
-            ("Sparklines",   "iam.ui.sparklines ✓" if _IAM_SPARKLINES else "Built-in fallback"),
+            ("OS", sys.platform.upper()),
+            ("Terminal", f"{cols}×{rows} cells"),
+            ("Python", sys.version.split()[0]),
+            ("IAM Core", "Available ✓" if _IAM_CORE else "Unavailable (mock mode)"),
+            ("Sparklines", "iam.ui.sparklines ✓" if _IAM_SPARKLINES else "Built-in fallback"),
             ("Portfolio UI", "iam.portfolio ✓" if _IAM_PORTFOLIO else "Built-in fallback"),
             ("Active Ticker", sec.ticker if sec else "—"),
-            ("Last Fetch",   sec.last_updated.strftime("%H:%M:%S") if sec else "—"),
-            ("Error State",  (sec.error[:38] if sec and sec.error else "None")),
+            ("Last Fetch", sec.last_updated.strftime("%H:%M:%S") if sec else "—"),
+            ("Error State", (sec.error[:38] if sec and sec.error else "None")),
         ]
         for idx, (k, v) in enumerate(rows_data):
             r = r0 + 2 + idx * 2
             if r > r1 - 1:
                 break
             v_col = (
-                C_GREEN if "Available" in v or "✓" in v
-                else C_RED if "Unavailable" in v or ("Error" in k and v != "None")
+                C_GREEN
+                if "Available" in v or "✓" in v
+                else C_RED
+                if "Unavailable" in v or ("Error" in k and v != "None")
                 else C_ACCENT
             )
             cv.put(r, c0 + 2, f"{k}:", C_DIM)
@@ -1064,6 +1165,7 @@ class LearningPanel(_Panel):
 
     def _next_concept(self) -> None:
         import random
+
         if self.lm and hasattr(self.lm, "concepts") and self.lm.concepts:
             self.current_concept = random.choice(list(self.lm.concepts.keys()))
         else:
@@ -1072,13 +1174,13 @@ class LearningPanel(_Panel):
                 "Probability of Backtest Overfitting (PBO)": {
                     "definition": "The probability that the strategy chosen as optimal in-sample will underperform in out-of-sample tests.",
                     "code_ref": "src/iam/backtest/overfitting.py",
-                    "formula": "PBO = sum(rank(OOS_i) != rank(IS_i)) / N"
+                    "formula": "PBO = sum(rank(OOS_i) != rank(IS_i)) / N",
                 },
                 "Deflated Sharpe Ratio (DSR)": {
                     "definition": "Adjusts the Sharpe ratio downwards to account for the number of trials performed, the variance of the trials, and the non-normality of returns.",
                     "code_ref": "src/iam/backtest/multiple_testing.py",
-                    "formula": "DSR = SR * adjusting_factor"
-                }
+                    "formula": "DSR = SR * adjusting_factor",
+                },
             }
             self.current_concept = random.choice(list(concepts.keys()))
             if not self.lm:
@@ -1089,7 +1191,7 @@ class LearningPanel(_Panel):
         self.mode = "quiz"
         self.quiz_status = None
         self.quiz_selection = None
-        
+
         # Hardcoded sample CFA / Quant questions matching our domain
         questions = [
             {
@@ -1098,10 +1200,10 @@ class LearningPanel(_Panel):
                     "1. The backtest has exceptional predictive power.",
                     "2. The optimal in-sample strategy is likely to perform poorly out-of-sample.",
                     "3. The multiple testing correction is too conservative.",
-                    "4. The portfolio weights are close to the target benchmark."
+                    "4. The portfolio weights are close to the target benchmark.",
                 ],
                 "correct": 2,
-                "explain": "High PBO implies the strategy's parameters fit the in-sample noise, meaning OOS returns are likely to be poor."
+                "explain": "High PBO implies the strategy's parameters fit the in-sample noise, meaning OOS returns are likely to be poor.",
             },
             {
                 "question": "Which adjustment corrects the Sharpe Ratio for selection bias (multiple tests)?",
@@ -1109,10 +1211,10 @@ class LearningPanel(_Panel):
                     "1. Walk-forward optimization.",
                     "2. Deflated Sharpe Ratio (DSR).",
                     "3. Information Coefficient (IC).",
-                    "4. Bottom-up beta adjustment."
+                    "4. Bottom-up beta adjustment.",
                 ],
                 "correct": 2,
-                "explain": "DSR explicitly deflates the Sharpe ratio based on the total number of trial strategies evaluated."
+                "explain": "DSR explicitly deflates the Sharpe ratio based on the total number of trial strategies evaluated.",
             },
             {
                 "question": "What is the primary benefit of Combinatorial Purged Cross-Validation (CPCV)?",
@@ -1120,13 +1222,14 @@ class LearningPanel(_Panel):
                     "1. It increases in-sample Sharpe ratio.",
                     "2. It simulates multiple OOS backtesting paths while preventing overlap leakage.",
                     "3. It neutralizes sector exposure automatically.",
-                    "4. It caps perpetuity terminal growth."
+                    "4. It caps perpetuity terminal growth.",
                 ],
                 "correct": 2,
-                "explain": "CPCV divides historical data into subsets and constructs multiple valid OOS backtesting paths."
-            }
+                "explain": "CPCV divides historical data into subsets and constructs multiple valid OOS backtesting paths.",
+            },
         ]
         import random
+
         self.quiz_question = random.choice(questions)
 
     def _answer_quiz(self, opt: int) -> None:
@@ -1149,38 +1252,47 @@ class LearningPanel(_Panel):
         ticks: int = 0,
     ) -> None:
         if self.mode == "glossary":
-            cv.put(r0 + 1, c0 + 2, "Educational & Reference Material (Glossary Mode)", C_GOLD + BOLD)
-            
+            cv.put(
+                r0 + 1, c0 + 2, "Educational & Reference Material (Glossary Mode)", C_GOLD + BOLD
+            )
+
             if self.current_concept and self.lm:
                 data = self.lm.concepts.get(self.current_concept, {})
                 cv.put(r0 + 3, c0 + 2, f"Concept: {self.current_concept}", C_WHITE + BOLD)
-                
+
                 def_text = data.get("definition", "")
                 words = def_text.split()
                 lines = []
                 cur_line = ""
                 for w in words:
                     if len(cur_line) + len(w) + 1 < (c1 - c0 - 4):
-                        cur_line += (w + " ")
+                        cur_line += w + " "
                     else:
                         lines.append(cur_line)
                         cur_line = w + " "
-                if cur_line: lines.append(cur_line)
-                
+                if cur_line:
+                    lines.append(cur_line)
+
                 for i, line in enumerate(lines):
-                    if r0 + 5 + i > r1 - 7: break
+                    if r0 + 5 + i > r1 - 7:
+                        break
                     cv.put(r0 + 5 + i, c0 + 2, line, C_WHITE)
-                
+
                 end_r = r0 + 5 + len(lines)
                 cv.put(end_r + 1, c0 + 2, "Code Reference:", C_DIM)
                 cv.put(end_r + 2, c0 + 2, data.get("code_ref", "N/A"), C_ACCENT)
-                
+
                 if "formula" in data:
                     cv.put(end_r + 4, c0 + 2, "Formula:", C_DIM)
                     cv.put(end_r + 5, c0 + 2, data["formula"], C_WHITE)
 
             cv.hline(r1 - 2, c0, c1)
-            cv.put(r1 - 1, c0 + 1, "Press [C] for another concept  │  Press [G] to start CFA / Quant Quiz", C_DIM)
+            cv.put(
+                r1 - 1,
+                c0 + 1,
+                "Press [C] for another concept  │  Press [G] to start CFA / Quant Quiz",
+                C_DIM,
+            )
         else:
             # Quiz Mode
             cv.put(r0 + 1, c0 + 2, "CFA & Quant Finance Quiz Subsystem", C_GOLD + BOLD)
@@ -1192,19 +1304,32 @@ class LearningPanel(_Panel):
                     if self.quiz_selection == (idx + 1):
                         style = C_GOLD + BOLD
                     cv.put(row, c0 + 4, opt, style)
-                
+
                 if self.quiz_status:
                     stat_r = r0 + 13
                     cv.hline(stat_r, c0, c1)
                     if self.quiz_status == "correct":
                         cv.put(stat_r + 1, c0 + 2, "✓ CORRECT", C_GREEN + BOLD)
                     else:
-                        cv.put(stat_r + 1, c0 + 2, f"✗ INCORRECT (Correct: {self.quiz_question['correct']})", C_RED + BOLD)
-                    
-                    cv.put(stat_r + 2, c0 + 2, f"Explanation: {self.quiz_question['explain']}", C_WHITE)
-            
+                        cv.put(
+                            stat_r + 1,
+                            c0 + 2,
+                            f"✗ INCORRECT (Correct: {self.quiz_question['correct']})",
+                            C_RED + BOLD,
+                        )
+
+                    cv.put(
+                        stat_r + 2, c0 + 2, f"Explanation: {self.quiz_question['explain']}", C_WHITE
+                    )
+
             cv.hline(r1 - 2, c0, c1)
-            cv.put(r1 - 1, c0 + 1, "Press [1-4] to select answer  │  Press [G] to load next question  │  Press [Esc] to exit quiz", C_DIM)
+            cv.put(
+                r1 - 1,
+                c0 + 1,
+                "Press [1-4] to select answer  │  Press [G] to load next question  │  Press [Esc] to exit quiz",
+                C_DIM,
+            )
+
 
 class SwitchPanel(_Panel):
     title = "SWITCH ACTIVE SECURITY"
@@ -1264,17 +1389,17 @@ class AlphaTerminal:
         self._ticks = 0
 
         self._panels: dict[str, _Panel] = {
-            "Watchlist":            WatchlistPanel(self._watchlist),
+            "Watchlist": WatchlistPanel(self._watchlist),
             "Quick Recommendation": QuickRecPanel(),
-            "Deep Dive Valuation":  DeepValPanel(),
-            "Factor Scoring":       FactorPanel(),
-            "Scenario & Thesis":    ScenarioPanel(),
-            "Backtest Efficacy":    BacktestPanel(),
-            "Portfolio Overview":   PortfolioPanel(),
-            "Learning & Glossary":  LearningPanel(),
-            "Matrix Digital Rain":  MatrixPanel(),
-            "System Info":          SysInfoPanel(),
-            "Switch Security":      SwitchPanel(),
+            "Deep Dive Valuation": DeepValPanel(),
+            "Factor Scoring": FactorPanel(),
+            "Scenario & Thesis": ScenarioPanel(),
+            "Backtest Efficacy": BacktestPanel(),
+            "Portfolio Overview": PortfolioPanel(),
+            "Learning & Glossary": LearningPanel(),
+            "Matrix Digital Rain": MatrixPanel(),
+            "System Info": SysInfoPanel(),
+            "Switch Security": SwitchPanel(),
         }
 
         atexit.register(self._teardown)
@@ -1498,7 +1623,10 @@ class AlphaTerminal:
         bw = min(cols - 4, 68)
         print(TL1 + H1 * bw + TR1)
         print(f"{V1}  {C_GOLD}{BOLD}QUANT SECURITY DISCOVERY{RESET}".ljust(bw + 12) + V1)
-        print(f"{V1}  Enter a ticker symbol or company name (e.g. 'Apple' or 'AAPL'):".ljust(bw + 1) + V1)
+        print(
+            f"{V1}  Enter a ticker symbol or company name (e.g. 'Apple' or 'AAPL'):".ljust(bw + 1)
+            + V1
+        )
         print(BL1 + H1 * bw + BR1)
         print()
         try:
@@ -1613,10 +1741,9 @@ class AlphaTerminal:
         # Security info line
         with self._lock:
             sec = self._secs.get(self._active)
-        comp_name = sec.name[:28] if (sec and not sec.loading) else ("Loading…" if sec else "—")
-        iam_tag = f"  {C_GREEN}[IAM]{RESET}" if _IAM_CORE else f"  {C_RED}[MOCK]{RESET}"
+        sec.name[:28] if (sec and not sec.loading) else ("Loading…" if sec else "—")
         ts = datetime.now().strftime("%H:%M:%S")
-        
+
         cv.put(1, 0, V2, C_ACCENT)
         # Standardize Option 2 CLI Banner style
         banner_text = f"  {C_GOLD}{BOLD}INSTITUTIONAL ALPHA{RESET}  {C_DIM}│{RESET}  {C_ACCENT}RESEARCH & PORTFOLIO COMPOSER{RESET}"

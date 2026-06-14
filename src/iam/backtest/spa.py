@@ -138,10 +138,10 @@ def superior_predictive_ability(
     for b in range(n_boot):
         # Sample the centered performance matrix
         D_boot = D_centered[boot_indices[b], :]
-        
+
         # Mean of the bootstrapped sample
         D_bar_boot = np.nanmean(D_boot, axis=0)
-        
+
         # The bootstrap test statistic for this path is the maximum performance
         boot_max_stats[b] = np.max(D_bar_boot)
 

@@ -191,20 +191,24 @@ def build_term_structure(ic_by_horizon: dict[int, Sequence[float]]) -> ICTermStr
         raise ValueError("No usable IC values across any horizon.")
 
     peak = max(usable, key=lambda h: h.mean_ic)
-    optimal = max(usable, key=lambda h: (h.ic_velocity if not math.isnan(h.ic_velocity) else -1e9))
+    optimal = max(usable, key=lambda h: h.ic_velocity if not math.isnan(h.ic_velocity) else -1e9)
 
     tau, half_life, monotonic = fit_marginal_decay(usable)
     if half_life is None:
-        notes.append("Marginal IC not decaying over the measured horizons; "
-                     "no half-life — signal accumulates rather than fades.")
+        notes.append(
+            "Marginal IC not decaying over the measured horizons; "
+            "no half-life — signal accumulates rather than fades."
+        )
 
     # Rebalance no slower than the optimal holding period; if a half-life exists
     # and is shorter, refresh on the half-life instead (information ages out).
     rebalance = optimal.horizon_days
     if half_life is not None and half_life < rebalance:
         rebalance = int(round(half_life))
-        notes.append("Rebalance tightened to the alpha half-life "
-                     "(information decays faster than the optimal holding period).")
+        notes.append(
+            "Rebalance tightened to the alpha half-life "
+            "(information decays faster than the optimal holding period)."
+        )
 
     if peak.horizon_days != optimal.horizon_days:
         notes.append(

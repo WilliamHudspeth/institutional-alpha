@@ -70,20 +70,20 @@ def main() -> None:
         qualitative={
             # 0 = weak/none, 1 = very strong
             "equity_currency_strength": 0.7,
-            "network_effect_strength":  0.6,
-            "talent_attraction":        0.8,
-            "acquisition_optionality":  0.5,
-            "narrative_reinforcement":  0.6,
-            "tam_remaining":            0.7,
-            "geographic_expansion":     0.5,
-            "adjacency_potential":      0.6,
-            "recurring_revenue_mix":    0.9,
+            "network_effect_strength": 0.6,
+            "talent_attraction": 0.8,
+            "acquisition_optionality": 0.5,
+            "narrative_reinforcement": 0.6,
+            "tam_remaining": 0.7,
+            "geographic_expansion": 0.5,
+            "adjacency_potential": 0.6,
+            "recurring_revenue_mix": 0.9,
             # Penalty inputs: 0 = no risk, 1 = severe risk
-            "operational_complexity":   0.3,
-            "supply_chain_dependency":  0.2,
-            "regulatory_risk":          0.3,
-            "geographic_risk":          0.2,
-            "integration_risk":         0.1,
+            "operational_complexity": 0.3,
+            "supply_chain_dependency": 0.2,
+            "regulatory_risk": 0.3,
+            "geographic_risk": 0.2,
+            "integration_risk": 0.1,
         },
     )
 

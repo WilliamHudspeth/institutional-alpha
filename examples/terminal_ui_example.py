@@ -27,13 +27,15 @@ def format_ui_data_from_pipeline(ticker: str, report) -> dict:
     scenario_data = report.intrinsic.components.get("scenarios", {})
 
     for scenario_name, scenario_info in scenario_data.items():
-        scenarios.append({
-            "name": scenario_name.replace(" Case", ""),
-            "prob": f"{scenario_info['prob']*100:.0f}%",
-            "target": scenario_info["target"],
-            "upside": f"{scenario_info['upside']*100:+.0f}%",
-            "thesis": scenario_name,
-        })
+        scenarios.append(
+            {
+                "name": scenario_name.replace(" Case", ""),
+                "prob": f"{scenario_info['prob'] * 100:.0f}%",
+                "target": scenario_info["target"],
+                "upside": f"{scenario_info['upside'] * 100:+.0f}%",
+                "thesis": scenario_name,
+            }
+        )
 
     # Extract signals
     signals = {
@@ -49,9 +51,9 @@ def format_ui_data_from_pipeline(ticker: str, report) -> dict:
         "name": "Company Name",  # Would come from security.name
         "price": report.triangulation.cluster_center,  # Use triangulation as reference
         "verdict": report.final_verdict.rating if report.final_verdict else "HOLD",
-        "growth": f"{report.intrinsic.assumptions.get('high_growth', 0.08)*100:.0f}%",
-        "wacc": f"{report.intrinsic.assumptions.get('discount_rate', 0.09)*100:.2f}%",
-        "terminal": f"{report.intrinsic.assumptions.get('terminal_growth', 0.025)*100:.1f}%",
+        "growth": f"{report.intrinsic.assumptions.get('high_growth', 0.08) * 100:.0f}%",
+        "wacc": f"{report.intrinsic.assumptions.get('discount_rate', 0.09) * 100:.2f}%",
+        "terminal": f"{report.intrinsic.assumptions.get('terminal_growth', 0.025) * 100:.1f}%",
         "pwev": report.intrinsic.fair_value_per_share,
         "synthesis": report.synthesis_upside or "N/A",
         "confidence": report.final_verdict.confidence_band if report.final_verdict else "N/A",
@@ -85,7 +87,7 @@ if __name__ == "__main__":
             "forecast_growth": 0.12,
             "forecast_terminal_growth": 0.025,
             "forecast_discount_rate": 0.09,
-        }
+        },
     )
 
     # Run pipeline
@@ -106,9 +108,9 @@ if __name__ == "__main__":
         report.intrinsic.fair_value_per_share,
         report.intrinsic.fair_value_per_share,
         report.final_verdict.rating if report.final_verdict else "HOLD",
-        report.final_verdict.confidence_band if report.final_verdict else "N/A"
+        report.final_verdict.confidence_band if report.final_verdict else "N/A",
     )
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("✓ Complete pipeline output with institutional UI")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")

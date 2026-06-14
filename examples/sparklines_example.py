@@ -41,11 +41,13 @@ def main() -> None:
         current = prices[-1]
         previous = prices[0]
         change = current - previous
-        change_pct = (change / previous * 100)
+        change_pct = change / previous * 100
         trend = Sparkline.trend(prices)
 
         sparkline = Sparkline.line(prices, width=30)
-        print(f"{ticker:<6} {sparkline} {trend} {current:>7.2f} ({change:+6.2f}, {change_pct:+5.1f}%)")
+        print(
+            f"{ticker:<6} {sparkline} {trend} {current:>7.2f} ({change:+6.2f}, {change_pct:+5.1f}%)"
+        )
 
     print("")
 
@@ -59,7 +61,9 @@ def main() -> None:
         "GOOG": {"open": 140, "high": 143, "low": 138, "close": 141},
     }
 
-    print(f"{'Ticker':<8} {'Open':<8} {'High':<8} {'Low':<8} {'Close':<8} {'Chart':<10} {'Status':<15}")
+    print(
+        f"{'Ticker':<8} {'Open':<8} {'High':<8} {'Low':<8} {'Close':<8} {'Chart':<10} {'Status':<15}"
+    )
     print("-" * 80)
 
     for ticker, data in intraday_data.items():
@@ -108,7 +112,9 @@ def main() -> None:
             indicator = "🟢"
             level = "NORMAL"
 
-        print(f"{ticker:<8} {indicator} {level:<10} {sparkline}  {current_vol:.2%} ({ratio:.1f}x avg)")
+        print(
+            f"{ticker:<8} {indicator} {level:<10} {sparkline}  {current_vol:.2%} ({ratio:.1f}x avg)"
+        )
 
     print("")
 

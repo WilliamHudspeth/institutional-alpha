@@ -71,7 +71,9 @@ def test_fmp_source_picks_up_stored_key(creds):
     assert src.api_key == "STORED_FMP"
 
 
-@pytest.mark.skipif(os.name == "nt", reason="Windows chmod does not support POSIX group/other permissions")
+@pytest.mark.skipif(
+    os.name == "nt", reason="Windows chmod does not support POSIX group/other permissions"
+)
 def test_credentials_file_is_owner_only(creds):
     import stat
 

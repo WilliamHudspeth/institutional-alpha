@@ -116,9 +116,9 @@ class TestLedoitWolfShrinkage:
         X = rng.randn(100, 5)
         Sigma = ledoit_wolf_shrinkage(X)
         eigenvalues = np.linalg.eigvals(Sigma)
-        assert np.all(
-            eigenvalues >= -1e-10
-        ), f"Non-PSD matrix: min eigenvalue = {np.min(eigenvalues)}"
+        assert np.all(eigenvalues >= -1e-10), (
+            f"Non-PSD matrix: min eigenvalue = {np.min(eigenvalues)}"
+        )
 
     def test_ledoit_wolf_handles_nan_values(self):
         """Assert that NaN values are imputed with column means."""

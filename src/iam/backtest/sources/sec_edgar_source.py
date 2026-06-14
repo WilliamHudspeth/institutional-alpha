@@ -61,6 +61,7 @@ class SecEdgarSource(DataSource):
         http_get: HttpGet | None = None,
     ):
         from iam.config.credentials import get_key
+
         # Prefer a user-configured contact UA; fall back to the default.
         self.user_agent = get_key("sec_edgar", explicit=None) or user_agent
         if user_agent != "institutional-alpha research contact@example.com":
@@ -106,7 +107,8 @@ class SecEdgarSource(DataSource):
         rows = units.get("USD", [])
         # Filter on the FILING date to avoid look-ahead; rank by period end.
         visible = [
-            r for r in rows
+            r
+            for r in rows
             if r.get("filed") and pd.Timestamp(r["filed"]) <= as_of and r.get("val") is not None
         ]
         if not visible:

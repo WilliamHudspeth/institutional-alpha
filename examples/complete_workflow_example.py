@@ -254,8 +254,6 @@ def main() -> None:
     print("STEP 4: FACTOR ATTRIBUTION")
     print("-" * 90)
 
-
-
     # Decompose for each position
     for position in portfolio.positions:
         if position.ticker in factor_scores:
@@ -334,7 +332,6 @@ def main() -> None:
     # Take MSFT as example
     msft_thesis = theses["MSFT"]
 
-
     # Simulate earnings evidence
     earnings_evidence = Evidence(
         type="EARNINGS_BEAT",
@@ -365,7 +362,9 @@ def main() -> None:
         change = posterior - prior
         direction = "↑" if change > 0 else "↓" if change < 0 else "="
         bar = "█" * int(posterior * 20)
-        print(f"  {scenario:<15} {prior:.1%} → {posterior:.1%}  {direction} {abs(change):+.1%}  {bar}")
+        print(
+            f"  {scenario:<15} {prior:.1%} → {posterior:.1%}  {direction} {abs(change):+.1%}  {bar}"
+        )
 
     print("")
 
@@ -390,7 +389,7 @@ Risk Analysis:
   - Average correlation: 0.35
 
 Portfolio Verdict:
-  - Recommendation: {(recommendation.verdict.value if hasattr(recommendation.verdict, 'value') else str(recommendation.verdict))}
+  - Recommendation: {(recommendation.verdict.value if hasattr(recommendation.verdict, "value") else str(recommendation.verdict))}
   - Conviction: {recommendation.conviction}
   - Expected return: {recommendation.portfolio_target_return:+.1f}%
   - Risk: {recommendation.portfolio_risk:.1f}%

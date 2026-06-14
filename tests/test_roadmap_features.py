@@ -32,7 +32,7 @@ def test_velocity_prefers_shorter_horizon_when_ic_merely_accumulates():
     # short horizon should win on a tie-break toward less capital lock-up.
     ic = {
         21: _series(0.030, 0.05, seed=1),
-        63: _series(0.052, 0.05, seed=2),   # ~0.030 * sqrt(63/21)
+        63: _series(0.052, 0.05, seed=2),  # ~0.030 * sqrt(63/21)
         126: _series(0.073, 0.05, seed=3),  # ~0.030 * sqrt(126/21)
         252: _series(0.104, 0.05, seed=4),
     }
@@ -48,7 +48,7 @@ def test_decay_detected_when_marginal_ic_shrinks():
     # IC accumulates but each extra block adds less -> positive, decaying marginal.
     ic = {
         21: _series(0.040, 0.04, seed=11),
-        63: _series(0.070, 0.04, seed=12),   # +0.030 over 42d
+        63: _series(0.070, 0.04, seed=12),  # +0.030 over 42d
         126: _series(0.085, 0.04, seed=13),  # +0.015 over 63d  (smaller per-day)
         252: _series(0.092, 0.04, seed=14),  # +0.007 over 126d (smaller still)
     }
@@ -61,7 +61,7 @@ def test_decay_detected_when_marginal_ic_shrinks():
 def test_no_decay_reported_when_marginal_flat_or_growing():
     horizons = [
         HorizonIC(21, 0.02, 0.04, 60),
-        HorizonIC(63, 0.04, 0.04, 60),   # +0.02 over 42d -> 0.476/kd
+        HorizonIC(63, 0.04, 0.04, 60),  # +0.02 over 42d -> 0.476/kd
         HorizonIC(126, 0.10, 0.04, 60),  # +0.06 over 63d -> 0.952/kd (accelerating)
     ]
     tau, hl, monotonic = fit_marginal_decay(horizons)
@@ -71,7 +71,7 @@ def test_no_decay_reported_when_marginal_flat_or_growing():
 def test_horizon_weights_track_information_ratio():
     # Same mean IC, very different consistency -> the steadier horizon gets more.
     ic = {
-        63: _series(0.05, 0.02, n=120, seed=21),   # high IR
+        63: _series(0.05, 0.02, n=120, seed=21),  # high IR
         126: _series(0.05, 0.20, n=120, seed=22),  # low IR
     }
     ts = build_term_structure(ic)

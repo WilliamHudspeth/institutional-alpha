@@ -76,7 +76,9 @@ def main() -> None:
     print("Likelihoods (P(Evidence|Scenario)):")
     for scenario, likelihood in earnings_evidence.likelihoods.items():
         prob = likelihood.probability
-        print(f"  {scenario:<15} {prob:.2f}x (dampened: {earnings_evidence.get_dampened_likelihood(scenario):.2f}x)")
+        print(
+            f"  {scenario:<15} {prob:.2f}x (dampened: {earnings_evidence.get_dampened_likelihood(scenario):.2f}x)"
+        )
     print("")
 
     # Update thesis with evidence
@@ -122,7 +124,9 @@ def main() -> None:
     print("Likelihoods:")
     for scenario, likelihood in macro_evidence.likelihoods.items():
         prob = likelihood.probability
-        print(f"  {scenario:<15} {prob:.2f}x (dampened: {macro_evidence.get_dampened_likelihood(scenario):.2f}x)")
+        print(
+            f"  {scenario:<15} {prob:.2f}x (dampened: {macro_evidence.get_dampened_likelihood(scenario):.2f}x)"
+        )
     print("")
 
     posteriors_2 = BayesianUpdater.update(priors, macro_evidence)
@@ -193,7 +197,9 @@ def main() -> None:
 
     confidence_delta = final_max - prior_max
 
-    print(f"Initial Thesis Confidence: {prior_max:.1%} ({max(prior_dict.items(), key=lambda x: x[1])[0]})")
+    print(
+        f"Initial Thesis Confidence: {prior_max:.1%} ({max(prior_dict.items(), key=lambda x: x[1])[0]})"
+    )
     print(f"Final Thesis Confidence:   {final_max:.1%} ({final_most_likely})")
     print(f"Confidence Delta:          {confidence_delta:+.1%}")
     print("")
@@ -218,7 +224,8 @@ def main() -> None:
         prior_probs=posterior_dict_2,
         posterior_probs=posterior_dict_3,
         scenario_impacts={
-            s: analyst_evidence.get_dampened_likelihood(s) for s in analyst_evidence.likelihoods.keys()
+            s: analyst_evidence.get_dampened_likelihood(s)
+            for s in analyst_evidence.likelihoods.keys()
         },
     )
     print(final_update)

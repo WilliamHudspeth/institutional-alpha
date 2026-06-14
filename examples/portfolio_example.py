@@ -234,7 +234,9 @@ def main() -> None:
     print("-" * 50)
 
     for ticker in sorted(sized_weights.keys()):
-        current_weight = portfolio.by_ticker[ticker].weight if ticker in portfolio.by_ticker else 0.0
+        current_weight = (
+            portfolio.by_ticker[ticker].weight if ticker in portfolio.by_ticker else 0.0
+        )
         sized_weight = sized_weights[ticker]
 
         if sized_weight > current_weight + 0.02:
@@ -262,9 +264,7 @@ def main() -> None:
     )
 
     if rebalancing_needed:
-        trades = Rebalancer.compute_trades(
-            current_weights, target_weights, portfolio.total_value
-        )
+        trades = Rebalancer.compute_trades(current_weights, target_weights, portfolio.total_value)
 
         for line in Rebalancer.format_rebalancing_summary(
             current_weights, target_weights, trades, portfolio.total_value

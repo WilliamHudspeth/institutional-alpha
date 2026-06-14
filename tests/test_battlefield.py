@@ -1,13 +1,13 @@
-import pytest
 from iam.pipeline.battlefield import (
     ParamVector,
-    market_vector_from_implied,
-    intrinsic_vector_from_assumptions,
     attribute_disagreement,
     build_battlefield,
+    intrinsic_vector_from_assumptions,
+    market_vector_from_implied,
     two_stage_fcfe_value,
 )
-from iam.valuation.types import ImpliedExpectations, TriangulationResult, ValuationResult, Method
+from iam.valuation.types import ImpliedExpectations, Method, TriangulationResult, ValuationResult
+
 
 def test_param_vector_mapping():
     implied = ImpliedExpectations(
@@ -34,10 +34,11 @@ def test_param_vector_mapping():
     assert iv.discount_rate == 0.09
     assert iv.roe == 0.18
 
+
 def test_attribute_disagreement():
     intrinsic = ParamVector(growth=0.06, terminal_growth=0.025, discount_rate=0.09, roe=0.15)
     market = ParamVector(growth=0.12, terminal_growth=0.025, discount_rate=0.09, roe=0.15)
-    
+
     attr = attribute_disagreement(
         intrinsic=intrinsic,
         market=market,
@@ -50,17 +51,15 @@ def test_attribute_disagreement():
     growth_contrib = [c for c in attr.contributions if c.parameter == "growth"][0]
     assert growth_contrib.share > 0.9  # since only growth differs
 
+
 def test_attribute_disagreement_agree_short_circuit():
     intrinsic = ParamVector(growth=0.06, terminal_growth=0.025, discount_rate=0.09, roe=0.15)
     market = ParamVector(growth=0.12, terminal_growth=0.025, discount_rate=0.09, roe=0.15)
-    
+
     triangulation = TriangulationResult(
-        verdict="agree",
-        confidence=0.9,
-        cluster_center=0.0,
-        notes=[]
+        verdict="agree", confidence=0.9, cluster_center=0.0, notes=[]
     )
-    
+
     attr = attribute_disagreement(
         intrinsic=intrinsic,
         market=market,
@@ -72,6 +71,7 @@ def test_attribute_disagreement_agree_short_circuit():
     assert attr.key_parameter is None
     assert attr.total_gap == 0.0
 
+
 def test_build_battlefield():
     market_implied = ValuationResult(
         method=Method.REVERSE_DCF,
@@ -82,7 +82,7 @@ def test_build_battlefield():
             implied_terminal_growth=0.025,
             discount_rate_assumed=0.09,
             implied_roic=0.15,
-        )
+        ),
     )
     intrinsic = ValuationResult(
         method=Method.INTRINSIC,
@@ -93,9 +93,9 @@ def test_build_battlefield():
             "terminal_growth": 0.025,
             "discount_rate": 0.09,
             "roe": 0.15,
-        }
+        },
     )
-    
+
     attr = build_battlefield(
         market_implied=market_implied,
         intrinsic=intrinsic,

@@ -11,7 +11,6 @@ A user-friendly entry point that guides you through:
 from __future__ import annotations
 
 import json
-import re
 import sys
 import urllib.parse
 import urllib.request
@@ -27,7 +26,6 @@ def safe_input(prompt: str, default: str | None = None) -> str:
         return input(prompt).strip()
     else:
         return default if default is not None else ""
-
 
 
 def print_header() -> None:
@@ -89,6 +87,7 @@ def resolve_ticker(query: str) -> tuple[str, str | None]:
 def validate_ticker(ticker: str) -> bool:
     """Validate ticker format using strict centralized guards."""
     from iam.validation import validate_ticker as strict_validate
+
     try:
         strict_validate(ticker)
         return True
@@ -104,7 +103,6 @@ def get_security_input() -> str:
         if not query:
             print("  No input provided. Using default ticker AAPL.")
             query = "AAPL"
-
 
         # Try to resolve the ticker
         ticker, resolved_name = resolve_ticker(query)
@@ -127,6 +125,7 @@ def run_valuation_pipeline(ticker: str) -> None:
     print("\n" + "-" * 70)
     print(f"  Fetching {ticker} from Yahoo Finance...")
     try:
+        from iam.arbitration.reliability_loader import get_reliabilities, is_empirical_calibration
         from iam.data.providers.yfinance_adapter import fetch_security
         from iam.engine.damodaran import DamodaranEngine
         from iam.lenses.expectations_difficulty import ExpectationsDifficultyLens
@@ -134,7 +133,6 @@ def run_valuation_pipeline(ticker: str) -> None:
         from iam.lenses.rate_sensitive import RateSensitiveLens
         from iam.lenses.synthesis import synthesize_lenses
         from iam.pipeline.orchestrator import ValuationPipeline, print_assumption_table
-        from iam.arbitration.reliability_loader import get_reliabilities, is_empirical_calibration
 
         security = fetch_security(ticker)
         print(f"  ✓ {security.name or ticker} loaded")
@@ -142,15 +140,14 @@ def run_valuation_pipeline(ticker: str) -> None:
 
         # Optional growth override
         g_input = safe_input(
-            "  Forecast growth (e.g. 13 or 0.13 for 13%) [Enter for model default 8%]: ",
-            default=""
+            "  Forecast growth (e.g. 13 or 0.13 for 13%) [Enter for model default 8%]: ", default=""
         )
         forecast_growth = 0.08
         if g_input:
-
             try:
                 forecast_growth = parse_growth_rate(g_input, default=0.08)
                 from iam.validation import validate_growth_rate
+
                 validate_growth_rate(forecast_growth, growth_type="forecast")
                 security.qualitative["forecast_growth"] = forecast_growth
                 print(f"  Using forecast growth: {forecast_growth:.1%}\n")
@@ -230,8 +227,8 @@ def run_thesis_engine(ticker: str) -> None:
     print("\n" + "-" * 70)
     print(f"  Fetching {ticker} from Yahoo Finance...")
     try:
-        from iam.data.security import Assumption, Thesis
         from iam.data.providers.yfinance_adapter import fetch_security
+        from iam.data.security import Assumption, Thesis
         from iam.thesis.engine import ThesisEngine
 
         security = fetch_security(ticker)
@@ -276,7 +273,9 @@ def run_thesis_engine(ticker: str) -> None:
         print("  THESIS ANALYSIS")
         print("-" * 70)
         print(f"  Fair value range: ${evaluation.worst_case:.2f} – ${evaluation.best_case:.2f}")
-        expected = f"${evaluation.expected_value:.2f}" if evaluation.expected_value is not None else "N/A"
+        expected = (
+            f"${evaluation.expected_value:.2f}" if evaluation.expected_value is not None else "N/A"
+        )
         print(f"  Expected value: {expected}")
         print()
 
@@ -379,7 +378,9 @@ def run_quick_recommendation(ticker: str) -> None:
         elif rating == "BUY":
             print("  🟢 Stock appears undervalued with >15% potential upside\n")
         elif rating == "SPECULATIVE_BUY":
-            print("  🟣 Speculative Buy: Intrinsic value is high, but market expectations are also very rich.\n")
+            print(
+                "  🟣 Speculative Buy: Intrinsic value is high, but market expectations are also very rich.\n"
+            )
         elif rating == "SELL":
             print("  🔴 Stock appears overvalued with >10% potential downside\n")
         else:
@@ -387,7 +388,7 @@ def run_quick_recommendation(ticker: str) -> None:
 
         if report.battlefield:
             # Shift the summary slightly right for alignment if needed, or just print
-            for line in report.battlefield.summary().split('\n'):
+            for line in report.battlefield.summary().split("\n"):
                 print(f"  {line}")
             print()
 
@@ -413,7 +414,9 @@ def run_quick_recommendation(ticker: str) -> None:
 def run_settings_menu() -> None:
     """Run the Settings / System Administration submenu."""
     import os
-    from iam.config.credentials import status, configure_interactive
+
+    from iam.config.credentials import configure_interactive, status
+
     while True:
         try:
             os.system("cls" if os.name == "nt" else "clear")
@@ -424,7 +427,7 @@ def run_settings_menu() -> None:
         print("│  ALPHA-TERMINAL // SETTINGS & SYSTEM ADMINISTRATION                         │")
         print("└" + "─" * 78 + "┘")
         print("What would you like to configure?\n")
-        
+
         # Check credentials status for suggestions
         st = status()
         missing_premium = not st["fmp"]["configured"] or not st["tiingo"]["configured"]
@@ -440,6 +443,7 @@ def run_settings_menu() -> None:
         choice = safe_input("Enter choice (1-3): ", default="3").strip()
         if choice == "1":
             from scripts.create_shortcut import create_shortcut
+
             print()
             success, msg = create_shortcut()
             if success:
@@ -506,4 +510,3 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n  Unexpected error: {e}")
         sys.exit(1)
-

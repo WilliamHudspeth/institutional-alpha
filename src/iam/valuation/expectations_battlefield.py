@@ -7,29 +7,30 @@ VerdictGenerator to produce nuanced recommendations like "Speculative Buy"
 when intrinsic value is high but market expectations are far richer.
 """
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Optional
-import numpy as np
-from enum import Enum
+from dataclasses import dataclass
 
+import numpy as np
 
 # ---------------------------------------------------------------------------
 # 1. Core data structures – scenario‑based views, not normal distributions
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Scenario:
     """A single scenario with its probability."""
-    probability: float          # 0.0 – 1.0
-    growth: float               # e.g. 0.10 for 10 %
-    margin: float               # operating margin
-    roic: float                 # return on invested capital
+
+    probability: float  # 0.0 – 1.0
+    growth: float  # e.g. 0.10 for 10 %
+    margin: float  # operating margin
+    roic: float  # return on invested capital
 
 
 @dataclass
 class ScenarioDistribution:
     """A discrete probability distribution over a set of scenarios."""
-    scenarios: List[Scenario]
+
+    scenarios: list[Scenario]
 
     def mean_growth(self) -> float:
         return sum(s.probability * s.growth for s in self.scenarios)
@@ -41,13 +42,13 @@ class ScenarioDistribution:
         return sum(s.probability * s.roic for s in self.scenarios)
 
     def median_growth(self) -> float:
-        return self._weighted_percentile('growth', 0.5)
+        return self._weighted_percentile("growth", 0.5)
 
     def median_margin(self) -> float:
-        return self._weighted_percentile('margin', 0.5)
+        return self._weighted_percentile("margin", 0.5)
 
     def median_roic(self) -> float:
-        return self._weighted_percentile('roic', 0.5)
+        return self._weighted_percentile("roic", 0.5)
 
     def _weighted_percentile(self, attr: str, q: float) -> float:
         """Weighted median/percentile for a given attribute."""
@@ -58,29 +59,32 @@ class ScenarioDistribution:
         probs = probs[order]
         cum = np.cumsum(probs)
         idx = np.searchsorted(cum, q * cum[-1])
-        return vals[min(idx, len(vals)-1)]
+        return vals[min(idx, len(vals) - 1)]
 
     def variance_growth(self) -> float:
         m = self.mean_growth()
-        return sum(s.probability * (s.growth - m)**2 for s in self.scenarios)
+        return sum(s.probability * (s.growth - m) ** 2 for s in self.scenarios)
 
     def variance_margin(self) -> float:
         m = self.mean_margin()
-        return sum(s.probability * (s.margin - m)**2 for s in self.scenarios)
+        return sum(s.probability * (s.margin - m) ** 2 for s in self.scenarios)
 
     def variance_roic(self) -> float:
         m = self.mean_roic()
-        return sum(s.probability * (s.roic - m)**2 for s in self.scenarios)
+        return sum(s.probability * (s.roic - m) ** 2 for s in self.scenarios)
 
 
 # ---------------------------------------------------------------------------
 # 2. Overlap and alignment metrics
 # ---------------------------------------------------------------------------
 
-def distribution_overlap(dist_a: ScenarioDistribution,
-                         dist_b: ScenarioDistribution,
-                         metric: str = 'growth',
-                         bins: int = 50) -> float:
+
+def distribution_overlap(
+    dist_a: ScenarioDistribution,
+    dist_b: ScenarioDistribution,
+    metric: str = "growth",
+    bins: int = 50,
+) -> float:
     """
     Approximate overlap between two scenario distributions by binning.
     Returns a value in [0, 1] (higher = more overlap).
@@ -95,8 +99,8 @@ def distribution_overlap(dist_a: ScenarioDistribution,
         return 1.0
     if all_vals.min() == all_vals.max():
         return 1.0
-        
-    bin_edges = np.linspace(all_vals.min(), all_vals.max(), bins+1)
+
+    bin_edges = np.linspace(all_vals.min(), all_vals.max(), bins + 1)
     hist_a, _ = np.histogram(vals_a, bins=bin_edges, weights=probs_a, density=True)
     hist_b, _ = np.histogram(vals_b, bins=bin_edges, weights=probs_b, density=True)
 
@@ -105,8 +109,7 @@ def distribution_overlap(dist_a: ScenarioDistribution,
     return min(overlap, 1.0)
 
 
-def alignment_score(intrinsic: ScenarioDistribution,
-                    market: ScenarioDistribution) -> float:
+def alignment_score(intrinsic: ScenarioDistribution, market: ScenarioDistribution) -> float:
     """
     Alignment score (0‑100) combining:
       - Overlap of growth distributions
@@ -114,7 +117,7 @@ def alignment_score(intrinsic: ScenarioDistribution,
       - Distance between medians (growth)
       - Relative variance ratio
     """
-    overlap_g = distribution_overlap(intrinsic, market, 'growth')
+    overlap_g = distribution_overlap(intrinsic, market, "growth")
 
     std_int = np.sqrt(intrinsic.variance_growth())
     std_mkt = np.sqrt(market.variance_growth())
@@ -130,13 +133,19 @@ def alignment_score(intrinsic: ScenarioDistribution,
     else:
         var_ratio = min(var_int, var_mkt) / max(var_int, var_mkt)
 
-    raw = 0.5 * overlap_g + 0.2 * max(0, (1 - mean_dist)) + 0.15 * max(0, (1 - median_dist)) + 0.15 * var_ratio
+    raw = (
+        0.5 * overlap_g
+        + 0.2 * max(0, (1 - mean_dist))
+        + 0.15 * max(0, (1 - median_dist))
+        + 0.15 * var_ratio
+    )
     return max(0.0, min(100.0, raw * 100))
 
 
 # ---------------------------------------------------------------------------
 # 3. The Battlefield Engine
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ExpectationBattlefieldExplicit:
@@ -190,7 +199,7 @@ class ExpectationBattlefieldExplicit:
         return self.market_erp - self.intrinsic_erp
 
     @property
-    def disagreement_ranking(self) -> List[Tuple[str, float]]:
+    def disagreement_ranking(self) -> list[tuple[str, float]]:
         """Ranks the factors by the absolute magnitude of their percentage gap."""
         gaps = [
             ("Growth", abs(self.growth_gap)),
@@ -203,7 +212,9 @@ class ExpectationBattlefieldExplicit:
         return sorted(gaps, key=lambda x: x[1], reverse=True)
 
     def summary(self) -> str:
-        def pct(x): return f"{x*100:+.1f}%"
+        def pct(x):
+            return f"{x * 100:+.1f}%"
+
         return (
             "====================\n"
             "EXPECTATIONS BATTLEFIELD\n"
@@ -243,8 +254,7 @@ class ExpectationsBattlefieldEngine:
     (reverse‑DCF‑implied) scenario distributions.
     """
 
-    def __init__(self, intrinsic: ScenarioDistribution,
-                 market: ScenarioDistribution):
+    def __init__(self, intrinsic: ScenarioDistribution, market: ScenarioDistribution):
         self.intrinsic = intrinsic
         self.market = market
 
@@ -259,30 +269,30 @@ class ExpectationsBattlefieldEngine:
 
         # Gaps
         gaps = {
-            'Growth': abs(mkt_g - int_g),
-            'Margin': abs(mkt_m - int_m),
-            'ROIC':    abs(mkt_r - int_r),
+            "Growth": abs(mkt_g - int_g),
+            "Margin": abs(mkt_m - int_m),
+            "ROIC": abs(mkt_r - int_r),
         }
         primary = max(gaps, key=gaps.get)
 
         # Overlap and alignment
-        growth_overlap = distribution_overlap(self.intrinsic, self.market, 'growth')
+        growth_overlap = distribution_overlap(self.intrinsic, self.market, "growth")
         alignment = alignment_score(self.intrinsic, self.market)
 
         std_int_g = np.sqrt(self.intrinsic.variance_growth())
         std_mkt_g = np.sqrt(self.market.variance_growth())
         scale_g = (std_int_g + std_mkt_g) / 2 + 1e-6
-        norm_gap_g = gaps['Growth'] / scale_g
+        norm_gap_g = gaps["Growth"] / scale_g
 
         std_int_m = np.sqrt(self.intrinsic.variance_margin())
         std_mkt_m = np.sqrt(self.market.variance_margin())
         scale_m = (std_int_m + std_mkt_m) / 2 + 1e-6
-        norm_gap_m = gaps['Margin'] / scale_m
+        norm_gap_m = gaps["Margin"] / scale_m
 
         std_int_r = np.sqrt(self.intrinsic.variance_roic())
         std_mkt_r = np.sqrt(self.market.variance_roic())
         scale_r = (std_int_r + std_mkt_r) / 2 + 1e-6
-        norm_gap_r = gaps['ROIC'] / scale_r
+        norm_gap_r = gaps["ROIC"] / scale_r
 
         avg_norm_gap = (norm_gap_g + norm_gap_m + norm_gap_r) / 3
         mismatch_score = min(100.0, max(0.0, avg_norm_gap * 50))
@@ -301,35 +311,45 @@ class ExpectationsBattlefieldEngine:
         )
 
 
-def build_distributions(profile, triangulation) -> Tuple[ScenarioDistribution, ScenarioDistribution]:
+def build_distributions(
+    profile, triangulation
+) -> tuple[ScenarioDistribution, ScenarioDistribution]:
     """Helper to generate intrinsic and market scenario distributions.
-    
+
     Args:
         profile: CompanyProfile
         triangulation: TriangulatedGrowth
-        
+
     Returns:
         (intrinsic_dist, market_dist)
     """
     mkt_g = profile.implied_growth
     mkt_m = profile.op_margin
     mkt_r = profile.roic
-    
-    market_dist = ScenarioDistribution([
-        Scenario(probability=0.20, growth=mkt_g - 0.05, margin=mkt_m - 0.02, roic=mkt_r - 0.02),
-        Scenario(probability=0.60, growth=mkt_g,        margin=mkt_m,        roic=mkt_r),
-        Scenario(probability=0.20, growth=mkt_g + 0.05, margin=mkt_m + 0.02, roic=mkt_r + 0.02),
-    ])
+
+    market_dist = ScenarioDistribution(
+        [
+            Scenario(probability=0.20, growth=mkt_g - 0.05, margin=mkt_m - 0.02, roic=mkt_r - 0.02),
+            Scenario(probability=0.60, growth=mkt_g, margin=mkt_m, roic=mkt_r),
+            Scenario(probability=0.20, growth=mkt_g + 0.05, margin=mkt_m + 0.02, roic=mkt_r + 0.02),
+        ]
+    )
 
     int_g = triangulation.blended_growth
     int_m = profile.op_margin
     int_r = profile.roic
     spread = profile.hist_volatility
 
-    intrinsic_dist = ScenarioDistribution([
-        Scenario(probability=0.20, growth=int_g - spread, margin=int_m - 0.02, roic=int_r - 0.02),
-        Scenario(probability=0.60, growth=int_g,          margin=int_m,        roic=int_r),
-        Scenario(probability=0.20, growth=int_g + spread, margin=int_m + 0.02, roic=int_r + 0.02),
-    ])
+    intrinsic_dist = ScenarioDistribution(
+        [
+            Scenario(
+                probability=0.20, growth=int_g - spread, margin=int_m - 0.02, roic=int_r - 0.02
+            ),
+            Scenario(probability=0.60, growth=int_g, margin=int_m, roic=int_r),
+            Scenario(
+                probability=0.20, growth=int_g + spread, margin=int_m + 0.02, roic=int_r + 0.02
+            ),
+        ]
+    )
 
     return intrinsic_dist, market_dist

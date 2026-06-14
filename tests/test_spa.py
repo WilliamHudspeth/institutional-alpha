@@ -21,16 +21,16 @@ def test_spa_rejects_null_for_genuine_outperformance():
     # 200 periods, 5 strategies
     np.random.seed(42)
     strat_returns = np.random.normal(0, 0.01, size=(200, 5))
-    
+
     # Inject a consistently strong signal into strategy 0
     strat_returns[:, 0] += 0.005  # 0.5% alpha per period
-    
+
     bench = np.zeros(200)
 
     res = superior_predictive_ability(
         strat_returns, benchmark_returns=bench, block_prob=0.1, n_boot=1000, seed=42
     )
-    
+
     assert res["best_model_idx"] == 0
     assert res["observed_max_stat"] > 0
     assert res["reject"] is True
@@ -48,7 +48,7 @@ def test_spa_fails_to_reject_for_noise_strategies():
     res = superior_predictive_ability(
         strat_returns, benchmark_returns=bench, block_prob=0.1, n_boot=1000, seed=42
     )
-    
+
     # Even if one strategy happens to be positive, p-value should be high
     assert res["reject"] is False
     assert res["spa_pvalue"] > 0.05
@@ -58,11 +58,11 @@ def test_spa_worse_than_benchmark():
     # All strategies lose money
     np.random.seed(42)
     strat_returns = np.random.normal(-0.01, 0.01, size=(50, 3))
-    
+
     res = superior_predictive_ability(
         strat_returns, benchmark_returns=None, block_prob=0.1, n_boot=100, seed=42
     )
-    
+
     assert res["spa_pvalue"] == 1.0
     assert res["reject"] is False
     assert res["observed_max_stat"] < 0

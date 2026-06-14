@@ -9,6 +9,7 @@ from __future__ import annotations
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
@@ -268,18 +269,39 @@ def print_backtest_summary(results_df: pd.DataFrame) -> dict:
             )
 
     # Print Research Validation block
-    from iam.engine.composite import DEFAULT_WEIGHTS
     from iam.backtest.multiple_testing import compute_validation_metrics
+    from iam.engine.composite import DEFAULT_WEIGHTS
+
     factor_names = list(DEFAULT_WEIGHTS.keys())
     val = compute_validation_metrics(results_df, factor_names)
 
     print("\nResearch Validation")
     print("-------------------")
-    print(f"PSR:                      {val.psr:.4f}" if not np.isnan(val.psr) else "PSR:                      N/A")
-    print(f"DSR:                      {val.dsr:.4f}" if not np.isnan(val.dsr) else "DSR:                      N/A")
-    print(f"PBO:                      {val.pbo:.4f}" if not np.isnan(val.pbo) else "PBO:                      N/A")
-    print(f"SPA p-value:              {val.spa_pvalue:.4f}" if not np.isnan(val.spa_pvalue) else "SPA p-value:              N/A")
-    print(f"Effective Tests:          {val.effective_tests:.2f}" if not np.isnan(val.effective_tests) else "Effective Tests:          N/A")
+    print(
+        f"PSR:                      {val.psr:.4f}"
+        if not np.isnan(val.psr)
+        else "PSR:                      N/A"
+    )
+    print(
+        f"DSR:                      {val.dsr:.4f}"
+        if not np.isnan(val.dsr)
+        else "DSR:                      N/A"
+    )
+    print(
+        f"PBO:                      {val.pbo:.4f}"
+        if not np.isnan(val.pbo)
+        else "PBO:                      N/A"
+    )
+    print(
+        f"SPA p-value:              {val.spa_pvalue:.4f}"
+        if not np.isnan(val.spa_pvalue)
+        else "SPA p-value:              N/A"
+    )
+    print(
+        f"Effective Tests:          {val.effective_tests:.2f}"
+        if not np.isnan(val.effective_tests)
+        else "Effective Tests:          N/A"
+    )
     print(f"FWER Significant Factors: {val.fwer_significant_factors}")
     print(f"FDR Significant Factors:  {val.fdr_significant_factors}")
 

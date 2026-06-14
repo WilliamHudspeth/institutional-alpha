@@ -23,7 +23,12 @@ securities = {
     "MSFT": {"name": "Microsoft", "price": 450, "verdict": "BUY", "conviction": "HIGH"},
     "AAPL": {"name": "Apple", "price": 175, "verdict": "BUY", "conviction": "HIGH"},
     "JPM": {"name": "JPMorgan", "price": 190, "verdict": "HOLD", "conviction": "MODERATE"},
-    "BRK.B": {"name": "Berkshire Hathaway", "price": 385, "verdict": "HOLD", "conviction": "MODERATE"},
+    "BRK.B": {
+        "name": "Berkshire Hathaway",
+        "price": 385,
+        "verdict": "HOLD",
+        "conviction": "MODERATE",
+    },
     "GE": {"name": "General Electric", "price": 105, "verdict": "SELL", "conviction": "MODERATE"},
 }
 
@@ -84,7 +89,9 @@ def main() -> None:
     print("-" * 50)
     for position in portfolio.sorted_by_weight:
         verdict = securities[position.ticker]["verdict"]
-        print(f"{position.ticker:<10} {verdict:<12} {position.weight:>8.1%}  ${position.current_price:>8.2f}")
+        print(
+            f"{position.ticker:<10} {verdict:<12} {position.weight:>8.1%}  ${position.current_price:>8.2f}"
+        )
     print("")
 
     # 2. Portfolio analytics
@@ -101,7 +108,9 @@ def main() -> None:
     print("")
 
     print("Factor Crowding (% of positions exposed):")
-    for factor, crowding in sorted(exposures.factor_crowding.items(), key=lambda x: x[1], reverse=True):
+    for factor, crowding in sorted(
+        exposures.factor_crowding.items(), key=lambda x: x[1], reverse=True
+    ):
         pct = crowding * 100
         level = "HIGH" if pct > 75 else "MODERATE" if pct > 50 else "LOW"
         print(f"  {factor:<15} {pct:>5.0f}%  [{level}]")

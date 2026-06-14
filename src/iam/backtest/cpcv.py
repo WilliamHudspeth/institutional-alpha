@@ -78,8 +78,6 @@ def get_cpcv_splits(
         train_mask = ~test_mask
         train_indices_initial = indices[train_mask]
 
-        valid_train_indices = []
-
         # Iterate over continuous blocks of test dates
         # Since groups are contiguous, a test group is a contiguous block
         for g in test_idx_tuple:

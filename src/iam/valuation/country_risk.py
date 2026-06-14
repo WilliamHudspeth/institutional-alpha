@@ -121,13 +121,19 @@ class BlendedERP:
     erp: float
     mature_erp: float
     rel_vol: float
-    components: list[tuple[str, float, float]] = field(default_factory=list)  # (iso, weight, erp_country)
+    components: list[tuple[str, float, float]] = field(
+        default_factory=list
+    )  # (iso, weight, erp_country)
     notes: list[str] = field(default_factory=list)
 
     def explain(self) -> str:
-        lines = [f"Blended ERP = {self.erp:.4f}  (mature {self.mature_erp:.4f}, rel_vol {self.rel_vol:.2f})"]
+        lines = [
+            f"Blended ERP = {self.erp:.4f}  (mature {self.mature_erp:.4f}, rel_vol {self.rel_vol:.2f})"
+        ]
         for iso, w, e in self.components:
-            lines.append(f"  {iso.upper():>4}  w={w:5.1%}  ERP={e:.4f}  (CRP {e - self.mature_erp:+.4f})")
+            lines.append(
+                f"  {iso.upper():>4}  w={w:5.1%}  ERP={e:.4f}  (CRP {e - self.mature_erp:+.4f})"
+            )
         return "\n".join(lines)
 
 
@@ -200,8 +206,11 @@ def blended_erp(
     if not revenue_mix:
         notes.append("Empty revenue_mix; defaulting to 100% mature market.")
         return BlendedERP(
-            erp=mature_erp, mature_erp=mature_erp, rel_vol=rel_vol,
-            components=[("us", 1.0, mature_erp)], notes=notes,
+            erp=mature_erp,
+            mature_erp=mature_erp,
+            rel_vol=rel_vol,
+            components=[("us", 1.0, mature_erp)],
+            notes=notes,
         )
 
     # Aggregate by resolved ISO (multiple aliases may map to the same country).
@@ -218,26 +227,35 @@ def blended_erp(
     if total_w <= 0:
         notes.append("All weights zero after resolution; defaulting to mature market.")
         return BlendedERP(
-            erp=mature_erp, mature_erp=mature_erp, rel_vol=rel_vol,
-            components=[("us", 1.0, mature_erp)], notes=notes,
+            erp=mature_erp,
+            mature_erp=mature_erp,
+            rel_vol=rel_vol,
+            components=[("us", 1.0, mature_erp)],
+            notes=notes,
         )
 
     erp = 0.0
     components: list[tuple[str, float, float]] = []
     for iso in agg:
-        raw_w = (lambdas.get(iso, 0.0) if lambdas else agg[iso])
+        raw_w = lambdas.get(iso, 0.0) if lambdas else agg[iso]
         w = raw_w / total_w
         if w <= 0:
             continue
         cr = country_risk(
-            iso, mature_erp=mature_erp, rel_vol=rel_vol,
-            rating_spreads=rating_spreads, sovereign_rating=sovereign_rating,
+            iso,
+            mature_erp=mature_erp,
+            rel_vol=rel_vol,
+            rating_spreads=rating_spreads,
+            sovereign_rating=sovereign_rating,
         )
         erp += w * cr.erp
         components.append((iso, w, cr.erp))
 
     components.sort(key=lambda c: c[1], reverse=True)
     return BlendedERP(
-        erp=erp, mature_erp=mature_erp, rel_vol=rel_vol,
-        components=components, notes=notes,
+        erp=erp,
+        mature_erp=mature_erp,
+        rel_vol=rel_vol,
+        components=components,
+        notes=notes,
     )

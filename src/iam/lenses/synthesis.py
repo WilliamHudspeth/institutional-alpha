@@ -56,9 +56,7 @@ class SynthesisResult:
     narratives: list[str]
 
 
-def _effective_confidence(
-    lens: LensResult, reliabilities: dict[str, float] | None
-) -> float:
+def _effective_confidence(lens: LensResult, reliabilities: dict[str, float] | None) -> float:
     """Lens confidence, optionally scaled by its calibrated reliability.
 
     ``reliabilities=None`` returns raw confidence (legacy behaviour).

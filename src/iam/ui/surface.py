@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import List
-from .scene import Plane, Marker, Annotation
+
+from .scene import Annotation, Marker, Plane
+
 
 class SurfaceModel(ABC):
     title: str = "Untitled"
@@ -15,15 +16,15 @@ class SurfaceModel(ABC):
     z_max: float = 1.0
 
     @abstractmethod
-    def generate_z_grid(self) -> List[List[float]]:
+    def generate_z_grid(self) -> list[list[float]]:
         """Returns a 2D grid of Z values. First index = y (row), second = x (col)."""
         ...
 
-    def get_planes(self) -> List[Plane]:
+    def get_planes(self) -> list[Plane]:
         return []
 
-    def get_markers(self) -> List[Marker]:
+    def get_markers(self) -> list[Marker]:
         return []
 
-    def get_annotations(self) -> List[Annotation]:
+    def get_annotations(self) -> list[Annotation]:
         return []

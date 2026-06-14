@@ -1,5 +1,6 @@
 import shutil
 
+
 def render_sotp_tower(segments_ev: list[dict]) -> str:
     """
     segments_ev: list of {'name': str, 'ev': float}
@@ -8,8 +9,8 @@ def render_sotp_tower(segments_ev: list[dict]) -> str:
     # Fallback to 80 if terminal width detection fails
     width = shutil.get_terminal_size((80, 24)).columns
     terminal_width = width - 2
-    max_height = 20   # rows for the tower
-    total_ev = sum(item['ev'] for item in segments_ev)
+    max_height = 20  # rows for the tower
+    total_ev = sum(item["ev"] for item in segments_ev)
 
     if total_ev == 0:
         return "No valuation data."
@@ -17,7 +18,7 @@ def render_sotp_tower(segments_ev: list[dict]) -> str:
     # Calculate heights (rows) proportional to EV
     heights = []
     for item in segments_ev:
-        h = max(1, round((item['ev'] / total_ev) * max_height))
+        h = max(1, round((item["ev"] / total_ev) * max_height))
         heights.append(h)
 
     # Normalize total height to max_height
@@ -33,8 +34,8 @@ def render_sotp_tower(segments_ev: list[dict]) -> str:
 
     lines = []
     for idx, item in enumerate(segments_ev):
-        name = item['name'][:10]   # truncate
-        block = '█' * (terminal_width - 25)
+        name = item["name"][:10]  # truncate
+        block = "█" * (terminal_width - 25)
         for _ in range(heights[idx]):
             ev_label = f"${item['ev']:,.0f}"
             line = f"{name:10s} {ev_label:>12s} {block}"
@@ -42,4 +43,4 @@ def render_sotp_tower(segments_ev: list[dict]) -> str:
 
     # Print from top to bottom (reverse order to stack bottom-up)
     lines.reverse()
-    return '\n'.join(lines)
+    return "\n".join(lines)

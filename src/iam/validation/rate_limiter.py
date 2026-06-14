@@ -1,11 +1,13 @@
 import time
 from collections import deque
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, Any
+from typing import Any
+
 
 class RateLimiter:
     """Sliding-window rate limiter utility.
-    
+
     Tracks timestamps of calls and blocks (or sleeps/raises) if limit exceeded.
     """
 
@@ -25,7 +27,7 @@ class RateLimiter:
         # Remove timestamps older than the sliding window
         while self.calls and self.calls[0] <= now - self.period_seconds:
             self.calls.popleft()
-        
+
         if len(self.calls) < self.max_calls:
             self.calls.append(now)
             return True
@@ -33,11 +35,12 @@ class RateLimiter:
 
     def limit(self, block: bool = False) -> Callable:
         """Decorator to rate-limit a function.
-        
+
         Args:
             block: If True, blocks/sleeps until rate limit reset.
                    If False, raises RuntimeError.
         """
+
         def decorator(func: Callable) -> Callable:
             @wraps(func)
             def wrapper(*args, **kwargs) -> Any:
@@ -53,5 +56,7 @@ class RateLimiter:
                             f"per {self.period_seconds}s window."
                         )
                 return func(*args, **kwargs)
+
             return wrapper
+
         return decorator

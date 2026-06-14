@@ -1,9 +1,9 @@
 import math
-from typing import List
-from .scene import Scene, Marker, Plane, Annotation
-from .surface import SurfaceModel
 
-LAYER_CHARS = ['-', '+', '=', ':', '.']  # chars to distinguish layers
+from .scene import Scene
+
+LAYER_CHARS = ["-", "+", "=", ":", "."]  # chars to distinguish layers
+
 
 def _rotate(x: float, y: float, z: float, camera) -> tuple:
     """Apply yaw (Z rotation) and pitch (X rotation) to a 3D point."""
@@ -20,18 +20,31 @@ def _rotate(x: float, y: float, z: float, camera) -> tuple:
 
     return x1, y2, z2
 
+
 def _project(point_3d, width, height, zoom):
     """Simple orthographic projection to screen coordinates."""
     x, y, z = point_3d
     # terminal characters are about 2x as tall as they are wide, stretch X
-    x *= (zoom * 2.0)
+    x *= zoom * 2.0
     y *= zoom
     screen_x = int(width / 2 + x)
     screen_y = int(height / 2 - y)  # flip Y for terminal
     return screen_x, screen_y, z
 
-def _draw_line(buffer: List[List[str]], z_buffer: List[List[float]], width: int, height: int, 
-               x0: int, y0: int, z0: float, x1: int, y1: int, z1: float, char: str):
+
+def _draw_line(
+    buffer: list[list[str]],
+    z_buffer: list[list[float]],
+    width: int,
+    height: int,
+    x0: int,
+    y0: int,
+    z0: float,
+    x1: int,
+    y1: int,
+    z1: float,
+    char: str,
+):
     """Bresenham line drawing on the buffer with Z-buffer interpolation."""
     dx = abs(x1 - x0)
     dy = abs(y1 - y0)
@@ -68,9 +81,10 @@ def _draw_line(buffer: List[List[str]], z_buffer: List[List[float]], width: int,
             err += dx
             y += sy
 
+
 def render_scene(scene: Scene, width: int = 80, height: int = 30) -> str:
-    buffer = [[' ' for _ in range(width)] for _ in range(height)]
-    z_buffer = [[-float('inf') for _ in range(width)] for _ in range(height)]
+    buffer = [[" " for _ in range(width)] for _ in range(height)]
+    z_buffer = [[-float("inf") for _ in range(width)] for _ in range(height)]
     cam = scene.camera
 
     # 1. Draw planes
@@ -86,7 +100,7 @@ def render_scene(scene: Scene, width: int = 80, height: int = 30) -> str:
         else:
             xmin, xmax = -1.0, 1.0
             ymin, ymax = -1.0, 1.0
-            
+
         p_char = plane.symbol
         # Draw a grid for the plane
         grid_size = 10
@@ -94,22 +108,27 @@ def render_scene(scene: Scene, width: int = 80, height: int = 30) -> str:
             y_curr = ymin + (ymax - ymin) * i / (grid_size - 1)
             p0 = _project(_rotate(xmin, y_curr, plane.z, cam), width, height, cam.zoom)
             p1 = _project(_rotate(xmax, y_curr, plane.z, cam), width, height, cam.zoom)
-            _draw_line(buffer, z_buffer, width, height, p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], p_char)
-            
+            _draw_line(
+                buffer, z_buffer, width, height, p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], p_char
+            )
+
             x_curr = xmin + (xmax - xmin) * i / (grid_size - 1)
             p0 = _project(_rotate(x_curr, ymin, plane.z, cam), width, height, cam.zoom)
             p1 = _project(_rotate(x_curr, ymax, plane.z, cam), width, height, cam.zoom)
-            _draw_line(buffer, z_buffer, width, height, p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], p_char)
+            _draw_line(
+                buffer, z_buffer, width, height, p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], p_char
+            )
 
     # 2. Draw surfaces
     for idx, surface in enumerate(scene.surfaces):
         z_grid = surface.generate_z_grid()
         y_count = len(z_grid)
-        if y_count == 0: continue
+        if y_count == 0:
+            continue
         x_count = len(z_grid[0])
 
         char_x = LAYER_CHARS[idx % len(LAYER_CHARS)]
-        char_y = '|' if idx == 0 else char_x
+        char_y = "|" if idx == 0 else char_x
 
         for yi in range(y_count):
             for xi in range(x_count):
@@ -117,26 +136,50 @@ def render_scene(scene: Scene, width: int = 80, height: int = 30) -> str:
                 fy0 = surface.y_min + (surface.y_max - surface.y_min) * yi / (y_count - 1)
                 fz0 = z_grid[yi][xi]
                 p0 = _project(_rotate(fx0, fy0, fz0, cam), width, height, cam.zoom)
-                
+
                 # Draw to right neighbor
                 if xi < x_count - 1:
-                    fx1 = surface.x_min + (surface.x_max - surface.x_min) * (xi+1) / (x_count - 1)
-                    fz1 = z_grid[yi][xi+1]
+                    fx1 = surface.x_min + (surface.x_max - surface.x_min) * (xi + 1) / (x_count - 1)
+                    fz1 = z_grid[yi][xi + 1]
                     p1 = _project(_rotate(fx1, fy0, fz1, cam), width, height, cam.zoom)
-                    _draw_line(buffer, z_buffer, width, height, p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], char_x)
-                
+                    _draw_line(
+                        buffer,
+                        z_buffer,
+                        width,
+                        height,
+                        p0[0],
+                        p0[1],
+                        p0[2],
+                        p1[0],
+                        p1[1],
+                        p1[2],
+                        char_x,
+                    )
+
                 # Draw to bottom neighbor
                 if yi < y_count - 1:
-                    fy1 = surface.y_min + (surface.y_max - surface.y_min) * (yi+1) / (y_count - 1)
-                    fz1 = z_grid[yi+1][xi]
+                    fy1 = surface.y_min + (surface.y_max - surface.y_min) * (yi + 1) / (y_count - 1)
+                    fz1 = z_grid[yi + 1][xi]
                     p1 = _project(_rotate(fx0, fy1, fz1, cam), width, height, cam.zoom)
-                    _draw_line(buffer, z_buffer, width, height, p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], char_y)
-                
+                    _draw_line(
+                        buffer,
+                        z_buffer,
+                        width,
+                        height,
+                        p0[0],
+                        p0[1],
+                        p0[2],
+                        p1[0],
+                        p1[1],
+                        p1[2],
+                        char_y,
+                    )
+
                 # Draw point marker
                 if 0 <= p0[0] < width and 0 <= p0[1] < height and p0[2] >= z_buffer[p0[1]][p0[0]]:
                     # slightly pop points to ensure visibility of intersections
-                    z_buffer[p0[1]][p0[0]] = p0[2] + 0.001 
-                    buffer[p0[1]][p0[0]] = '+' if idx == 0 else '*'
+                    z_buffer[p0[1]][p0[0]] = p0[2] + 0.001
+                    buffer[p0[1]][p0[0]] = "+" if idx == 0 else "*"
 
     # 3. Draw markers
     for marker in scene.markers:
@@ -146,11 +189,11 @@ def render_scene(scene: Scene, width: int = 80, height: int = 30) -> str:
             if sz + 1.0 > z_buffer[sy][sx]:
                 buffer[sy][sx] = marker.symbol
                 if marker.label:
-                    label_len = len(marker.label)
+                    len(marker.label)
                     for i, c in enumerate(marker.label):
                         lx = sx + 2 + i
                         if 0 <= lx < width:
                             buffer[sy][lx] = c
                             z_buffer[sy][lx] = sz + 1.0
 
-    return '\n'.join(''.join(row) for row in buffer)
+    return "\n".join("".join(row) for row in buffer)

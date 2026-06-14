@@ -5,7 +5,6 @@ from __future__ import annotations
 import math
 
 import numpy as np
-import pytest
 
 from iam.backtest.multiple_testing import (
     correct_factor_tests,
@@ -27,8 +26,8 @@ def test_psr_is_half_at_zero_sharpe():
 
 def test_psr_monotonic_in_sharpe_and_n():
     base = probabilistic_sharpe_ratio(0.3, 60)
-    assert probabilistic_sharpe_ratio(0.5, 60) > base       # higher SR -> higher PSR
-    assert probabilistic_sharpe_ratio(0.3, 240) > base      # more data -> higher PSR
+    assert probabilistic_sharpe_ratio(0.5, 60) > base  # higher SR -> higher PSR
+    assert probabilistic_sharpe_ratio(0.3, 240) > base  # more data -> higher PSR
 
 
 def test_psr_penalises_fat_tails():
@@ -115,9 +114,9 @@ def test_holm_drops_a_factor_that_passes_naively():
     t_stats["lucky_factor"] = 2.1
     report = correct_factor_tests(t_stats, fwer_alpha=0.05)
     lucky = next(v for v in report.verdicts if v.name == "lucky_factor")
-    assert lucky.raw_p < 0.05            # passes naive single-test gate
-    assert not lucky.survives_holm       # fails family-wise correction
-    assert report.notes                  # report explains the drop
+    assert lucky.raw_p < 0.05  # passes naive single-test gate
+    assert not lucky.survives_holm  # fails family-wise correction
+    assert report.notes  # report explains the drop
 
 
 def test_genuinely_strong_factor_survives():
@@ -147,8 +146,9 @@ def test_empty_input_is_safe():
 
 def test_compute_validation_metrics():
     import pandas as pd
+
     from iam.backtest.multiple_testing import compute_validation_metrics
-    
+
     # Create mock DataFrame of ICs across dates
     dates = pd.date_range("2020-01-31", periods=15, freq="ME")
     # Simulate a strong factor "quality" and a noisy "momentum"
@@ -161,10 +161,10 @@ def test_compute_validation_metrics():
         "ic_momentum": np.random.normal(-0.01, 0.05, 15),
     }
     df = pd.DataFrame(data, index=dates)
-    
+
     factor_names = ["quality", "relative_value", "intrinsic_value", "momentum"]
     metrics = compute_validation_metrics(df, factor_names)
-    
+
     # Assert validation dataclass has valid numeric/bool fields
     assert not np.isnan(metrics.psr)
     assert not np.isnan(metrics.dsr)
@@ -173,4 +173,3 @@ def test_compute_validation_metrics():
     assert metrics.effective_tests > 0
     assert isinstance(metrics.fwer_significant_factors, int)
     assert isinstance(metrics.fdr_significant_factors, int)
-

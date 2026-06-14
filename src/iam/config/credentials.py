@@ -28,6 +28,7 @@ import stat
 from dataclasses import dataclass
 from pathlib import Path
 
+
 def _config_dir() -> Path:
     """Resolve the config dir live each call so IAM_CONFIG_DIR is always honored."""
     return Path(os.environ.get("IAM_CONFIG_DIR", Path.home() / ".institutional-alpha"))
@@ -49,13 +50,13 @@ def __getattr__(name: str):
 
 @dataclass(frozen=True)
 class Provider:
-    key: str            # internal id / credentials-file key
-    label: str          # human name
-    env_var: str        # environment variable checked second
-    needs_key: bool     # False => keyless (SEC just needs a contact UA)
+    key: str  # internal id / credentials-file key
+    label: str  # human name
+    env_var: str  # environment variable checked second
+    needs_key: bool  # False => keyless (SEC just needs a contact UA)
     signup_url: str
-    free_tier: str      # short description of the free allowance
-    instructions: str   # how to get the key, in plain steps
+    free_tier: str  # short description of the free allowance
+    instructions: str  # how to get the key, in plain steps
 
 
 # The full free-data registry. Order = the order shown in the setup wizard.

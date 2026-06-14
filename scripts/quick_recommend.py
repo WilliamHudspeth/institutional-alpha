@@ -10,18 +10,17 @@ Usage:
 
 from __future__ import annotations
 
-import re
 import sys
 
 from iam.data.providers.yfinance_adapter import fetch_security
 from src.iam.valuation.adaptive import AdaptiveValuationEngine
-from src.iam.valuation.profile_builder import (
-    build_company_profile,
-    triangulate_growth_for_security,
-)
 from src.iam.valuation.expectations_battlefield import (
     ExpectationsBattlefieldEngine,
     build_distributions,
+)
+from src.iam.valuation.profile_builder import (
+    build_company_profile,
+    triangulate_growth_for_security,
 )
 
 
@@ -37,6 +36,7 @@ def print_banner() -> None:
 def validate_ticker(ticker: str) -> bool:
     """Validate ticker format."""
     from src.iam.validation import validate_ticker as strict_validate
+
     try:
         strict_validate(ticker)
         return True
@@ -265,9 +265,12 @@ def show_recommendation(ticker: str, force_details: bool = False) -> None:
 def main() -> None:
     """Main entry point."""
     import argparse
+
     parser = argparse.ArgumentParser(description="Quick Recommendation Tool")
     parser.add_argument("ticker", nargs="?", help="Ticker symbol")
-    parser.add_argument("--details", action="store_true", help="Show detailed metrics automatically")
+    parser.add_argument(
+        "--details", action="store_true", help="Show detailed metrics automatically"
+    )
     args = parser.parse_args()
 
     print_banner()

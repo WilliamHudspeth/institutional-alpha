@@ -30,6 +30,7 @@ from iam.config.logging_config import (
     configure_logging,
     get_logger,
 )
+from iam.config.secrets import SecretsManager
 from iam.config.settings import (
     AsyncConfig,
     DataSourceConfig,
@@ -42,7 +43,6 @@ from iam.config.settings import (
     get_settings,
     set_settings,
 )
-from iam.config.secrets import SecretsManager
 
 __all__ = [
     # Settings classes

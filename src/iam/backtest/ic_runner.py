@@ -26,6 +26,12 @@ from iam.backtest.metrics import (
     information_coefficient,
     newey_west_se_rigorous,
 )
+from iam.backtest.multiple_testing import (
+    ValidationMetrics,
+    compute_validation_metrics,
+    correct_factor_tests,
+    effective_num_tests,
+)
 from iam.backtest.quantiles import decile_spread
 from iam.backtest.snapshots import build_snapshot
 from iam.data.security import Security
@@ -86,11 +92,9 @@ def _score_worker(
         return base.ticker, float("nan"), {}, float("nan"), base.sector or ""
 
 
-from iam.backtest.multiple_testing import ValidationMetrics, compute_validation_metrics
-
-
 class BacktestResult(dict):
     """Subclass of dict holding multi-horizon backtest DataFrames and validation metrics."""
+
     def __init__(self, horizons_dict: dict[int, pd.DataFrame], validation: ValidationMetrics):
         super().__init__(horizons_dict)
         self.validation = validation
@@ -345,8 +349,6 @@ class ICBacktest:
         df1 = self.results[1]
         rows = []
 
-        from iam.backtest.multiple_testing import correct_factor_tests, effective_num_tests
-
         # Calculate robust Spearman correlation for effective tests (M_eff)
         factor_cols = [f"ic_{f}" for f in self.factor_names if f"ic_{f}" in df1.columns]
         if len(factor_cols) > 1:
@@ -355,12 +357,12 @@ class ICBacktest:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 corr_df = ic_df.fillna(0).corr(method="spearman").clip(-0.999, 0.999)
-            
+
             # Fill NaNs from zero-variance columns with 0, but enforce 1.0 on the diagonal
             corr_df = corr_df.fillna(0.0)
             corr_matrix = corr_df.values.copy()
             np.fill_diagonal(corr_matrix, 1.0)
-            
+
             m_eff = effective_num_tests(corr_matrix)
         else:
             m_eff = 1.0
@@ -433,11 +435,31 @@ class ICBacktest:
             if val:
                 f.write("Research Validation\n")
                 f.write("-------------------\n")
-                f.write(f"  PSR:                      {val.psr:.4f}\n" if not np.isnan(val.psr) else "  PSR:                      N/A\n")
-                f.write(f"  DSR:                      {val.dsr:.4f}\n" if not np.isnan(val.dsr) else "  DSR:                      N/A\n")
-                f.write(f"  PBO:                      {val.pbo:.4f}\n" if not np.isnan(val.pbo) else "  PBO:                      N/A\n")
-                f.write(f"  SPA p-value:              {val.spa_pvalue:.4f}\n" if not np.isnan(val.spa_pvalue) else "  SPA p-value:              N/A\n")
-                f.write(f"  Effective Tests:          {val.effective_tests:.2f}\n" if not np.isnan(val.effective_tests) else "  Effective Tests:          N/A\n")
+                f.write(
+                    f"  PSR:                      {val.psr:.4f}\n"
+                    if not np.isnan(val.psr)
+                    else "  PSR:                      N/A\n"
+                )
+                f.write(
+                    f"  DSR:                      {val.dsr:.4f}\n"
+                    if not np.isnan(val.dsr)
+                    else "  DSR:                      N/A\n"
+                )
+                f.write(
+                    f"  PBO:                      {val.pbo:.4f}\n"
+                    if not np.isnan(val.pbo)
+                    else "  PBO:                      N/A\n"
+                )
+                f.write(
+                    f"  SPA p-value:              {val.spa_pvalue:.4f}\n"
+                    if not np.isnan(val.spa_pvalue)
+                    else "  SPA p-value:              N/A\n"
+                )
+                f.write(
+                    f"  Effective Tests:          {val.effective_tests:.2f}\n"
+                    if not np.isnan(val.effective_tests)
+                    else "  Effective Tests:          N/A\n"
+                )
                 f.write(f"  FWER Significant Factors: {val.fwer_significant_factors}\n")
                 f.write(f"  FDR Significant Factors:  {val.fdr_significant_factors}\n\n")
 

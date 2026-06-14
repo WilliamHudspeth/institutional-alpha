@@ -6,10 +6,10 @@ from iam.validation import (
     parse_growth_rate,
     parse_percentage_input,
     sanity_check_valuation,
+    validate_date,
     validate_discount_rate,
     validate_growth_rate,
     validate_ticker,
-    validate_date,
 )
 
 
@@ -66,14 +66,17 @@ class TestGrowthRateParser:
 class TestGrowthValidation:
     """Test growth rate validation using parametrized tests."""
 
-    @pytest.mark.parametrize("growth, growth_type, expect_pass", [
-        (0.08, "forecast", True),
-        (0.39, "forecast", True),
-        (0.41, "forecast", False),
-        (0.03, "terminal", True),
-        (0.049, "terminal", True),
-        (0.051, "terminal", False),
-    ])
+    @pytest.mark.parametrize(
+        "growth, growth_type, expect_pass",
+        [
+            (0.08, "forecast", True),
+            (0.39, "forecast", True),
+            (0.41, "forecast", False),
+            (0.03, "terminal", True),
+            (0.049, "terminal", True),
+            (0.051, "terminal", False),
+        ],
+    )
     def test_growth_validation_scenarios(self, growth, growth_type, expect_pass):
         if expect_pass:
             validate_growth_rate(growth, growth_type=growth_type)
@@ -81,11 +84,14 @@ class TestGrowthValidation:
             with pytest.raises(ValueError):
                 validate_growth_rate(growth, growth_type=growth_type)
 
-    @pytest.mark.parametrize("growth, allow_neg, expect_pass", [
-        (-0.05, True, True),
-        (-0.05, False, False),
-        (0.05, False, True),
-    ])
+    @pytest.mark.parametrize(
+        "growth, allow_neg, expect_pass",
+        [
+            (-0.05, True, True),
+            (-0.05, False, False),
+            (0.05, False, True),
+        ],
+    )
     def test_negative_growth_scenarios(self, growth, allow_neg, expect_pass):
         if expect_pass:
             validate_growth_rate(growth, allow_negative=allow_neg)
@@ -97,13 +103,16 @@ class TestGrowthValidation:
 class TestWACCValidation:
     """Test WACC (discount rate) validation using parametrized tests."""
 
-    @pytest.mark.parametrize("wacc, expect_pass", [
-        (0.09, True),
-        (0.04, True),
-        (0.25, True),
-        (0.039, False),
-        (0.251, False),
-    ])
+    @pytest.mark.parametrize(
+        "wacc, expect_pass",
+        [
+            (0.09, True),
+            (0.04, True),
+            (0.25, True),
+            (0.039, False),
+            (0.251, False),
+        ],
+    )
     def test_wacc_validation_scenarios(self, wacc, expect_pass):
         if expect_pass:
             validate_discount_rate(wacc)
@@ -213,4 +222,3 @@ class TestTickerAndDateValidation:
     def test_date_not_string(self):
         with pytest.raises(ValueError, match="Date must be a string"):
             validate_date(None)
-

@@ -145,9 +145,7 @@ def _build_ui_data(
         "wacc": f"{wacc_value * 100:.2f}%" if wacc_value else "—",
         "terminal": f"{terminal_value * 100:.1f}%" if terminal_value else "2.5%",
         "pwev": pwev,
-        "synthesis": (
-            f"{synthesis_upside * 100:+.1f}%" if synthesis_upside is not None else None
-        ),
+        "synthesis": (f"{synthesis_upside * 100:+.1f}%" if synthesis_upside is not None else None),
         "confidence": confidence_band,
         "scenarios": _build_scenarios(intrinsic_components),
         "wacc_info": wacc_info,
@@ -169,20 +167,26 @@ def main() -> None:
 
     from iam.ui.institutional_terminal import print_institutional_ui
 
-    parser = argparse.ArgumentParser(description="Interactive CLI for the multi-lens valuation engine.")
+    parser = argparse.ArgumentParser(
+        description="Interactive CLI for the multi-lens valuation engine."
+    )
     parser.add_argument("ticker", nargs="?", help="Ticker symbol (e.g., AAPL)")
     parser.add_argument("--growth", help="Forecast growth (e.g. 13 or 0.13 for 13%%)")
     parser.add_argument("--menu", "-m", action="store_true", help="Launch the interactive menu CLI")
-    parser.add_argument("--terminal", "-t", action="store_true", help="Launch the retro terminal TUI")
+    parser.add_argument(
+        "--terminal", "-t", action="store_true", help="Launch the retro terminal TUI"
+    )
     args = parser.parse_args()
 
     if args.menu:
         from iam.ui.menu import main as menu_main
+
         menu_main()
         return
 
     if args.terminal:
         from iam.ui.alpha_terminal import main as terminal_main
+
         terminal_main()
         return
 
@@ -201,6 +205,7 @@ def main() -> None:
         sys.exit(0)
 
     from iam.validation import validate_ticker
+
     try:
         validate_ticker(ticker)
     except ValueError as e:
@@ -233,6 +238,7 @@ def main() -> None:
         try:
             growth = parse_growth_rate(g_input, default=0.08)
             from iam.validation import validate_growth_rate
+
             validate_growth_rate(growth, growth_type="forecast")
             if security.qualitative is None:
                 security.qualitative = {}
@@ -260,6 +266,7 @@ def main() -> None:
     # ----- Visualization Lab: DCF Valuation Terrain -----
     try:
         from iam.ui.visualization_lab import render_dcf_surface
+
         print("\n" + render_dcf_surface(security, width=80, height=25))
     except Exception as e:
         print(f"\n[Visualization Lab unavailable: {e}]")
@@ -267,19 +274,31 @@ def main() -> None:
     # ----- Stage 4b & 4c: Battlefield and Drift reports -----
     if report.battlefield:
         print("\n" + "=" * 80)
-        print(f" VALUATION BATTLEFIELD (Stage 4b) | KEY DISAGREEMENT: {report.battlefield.primary_disagreement.upper()}")
+        print(
+            f" VALUATION BATTLEFIELD (Stage 4b) | KEY DISAGREEMENT: {report.battlefield.primary_disagreement.upper()}"
+        )
         print("-" * 80)
-        print(f"  • Growth  - Market: {report.battlefield.market_growth*100:+.1f}% | Intrinsic: {report.battlefield.intrinsic_growth*100:+.1f}% | Gap: {report.battlefield.growth_gap*100:+.1f}%")
-        print(f"  • Margin  - Market: {report.battlefield.market_margin*100:+.1f}% | Intrinsic: {report.battlefield.intrinsic_margin*100:+.1f}% | Gap: {report.battlefield.margin_gap*100:+.1f}%")
-        print(f"  • ROIC    - Market: {report.battlefield.market_roic*100:+.1f}% | Intrinsic: {report.battlefield.intrinsic_roic*100:+.1f}% | Gap: {report.battlefield.roic_gap*100:+.1f}%")
-        print(f"  • Overlap - Growth Overlap: {report.battlefield.growth_overlap:.2f} | Alignment Score: {report.battlefield.alignment_score:.0f}/100")
+        print(
+            f"  • Growth  - Market: {report.battlefield.market_growth * 100:+.1f}% | Intrinsic: {report.battlefield.intrinsic_growth * 100:+.1f}% | Gap: {report.battlefield.growth_gap * 100:+.1f}%"
+        )
+        print(
+            f"  • Margin  - Market: {report.battlefield.market_margin * 100:+.1f}% | Intrinsic: {report.battlefield.intrinsic_margin * 100:+.1f}% | Gap: {report.battlefield.margin_gap * 100:+.1f}%"
+        )
+        print(
+            f"  • ROIC    - Market: {report.battlefield.market_roic * 100:+.1f}% | Intrinsic: {report.battlefield.intrinsic_roic * 100:+.1f}% | Gap: {report.battlefield.roic_gap * 100:+.1f}%"
+        )
+        print(
+            f"  • Overlap - Growth Overlap: {report.battlefield.growth_overlap:.2f} | Alignment Score: {report.battlefield.alignment_score:.0f}/100"
+        )
         print(f"  • Mismatch Score: {report.battlefield.expectation_mismatch_score:.0f}/100")
         print(f"  • Interpretation: {report.battlefield._interpretation()}")
         print("=" * 80)
 
     if report.drift_report:
         print("\n" + "=" * 80)
-        print(f" THESIS DRIFT DETECTOR | STATUS: {'DRIFT BREACH' if report.drift_report.has_drift else 'PASS'}")
+        print(
+            f" THESIS DRIFT DETECTOR | STATUS: {'DRIFT BREACH' if report.drift_report.has_drift else 'PASS'}"
+        )
         print("-" * 80)
         if report.drift_report.has_drift:
             print(f"  • Breaches Detected ({len(report.drift_report.breaches)}):")
@@ -289,7 +308,9 @@ def main() -> None:
         else:
             print("  • All registered constraints satisfied.")
         if report.drift_report.skipped:
-            print(f"  • Skipped constraints (missing data): {', '.join(report.drift_report.skipped)}")
+            print(
+                f"  • Skipped constraints (missing data): {', '.join(report.drift_report.skipped)}"
+            )
         print("=" * 80)
 
     # ----- Business Reality reasoning (diagnostic, non-fatal) -----
@@ -302,9 +323,10 @@ def main() -> None:
     # ----- Visualization Lab Interactive Prompt -----
     try:
         from iam.ui.visualization_lab import run_visualization_lab
+
         print("\nPress [V] to enter Visualization Lab, or [Enter] to exit.")
         choice = input().strip().lower()
-        if choice == 'v':
+        if choice == "v":
             run_visualization_lab(security)
     except Exception as e:
         print(f"\n[Interactive Visualization Lab unavailable: {e}]")
@@ -312,4 +334,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

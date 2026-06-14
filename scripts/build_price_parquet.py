@@ -61,9 +61,7 @@ def build_prices(
     errors = []
     source_counts: dict[str, int] = {}
 
-    for ticker in typer.progressbar(
-        tickers, label="Downloading", show_pos=True, show_percent=True
-    ):
+    for ticker in typer.progressbar(tickers, label="Downloading", show_pos=True, show_percent=True):
         try:
             df = chain.download_history(ticker, start, end_with_horizon)
         except Exception as e:

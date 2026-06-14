@@ -28,12 +28,12 @@ from .metrics import (
     statistical_significance,
 )
 from .multiple_testing import (
-    correct_factor_tests,
-    effective_num_tests,
-    deflated_sharpe_ratio,
-    probabilistic_sharpe_ratio,
     ValidationMetrics,
     compute_validation_metrics,
+    correct_factor_tests,
+    deflated_sharpe_ratio,
+    effective_num_tests,
+    probabilistic_sharpe_ratio,
 )
 from .prices import load_price_block, load_price_block_for_date
 from .quantiles import decile_spread, quantile_spread_by_date, quantile_turnover, spread_after_costs
@@ -98,4 +98,11 @@ __all__ = [
     # Validation
     "ValidationMetrics",
     "compute_validation_metrics",
+    "correct_factor_tests",
+    "deflated_sharpe_ratio",
+    "effective_num_tests",
+    "probabilistic_sharpe_ratiocorrect_factor_tests",
+    "deflated_sharpe_ratio",
+    "effective_num_tests",
+    "probabilistic_sharpe_ratio",
 ]

@@ -34,8 +34,8 @@ TriangulationResult.verdict == "agree".
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
-from typing import Callable
 
 from iam.valuation.types import ImpliedExpectations, TriangulationResult, ValuationResult
 
@@ -162,11 +162,7 @@ def attribute_disagreement(
     """
     notes: list[str] = []
 
-    if (
-        agree_short_circuit
-        and triangulation is not None
-        and triangulation.verdict == "agree"
-    ):
+    if agree_short_circuit and triangulation is not None and triangulation.verdict == "agree":
         return BattlefieldAttribution(
             key_disagreement="NONE — lenses agree",
             key_parameter=None,
@@ -185,7 +181,9 @@ def attribute_disagreement(
         iv = getattr(intrinsic, name)
         mv = getattr(market, name)
         if iv is None or mv is None:
-            notes.append(f"Skipped '{name}': missing on {'intrinsic' if iv is None else 'market'} lens.")
+            notes.append(
+                f"Skipped '{name}': missing on {'intrinsic' if iv is None else 'market'} lens."
+            )
             continue
         swapped = replace(intrinsic, **{name: mv})
         v_swapped = value_fn(swapped)
@@ -265,9 +263,7 @@ def build_battlefield(
 
     market_vec = market_vector_from_implied(market_implied.implied)
     intrinsic_vec = intrinsic_vector_from_assumptions(intrinsic.assumptions)
-    return attribute_disagreement(
-        intrinsic_vec, market_vec, value_fn, triangulation=triangulation
-    )
+    return attribute_disagreement(intrinsic_vec, market_vec, value_fn, triangulation=triangulation)
 
 
 # --------------------------------------------------------------------------- #

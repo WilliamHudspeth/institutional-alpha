@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
 
 from iam.data.macro import MacroConditions
 from iam.data.security import Security
@@ -11,6 +11,7 @@ from iam.laws import DamodaranLawRegistry
 from iam.laws.types import LawReport
 from iam.pipeline.macro import MacroOverlay
 from iam.pipeline.verdict import VerdictGenerator, VerdictResult
+from iam.thesis.drift import DriftReport
 from iam.valuation import (
     FCFEDCF,
     SOTP,
@@ -20,11 +21,14 @@ from iam.valuation import (
     Triangulator,
     ValuationResult,
 )
-from iam.valuation.expectations_battlefield import ExpectationBattlefieldExplicit, ExpectationsBattlefieldEngine, ScenarioDistribution, Scenario
-from iam.thesis.drift import DriftReport
+from iam.valuation.expectations_battlefield import (
+    ExpectationBattlefieldExplicit,
+    ExpectationsBattlefieldEngine,
+    Scenario,
+    ScenarioDistribution,
+)
 
 logger = logging.getLogger(__name__)
-
 
 
 def format_assumption_table(
@@ -282,6 +286,7 @@ class ValuationPipeline:
 
         # Stage 2: Relative Valuation
         from iam.data.providers.yfinance_adapter import build_regression_inputs
+
         try:
             reg_inputs = build_regression_inputs(security.ticker)
         except Exception:
@@ -314,24 +319,28 @@ class ValuationPipeline:
                 int_g = intrinsic_res.assumptions.get("high_growth", 0.08)
                 int_r = intrinsic_res.assumptions.get("roe", 0.15)
                 int_m = getattr(security.fundamentals, "operating_margin", None) or 0.20
-                
-                intrinsic_dist = ScenarioDistribution([
-                    Scenario(0.20, growth=int_g * 0.60, margin=int_m * 0.90, roic=int_r * 0.80),
-                    Scenario(0.60, growth=int_g, margin=int_m, roic=int_r),
-                    Scenario(0.20, growth=int_g * 1.30, margin=int_m * 1.10, roic=int_r * 1.20),
-                ])
-                
+
+                intrinsic_dist = ScenarioDistribution(
+                    [
+                        Scenario(0.20, growth=int_g * 0.60, margin=int_m * 0.90, roic=int_r * 0.80),
+                        Scenario(0.60, growth=int_g, margin=int_m, roic=int_r),
+                        Scenario(0.20, growth=int_g * 1.30, margin=int_m * 1.10, roic=int_r * 1.20),
+                    ]
+                )
+
                 # Build Market Scenarios
                 mkt_g = market_implied_engine_res.implied.implied_revenue_growth
                 mkt_r = getattr(market_implied_engine_res.implied, "implied_roic", int_r)
                 mkt_m = int_m  # Assume market margin is base margin if not solved
-                
-                market_dist = ScenarioDistribution([
-                    Scenario(0.20, growth=mkt_g * 0.80, margin=mkt_m * 0.95, roic=mkt_r * 0.90),
-                    Scenario(0.50, growth=mkt_g, margin=mkt_m, roic=mkt_r),
-                    Scenario(0.30, growth=mkt_g * 1.20, margin=mkt_m * 1.05, roic=mkt_r * 1.10),
-                ])
-                
+
+                market_dist = ScenarioDistribution(
+                    [
+                        Scenario(0.20, growth=mkt_g * 0.80, margin=mkt_m * 0.95, roic=mkt_r * 0.90),
+                        Scenario(0.50, growth=mkt_g, margin=mkt_m, roic=mkt_r),
+                        Scenario(0.30, growth=mkt_g * 1.20, margin=mkt_m * 1.05, roic=mkt_r * 1.10),
+                    ]
+                )
+
                 battle_engine = ExpectationsBattlefieldEngine(intrinsic_dist, market_dist)
                 battlefield_res = battle_engine.compute()
             except Exception as e:
@@ -339,18 +348,20 @@ class ValuationPipeline:
 
         # Stage 4c: Thesis Drift Detection
         from pathlib import Path
+
         from iam.thesis.drift import DriftDetector, load_constraints
-        
+
         drift_report = None
         constraints_path = Path("data/constraints") / f"{security.ticker}.yml"
         if not constraints_path.exists():
             constraints_path = Path("data/constraints") / f"{security.ticker}.example.yml"
-            
+
         if constraints_path.exists():
             try:
                 _, constraints = load_constraints(constraints_path)
                 detector = DriftDetector()
                 from iam.reasoning.business_reality import BusinessRealityEngine
+
                 br = BusinessRealityEngine().assess(security)
                 drift_report = detector.evaluate(
                     ticker=security.ticker,
@@ -401,7 +412,9 @@ class ValuationPipeline:
             law_report=report.law_report,
             stress_response=report.stress_response,
             drift_report=report.drift_report,
-            mismatch_score=report.battlefield.expectation_mismatch_score if report.battlefield else None,
+            mismatch_score=report.battlefield.expectation_mismatch_score
+            if report.battlefield
+            else None,
         )
 
         return report

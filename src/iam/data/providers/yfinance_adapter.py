@@ -12,9 +12,7 @@ import logging
 import os
 import shutil
 import sqlite3
-from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
@@ -309,7 +307,6 @@ class YFinanceAdapter:
         # Try to use caching via fetch
         try:
             security = self.fetch(ticker)
-            price = security.market.price or 1.0
             market_cap = security.market.market_cap or 1.0
             total_debt = security.fundamentals.total_debt or 0.0
             beta = security.market.beta or 1.0
@@ -323,7 +320,7 @@ class YFinanceAdapter:
             # Fallback if fetch fails
             yt = yf.Ticker(ticker)
             info = yt.info or {}
-            price = self._get_numeric(info, "currentPrice", "regularMarketPrice") or 1.0
+            self._get_numeric(info, "currentPrice", "regularMarketPrice") or 1.0
             market_cap = self._get_numeric(info, "marketCap") or 1.0
             total_debt = self._get_numeric(info, "totalDebt") or 0.0
             beta = self._get_numeric(info, "beta") or 1.0
@@ -366,6 +363,7 @@ class YFinanceAdapter:
 # ============================================================================
 # Compatibility functions
 # ============================================================================
+
 
 def fetch_security(ticker: str) -> Security:
     """Fetch security from Yahoo Finance with caching."""

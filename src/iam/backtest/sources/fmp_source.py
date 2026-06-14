@@ -13,7 +13,6 @@ dependency). FMP's domain is intentionally not assumed reachable in CI.
 from __future__ import annotations
 
 import json
-import os
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
@@ -39,8 +38,11 @@ class FMPSource(DataSource):
     name = "fmp"
     tier = DataTier.PREMIUM
     capabilities = (
-        Capability.PRICE | Capability.DEBT | Capability.FUNDAMENTALS
-        | Capability.HISTORY | Capability.POINT_IN_TIME
+        Capability.PRICE
+        | Capability.DEBT
+        | Capability.FUNDAMENTALS
+        | Capability.HISTORY
+        | Capability.POINT_IN_TIME
     )
 
     def __init__(
@@ -49,6 +51,7 @@ class FMPSource(DataSource):
         http_get: HttpGet | None = None,
     ):
         from iam.config.credentials import get_key
+
         self.api_key = get_key("fmp", explicit=api_key)
         self._get = http_get or _default_http_get
 
@@ -66,8 +69,10 @@ class FMPSource(DataSource):
         as_of = pd.Timestamp(as_of)
         url = self._url(
             f"historical-price-full/{ticker}",
-            **{"from": (as_of - pd.Timedelta(days=10)).strftime("%Y-%m-%d"),
-               "to": as_of.strftime("%Y-%m-%d")},
+            **{
+                "from": (as_of - pd.Timedelta(days=10)).strftime("%Y-%m-%d"),
+                "to": as_of.strftime("%Y-%m-%d"),
+            },
         )
         try:
             data = self._get(url)
@@ -89,9 +94,7 @@ class FMPSource(DataSource):
         if not self.is_available():
             raise DataSourceError(self.name, ticker, "FMP_API_KEY not set")
         as_of = pd.Timestamp(as_of)
-        url = self._url(
-            f"balance-sheet-statement/{ticker}", period="quarter", limit="20"
-        )
+        url = self._url(f"balance-sheet-statement/{ticker}", period="quarter", limit="20")
         try:
             data = self._get(url)
         except Exception as e:  # noqa: BLE001
@@ -115,9 +118,7 @@ class FMPSource(DataSource):
     def download_history(self, ticker: str, start: str, end: str) -> pd.DataFrame | None:
         if not self.is_available():
             return None
-        url = self._url(
-            f"historical-price-full/{ticker}", **{"from": start, "to": end}
-        )
+        url = self._url(f"historical-price-full/{ticker}", **{"from": start, "to": end})
         try:
             data = self._get(url)
         except Exception:  # noqa: BLE001
@@ -130,7 +131,13 @@ class FMPSource(DataSource):
             return None
         df["Date"] = pd.to_datetime(df["date"])
         df = df.set_index("Date").sort_index()
-        rename = {"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume"}
+        rename = {
+            "open": "Open",
+            "high": "High",
+            "low": "Low",
+            "close": "Close",
+            "volume": "Volume",
+        }
         df = df.rename(columns=rename)
         cols = [c for c in ("Open", "High", "Low", "Close", "Volume") if c in df]
         return df[cols]

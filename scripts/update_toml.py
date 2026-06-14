@@ -1,7 +1,6 @@
-
-with open('pyproject.toml', 'a') as f:
-    f.write('\n[tool.coverage.run]\n')
-    f.write('omit = [\n')
+with open("pyproject.toml", "a") as f:
+    f.write("\n[tool.coverage.run]\n")
+    f.write("omit = [\n")
     f.write('    "src/iam/ui/*",\n')
     f.write('    "src/iam/backtest/*",\n')
     f.write('    "src/iam/data/fetcher*",\n')
@@ -13,4 +12,4 @@ with open('pyproject.toml', 'a') as f:
     f.write('    "src/iam/thesis/bayesian/ui.py",\n')
     f.write('    "src/iam/thesis/bayesian/thesis.py",\n')
     f.write('    "src/iam/integration/async_bridge.py"\n')
-    f.write(']\n')
+    f.write("]\n")

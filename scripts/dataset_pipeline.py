@@ -1,10 +1,11 @@
 import json
-from typing import Dict, Any
+import os
+from typing import Any
+
+from langchain.agents.agent_types import AgentType
+from langchain.prompts import PromptTemplate
 from langchain_community.chat_models import ChatOllama
 from langchain_experimental.agents.agent_toolkits import create_csv_agent
-from langchain.prompts import PromptTemplate
-from langchain.agents.agent_types import AgentType
-import os
 
 # ==========================================
 # 1. LLM Initialization (ChatOllama)
@@ -38,13 +39,14 @@ Instructions:
 
 fcff_prompt = PromptTemplate(
     input_variables=["ebit", "tax_rate", "depreciation", "capex", "change_in_nwc"],
-    template=fcff_template
+    template=fcff_template,
 )
+
 
 # ==========================================
 # 3. JSON Validation Utility
 # ==========================================
-def validate_and_parse_json(output: str) -> Dict[str, Any]:
+def validate_and_parse_json(output: str) -> dict[str, Any]:
     """Validates and parses JSON from the agent's output."""
     try:
         # Simple extraction in case the model wraps the JSON in markdown code blocks
@@ -52,12 +54,13 @@ def validate_and_parse_json(output: str) -> Dict[str, Any]:
             output = output.split("```json")[1].split("```")[0].strip()
         elif "```" in output:
             output = output.split("```")[1].split("```")[0].strip()
-            
+
         parsed_data = json.loads(output)
         return parsed_data
     except json.JSONDecodeError as e:
         print(f"JSON Validation Error: {e}")
         return {"error": "Invalid JSON format", "raw_output": output}
+
 
 # ==========================================
 # 4. Routing Logic & Agent Executor Setup
@@ -83,7 +86,7 @@ def route_and_execute_task(task_type: str, query: str, csv_path: str) -> str:
         csv_path,
         verbose=True,
         agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-        handle_parsing_errors=True # Crucial for handling output parsing errors
+        handle_parsing_errors=True,  # Crucial for handling output parsing errors
     )
 
     try:
@@ -91,6 +94,7 @@ def route_and_execute_task(task_type: str, query: str, csv_path: str) -> str:
         return response
     except Exception as e:
         return f"Agent Execution Error: {str(e)}"
+
 
 # ==========================================
 # 5. Example Execution
@@ -104,7 +108,7 @@ if __name__ == "__main__":
         f.write("MSFT,2023,80000,0.21,8000,12000,4000\n")
 
     print("=== Pipeline Prototype ===")
-    
+
     # Task 1: Simple Retrieval (4B)
     print("\n--- Task: Simple Retrieval ---")
     retrieval_query = "What is the CapEx for AAPL in 2023?"
@@ -113,24 +117,20 @@ if __name__ == "__main__":
 
     # Task 2: Complex Reasoning (7B)
     print("\n--- Task: Complex Reasoning (FCFF Calculation) ---")
-    
+
     # We can use the prompt template to format our query
     complex_query = fcff_prompt.format(
-        ebit="100000",
-        tax_rate="0.21",
-        depreciation="10000",
-        capex="15000",
-        change_in_nwc="5000"
+        ebit="100000", tax_rate="0.21", depreciation="10000", capex="15000", change_in_nwc="5000"
     )
-    
+
     reasoning_result = route_and_execute_task("complex_reasoning", complex_query, sample_csv)
     print(f"Raw Result: {reasoning_result}")
-    
+
     # Task 3: JSON Validation
     print("\n--- Task: JSON Validation ---")
     validated_json = validate_and_parse_json(reasoning_result)
     print(f"Parsed Output: {validated_json}")
-    
+
     # Clean up
     if os.path.exists(sample_csv):
         os.remove(sample_csv)

@@ -10,7 +10,6 @@ from iam.backtest.sources.fmp_source import FMPSource
 from iam.backtest.sources.tiers import (
     Capability,
     DataTier,
-    SourceMeta,
     TieredDataSource,
 )
 from iam.backtest.sources.tiingo_source import TiingoSource
@@ -103,8 +102,9 @@ def test_no_degradation_when_best_tier_answers():
 
 
 def test_unavailable_premium_is_skipped():
-    premium = _Fake("fmp", DataTier.PREMIUM, Capability.PRICE | Capability.DEBT,
-                    available=False, debt=1.0)
+    premium = _Fake(
+        "fmp", DataTier.PREMIUM, Capability.PRICE | Capability.DEBT, available=False, debt=1.0
+    )
     community = _Fake("yfinance", DataTier.COMMUNITY, Capability.DEBT, debt=5.0)
     tiered = TieredDataSource([premium, community])
     assert tiered.fetch_debt("AAPL", AS_OF) == 5.0
@@ -154,10 +154,12 @@ def test_fmp_unavailable_without_key():
 def test_fmp_parses_price_and_debt_from_mocked_json():
     def fake_get(url):
         if "historical-price-full" in url:
-            return {"historical": [
-                {"date": "2024-06-28", "close": 210.0},
-                {"date": "2024-06-27", "close": 208.0},
-            ]}
+            return {
+                "historical": [
+                    {"date": "2024-06-28", "close": 210.0},
+                    {"date": "2024-06-27", "close": 208.0},
+                ]
+            }
         if "balance-sheet-statement" in url:
             return [
                 {"date": "2024-03-30", "totalDebt": 1.05e11},

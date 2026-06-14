@@ -2,9 +2,10 @@
 """Cross-platform utility to create a desktop shortcut for Institutional Alpha."""
 
 import os
-import sys
 import subprocess
+import sys
 from pathlib import Path
+
 
 def create_windows_shortcut(repo_root: Path) -> tuple[bool, str]:
     """Create a Windows desktop shortcut (.lnk) via PowerShell WScript.Shell."""
@@ -41,10 +42,7 @@ def create_windows_shortcut(repo_root: Path) -> tuple[bool, str]:
 
     try:
         subprocess.run(
-            ["powershell", "-Command", ps_cmd],
-            check=True,
-            capture_output=True,
-            text=True
+            ["powershell", "-Command", ps_cmd], check=True, capture_output=True, text=True
         )
         return True, f"Shortcut successfully created on Desktop: {shortcut_path}"
     except subprocess.CalledProcessError as e:

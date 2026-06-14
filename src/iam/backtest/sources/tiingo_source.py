@@ -12,7 +12,6 @@ Gated on `TIINGO_API_KEY`; HTTP layer injectable for offline tests.
 from __future__ import annotations
 
 import json
-import os
 import urllib.request
 from collections.abc import Callable
 
@@ -41,6 +40,7 @@ class TiingoSource(DataSource):
 
     def __init__(self, api_key: str | None = None, http_get: HttpGet | None = None):
         from iam.config.credentials import get_key
+
         self.api_key = get_key("tiingo", explicit=api_key)
         self._get = http_get or _default_http_get
 
@@ -48,10 +48,7 @@ class TiingoSource(DataSource):
         return bool(self.api_key)
 
     def _url(self, ticker: str, start: str, end: str) -> str:
-        return (
-            f"{_BASE}/{ticker}/prices?startDate={start}&endDate={end}"
-            f"&token={self.api_key}"
-        )
+        return f"{_BASE}/{ticker}/prices?startDate={start}&endDate={end}&token={self.api_key}"
 
     def fetch_price(self, ticker: str, as_of: pd.Timestamp) -> float:
         if not self.is_available():
@@ -78,7 +75,8 @@ class TiingoSource(DataSource):
 
     def fetch_debt(self, ticker: str, as_of: pd.Timestamp) -> float:
         raise DataSourceError(
-            self.name, ticker,
+            self.name,
+            ticker,
             "Tiingo daily endpoint has no balance-sheet data (DEBT capability not declared)",
         )
 
@@ -97,8 +95,11 @@ class TiingoSource(DataSource):
         df["Date"] = pd.to_datetime(df["date"]).dt.tz_localize(None)
         df = df.set_index("Date").sort_index()
         rename = {
-            "open": "Open", "high": "High", "low": "Low",
-            "close": "Close", "volume": "Volume",
+            "open": "Open",
+            "high": "High",
+            "low": "Low",
+            "close": "Close",
+            "volume": "Volume",
         }
         df = df.rename(columns=rename)
         cols = [c for c in ("Open", "High", "Low", "Close", "Volume") if c in df]

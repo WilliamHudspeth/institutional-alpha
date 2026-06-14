@@ -28,7 +28,7 @@ resolved from `DEFAULT_REGISTRY` by `name`). New sources may instead declare
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Flag, IntEnum, auto
 
 import pandas as pd
@@ -39,9 +39,9 @@ from .base import DataSource, DataSourceError
 class DataTier(IntEnum):
     """Authority ranking; lower is more authoritative / preferred."""
 
-    PREMIUM = 0   # paid, point-in-time, authoritative: FMP, Tiingo, Bloomberg
+    PREMIUM = 0  # paid, point-in-time, authoritative: FMP, Tiingo, Bloomberg
     OFFICIAL = 1  # free authoritative public filings: SEC EDGAR
-    COMMUNITY = 2 # free best-effort: yfinance
+    COMMUNITY = 2  # free best-effort: yfinance
     FALLBACK = 3  # degraded, price-only: Stooq
 
 
@@ -65,8 +65,11 @@ class SourceMeta:
 DEFAULT_REGISTRY: dict[str, SourceMeta] = {
     "fmp": SourceMeta(
         DataTier.PREMIUM,
-        Capability.PRICE | Capability.DEBT | Capability.FUNDAMENTALS
-        | Capability.HISTORY | Capability.POINT_IN_TIME,
+        Capability.PRICE
+        | Capability.DEBT
+        | Capability.FUNDAMENTALS
+        | Capability.HISTORY
+        | Capability.POINT_IN_TIME,
     ),
     "tiingo": SourceMeta(DataTier.PREMIUM, Capability.PRICE | Capability.HISTORY),
     "sec_edgar": SourceMeta(
@@ -130,11 +133,7 @@ class TieredDataSource(DataSource):
         return [m.tier for _, m in self._entries if cap in m.capabilities]
 
     def _eligible(self, cap: Capability) -> list[tuple[DataSource, SourceMeta]]:
-        return [
-            (s, m)
-            for s, m in self._entries
-            if cap in m.capabilities and s.is_available()
-        ]
+        return [(s, m) for s, m in self._entries if cap in m.capabilities and s.is_available()]
 
     def _record(self, field_name: str, ticker: str, meta: SourceMeta, cap: Capability) -> None:
         if not self.record_provenance:
@@ -166,7 +165,9 @@ class TieredDataSource(DataSource):
                 errors.append(f"{source.name}: {e.reason}")
             except Exception as e:  # noqa: BLE001 — never let one source kill the chain
                 errors.append(f"{source.name}: unexpected {e}")
-        raise DataSourceError(self.name, ticker, f"no PRICE source succeeded: {'; '.join(errors) or 'none eligible'}")
+        raise DataSourceError(
+            self.name, ticker, f"no PRICE source succeeded: {'; '.join(errors) or 'none eligible'}"
+        )
 
     def fetch_debt(self, ticker: str, as_of: pd.Timestamp) -> float:
         """Route ONLY to DEBT-capable sources, preferring higher tiers.
@@ -179,7 +180,8 @@ class TieredDataSource(DataSource):
         eligible = self._eligible(Capability.DEBT)
         if not eligible:
             raise DataSourceError(
-                self.name, ticker,
+                self.name,
+                ticker,
                 "no DEBT-capable source available (refusing to fabricate 0.0 "
                 "from a price-only source)",
             )
