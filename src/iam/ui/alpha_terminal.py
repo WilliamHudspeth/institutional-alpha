@@ -1086,19 +1086,19 @@ class PortfolioPanel(_Panel):
         )
         cv.hline(r0 + 3, c0, c1)
 
-        total_val = portfolio.total_market_value()
+        total_val = portfolio.total_value
         for idx, p in enumerate(portfolio.positions):
             r = r0 + 4 + idx
             if r > r1 - 8:
                 break
-            pnl = p.unrealized_pnl_pct()
+            pnl = p.pnl_pct
             pnl_col = C_GREEN if pnl >= 0 else C_RED
             conv_col = {"HIGH": C_GREEN, "MODERATE": C_YELLOW, "LOW": C_RED}.get(
                 getattr(p, "conviction", "MODERATE"), C_WHITE
             )
             cv.put(r, c0 + 1, f"{p.ticker:<7}", C_WHITE)
             cv.put(r, c0 + 9, f"{p.weight:>6.1%}", C_WHITE)
-            cv.put(r, c0 + 17, f"  ${p.market_value():>10,.0f}", C_WHITE)
+            cv.put(r, c0 + 17, f"  ${p.market_value:>10,.0f}", C_WHITE)
             cv.put(r, c0 + 31, f"  {pnl:>+6.1f}%", pnl_col)
             cv.put(r, c0 + 40, f"  {getattr(p, 'conviction', 'MODERATE'):<8}", conv_col)
 

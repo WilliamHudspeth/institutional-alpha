@@ -30,6 +30,31 @@ class TestTerminalSimulation(unittest.TestCase):
         self.sec.loading = False
         self.sys.loading = False
 
+        # Use real objects for simulation to catch attribute errors
+        from iam.portfolio import Portfolio, Position
+
+        positions = [
+            Position(
+                ticker="AAPL",
+                name="Apple",
+                quantity=100,
+                entry_price=150,
+                current_price=180,
+                weight=0.4,
+                conviction="HIGH",
+            ),
+            Position(
+                ticker="MSFT",
+                name="Microsoft",
+                quantity=150,
+                entry_price=300,
+                current_price=350,
+                weight=0.6,
+                conviction="MODERATE",
+            ),
+        ]
+        self.sys.portfolio = Portfolio(positions=positions)
+
         # Mock ValidationMetrics with the expected factor_metrics
         mock_metrics = ValidationMetrics(
             psr=0.9,
