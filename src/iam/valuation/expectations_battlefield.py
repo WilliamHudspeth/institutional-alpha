@@ -151,6 +151,20 @@ class ExpectationBattlefieldExplicit:
     primary_disagreement: str
     expectation_mismatch_score: float
 
+    # Expanded battlefield fields
+    market_terminal_growth: float = 0.025
+    intrinsic_terminal_growth: float = 0.025
+    market_beta: float = 1.0
+    intrinsic_beta: float = 1.0
+    market_erp: float = 0.05
+    intrinsic_erp: float = 0.05
+    market_tax_rate: float = 0.21
+    intrinsic_tax_rate: float = 0.21
+    market_share_count: float = 0.0
+    intrinsic_share_count: float = 0.0
+    market_net_debt: float = 0.0
+    intrinsic_net_debt: float = 0.0
+
     @property
     def growth_gap(self) -> float:
         return self.market_growth - self.intrinsic_growth
@@ -162,6 +176,31 @@ class ExpectationBattlefieldExplicit:
     @property
     def roic_gap(self) -> float:
         return self.market_roic - self.intrinsic_roic
+
+    @property
+    def terminal_growth_gap(self) -> float:
+        return self.market_terminal_growth - self.intrinsic_terminal_growth
+
+    @property
+    def beta_gap(self) -> float:
+        return self.market_beta - self.intrinsic_beta
+
+    @property
+    def erp_gap(self) -> float:
+        return self.market_erp - self.intrinsic_erp
+
+    @property
+    def disagreement_ranking(self) -> List[Tuple[str, float]]:
+        """Ranks the factors by the absolute magnitude of their percentage gap."""
+        gaps = [
+            ("Growth", abs(self.growth_gap)),
+            ("Margin", abs(self.margin_gap)),
+            ("ROIC", abs(self.roic_gap)),
+            ("Terminal Growth", abs(self.terminal_growth_gap)),
+            ("Beta", abs(self.beta_gap)),
+            ("ERP", abs(self.erp_gap)),
+        ]
+        return sorted(gaps, key=lambda x: x[1], reverse=True)
 
     def summary(self) -> str:
         def pct(x): return f"{x*100:+.1f}%"

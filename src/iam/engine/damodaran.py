@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from typing import List
 from iam.data.security import Security
 from iam.lenses.base import LensResult, two_stage_pv
+from iam.valuation.sotp import Segment
 
 DEFAULT_WACC = 0.09
 DEFAULT_GROWTH = 0.08
@@ -14,7 +16,8 @@ HIGH_GROWTH_YEARS = 10
 class DamodaranEngine:
     """Plain two-stage DCF with Damodaran-style stable assumptions.
 
-    WACC: 9% (fixed, not rate-adjusted).
+    WACC: 9% (fixed, not rate-adjusted), or dynamic cost of equity Ke
+    when segments are provided.
     Terminal growth: 2.5% (GDP steady-state).
     High-growth period: 10 years.
     Growth rate from security.qualitative['forecast_growth'] or default 8%.
@@ -22,6 +25,30 @@ class DamodaranEngine:
     """
 
     name = "damodaran_engine"
+
+    def __init__(self, risk_free_rate: float = 0.04, equity_risk_premium: float = 0.05):
+        self.rf = risk_free_rate
+        self.erp = equity_risk_premium
+
+    def compute_cost_of_equity(
+        self,
+        segments: List[Segment],
+        debt_to_equity: float,
+        tax_rate: float = 0.21
+    ) -> float:
+        # 1. Weighted average unlevered beta
+        total_revenue = sum(s.revenue for s in segments)
+        if total_revenue == 0:
+            beta_u = 1.0   # fallback
+        else:
+            beta_u = sum(s.revenue * s.unlevered_beta for s in segments) / total_revenue
+
+        # 2. Levered beta
+        beta_l = beta_u * (1 + (1 - tax_rate) * debt_to_equity)
+
+        # 3. Cost of equity
+        ke = self.rf + beta_l * self.erp
+        return ke
 
     def compute(self, security: Security) -> LensResult:
         m = security.market
@@ -56,7 +83,24 @@ class DamodaranEngine:
 
         g_high = q.get("forecast_growth", DEFAULT_GROWTH)
         g_terminal = q.get("forecast_terminal_growth", DEFAULT_TERMINAL_GROWTH)
-        wacc = DEFAULT_WACC
+
+        # Determine WACC (Cost of Equity Ke if segments are provided)
+        segments = q.get("segments", [])
+        if segments:
+            # Determine D/E ratio
+            if hasattr(security, "balance_sheet") and hasattr(security.balance_sheet, "debt_to_equity"):
+                d_e = security.balance_sheet.debt_to_equity
+            elif "current_de_ratio" in q:
+                d_e = q["current_de_ratio"]
+            else:
+                book_debt = float(f.total_debt or 0.0)
+                equity = float(m.market_cap or 1.0)
+                d_e = book_debt / equity if equity > 0 else 0.0
+            
+            tax_rate = float(q.get("tax_rate", 0.21))
+            wacc = self.compute_cost_of_equity(segments, d_e, tax_rate)
+        else:
+            wacc = DEFAULT_WACC
 
         mid_pv = two_stage_pv(fcfe0, g_high, HIGH_GROWTH_YEARS, g_terminal, wacc)
         low_pv = two_stage_pv(fcfe0, g_high, HIGH_GROWTH_YEARS, g_terminal, wacc + 0.01)
@@ -77,7 +121,7 @@ class DamodaranEngine:
         pct = implied_move * 100
         direction = "upside" if pct >= 0 else "downside"
         narrative = (
-            f"Damodaran base DCF: WACC {wacc:.0%}, terminal growth {g_terminal:.1%}, "
+            f"Damodaran base DCF: WACC {wacc:.2%}, terminal growth {g_terminal:.1%}, "
             f"forecast growth {g_high:.0%}. "
             f"Midpoint implies {abs(pct):.1f}% {direction}."
         )

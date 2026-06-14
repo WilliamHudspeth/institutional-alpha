@@ -257,20 +257,24 @@ def main() -> None:
     ui_data = _build_ui_data(security, growth, synthesis_upside, report)
     print_institutional_ui(ui_data)
 
+    # ----- Visualization Lab: DCF Valuation Terrain -----
+    try:
+        from iam.ui.visualization_lab import render_dcf_surface
+        print("\n" + render_dcf_surface(security, width=80, height=25))
+    except Exception as e:
+        print(f"\n[Visualization Lab unavailable: {e}]")
+
     # ----- Stage 4b & 4c: Battlefield and Drift reports -----
     if report.battlefield:
         print("\n" + "=" * 80)
-        print(f" VALUATION BATTLEFIELD (Stage 4b) | KEY DISAGREEMENT: {report.battlefield.key_disagreement.upper()}")
+        print(f" VALUATION BATTLEFIELD (Stage 4b) | KEY DISAGREEMENT: {report.battlefield.primary_disagreement.upper()}")
         print("-" * 80)
-        print(f"  • Base Intrinsic Value : ${report.battlefield.base_value:.2f}")
-        print(f"  • Target Price         : ${report.battlefield.target_value:.2f}")
-        print(f"  • Valuation Gap        : ${report.battlefield.total_gap:+.2f}")
-        print("  • Attribution Shares (Ceteris-Paribus swap sensitivity):")
-        for c in report.battlefield.contributions:
-            print(f"    - {c.parameter:<16} : intrinsic {c.value_intrinsic:.4f} vs market-implied {c.value_market:.4f} | share: {c.share * 100:.1f}%")
-        print("  • Notes:")
-        for note in report.battlefield.notes:
-            print(f"    - {note}")
+        print(f"  • Growth  - Market: {report.battlefield.market_growth*100:+.1f}% | Intrinsic: {report.battlefield.intrinsic_growth*100:+.1f}% | Gap: {report.battlefield.growth_gap*100:+.1f}%")
+        print(f"  • Margin  - Market: {report.battlefield.market_margin*100:+.1f}% | Intrinsic: {report.battlefield.intrinsic_margin*100:+.1f}% | Gap: {report.battlefield.margin_gap*100:+.1f}%")
+        print(f"  • ROIC    - Market: {report.battlefield.market_roic*100:+.1f}% | Intrinsic: {report.battlefield.intrinsic_roic*100:+.1f}% | Gap: {report.battlefield.roic_gap*100:+.1f}%")
+        print(f"  • Overlap - Growth Overlap: {report.battlefield.growth_overlap:.2f} | Alignment Score: {report.battlefield.alignment_score:.0f}/100")
+        print(f"  • Mismatch Score: {report.battlefield.expectation_mismatch_score:.0f}/100")
+        print(f"  • Interpretation: {report.battlefield._interpretation()}")
         print("=" * 80)
 
     if report.drift_report:
@@ -294,6 +298,16 @@ def main() -> None:
         print(f"\nBusiness Reality: {business_reality}")
     elif br_error:
         print(f"(Business Reality analysis unavailable: {br_error})")
+
+    # ----- Visualization Lab Interactive Prompt -----
+    try:
+        from iam.ui.visualization_lab import run_visualization_lab
+        print("\nPress [V] to enter Visualization Lab, or [Enter] to exit.")
+        choice = input().strip().lower()
+        if choice == 'v':
+            run_visualization_lab(security)
+    except Exception as e:
+        print(f"\n[Interactive Visualization Lab unavailable: {e}]")
 
 
 if __name__ == "__main__":
