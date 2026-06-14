@@ -3,10 +3,11 @@ import logging.config
 import os
 from typing import Any
 
+
 def setup_logging(
     default_level: int = logging.INFO,
     env_key: str = "LOG_LEVEL",
-    log_file: str | None = "institutional_alpha.log"
+    log_file: str | None = "institutional_alpha.log",
 ) -> None:
     """Setup logging configuration."""
     level = default_level
@@ -18,12 +19,8 @@ def setup_logging(
         "version": 1,
         "disable_existing_loggers": False,
         "formatters": {
-            "standard": {
-                "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-            },
-            "detailed": {
-                "format": "%(asctime)s [%(levelname)s] %(name)s:%(lineno)d: %(message)s"
-            },
+            "standard": {"format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"},
+            "detailed": {"format": "%(asctime)s [%(levelname)s] %(name)s:%(lineno)d: %(message)s"},
         },
         "handlers": {
             "console": {
@@ -34,17 +31,9 @@ def setup_logging(
             },
         },
         "loggers": {
-            "": {
-                "handlers": ["console"],
-                "level": level,
-                "propagate": True
-            },
-            "iam": {
-                "handlers": ["console"],
-                "level": level,
-                "propagate": False
-            },
-        }
+            "": {"handlers": ["console"], "level": level, "propagate": True},
+            "iam": {"handlers": ["console"], "level": level, "propagate": False},
+        },
     }
 
     if log_file:
@@ -53,7 +42,7 @@ def setup_logging(
             "level": level,
             "formatter": "detailed",
             "filename": log_file,
-            "maxBytes": 10485760, # 10MB
+            "maxBytes": 10485760,  # 10MB
             "backupCount": 5,
             "encoding": "utf8",
         }

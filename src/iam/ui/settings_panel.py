@@ -20,8 +20,9 @@ kind ∈ {bool, choice, int, float, pct, list, str, action}
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from iam.config.settings import TerminalSettings, default_settings_path, get_settings, set_settings
 from iam.ui import widgets as w
@@ -105,9 +106,11 @@ class SettingsPanel:
                 tickerlist(c.display, "watchlist"),
                 tickerlist(c.display, "coverage"),
                 Field(
-                    "Default Ticker", "str",
+                    "Default Ticker",
+                    "str",
                     lambda: c.display.default_ticker,
-                    lambda v: setattr(c.display, "default_ticker", v), {},
+                    lambda v: setattr(c.display, "default_ticker", v),
+                    {},
                 ),
                 choice(c.display, "watchlist_sort", ["manual", "change", "upside", "composite"]),
             ],
@@ -131,8 +134,7 @@ class SettingsPanel:
                 boolean(c.pipeline, "enable_scenario"),
             ],
             "Factor Weights": [
-                num(c.factor_weights, k, 0.0, 1.0, pct=True)
-                for k in c.factor_weights.as_dict()
+                num(c.factor_weights, k, 0.0, 1.0, pct=True) for k in c.factor_weights.as_dict()
             ],
             "Risk Limits": [
                 num(c.risk_limits, "max_concentration", 0.0, 1.0, pct=True),
@@ -297,7 +299,7 @@ class SettingsPanel:
 
     # ── render ─────────────────────────────────────────────────────────────
     def render(self, cv, r0, r1, c0, c1, sec=None, system_state=None, ticks=0) -> None:
-        width = c1 - c0
+        c1 - c0
         sec_w = 18
         # left: section list
         cv.put(r0, c0 + 1, "SECTIONS", w.C_ACCENT() + w.BOLD)
@@ -317,7 +319,7 @@ class SettingsPanel:
 
         # right: fields of the active section
         fx = c0 + sec_w + 2
-        fw = c1 - fx
+        c1 - fx
         sect_name = self.section_names[self.section_idx]
         cv.put(r0, fx, sect_name.upper(), w.C_ACCENT() + w.BOLD)
         cv.hline(r0 + 1, fx, c1, style=w.C_DIM())

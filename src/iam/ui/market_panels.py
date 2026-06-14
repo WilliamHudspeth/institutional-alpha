@@ -13,9 +13,6 @@ Canvas API (``cv.put`` / ``cv.hline`` / ``cv.box``).
 
 from __future__ import annotations
 
-import shutil
-from datetime import datetime, timezone
-
 from iam.data import markets as mkt
 from iam.ui import widgets as w
 

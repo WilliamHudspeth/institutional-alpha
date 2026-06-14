@@ -41,11 +41,18 @@ class _Canvas:
 
 def _mock_sec():
     bf = types.SimpleNamespace(
-        market_growth=0.182, intrinsic_growth=0.121,
-        market_margin=0.224, intrinsic_margin=0.185,
-        market_roic=0.30, intrinsic_roic=0.26,
-        growth_gap=0.061, margin_gap=0.039, roic_gap=0.04,
-        growth_overlap=0.6, alignment_score=71, expectation_mismatch_score=42,
+        market_growth=0.182,
+        intrinsic_growth=0.121,
+        market_margin=0.224,
+        intrinsic_margin=0.185,
+        market_roic=0.30,
+        intrinsic_roic=0.26,
+        growth_gap=0.061,
+        margin_gap=0.039,
+        roic_gap=0.04,
+        growth_overlap=0.6,
+        alignment_score=71,
+        expectation_mismatch_score=42,
         primary_disagreement="growth",
     )
     breach = types.SimpleNamespace(describe=lambda: "ROIC 22% < floor 25%")
@@ -53,7 +60,8 @@ def _mock_sec():
         has_drift=True, breaches=[breach], degrade_levels=1, skipped=["margin_floor"]
     )
     report = types.SimpleNamespace(
-        battlefield=bf, drift_report=drift,
+        battlefield=bf,
+        drift_report=drift,
         intrinsic=types.SimpleNamespace(fair_value_to_price=0.12),
         relative=types.SimpleNamespace(fair_value_to_price=-0.03),
         market_implied_engine=types.SimpleNamespace(fair_value_to_price=0.05),
@@ -62,13 +70,20 @@ def _mock_sec():
         ),
     )
     topo = {
-        "fragility_score": 0.62, "stability_score": 0.55,
-        "gradient_x_mean": 0.8, "gradient_y_mean": 1.4,
-        "curvature_x_mean": 0.3, "dominant_driver": "Discount Rate",
+        "fragility_score": 0.62,
+        "stability_score": 0.55,
+        "gradient_x_mean": 0.8,
+        "gradient_y_mean": 1.4,
+        "curvature_x_mean": 0.3,
+        "dominant_driver": "Discount Rate",
     }
     return types.SimpleNamespace(
-        ticker="AAPL", price=195.0, rating="HOLD", composite=0.2,
-        pipeline_result=report, topology_metrics=topo,
+        ticker="AAPL",
+        price=195.0,
+        rating="HOLD",
+        composite=0.2,
+        pipeline_result=report,
+        topology_metrics=topo,
     )
 
 

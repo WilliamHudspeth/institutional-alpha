@@ -83,6 +83,20 @@ class TestTerminalSimulation(unittest.TestCase):
         self.sec.pipeline_result.triangulation.spread = 0.05
         self.sec.pipeline_result.triangulation.verdict = "BUY"
 
+        self.sec.pipeline_result.battlefield = MagicMock()
+        self.sec.pipeline_result.battlefield.market_growth = 0.12
+        self.sec.pipeline_result.battlefield.intrinsic_growth = 0.08
+        self.sec.pipeline_result.battlefield.market_margin = 0.25
+        self.sec.pipeline_result.battlefield.intrinsic_margin = 0.20
+        self.sec.pipeline_result.battlefield.market_roic = 0.15
+        self.sec.pipeline_result.battlefield.intrinsic_roic = 0.18
+        self.sec.pipeline_result.battlefield.growth_gap = -0.04
+        self.sec.pipeline_result.battlefield.margin_gap = -0.05
+        self.sec.pipeline_result.battlefield.roic_gap = 0.03
+        self.sec.pipeline_result.battlefield.alignment_score = 0.45  # float for comparisons
+        self.sec.pipeline_result.battlefield.expectation_mismatch_score = 65.0
+        self.sec.pipeline_result.battlefield.growth_overlap = 0.40  # float for comparisons
+
         self.sec.pipeline_result.law_report = MagicMock()
         self.sec.pipeline_result.law_report.violations = []
         self.sec.pipeline_result.law_report.flags = []
@@ -112,6 +126,20 @@ class TestTerminalSimulation(unittest.TestCase):
         self.sec.pipeline_result.triangulation.cluster_center = None
         self.sec.pipeline_result.triangulation.spread = None
         self.sec.pipeline_result.triangulation.verdict = None
+
+        self.sec.pipeline_result.battlefield = MagicMock()
+        self.sec.pipeline_result.battlefield.market_growth = None
+        self.sec.pipeline_result.battlefield.intrinsic_growth = None
+        self.sec.pipeline_result.battlefield.market_margin = None
+        self.sec.pipeline_result.battlefield.intrinsic_margin = None
+        self.sec.pipeline_result.battlefield.market_roic = None
+        self.sec.pipeline_result.battlefield.intrinsic_roic = None
+        self.sec.pipeline_result.battlefield.growth_gap = None
+        self.sec.pipeline_result.battlefield.margin_gap = None
+        self.sec.pipeline_result.battlefield.roic_gap = None
+        self.sec.pipeline_result.battlefield.alignment_score = None
+        self.sec.pipeline_result.battlefield.expectation_mismatch_score = None
+        self.sec.pipeline_result.battlefield.growth_overlap = None
 
         for name, panel in self.terminal._panels.items():
             try:

@@ -26,8 +26,8 @@ value-height colour ramp.  No numpy required.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable
 
 from iam.ui import widgets as w
 
@@ -130,8 +130,9 @@ def _orient(ax, ay, bx, by, cx, cy) -> float:
     return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
 
 
-def render_surface(cv, model: SurfaceModel, r0: int, r1: int, c0: int, c1: int,
-                   wireframe: bool = False) -> None:
+def render_surface(
+    cv, model: SurfaceModel, r0: int, r1: int, c0: int, c1: int, wireframe: bool = False
+) -> None:
     """Rasterize ``model`` into the panel rect.
 
     The surface is **auto-fitted** to the panel and **aspect-corrected**: points
@@ -208,8 +209,13 @@ def render_surface(cv, model: SurfaceModel, r0: int, r1: int, c0: int, c1: int,
             steps = max(2, int(max(abs(x1_ - x0), abs(y1_ - y0))))
             for s in range(steps + 1):
                 t = s / steps
-                put_buf(int(round(x0 + (x1_ - x0) * t)), int(round(y0 + (y1_ - y0) * t)),
-                        d0 + (d1 - d0) * t, glyph, col)
+                put_buf(
+                    int(round(x0 + (x1_ - x0) * t)),
+                    int(round(y0 + (y1_ - y0) * t)),
+                    d0 + (d1 - d0) * t,
+                    glyph,
+                    col,
+                )
 
         for i in range(rows):
             for j in range(cols):
@@ -248,9 +254,7 @@ def render_surface(cv, model: SurfaceModel, r0: int, r1: int, c0: int, c1: int,
                     w0 = _orient(bx, by, cx, cy, px + 0.5, py + 0.5)
                     w1 = _orient(cx, cy, ax, ay, px + 0.5, py + 0.5)
                     w2 = _orient(ax, ay, bx, by, px + 0.5, py + 0.5)
-                    inside = (w0 >= 0 and w1 >= 0 and w2 >= 0) or (
-                        w0 <= 0 and w1 <= 0 and w2 <= 0
-                    )
+                    inside = (w0 >= 0 and w1 >= 0 and w2 >= 0) or (w0 <= 0 and w1 <= 0 and w2 <= 0)
                     if not inside:
                         continue
                     l0, l1, l2 = w0 * inv, w1 * inv, w2 * inv
@@ -301,8 +305,9 @@ def saddle_demo_grid(n: int = 16) -> list[list[float]]:
     return g
 
 
-def dcf_terrain_grid(base_value: float, growth: float, discount: float,
-                     n: int = 16) -> list[list[float]]:
+def dcf_terrain_grid(
+    base_value: float, growth: float, discount: float, n: int = 16
+) -> list[list[float]]:
     """Synthetic-but-plausible DCF value surface over growth × discount.
 
     Value rises with growth, falls steeply as discount approaches growth
@@ -424,7 +429,8 @@ class TerrainPanel:
         # axes legend + controls
         cv.hline(r1 - 2, c0, c1, style=w.C_DIM())
         cv.put(
-            r1 - 1, c0 + 1,
+            r1 - 1,
+            c0 + 1,
             f"X:{self._model.x_label}  Y:{self._model.y_label}  "
             "[<>]yaw [^v]pitch [+/-]zoom []]mode [W]wire [R]reset",
             w.C_DIM(),
@@ -434,10 +440,16 @@ class TerrainPanel:
 
 
 if __name__ == "__main__":  # ASCII smoke render
+
     class _C:
-        def __init__(s): s.grid = {}
-        def put(s, r, c, t, style=""): s.grid[(r, c)] = t
-        def hline(s, *a, **k): pass
+        def __init__(s):
+            s.grid = {}
+
+        def put(s, r, c, t, style=""):
+            s.grid[(r, c)] = t
+
+        def hline(s, *a, **k):
+            pass
 
     cv = _C()
     w.configure("green", "mono", True)

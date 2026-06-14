@@ -135,9 +135,7 @@ class ReverseDCFDistributionPanel:
 
         def band(center, spread=0.025):
             # crude gaussian-ish weight per axis bucket
-            return [
-                max(0.0, 1.0 - abs(g - center) / (spread * 2.5)) for g in axis
-            ]
+            return [max(0.0, 1.0 - abs(g - center) / (spread * 2.5)) for g in axis]
 
         mkt_band = band(mkt_g)
         mod_band = band(mod_g)
@@ -232,9 +230,7 @@ class FragilityMapPanel:
         cv.hline(sg_row, c0, c1, style=w.C_DIM())
         stab_100 = stability * 100 if stability <= 1 else stability
         cv.put(sg_row + 1, c0 + 2, "Valuation Stability:", w.C_DIM())
-        sg_col = (
-            w.C_GREEN() if stab_100 > 66 else w.C_YELLOW() if stab_100 > 40 else w.C_RED()
-        )
+        sg_col = w.C_GREEN() if stab_100 > 66 else w.C_YELLOW() if stab_100 > 40 else w.C_RED()
         cv.put(sg_row + 1, c0 + 23, f"{stab_100:.0f}/100", sg_col + w.BOLD)
         cv.put(sg_row + 1, c0 + 33, w.gauge(stab_100, max(8, width - 38)), sg_col)
         cv.put(sg_row + 2, c0 + 2, f"Dominant driver: {dom}", w.C_DIM())
@@ -260,9 +256,7 @@ class FragilityMapPanel:
                 if frag_100 > 66
                 else "Moderate sensitivity to key assumptions."
             )
-            vcol = (
-                w.C_GREEN() if frag_100 < 40 else w.C_RED() if frag_100 > 66 else w.C_YELLOW()
-            )
+            vcol = w.C_GREEN() if frag_100 < 40 else w.C_RED() if frag_100 > 66 else w.C_YELLOW()
             cv.put(pos_row + 2, c0 + 2, verdict, vcol)
 
 
@@ -290,8 +284,11 @@ class ArbitrationVisualizerPanel:
         intrinsic = getattr(rpt, "intrinsic", None)
         relative = getattr(rpt, "relative", None)
         market_impl = getattr(rpt, "market_implied_engine", None)
-        for name, obj in (("DCF Intrinsic", intrinsic), ("Relative", relative),
-                          ("Reverse DCF", market_impl)):
+        for name, obj in (
+            ("DCF Intrinsic", intrinsic),
+            ("Relative", relative),
+            ("Reverse DCF", market_impl),
+        ):
             if obj is not None:
                 v = fv_from(obj)
                 if v:
@@ -301,7 +298,9 @@ class ArbitrationVisualizerPanel:
         for attr, name in (("sotp", "SOTP"), ("bayesian_target", "Bayesian")):
             obj = getattr(rpt, attr, None)
             if obj is not None:
-                v = getattr(obj, "fair_value", None) or (obj if isinstance(obj, (int, float)) else None)
+                v = getattr(obj, "fair_value", None) or (
+                    obj if isinstance(obj, (int, float)) else None
+                )
                 if v:
                     lenses.append((name, float(v)))
 
@@ -344,7 +343,9 @@ class ArbitrationVisualizerPanel:
         if consensus:
             cv.put(crow + 1, c0 + 28, f"Rating: {consensus}", w.rating_color(consensus) + w.BOLD)
         if blended is not None:
-            cv.put(crow + 2, c0 + 1, f"Blended upside: {w.fmt_pct(blended)}", w.value_color(blended))
+            cv.put(
+                crow + 2, c0 + 1, f"Blended upside: {w.fmt_pct(blended)}", w.value_color(blended)
+            )
 
 
 # ─────────────────────────────────────────────────────────────────────────────

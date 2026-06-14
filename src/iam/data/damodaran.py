@@ -200,6 +200,7 @@ class DamodaranProvider:
         """
         try:
             from iam.data.markets import fetch_market_snapshot
+
             snapshot = fetch_market_snapshot()
             # Assuming '10Y' is the key for 10-year treasury in the market data
             return float(snapshot.get("10Y", cls.CURRENT_RISK_FREE_RATE))

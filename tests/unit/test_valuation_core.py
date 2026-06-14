@@ -1,9 +1,12 @@
-import pytest
 import math
-from iam.data.security import Security, Fundamentals, MarketData
-from iam.valuation.fcfe_dcf import FCFEDCF, FCFEAssumptions
-from iam.valuation.reverse_dcf import reverse_dcf_to_ratio
-from iam.valuation.types import Method, ValuationResult, ImpliedExpectations
+
+import pytest
+
+from iam.data.security import Security
+from iam.valuation.fcfe_dcf import FCFEDCF
+from iam.valuation.triangulator import reverse_dcf_to_ratio
+from iam.valuation.types import ImpliedExpectations, Method, ValuationResult
+
 
 @pytest.fixture
 def base_security():
@@ -13,6 +16,7 @@ def base_security():
     sec.fundamentals.shares_outstanding = 1.0
     return sec
 
+
 def test_fcfe_dcf_basic(base_security):
     engine = FCFEDCF()
     result = engine.compute(base_security)
@@ -20,12 +24,14 @@ def test_fcfe_dcf_basic(base_security):
     assert result.fair_value_to_price is not None
     assert isinstance(result.fair_value_to_price, float)
 
+
 def test_fcfe_dcf_insufficient_data():
     sec = Security(ticker="EMPTY")
     engine = FCFEDCF()
     result = engine.compute(sec)
     assert result.confidence == 0.0
     assert "Insufficient data" in result.verdict_text
+
 
 def test_reverse_dcf_to_ratio_logic():
     # vs_max 1.0 -> 0.0
@@ -45,16 +51,23 @@ def test_reverse_dcf_to_ratio_logic():
     implied.growth_vs_history_max = 0.0
     assert reverse_dcf_to_ratio(res) is None
 
+
 def test_portfolio_volatility_calculation():
     # This tests the fix applied in Phase 4
     from iam.portfolio.analytics import PortfolioAnalyzer
     from iam.portfolio.types import Portfolio, Position
-    
-    p = Portfolio(ticker="P", positions=[
-        Position(ticker="A", weight=0.5),
-        Position(ticker="B", weight=0.5)
-    ], total_value=1000)
-    
+
+    p = Portfolio(
+        positions=[
+            Position(
+                ticker="A", name="A", quantity=100, entry_price=10.0, current_price=12.0, weight=0.5
+            ),
+            Position(
+                ticker="B", name="B", quantity=100, entry_price=10.0, current_price=12.0, weight=0.5
+            ),
+        ],
+    )
+
     vol = {"A": 0.2, "B": 0.2}
     # 1. Zero correlation
     corr = {"A": {"B": 0.0}, "B": {"A": 0.0}}

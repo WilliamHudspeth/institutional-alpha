@@ -44,12 +44,15 @@ from typing import Any
 from unittest.mock import MagicMock
 
 from iam.config.settings import get_settings
-from iam.ui import widgets as W
 from iam.data import markets as MKT
+from iam.ui import widgets as W
 from iam.ui.market_panels import GlobalMarketsPanel, RealWatchlistPanel, render_ribbon
 from iam.ui.research_panels import (
-    ExpectationsBattlefieldPanel, ReverseDCFDistributionPanel,
-    FragilityMapPanel, ArbitrationVisualizerPanel, ThesisDriftPanel,
+    ArbitrationVisualizerPanel,
+    ExpectationsBattlefieldPanel,
+    FragilityMapPanel,
+    ReverseDCFDistributionPanel,
+    ThesisDriftPanel,
 )
 from iam.ui.settings_panel import SettingsPanel
 
@@ -1577,14 +1580,14 @@ class SwitchPanel(_Panel):
 class AlphaTerminal:
     MENU_ITEMS: list[str] = [
         "Watchlist",
-        "Global Markets",          # NEW
+        "Global Markets",  # NEW
         "Quick Recommendation",
         "Deep Dive Valuation",
-        "Expectations Battlefield",# NEW
-        "Reverse DCF Distribution",# NEW
-        "Valuation Fragility",     # NEW
-        "Lens Arbitration",        # NEW
-        "Thesis Drift",            # NEW
+        "Expectations Battlefield",  # NEW
+        "Reverse DCF Distribution",  # NEW
+        "Valuation Fragility",  # NEW
+        "Lens Arbitration",  # NEW
+        "Thesis Drift",  # NEW
         "Valuation Terrain",
         "SOTP Tower",
         "Factor Scoring",
@@ -1593,7 +1596,7 @@ class AlphaTerminal:
         "Portfolio Overview",
         "Learning & Glossary",
         "Matrix Digital Rain",
-        "Settings",                # NEW
+        "Settings",  # NEW
         "System Info",
         "Switch Security",
         "─────────────────",
@@ -2098,8 +2101,8 @@ class AlphaTerminal:
         cv.put(0, 0, TL + H2 * (w - 2) + TR, C_ACCENT)
         # Security info line
         with self._lock:
-            sec = self._secs.get(self._active)
-        
+            self._secs.get(self._active)
+
         # New Ribbon
         ribbon = render_ribbon()
         cv.put(1, 0, V2, C_ACCENT)

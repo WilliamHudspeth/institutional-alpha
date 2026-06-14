@@ -119,7 +119,9 @@ class TerminalConfig(BaseModel):
     show_debug_info: bool = Field(default=False, description="Show debug information")
     # Forced fixed-resolution window (e.g. a square 800x800 px viewport)
     force_window: bool = Field(default=False, description="Lock the terminal to a fixed pixel size")
-    window_px_width: int = Field(default=800, ge=200, le=4000, description="Forced window width (px)")
+    window_px_width: int = Field(
+        default=800, ge=200, le=4000, description="Forced window width (px)"
+    )
     window_px_height: int = Field(
         default=800, ge=200, le=4000, description="Forced window height (px)"
     )

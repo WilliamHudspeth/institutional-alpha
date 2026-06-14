@@ -112,6 +112,7 @@ class VerdictGenerator:
                 notes.append("No implied upside available to generate a rating.")
             else:
                 upside = triangulation.cluster_center
+                blended_upside = upside
                 if upside >= self.buy_threshold:
                     rating = "BUY"
                 elif upside <= self.sell_threshold:
