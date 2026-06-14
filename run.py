@@ -233,10 +233,10 @@ def main() -> None:
         sys.exit(1)
 
     # Apply optional growth override
-    growth = 0.08
+    growth = get_settings().pipeline.default_forecast_growth
     if g_input:
         try:
-            growth = parse_growth_rate(g_input, default=0.08)
+            growth = parse_growth_rate(g_input, default=get_settings().pipeline.default_forecast_growth)
             from iam.validation import validate_growth_rate
 
             validate_growth_rate(growth, growth_type="forecast")
@@ -244,7 +244,7 @@ def main() -> None:
                 security.qualitative = {}
             security.qualitative["forecast_growth"] = growth
         except ValueError as exc:
-            print(f"Invalid growth input: {exc} — using default 8%.")
+            print(f"Invalid growth input: {exc} — using default {get_settings().pipeline.default_forecast_growth*100}% .")
 
     # ----- Silent engine runs -----
     synthesis_upside, lens_error = _gather_lens_results(security)

@@ -437,10 +437,11 @@ def run_settings_menu() -> None:
 
         print("  1. Generate Desktop Shortcut / Launcher")
         print("  2. Manage Data API Keys (Credentials Wizard)")
-        print("  3. Back to Main Menu")
+        print("  3. Run GroundTruth Calibration (Link IC to Reliability)")
+        print("  4. Back to Main Menu")
         print()
 
-        choice = safe_input("Enter choice (1-3): ", default="3").strip()
+        choice = safe_input("Enter choice (1-4): ", default="4").strip()
         if choice == "1":
             from scripts.create_shortcut import create_shortcut
 
@@ -455,6 +456,11 @@ def run_settings_menu() -> None:
             configure_interactive()
             safe_input("\nPress Enter to return to Settings...")
         elif choice == "3":
+            from iam.validation.ground_truth import run_calibration
+
+            run_calibration()
+            safe_input("\nPress Enter to return to Settings...")
+        elif choice == "4":
             break
 
 

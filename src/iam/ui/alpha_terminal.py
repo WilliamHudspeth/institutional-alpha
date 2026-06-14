@@ -43,6 +43,16 @@ from datetime import datetime
 from typing import Any
 from unittest.mock import MagicMock
 
+from iam.config.settings import get_settings
+from iam.ui import widgets as W
+from iam.data import markets as MKT
+from iam.ui.market_panels import GlobalMarketsPanel, RealWatchlistPanel, render_ribbon
+from iam.ui.research_panels import (
+    ExpectationsBattlefieldPanel, ReverseDCFDistributionPanel,
+    FragilityMapPanel, ArbitrationVisualizerPanel, ThesisDriftPanel,
+)
+from iam.ui.settings_panel import SettingsPanel
+
 # ── Platform key-input helpers ────────────────────────────────────────────
 if sys.platform == "win32":
     import msvcrt
@@ -1567,8 +1577,14 @@ class SwitchPanel(_Panel):
 class AlphaTerminal:
     MENU_ITEMS: list[str] = [
         "Watchlist",
+        "Global Markets",          # NEW
         "Quick Recommendation",
         "Deep Dive Valuation",
+        "Expectations Battlefield",# NEW
+        "Reverse DCF Distribution",# NEW
+        "Valuation Fragility",     # NEW
+        "Lens Arbitration",        # NEW
+        "Thesis Drift",            # NEW
         "Valuation Terrain",
         "SOTP Tower",
         "Factor Scoring",
@@ -1577,6 +1593,7 @@ class AlphaTerminal:
         "Portfolio Overview",
         "Learning & Glossary",
         "Matrix Digital Rain",
+        "Settings",                # NEW
         "System Info",
         "Switch Security",
         "─────────────────",
@@ -1586,21 +1603,41 @@ class AlphaTerminal:
     DEFAULT_WATCHLIST = ["TSLA", "MSFT", "AAPL", "NVDA", "META"]
 
     def __init__(self) -> None:
-        self._active = "AAPL"
-        self._watchlist: list[str] = list(self.DEFAULT_WATCHLIST)
+        self._cfg = get_settings()
+
+        # Apply display settings to the shared widget layer
+        W.configure(
+            theme=self._cfg.display.theme,
+            color_mode=self._cfg.terminal.color_mode,
+            unicode_enabled=self._cfg.terminal.unicode_enabled,
+        )
+        # Apply market-data cache TTLs
+        MKT.configure(
+            quote_ttl=self._cfg.market_data.quote_ttl_seconds,
+            macro_ttl=self._cfg.market_data.macro_ttl_seconds,
+        )
+
+        self._active = self._cfg.display.default_ticker
+        self._watchlist = list(self._cfg.display.watchlist)
         self._menu_idx = 0
         self._secs: dict[str, SecState] = {}
         self._sys = SystemState() if _IAM_STATE else None
         self._lock = threading.Lock()
-        self._executor = ThreadPoolExecutor(max_workers=4)
+        self._executor = ThreadPoolExecutor(max_workers=self._cfg.async_config.max_workers)
         self._running = False
         self._canvas: Canvas | None = None
         self._ticks = 0
 
         self._panels: dict[str, _Panel] = {
-            "Watchlist": WatchlistPanel(self._watchlist),
+            "Watchlist": RealWatchlistPanel(self._watchlist, sec_lookup=self._get_sec),
+            "Global Markets": GlobalMarketsPanel(),
             "Quick Recommendation": QuickRecPanel(),
             "Deep Dive Valuation": DeepValPanel(),
+            "Expectations Battlefield": ExpectationsBattlefieldPanel(),
+            "Reverse DCF Distribution": ReverseDCFDistributionPanel(),
+            "Valuation Fragility": FragilityMapPanel(),
+            "Lens Arbitration": ArbitrationVisualizerPanel(),
+            "Thesis Drift": ThesisDriftPanel(),
             "Valuation Terrain": TerrainPanel(),
             "SOTP Tower": SOTPTowerPanel(),
             "Factor Scoring": FactorPanel(),
@@ -1609,13 +1646,26 @@ class AlphaTerminal:
             "Portfolio Overview": PortfolioPanel(),
             "Learning & Glossary": LearningPanel(),
             "Matrix Digital Rain": MatrixPanel(),
+            "Settings": SettingsPanel(on_apply=self._apply_settings),
             "System Info": SysInfoPanel(),
             "Switch Security": SwitchPanel(),
         }
 
         atexit.register(self._teardown)
 
-    # ── Lifecycle ─────────────────────────────────────────────────────────
+    def _get_sec(self, ticker: str) -> SecState | None:
+        with self._lock:
+            return self._secs.get(ticker)
+
+    def _apply_settings(self) -> None:
+        self._cfg = get_settings()
+        W.configure(
+            theme=self._cfg.display.theme,
+            color_mode=self._cfg.terminal.color_mode,
+            unicode_enabled=self._cfg.terminal.unicode_enabled,
+        )
+        if self._canvas:
+            self._canvas._dirty = True
 
     def start(self) -> None:
         if sys.platform == "win32":
@@ -1686,6 +1736,14 @@ class AlphaTerminal:
                 self._nav(-1)
             elif arrow == b"P":
                 self._nav(+1)
+            elif arrow in [b"K", b"M"]:
+                # Intercept for Settings/Terrain panels
+                if self.MENU_ITEMS[self._menu_idx] in ["Settings", "Valuation Terrain"]:
+                    panel = self._panels[self.MENU_ITEMS[self._menu_idx]]
+                    if hasattr(panel, "_handle_key"):
+                        panel._handle_key(arrow)
+                        if self._canvas:
+                            self._canvas._dirty = True
         elif key == b"\x1b":
             nxt = _getch_nowait()
             if nxt is None:
@@ -1705,6 +1763,14 @@ class AlphaTerminal:
                     self._nav(-1)
                 elif code == b"B":
                     self._nav(+1)
+                elif code in [b"C", b"D"]:
+                    # Intercept for Settings/Terrain panels
+                    if self.MENU_ITEMS[self._menu_idx] in ["Settings", "Valuation Terrain"]:
+                        panel = self._panels[self.MENU_ITEMS[self._menu_idx]]
+                        if hasattr(panel, "_handle_key"):
+                            panel._handle_key(code)
+                            if self._canvas:
+                                self._canvas._dirty = True
         elif key.lower() == b"q":
             self._quit()
         elif key.lower() == b"s":
@@ -2033,14 +2099,11 @@ class AlphaTerminal:
         # Security info line
         with self._lock:
             sec = self._secs.get(self._active)
-        sec.name[:28] if (sec and not sec.loading) else ("Loading…" if sec else "—")
-        ts = datetime.now().strftime("%H:%M:%S")
-
+        
+        # New Ribbon
+        ribbon = render_ribbon()
         cv.put(1, 0, V2, C_ACCENT)
-        # Standardize Option 2 CLI Banner style
-        banner_text = f"  {C_GOLD}{BOLD}INSTITUTIONAL ALPHA{RESET}  {C_DIM}│{RESET}  {C_ACCENT}RESEARCH & PORTFOLIO COMPOSER{RESET}"
-        cv.put(1, 1, banner_text, "")
-        cv.put(1, w - len(ts) - 2, ts, C_DIM)
+        cv.put(1, 1, ribbon, "")
         cv.put(1, w - 1, V2, C_ACCENT)
         # Separator
         cv.put(2, 0, MID_L + H2 * (w - 2) + MID_R, C_ACCENT)

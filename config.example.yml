@@ -1,7 +1,26 @@
-# Example terminal configuration
-# Save as config.yml or ~/.iam/settings.yml
+# Example Alpha Terminal configuration  (ENHANCED)
+# Save as ~/.iam/settings.yml  (or ./settings.yml, ./config.yml, or set IAM_CONFIG)
+# The in-app Settings panel reads and writes this file.
 
-# Factor weights (should sum to approximately 1.0)
+# Watchlist, coverage universe, and phosphor theme  (NEW)
+display:
+  watchlist: [TSLA, MSFT, AAPL, NVDA, META]
+  coverage: []                 # background-refreshed research universe
+  default_ticker: AAPL
+  watchlist_sort: manual       # manual | change | upside | composite
+  theme: cyan                  # cyan | amber | green
+
+# Live market-data / macro-tape layer  (NEW)
+market_data:
+  enabled: true
+  ribbon_enabled: true         # scrolling market tape in the header
+  ribbon_cycle_seconds: 5.0    # seconds per region group before cycling
+  quote_ttl_seconds: 60.0      # per-quote cache lifetime
+  macro_ttl_seconds: 600.0     # global snapshot cache lifetime
+  tick_refresh_seconds: 3.0    # active-ticker live re-poll cadence
+  after_hours_backoff: true    # pause live re-poll when US cash session closed
+
+# Factor weights (should sum to ~1.0; normalized at scoring time)
 factor_weights:
   quality: 0.20
   growth: 0.25
@@ -14,8 +33,7 @@ factor_weights:
 # Data provider configuration
 data_source:
   primary_provider: yfinance
-  fallback_providers:
-    - stooq
+  fallback_providers: [stooq]
   cache_ttl_seconds: 3600
   max_retries: 3
   timeout_seconds: 10.0
@@ -25,10 +43,15 @@ data_source:
 terminal:
   width: 80
   height: 40
-  refresh_rate: 0.1
-  color_mode: auto  # auto, color, mono
+  refresh_rate: 0.1            # render loop cadence (seconds)
+  color_mode: auto             # auto | color | mono
   unicode_enabled: true
   show_debug_info: false
+  force_window: false          # NEW: lock the terminal to a fixed pixel size
+  window_px_width: 800         # forced viewport width  (px)
+  window_px_height: 800        # forced viewport height (px)  -> 800x800 square
+  cell_px_width: 8             # monospace cell size; tune to your font
+  cell_px_height: 16           #   800x800 @ 8x16 => ~100 cols x 50 rows
 
 # Valuation pipeline configuration
 pipeline:
@@ -36,6 +59,7 @@ pipeline:
   enable_multiples: true
   enable_scenario: true
   forecast_periods: 10
+  default_forecast_growth: 0.08   # NEW: default growth when unspecified (was hardcoded)
   terminal_growth_rate: 0.025
   discount_rate_floor: 0.06
   discount_rate_ceiling: 0.15

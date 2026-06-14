@@ -196,10 +196,16 @@ class DamodaranProvider:
         """
         Returns the current 10-Year US Treasury yield.
 
-        In production, this would fetch live data from FRED API or Treasury website.
-        For now, we use Damodaran's monthly updates (manually updated).
+        Fetches live data from the markets data layer.
         """
-        return cls.CURRENT_RISK_FREE_RATE
+        try:
+            from iam.data.markets import fetch_market_snapshot
+            snapshot = fetch_market_snapshot()
+            # Assuming '10Y' is the key for 10-year treasury in the market data
+            return float(snapshot.get("10Y", cls.CURRENT_RISK_FREE_RATE))
+        except Exception:
+            # Fallback to hardcoded value if live fetch fails
+            return cls.CURRENT_RISK_FREE_RATE
 
     @classmethod
     def get_macro_state(cls) -> MacroBaselines:
