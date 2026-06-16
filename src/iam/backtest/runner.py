@@ -140,7 +140,7 @@ def run_backtest(
                     mcaps[ticker] = market_cap
 
             except Exception as e:
-                print(f"Warning: Parallel scoring failed on {date}: {e}")
+                logger.info(f"Warning: Parallel scoring failed on {date}: {e}")
                 continue
 
             # Get primary forward returns for this date
@@ -231,17 +231,17 @@ def print_backtest_summary(results_df: pd.DataFrame) -> dict:
 
     summary = summarize_backtest(results_df)
 
-    print("\n" + "=" * 70)
-    print("BACKTEST SUMMARY — COMPOSITE SCORE")
-    print("=" * 70)
-    print(f"IC Mean:           {summary['ic_mean']:+.4f}")
-    print(f"IC VW:             {results_df['ic_vw'].mean():+.4f}" if "ic_vw" in results_df else "")
-    print(f"IC Std:            {summary['ic_std']:.4f}")
-    print(f"IC IR:             {summary['icir']:.2f}")
-    print(f"Hit Rate:          {summary['hit_rate']:.1%}")
-    print(f"Decile Spread:     {summary['spread_mean']:+.2%}")
-    print(f"Top Decile Return: {summary['top_decile_mean']:+.2%}")
-    print(f"Bot Decile Return: {summary['bottom_decile_mean']:+.2%}")
+    logger.info("\n" + "=" * 70)
+    logger.info("BACKTEST SUMMARY — COMPOSITE SCORE")
+    logger.info("=" * 70)
+    logger.info(f"IC Mean:           {summary['ic_mean']:+.4f}")
+    logger.info(f"IC VW:             {results_df['ic_vw'].mean():+.4f}" if "ic_vw" in results_df else "")
+    logger.info(f"IC Std:            {summary['ic_std']:.4f}")
+    logger.info(f"IC IR:             {summary['icir']:.2f}")
+    logger.info(f"Hit Rate:          {summary['hit_rate']:.1%}")
+    logger.info(f"Decile Spread:     {summary['spread_mean']:+.2%}")
+    logger.info(f"Top Decile Return: {summary['top_decile_mean']:+.2%}")
+    logger.info(f"Bot Decile Return: {summary['bottom_decile_mean']:+.2%}")
 
     # Multi-horizon table
     horizon_cols = sorted(
@@ -253,11 +253,11 @@ def print_backtest_summary(results_df: pd.DataFrame) -> dict:
         key=lambda c: int(c[len("ic_") : -1]),
     )
     if horizon_cols:
-        print()
-        print(
+        logger.info()
+        logger.info(
             f"  {'Horizon':>8}  {'Mean IC':>8}  {'IC VW':>8}  {'ICIR':>6}  {'NW t-stat':>10}  {'Sig':>4}"
         )
-        print("  " + "-" * 54)
+        logger.info("  " + "-" * 54)
         for hcol in horizon_cols:
             h_label = hcol[len("ic_") :]
             vw_col = f"ic_vw_{h_label}"
@@ -269,7 +269,7 @@ def print_backtest_summary(results_df: pd.DataFrame) -> dict:
             t_stat, _, _ = newey_west_se_rigorous(series, nlags=3)
             vw_mean = results_df[vw_col].mean() if vw_col in results_df else float("nan")
             sig = "**" if abs(t_stat) > 2.6 else ("*" if abs(t_stat) > 1.96 else "")
-            print(
+            logger.info(
                 f"  {h_label:>8}  {mean_ic:>+8.4f}  {vw_mean:>+8.4f}  {icir:>6.2f}  {t_stat:>10.2f}  {sig:>4}"
             )
 
@@ -280,35 +280,35 @@ def print_backtest_summary(results_df: pd.DataFrame) -> dict:
     factor_names = list(DEFAULT_WEIGHTS.keys())
     val = compute_validation_metrics(results_df, factor_names)
 
-    print("\nResearch Validation")
-    print("-------------------")
-    print(
+    logger.info("\nResearch Validation")
+    logger.info("-------------------")
+    logger.info(
         f"PSR:                      {val.psr:.4f}"
         if not np.isnan(val.psr)
         else "PSR:                      N/A"
     )
-    print(
+    logger.info(
         f"DSR:                      {val.dsr:.4f}"
         if not np.isnan(val.dsr)
         else "DSR:                      N/A"
     )
-    print(
+    logger.info(
         f"PBO:                      {val.pbo:.4f}"
         if not np.isnan(val.pbo)
         else "PBO:                      N/A"
     )
-    print(
+    logger.info(
         f"SPA p-value:              {val.spa_pvalue:.4f}"
         if not np.isnan(val.spa_pvalue)
         else "SPA p-value:              N/A"
     )
-    print(
+    logger.info(
         f"Effective Tests:          {val.effective_tests:.2f}"
         if not np.isnan(val.effective_tests)
         else "Effective Tests:          N/A"
     )
-    print(f"FWER Significant Factors: {val.fwer_significant_factors}")
-    print(f"FDR Significant Factors:  {val.fdr_significant_factors}")
+    logger.info(f"FWER Significant Factors: {val.fwer_significant_factors}")
+    logger.info(f"FDR Significant Factors:  {val.fdr_significant_factors}")
 
-    print("=" * 70)
+    logger.info("=" * 70)
     return summary

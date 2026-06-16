@@ -64,9 +64,8 @@ def print_assumption_table(
     terminal_growth: float = 0.025,
     horizon: int = 10,
 ) -> None:
-    """Print the typographic assumption summary (delegates to format_assumption_table)."""
-    print(format_assumption_table(forecast_growth, wacc, terminal_growth, horizon))
-    print()
+    """Log the typographic assumption summary (delegates to format_assumption_table)."""
+    logger.info("\n" + format_assumption_table(forecast_growth, wacc, terminal_growth, horizon) + "\n")
 
 
 @dataclass
