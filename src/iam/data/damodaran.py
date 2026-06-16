@@ -202,8 +202,11 @@ class DamodaranProvider:
             from iam.data.markets import fetch_market_snapshot
 
             snapshot = fetch_market_snapshot()
-            # Assuming '10Y' is the key for 10-year treasury in the market data
-            return float(snapshot.get("10Y", cls.CURRENT_RISK_FREE_RATE))
+            q = snapshot.get("^TNX")
+            if q and q.last is not None:
+                # rates might be provided as whole numbers (e.g. 4.2 for 4.2%)
+                return float(q.last) / 100.0 if q.last > 1.0 else float(q.last)
+            return cls.CURRENT_RISK_FREE_RATE
         except Exception:
             # Fallback to hardcoded value if live fetch fails
             return cls.CURRENT_RISK_FREE_RATE

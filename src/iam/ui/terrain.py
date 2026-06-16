@@ -126,7 +126,7 @@ def _height_color(t: float) -> str:
     return w.C_RED()
 
 
-def _orient(ax, ay, bx, by, cx, cy) -> float:
+def _orient(ax: float, ay: float, bx: float, by: float, cx: float, cy: float) -> float:
     """Edge function / 2x signed area of triangle (a,b,c)."""
     return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
 

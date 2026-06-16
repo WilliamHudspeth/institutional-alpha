@@ -1660,7 +1660,7 @@ class AlphaTerminal:
         with self._lock:
             return self._secs.get(ticker)
 
-    def _apply_settings(self) -> None:
+    def _apply_settings(self, cfg: Any = None) -> None:
         self._cfg = get_settings()
         W.configure(
             theme=self._cfg.display.theme,

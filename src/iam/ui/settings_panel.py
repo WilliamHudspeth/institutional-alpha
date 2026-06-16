@@ -33,7 +33,7 @@ class Field:
     label: str
     kind: str
     get: Callable[[], Any]
-    set: Callable[[Any], None]
+    set: Callable[[Any], Any]
     meta: dict[str, Any]
 
 

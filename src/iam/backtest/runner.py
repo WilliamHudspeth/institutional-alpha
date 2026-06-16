@@ -253,7 +253,7 @@ def print_backtest_summary(results_df: pd.DataFrame) -> dict:
         key=lambda c: int(c[len("ic_") : -1]),
     )
     if horizon_cols:
-        logger.info()
+        logger.info("")
         logger.info(
             f"  {'Horizon':>8}  {'Mean IC':>8}  {'IC VW':>8}  {'ICIR':>6}  {'NW t-stat':>10}  {'Sig':>4}"
         )

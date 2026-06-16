@@ -185,7 +185,8 @@ class RealWatchlistPanel:
                 cv.put(r, c0 + 48, w.spark_line(hist, max(8, c1 - (c0 + 50))), d_col)
 
         cv.hline(r1 - 1, c0, c1, style=w.C_DIM())
-        flag = " (mock/stale data)" if (mkt.get_snapshot() and mkt.get_snapshot().stale) else ""
+        snap = mkt.get_snapshot()
+        flag = " (mock/stale data)" if (snap and snap.stale) else ""
         cv.put(
             r1 - 1,
             c0 + 1,

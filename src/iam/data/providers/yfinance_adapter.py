@@ -164,8 +164,8 @@ class YFinanceAdapter:
         max_retries = 3
         base_delay = 2.0
 
-        info = {}
-        yt = None
+        info: dict[str, Any] = {}
+        yt: Any = None
         for attempt in range(max_retries):
             try:
                 yt = yf.Ticker(ticker)
@@ -220,6 +220,9 @@ class YFinanceAdapter:
                 fcf_ttm = net_income_ttm  # Ultimate fallback
 
         # Fetch financials for historical series
+        if yt is None:
+            raise RuntimeError(f"Failed to initialize yfinance ticker for {ticker}")
+
         try:
             financials = yt.financials
         except Exception:
