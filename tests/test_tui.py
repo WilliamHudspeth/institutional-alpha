@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from iam.ui.alpha_terminal import (
     BacktestPanel,
@@ -47,6 +48,15 @@ class TestTUIElements(unittest.TestCase):
         for panel in panels:
             # Check render operates without exceptions
             panel.render(self.canvas, 2, 28, 28, 98, self.sec, ticks=0)
+
+    @patch("os.system")
+    @patch("sys.stdout.write")
+    def test_no_shell_spawning_in_menu(self, mock_write, mock_system):
+        from iam.ui.menu import print_menu
+        print_menu()
+        mock_system.assert_not_called()
+        # Verify ANSI escape sequence is used to clear screen
+        mock_write.assert_any_call("\033[H\033[2J")
 
 
 if __name__ == "__main__":

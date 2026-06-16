@@ -1038,14 +1038,14 @@ class PortfolioPanel(_Panel):
         )
         cv.hline(r0 + 3, c0, c1)
 
-        total_val = sum(h["market_value"] for h in self._HOLDINGS)
+        total_val = sum(h["market_value"] for h in self._HOLDINGS)  # type: ignore
         for idx, h in enumerate(self._HOLDINGS):
             r = r0 + 4 + idx
             if r > r1 - 8:
                 break
             pnl = h["pnl_pct"]
-            pnl_col = C_GREEN if pnl >= 0 else C_RED
-            conv_col = {"HIGH": C_GREEN, "MEDIUM": C_YELLOW, "LOW": C_RED}.get(
+            pnl_col = C_GREEN if pnl >= 0 else C_RED  # type: ignore
+            conv_col = {"HIGH": C_GREEN, "MEDIUM": C_YELLOW, "LOW": C_RED}.get(  # type: ignore
                 h["conviction"], C_WHITE
             )
             cv.put(r, c0 + 1, f"{h['ticker']:<7}", C_WHITE)
@@ -1408,9 +1408,17 @@ class AlphaTerminal:
 
     def start(self) -> None:
         if sys.platform == "win32":
-            os.system("")
+            import ctypes
             try:
-                sys.stdout.reconfigure(encoding="utf-8")
+                kernel32 = ctypes.windll.kernel32
+                handle = kernel32.GetStdHandle(-11)
+                mode = ctypes.c_ulong()
+                kernel32.GetConsoleMode(handle, ctypes.byref(mode))
+                kernel32.SetConsoleMode(handle, mode.value | 0x0004)
+            except Exception:
+                pass
+            try:
+                sys.stdout.reconfigure(encoding="utf-8")  # type: ignore
             except AttributeError:
                 pass
         else:
@@ -1480,7 +1488,7 @@ class AlphaTerminal:
                 if self.MENU_ITEMS[self._menu_idx] == "Learning & Glossary":
                     panel = self._panels["Learning & Glossary"]
                     if getattr(panel, "mode", None) == "quiz":
-                        panel.mode = "glossary"
+                        panel.mode = "glossary"  # type: ignore
                         if self._canvas:
                             self._canvas._dirty = True
                         return
@@ -1516,7 +1524,7 @@ class AlphaTerminal:
             if self.MENU_ITEMS[self._menu_idx] == "Learning & Glossary":
                 panel = self._panels["Learning & Glossary"]
                 if getattr(panel, "mode", None) == "quiz":
-                    panel._answer_quiz(int(key.decode()))
+                    panel._answer_quiz(int(key.decode()))  # type: ignore
                     if self._canvas:
                         self._canvas._dirty = True
         elif key.lower() == b"w":

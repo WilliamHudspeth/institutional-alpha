@@ -45,7 +45,8 @@ def print_menu() -> None:
 
     # Clear console for immersive dedicated retro terminal experience
     try:
-        os.system("cls" if os.name == "nt" else "clear")
+        sys.stdout.write("\033[H\033[2J")
+        sys.stdout.flush()
     except Exception:
         print("\n" * 3)
 
@@ -419,7 +420,8 @@ def run_settings_menu() -> None:
 
     while True:
         try:
-            os.system("cls" if os.name == "nt" else "clear")
+            sys.stdout.write("\033[H\033[2J")
+            sys.stdout.flush()
         except Exception:
             print("\n" * 3)
 
