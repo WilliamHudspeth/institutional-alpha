@@ -1,6 +1,7 @@
 """Tests for beta unlevering / relevering and CAPM pipeline wiring."""
 
 import pytest
+import unittest.mock
 
 from iam.data.security import Fundamentals, MarketData, Security
 from iam.engine.market_implied import MarketImpliedEngine
@@ -271,11 +272,12 @@ class TestStage3CAPMWiring:
             ),
             market=MarketData(price=100.0),
         )
-        result = FCFEDCF().compute(sec)
-        # Now uses Damodaran institutional baseline (not generic 9%)
-        # For unknown sector/industry with no debt: 4.25% + 0.85 * 4.6% = 8.16%
-        assert result.assumptions["discount_rate"] == pytest.approx(0.0816, abs=0.001)
-        assert any("Damodaran" in n for n in result.notes)
+        with unittest.mock.patch("iam.data.damodaran.DamodaranProvider.get_risk_free_rate", return_value=0.0425):
+            result = FCFEDCF().compute(sec)
+            # Now uses Damodaran institutional baseline (not generic 9%)
+            # For unknown sector/industry with no debt: 4.25% + 0.85 * 4.6% = 8.16%
+            assert result.assumptions["discount_rate"] == pytest.approx(0.0816, abs=0.001)
+            assert any("Damodaran" in n for n in result.notes)
 
     def test_audit_trail_written_after_capm_run(self):
         sec = _full_security()

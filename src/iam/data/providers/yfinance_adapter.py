@@ -31,6 +31,12 @@ logger = logging.getLogger(__name__)
 SEED_CACHE_PATH = "data/cache/seed_cache.sqlite"
 RUNTIME_CACHE_PATH = "data/cache/iam_cache.sqlite"
 
+def _open(path: str, timeout: float = 15.0) -> sqlite3.Connection:
+    conn = sqlite3.connect(path, timeout=timeout)
+    conn.execute("PRAGMA journal_mode=WAL")     # readers don't block the writer
+    conn.execute("PRAGMA busy_timeout=15000")   # ms; pairs with timeout=
+    conn.execute("PRAGMA synchronous=NORMAL")   # safe under WAL, faster
+    return conn
 
 class DataProviderError(Exception):
     """Raised when data provider fails or returns invalid data."""
@@ -50,7 +56,7 @@ def _init_cache_db() -> bool:
             logger.info(f"[CACHE] Initialized from {SEED_CACHE_PATH} (warm start)")
 
         # Create/verify table structure
-        conn = sqlite3.connect(RUNTIME_CACHE_PATH, timeout=15.0)
+        conn = _open(RUNTIME_CACHE_PATH, timeout=15.0)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS ticker_cache (
                 ticker TEXT PRIMARY KEY,
@@ -75,7 +81,7 @@ def _get_cached_data(ticker: str) -> dict[str, Any] | None:
         return None
 
     try:
-        conn = sqlite3.connect(RUNTIME_CACHE_PATH, timeout=15.0)
+        conn = _open(RUNTIME_CACHE_PATH, timeout=15.0)
         cursor = conn.cursor()
         cursor.execute(
             "SELECT data, timestamp FROM ticker_cache WHERE ticker = ?", (ticker.upper(),)
@@ -106,7 +112,7 @@ def _save_cached_data(ticker: str, data: dict[str, Any]) -> None:
         return
 
     try:
-        conn = sqlite3.connect(RUNTIME_CACHE_PATH, timeout=15.0)
+        conn = _open(RUNTIME_CACHE_PATH, timeout=15.0)
         cursor = conn.cursor()
         cursor.execute(
             "INSERT OR REPLACE INTO ticker_cache (ticker, data, timestamp) VALUES (?, ?, ?)",
