@@ -10,8 +10,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+import random
 import shutil
 import sqlite3
+import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 
@@ -158,11 +160,24 @@ class YFinanceAdapter:
 
         # 2. Cache miss -> fetch live
         logger.info(f"Fetching live data for {ticker} via yfinance...")
-        try:
-            yt = yf.Ticker(ticker)
-            info = yt.info or {}
-        except Exception as exc:
-            raise RuntimeError(f"Yahoo Finance returned an error for '{ticker}': {exc}") from exc
+
+        max_retries = 3
+        base_delay = 2.0
+
+        info = {}
+        yt = None
+        for attempt in range(max_retries):
+            try:
+                yt = yf.Ticker(ticker)
+                info = yt.info or {}
+                break
+            except Exception as exc:
+                if attempt == max_retries - 1:
+                    raise RuntimeError(f"Yahoo Finance returned an error for '{ticker}' after {max_retries} attempts: {exc}") from exc
+
+                delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                logger.warning(f"yfinance fetch failed for {ticker}. Retrying in {delay:.1f}s (Attempt {attempt+1}/{max_retries})... Error: {exc}")
+                time.sleep(delay)
 
         # Extract price - required field
         price = self._get_numeric(info, "currentPrice", "regularMarketPrice", "previousClose")
