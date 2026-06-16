@@ -209,7 +209,7 @@ class ParallelWorkflow:
                     ticker = task_name.replace("data_", "")
                     results[task_name] = self.data_adapter.get_security_result(ticker, timeout)
             except Exception as e:
-                logger.error(f"Task {task_name} failed: {e}")
+                logger.error(f"Task {task_name} failed: {e}", exc_info=True)
                 results[task_name] = None  # type: ignore
 
         return results

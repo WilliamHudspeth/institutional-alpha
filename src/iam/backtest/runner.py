@@ -6,6 +6,7 @@ value_security() as a black box and never touches data or valuation internals.
 
 from __future__ import annotations
 
+import logging
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -18,6 +19,9 @@ from iam.backtest.calibration import summarize_backtest
 from iam.backtest.metrics import hit_rate, ic_value_weighted, information_coefficient
 from iam.backtest.quantiles import decile_spread
 from iam.backtest.snapshots import build_snapshot, load_snapshot
+
+logger = logging.getLogger(__name__)
+
 
 
 def _score_security_worker(
@@ -65,6 +69,7 @@ def _score_security_worker(
         return base.ticker, score, base.sector, market_cap
 
     except Exception:
+        logger.exception("Failed to score security %s at %s", base.ticker, as_of)
         # Return NaN score on failure
         return base.ticker, float("nan"), base.sector, None
 
