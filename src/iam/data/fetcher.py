@@ -104,7 +104,7 @@ class SQLiteCache:
     def _init_db(self):
         conn = None
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = sqlite3.connect(self.db_path, timeout=15.0)
             with conn:
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS cache (
@@ -123,7 +123,7 @@ class SQLiteCache:
     def get(self, key: str, source: str | None = None) -> Any | None:
         conn = None
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = sqlite3.connect(self.db_path, timeout=15.0)
             cur = conn.execute(
                 "SELECT value, timestamp FROM cache WHERE key = ? AND (source = ? OR ? IS NULL)",
                 (key, source, source),
@@ -144,7 +144,7 @@ class SQLiteCache:
     def set(self, key: str, value: Any, source: str):
         conn = None
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = sqlite3.connect(self.db_path, timeout=15.0)
             with conn:
                 conn.execute(
                     "INSERT OR REPLACE INTO cache (key, value, timestamp, source) VALUES (?, ?, ?, ?)",

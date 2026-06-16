@@ -50,7 +50,7 @@ def _init_cache_db() -> bool:
             logger.info(f"[CACHE] Initialized from {SEED_CACHE_PATH} (warm start)")
 
         # Create/verify table structure
-        conn = sqlite3.connect(RUNTIME_CACHE_PATH)
+        conn = sqlite3.connect(RUNTIME_CACHE_PATH, timeout=15.0)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS ticker_cache (
                 ticker TEXT PRIMARY KEY,
@@ -75,7 +75,7 @@ def _get_cached_data(ticker: str) -> dict[str, Any] | None:
         return None
 
     try:
-        conn = sqlite3.connect(RUNTIME_CACHE_PATH)
+        conn = sqlite3.connect(RUNTIME_CACHE_PATH, timeout=15.0)
         cursor = conn.cursor()
         cursor.execute(
             "SELECT data, timestamp FROM ticker_cache WHERE ticker = ?", (ticker.upper(),)
@@ -106,7 +106,7 @@ def _save_cached_data(ticker: str, data: dict[str, Any]) -> None:
         return
 
     try:
-        conn = sqlite3.connect(RUNTIME_CACHE_PATH)
+        conn = sqlite3.connect(RUNTIME_CACHE_PATH, timeout=15.0)
         cursor = conn.cursor()
         cursor.execute(
             "INSERT OR REPLACE INTO ticker_cache (ticker, data, timestamp) VALUES (?, ?, ?)",
