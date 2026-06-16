@@ -1965,7 +1965,8 @@ class AlphaTerminal:
             if st and not st.loading and st.security:
                 try:
                     p = st.security.market.price or 150.0
-                    new_price = max(1.0, p + random.gauss(0, p * 0.004))
+                    from iam.engine.simulations import simulate_price_tick
+                    new_price = simulate_price_tick(p)
                     st.security.market.price = new_price
                     st.history.append(new_price)
                     if len(st.history) > 50:
