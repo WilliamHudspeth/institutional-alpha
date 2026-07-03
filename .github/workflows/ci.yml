@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev]"
+          pip install hypothesis bandit pytest-cov
+
+      - name: Run Bandit (security linting)
+        run: bandit -r src/ -ll --skip B311
+
+      - name: Run tests with coverage
+        run: |
+          pytest --cov=src/iam --cov-report=term-missing --cov-fail-under=85 -x -q
+
+      - name: Type check (mypy)
+        run: mypy src/iam --ignore-missing-imports --no-strict-optional
+        continue-on-error: true
+
+  release:
+    name: Build Artifacts
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: pip install pyinstaller build
+
+      - name: Build wheel
+        run: python -m build --wheel
+
+      - name: Build standalone binary (Linux)
+        run: pyinstaller --onefile --name iam src/iam/__main__.py
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: iam-${{ github.ref_name }}-linux
+          path: |
+            dist/iam
+            dist/*.whl
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/iam
+            dist/*.whl
+          generate_release_notes: true
