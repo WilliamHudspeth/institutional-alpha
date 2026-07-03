@@ -110,6 +110,29 @@ def calculate_justified_premium(
     elif company_margin is not None or sector_margin is not None:
         result.notes.append("Sector operating margin median missing; margin adjustment skipped.")
 
+    # Durability adjustment — sticky cash flows deserve a premium
+    try:
+        from iam.elasticity.durability import DurabilityScorer
+
+        dur_score = DurabilityScorer().score(security)  # 0-1
+        # map durability onto a ±20% multiple adjustment: 0.5 → 1.0×, 1.0 → 1.2×, 0.0 → 0.8×
+        durability_adjustment = 0.8 + 0.4 * dur_score
+        justified_multiple *= durability_adjustment
+        result.notes.append(
+            f"Durability adjustment: {durability_adjustment:.2f}x (score={dur_score:.2f})"
+        )
+    except Exception:
+        result.notes.append("Durability adjustment skipped (scorer unavailable).")
+
+    # Cyclicality discount — cyclical businesses deserve lower multiples
+    revenue_mix = getattr(security, "revenue_mix", None) or {}
+    cyclical_sectors = {"Industrials", "Materials", "Energy", "Consumer Discretionary"}
+    is_cyclical = security.sector in cyclical_sectors if security.sector else False
+    if is_cyclical:
+        cyclicality_discount = 0.90  # 10% discount for cyclical names
+        justified_multiple *= cyclicality_discount
+        result.notes.append("Cyclicality discount: 0.90x (cyclical sector)")
+
     result.justified_multiple = justified_multiple
 
     # Calculate target price based on justified multiple

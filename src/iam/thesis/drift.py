@@ -71,6 +71,30 @@ METRIC_RESOLVERS: dict[str, MetricResolver] = {
         getattr(f, "total_debt", None) if f else None,
         getattr(f, "ebitda_ttm", None) if f else None,
     ),
+    # raw ROIC: most-recent value from roic_history, or computed from EBIT/assets
+    "roic": lambda br, f: (
+        f.roic_history[0]
+        if f and getattr(f, "roic_history", None)
+        else _safe_div(
+            getattr(f, "revenue_ttm", None)
+            and getattr(f, "operating_margin", None)
+            and getattr(f, "revenue_ttm") * getattr(f, "operating_margin"),
+            (getattr(f, "total_debt", None) or 0)
+            + (getattr(f, "cash_and_equivalents", None) or 0)
+            + 1,
+        )
+        if f
+        else None
+    ),
+    # reinvestment_rate = (capex + change_in_working_capital) / EBIT
+    "reinvestment_rate": lambda br, f: _safe_div(
+        getattr(f, "capex_ttm", None) if f else None,
+        (
+            getattr(f, "revenue_ttm", None) * getattr(f, "operating_margin", None)
+            if f and getattr(f, "revenue_ttm", None) and getattr(f, "operating_margin", None)
+            else None
+        ),
+    ),
 }
 
 # Allowed comparators. The constraint passes if `op(actual, bound)` is True;
@@ -162,6 +186,15 @@ class DriftReport:
         existing hook (Damodaran-law hard breach also caps at 2).
         """
         return min(2, sum(b.severity for b in self.breaches))
+
+    @property
+    def conviction_drift(self) -> float:
+        """Normalised 0-1 drift score (0 = no drift, 1 = maximum breach severity).
+
+        Derived from degrade_levels / 2 so it maps cleanly onto the
+        existing two-level degradation scale used by VerdictGenerator.
+        """
+        return self.degrade_levels / 2.0
 
     def notes(self) -> list[str]:
         return [b.describe() for b in self.breaches]
