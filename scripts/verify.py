@@ -234,7 +234,10 @@ def check_pytest() -> tuple[bool, str]:
     """Run pytest suite with short traceback output."""
     try:
         result = subprocess.run(
-            ["pytest", "-v", "--tb=short"], capture_output=True, text=True, check=False
+            [sys.executable, "-m", "pytest", "-v", "--tb=short"],
+            capture_output=True,
+            text=True,
+            check=False,
         )
         if result.returncode == 0:
             summary = [line for line in result.stdout.splitlines() if "passed" in line][-1:]
