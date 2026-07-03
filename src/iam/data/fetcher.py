@@ -72,7 +72,11 @@ class DataConfig:
 # ----------------------------------------------------------------------
 # Retry & Rate Limiting
 # ----------------------------------------------------------------------
+from iam.validation.rate_limiter import RateLimiter
+
 def with_retry(max_retries=3, base_delay=1.0, rate_limit_per_sec=5):
+    limiter = RateLimiter(max_calls=rate_limit_per_sec, period_seconds=1.0)
+    
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -80,8 +84,9 @@ def with_retry(max_retries=3, base_delay=1.0, rate_limit_per_sec=5):
             delay = base_delay
             for attempt in range(max_retries + 1):
                 try:
-                    # Basic rate limiting
-                    time.sleep(1.0 / rate_limit_per_sec)
+                    # Proper rate limiting
+                    while not limiter.is_allowed():
+                        time.sleep(0.1)
                     return func(*args, **kwargs)
                 except Exception as e:
                     last_exception = e
