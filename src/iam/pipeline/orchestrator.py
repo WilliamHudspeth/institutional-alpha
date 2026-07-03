@@ -66,7 +66,9 @@ def print_assumption_table(
     horizon: int = 10,
 ) -> None:
     """Log the typographic assumption summary (delegates to format_assumption_table)."""
-    logger.info("\n" + format_assumption_table(forecast_growth, wacc, terminal_growth, horizon) + "\n")
+    logger.info(
+        "\n" + format_assumption_table(forecast_growth, wacc, terminal_growth, horizon) + "\n"
+    )
 
 
 @dataclass
@@ -87,6 +89,7 @@ class PipelineReport:
     battlefield: ExpectationBattlefieldExplicit | None = None
     drift_report: DriftReport | None = None
     monte_carlo: MonteCarloDistribution | None = None  # sampled fair-value distribution
+    justified_premium: JustifiedPremiumResult | None = None  # Relative Reality gap
 
     def explain(self, verbose: bool = False) -> str:
         if verbose:
@@ -457,6 +460,21 @@ class ValuationPipeline:
 
         # Stage 7: Verdict (with optional Master Arbitration Layer)
         report.synthesis_upside = synthesis_upside
+
+        # Relative Reality: justified premium vs actual
+        try:
+            from iam.valuation.justified_premium import calculate_justified_premium
+
+            report.justified_premium = calculate_justified_premium(security)
+            if report.justified_premium.premium_gap is not None:
+                gap = report.justified_premium.premium_gap
+                direction = "overvalued" if gap > 0 else "undervalued"
+                report.summary += (
+                    f"\n[JUSTIFIED PREMIUM]: {direction} vs deserved by {abs(gap):.1%}"
+                )
+        except Exception as e:
+            logger.warning(f"Justified premium calculation failed: {e}")
+
         report.final_verdict = VerdictGenerator().generate(
             report.triangulation,
             report.relative,
@@ -465,6 +483,7 @@ class ValuationPipeline:
             law_report=report.law_report,
             stress_response=report.stress_response,
             drift_report=report.drift_report,
+            justified_premium=report.justified_premium,
             mismatch_score=report.battlefield.expectation_mismatch_score
             if report.battlefield
             else None,

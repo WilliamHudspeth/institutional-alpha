@@ -1,0 +1,27 @@
+# Example thesis constraint file for Microsoft
+# Place per-ticker files at data/constraints/<TICKER>.yml
+ticker: MSFT
+constraints:
+  - id: roic_floor
+    metric: roic
+    comparator: ">="
+    bound: 0.15
+    severity: 2
+    supports: Bull Case
+    note: "Bull thesis requires ROIC >= 15%; below this excess returns fade faster than assumed"
+
+  - id: margin_floor
+    metric: operating_margin
+    comparator: ">="
+    bound: 0.35
+    severity: 1
+    supports: Bull Case
+    note: "Operating margin must hold above 35% for cloud re-rating thesis to hold"
+
+  - id: leverage_ceiling
+    metric: debt_to_ebitda
+    comparator: "<="
+    bound: 2.0
+    severity: 1
+    supports: Base Case
+    note: "Debt/EBITDA above 2x signals balance sheet deterioration"

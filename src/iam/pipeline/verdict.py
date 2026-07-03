@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from iam.elasticity.types import StressResponse
     from iam.laws.types import LawReport
     from iam.thesis.drift import DriftReport
+    from iam.valuation.justified_premium import JustifiedPremiumResult
 
 # Damodaran-law conviction multipliers at/below these levels downgrade the
 # confidence band by one / two levels (see iam.laws.types for the penalties
@@ -21,6 +22,10 @@ LAW_MULTIPLIER_HARD = 0.70
 # the confidence band by one / two levels.
 DRIFT_SOFT = 0.25
 DRIFT_HARD = 0.50
+# Premium gap thresholds: gap at/above these levels (absolute value) degrade
+# the confidence band when the gap contradicts the rating direction.
+PREMIUM_GAP_SOFT = 0.30
+PREMIUM_GAP_HARD = 0.50
 
 
 def _downgrade_band(band: str, levels: int = 1) -> str:
@@ -58,6 +63,7 @@ class VerdictGenerator:
         law_report: LawReport | None = None,
         stress_response: StressResponse | None = None,
         drift_report: DriftReport | None = None,
+        justified_premium: JustifiedPremiumResult | None = None,
         mismatch_score: float | None = None,
     ) -> VerdictResult:
         """Generate verdict using Master Arbitration Layer if synthesis available.
@@ -73,6 +79,8 @@ class VerdictGenerator:
                 conviction drift degrades the confidence band
             drift_report: Optional thesis drift report; constraint breaches
                 degrade the confidence band
+            justified_premium: Optional justified premium result; premium gap
+                degrades the confidence band when it contradicts rating direction
             mismatch_score: Expectation mismatch score from ExpectationsBattlefield (0=aligned, 100=extreme mismatch)
         """
         notes = []
@@ -199,6 +207,30 @@ class VerdictGenerator:
                     )
                     for b_note in drift_report.notes():
                         notes.append(f"  ↳ {b_note}")
+
+        # 5c. Justified Premium: gap that contradicts rating direction degrades conviction
+        if justified_premium is not None and justified_premium.premium_gap is not None:
+            gap = justified_premium.premium_gap
+            rating_is_bullish = rating in ("BUY", "STRONG_BUY", "SPECULATIVE_BUY")
+            rating_is_bearish = rating == "SELL"
+            gap_contradicts = (gap > 0 and rating_is_bullish) or (gap < 0 and rating_is_bearish)
+            if gap_contradicts:
+                abs_gap = abs(gap)
+                if abs_gap >= PREMIUM_GAP_HARD:
+                    levels = 2
+                elif abs_gap >= PREMIUM_GAP_SOFT:
+                    levels = 1
+                else:
+                    levels = 0
+                if levels > 0:
+                    new_band = _downgrade_band(band, levels)
+                    if new_band != band:
+                        band = new_band
+                        direction = "overvalued" if gap > 0 else "undervalued"
+                        notes.append(
+                            f"Conviction downgraded to {band}: {direction} justified "
+                            f"premium gap {abs_gap:.2f} contradicts rating."
+                        )
 
         # 6. Apply Penalties (e.g., Leverage Risk)
         # You can expand this to incorporate the Fragility / Execution Risk penalties from v0.1.0
