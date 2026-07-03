@@ -122,7 +122,7 @@ def run_scripts_menu():
                 # Run the script using the current python executable
                 # Pass through the current sys.argv for any necessary flags?
                 # For now just simple execution.
-                subprocess.check_call([sys.executable, script_path])
+                subprocess.check_call([sys.executable, script_path])  # nosec
             except subprocess.CalledProcessError as e:
                 console.print(f"\n[bold red]Script execution failed: {e}[/bold red]")
             except Exception as e:

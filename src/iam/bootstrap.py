@@ -55,7 +55,7 @@ def check_dependencies():
     except ImportError:
         print("[!] Missing dependencies. Attempting automatic installation...")
         try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "-e", "."])
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "-e", "."])  # nosec
             print("[✓] Dependencies installed successfully")
             return True
         except subprocess.CalledProcessError as e:

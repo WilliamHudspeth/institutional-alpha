@@ -153,7 +153,8 @@ class DamodaranLawRegistry:
             return check
 
         trailing = mean(history[1 : MIN_MARGIN_POINTS + 1])
-        assert trailing is not None  # len >= MIN_MARGIN_POINTS guarantees >= 2 trailing points
+        if trailing is None:
+            raise ValueError("trailing cannot be None")
         margin_trend = history[0] - trailing
         check.components["forecast_growth"] = growth
         check.components["margin_trend"] = margin_trend

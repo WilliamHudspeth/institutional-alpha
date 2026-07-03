@@ -1,6 +1,7 @@
 """Tests for input validation and financial guards."""
 
 import pytest
+from hypothesis import given, strategies as st
 
 from iam.validation import (
     parse_growth_rate,
@@ -222,3 +223,54 @@ class TestTickerAndDateValidation:
     def test_date_not_string(self):
         with pytest.raises(ValueError, match="Date must be a string"):
             validate_date(None)
+
+
+class TestPropertyBasedValidation:
+    """Property-based tests using hypothesis."""
+
+    @given(st.floats(min_value=-0.05, max_value=0.40))
+    def test_valid_growth_rates(self, growth):
+        """Any growth rate between -5% and 40% should be accepted for forecast."""
+        validate_growth_rate(growth, growth_type="forecast", allow_negative=True)
+        # Should not raise ValueError
+
+    @given(st.floats(min_value=-1.0, max_value=-0.051))
+    def test_invalid_negative_growth_rates(self, growth):
+        """Growth rates below -5% should fail."""
+        with pytest.raises(ValueError):
+            validate_growth_rate(growth, growth_type="forecast", allow_negative=True)
+
+    @given(st.floats(min_value=0.401, max_value=10.0))
+    def test_invalid_high_growth_rates(self, growth):
+        """Growth rates above 40% should fail for forecast."""
+        with pytest.raises(ValueError):
+            validate_growth_rate(growth, growth_type="forecast", allow_negative=True)
+
+    @given(st.floats(min_value=0.04, max_value=0.25))
+    def test_valid_discount_rates(self, wacc):
+        """Discount rates between 4% and 25% should pass."""
+        validate_discount_rate(wacc)
+        # Should not raise ValueError
+
+    @given(st.floats(min_value=-1.0, max_value=0.039))
+    def test_invalid_low_discount_rates(self, wacc):
+        """Discount rates below 4% should fail."""
+        with pytest.raises(ValueError):
+            validate_discount_rate(wacc)
+
+    @given(st.floats(min_value=0.251, max_value=2.0))
+    def test_invalid_high_discount_rates(self, wacc):
+        """Discount rates above 25% should fail."""
+        with pytest.raises(ValueError):
+            validate_discount_rate(wacc)
+
+    @given(
+        st.floats(min_value=1e6, max_value=10e12),
+        st.floats(min_value=1e6, max_value=1e12)
+    )
+    def test_valuation_sanity_bounds(self, implied_val, mcap):
+        """Test random ranges of valuations and market caps."""
+        result = sanity_check_valuation(implied_val, mcap, ticker="TEST")
+        assert "passed" in result
+        assert isinstance(result["ratio"], float)
+        assert isinstance(result["warnings"], list)

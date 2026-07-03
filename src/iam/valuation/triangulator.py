@@ -155,7 +155,8 @@ class Triangulator:
                 best_dist = d
                 best_pair = (m1, m2)
 
-        assert best_pair is not None  # for the type checker
+        if best_pair is None:
+            raise ValueError("best_pair cannot be None")
         third = next(m for m in available if m not in best_pair)
         pair_center = (available[best_pair[0]] + available[best_pair[1]]) / 2
         third_distance_from_pair = abs(available[third] - pair_center)

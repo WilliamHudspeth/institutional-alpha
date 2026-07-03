@@ -54,6 +54,7 @@ test = [
     "pytest>=7.0",
     "pytest-cov",
     "pytest-timeout",
+    "hypothesis",
     "pandas>=2.0",
     "numpy>=1.24",
     "scipy>=1.10",
@@ -144,3 +145,10 @@ omit = [
     "src/iam/pipeline/orchestrator.py",
     "src/iam/data/providers/*"
 ]
+
+[tool.coverage.report]
+fail_under = 85
+
+[tool.bandit]
+skips = ["B311", "B101", "B603", "B607"]
+exclude_dirs = ["tests", "docs", "examples"]

@@ -85,3 +85,53 @@ class MockYFinance:
     def set_download_data(self, data):
         """Inject specific dataframe to be returned by download()"""
         self._download_data = data
+
+
+class MockStooq:
+    """Mock for the StooqSource."""
+
+    def __init__(self):
+        self._download_data = None
+        self.fail_all = False
+
+    def is_available(self) -> bool:
+        return not self.fail_all
+
+    def fetch_price(self, ticker: str, as_of: Any) -> float:
+        if self.fail_all:
+            raise RuntimeError("Mock network failure")
+        # realistic-ish fallback
+        return 150.0
+
+    def fetch_debt(self, ticker: str, as_of: Any) -> float:
+        return 0.0
+
+    def download_history(
+        self,
+        ticker: str,
+        start: str,
+        end: str,
+    ) -> Any:
+        if self.fail_all:
+            raise RuntimeError("Mock network failure")
+        if self._download_data is not None:
+            return self._download_data
+
+        import numpy as np
+        import pandas as pd
+
+        dates = pd.date_range("2024-01-01", periods=100, freq="B")
+        df = pd.DataFrame(
+            {
+                "Date": dates,
+                "Open": np.linspace(100, 150, 100),
+                "High": np.linspace(100, 150, 100) + 2,
+                "Low": np.linspace(100, 150, 100) - 2,
+                "Close": np.linspace(100, 150, 100),
+                "Volume": np.random.randint(1000000, 5000000, 100),
+            }
+        )
+        return df
+
+    def set_download_data(self, data):
+        self._download_data = data

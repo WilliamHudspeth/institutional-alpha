@@ -12,12 +12,11 @@ Conventions:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
 from typing import Any
+from pydantic import BaseModel, Field, model_validator
 
 
-@dataclass
-class Assumption:
+class Assumption(BaseModel):
     """A single named assumption underpinning a valuation thesis."""
 
     name: str
@@ -26,27 +25,27 @@ class Assumption:
     source: str = "model"  # "model" | "consensus" | "user"
 
 
-@dataclass
-class Thesis:
+class Thesis(BaseModel):
     """A labelled valuation scenario (e.g. bull, base, bear)."""
 
     label: str
-    assumptions: list[Assumption] = field(default_factory=list)
+    assumptions: list[Assumption] = Field(default_factory=list)
     fair_value_low: float | None = None
     fair_value_high: float | None = None
     narrative: str = ""
 
-    def __post_init__(self) -> None:
+    @model_validator(mode='after')
+    def validate_fair_value_range(self) -> "Thesis":
         if self.fair_value_low is not None and self.fair_value_high is not None:
             if self.fair_value_low > self.fair_value_high:
                 raise ValueError(
                     f"Thesis '{self.label}': fair_value_low ({self.fair_value_low}) "
                     f"must not exceed fair_value_high ({self.fair_value_high})"
                 )
+        return self
 
 
-@dataclass
-class MacroContext:
+class MacroContext(BaseModel):
     """Macro-environment inputs consumed by MacroRegimeFactor and MacroOverlay."""
 
     # Rates & yields
@@ -70,19 +69,18 @@ class MacroContext:
     erp: float | None = None  # Equity Risk Premium (decimal)
 
 
-@dataclass
-class Fundamentals:
+class Fundamentals(BaseModel):
     """Financial statement and quality metrics for a single security."""
 
     # Revenue
     revenue_ttm: float | None = None
-    revenue_history: list[float] = field(default_factory=list)  # most-recent-first
+    revenue_history: list[float] = Field(default_factory=list)  # most-recent-first
 
     # Margins
     gross_margin: float | None = None
-    gross_margin_history: list[float] = field(default_factory=list)
+    gross_margin_history: list[float] = Field(default_factory=list)
     operating_margin: float | None = None
-    operating_margin_history: list[float] = field(default_factory=list)
+    operating_margin_history: list[float] = Field(default_factory=list)
 
     # Profitability
     net_income_ttm: float | None = None
@@ -90,11 +88,11 @@ class Fundamentals:
 
     # Cash flow
     fcf_ttm: float | None = None
-    fcf_history: list[float] = field(default_factory=list)
+    fcf_history: list[float] = Field(default_factory=list)
     capex_ttm: float | None = None
 
     # Returns & quality
-    roic_history: list[float] = field(default_factory=list)
+    roic_history: list[float] = Field(default_factory=list)
     incremental_roic: float | None = None
     accruals_ratio: float | None = None  # Sloan accrual ratio
 
@@ -111,17 +109,16 @@ class Fundamentals:
 
     # Share count
     shares_outstanding: float | None = None
-    shares_outstanding_history: list[float] = field(default_factory=list)
+    shares_outstanding_history: list[float] = Field(default_factory=list)
 
     # Earnings quality
     one_time_adjustments_count_5y: int | None = None
 
     # Segments (used by SOTP; import avoided to keep circular-free at runtime)
-    segments: list = field(default_factory=list)  # list[Segment] from iam.valuation.sotp
+    segments: list = Field(default_factory=list)  # list[Segment] from iam.valuation.sotp
 
 
-@dataclass
-class MarketData:
+class MarketData(BaseModel):
     """Market price, valuation multiples, positioning, and sentiment data."""
 
     # Price & cap
@@ -132,7 +129,7 @@ class MarketData:
     # Valuation multiples
     pe_ttm: float | None = None
     pe_forward: float | None = None
-    pe_history: list[float] = field(default_factory=list)  # most-recent-first
+    pe_history: list[float] = Field(default_factory=list)  # most-recent-first
     ev_ebitda: float | None = None
     sector_ev_ebitda_median: float | None = None
     fcf_yield: float | None = None
@@ -140,7 +137,7 @@ class MarketData:
 
     # Peer comparisons
     peer_ev_sales_median: float | None = None
-    peer_fcf_yields: list[float] = field(default_factory=list)
+    peer_fcf_yields: list[float] = Field(default_factory=list)
 
     # Positioning
     hedge_fund_ownership_pct: float | None = None
@@ -156,13 +153,12 @@ class MarketData:
 
     # Sentiment & momentum
     analyst_revisions_breadth_30d: float | None = None  # [-1, 1]
-    earnings_surprise_history: list[float] = field(default_factory=list)
+    earnings_surprise_history: list[float] = Field(default_factory=list)
     news_sentiment_delta: float | None = None  # [-1, 1]
-    price_history: list[float] = field(default_factory=list)  # daily closes, most-recent-first
+    price_history: list[float] = Field(default_factory=list)  # daily closes, most-recent-first
 
 
-@dataclass
-class Security:
+class Security(BaseModel):
     """Top-level container passed to every factor and valuation method.
 
     ``qualitative`` is a free-form dict for user-supplied inputs that don't
@@ -179,12 +175,12 @@ class Security:
     sector: str | None = None
     industry: str | None = None
     country_iso: str = "US"
-    fundamentals: Fundamentals = field(default_factory=Fundamentals)
-    market: MarketData = field(default_factory=MarketData)
+    fundamentals: Fundamentals = Field(default_factory=Fundamentals)
+    market: MarketData = Field(default_factory=MarketData)
     macro: MacroContext | None = None
-    qualitative: dict[str, Any] = field(default_factory=dict)
-    theses: list[Thesis] = field(default_factory=list)
-    revenue_mix: dict[str, float] = field(default_factory=dict)
+    qualitative: dict[str, Any] = Field(default_factory=dict)
+    theses: list[Thesis] = Field(default_factory=list)
+    revenue_mix: dict[str, float] = Field(default_factory=dict)
 
     def normalized_mix(self) -> dict[str, float]:
         """Return revenue_mix normalized to percentages that sum to 1.0.
@@ -289,4 +285,4 @@ def apply_scenario(base: Security, revenue_mix_delta: dict[str, float]) -> Secur
     normalized = {k: v / total for k, v in current_mix.items()}
 
     # Return new Security with updated revenue_mix
-    return replace(base, revenue_mix=normalized)
+    return base.model_copy(update={"revenue_mix": normalized})

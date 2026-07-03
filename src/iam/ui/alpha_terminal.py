@@ -2080,7 +2080,8 @@ class AlphaTerminal:
         if self._canvas is None or self._canvas.rows != rows or self._canvas.cols != cols:
             self._resize()
         cv = self._canvas
-        assert cv is not None
+        if cv is None:
+            raise ValueError("cv cannot be None")
         cv.clear_back()
 
         if cols < MIN_COLS or rows < MIN_ROWS:

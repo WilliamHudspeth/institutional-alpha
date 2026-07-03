@@ -113,7 +113,8 @@ class DurabilityScorer:
         margin_s = margin_stability if margin_stability is not None else NEUTRAL_SUBSCORE
         fcf_s = fcf_stability if fcf_stability is not None else NEUTRAL_SUBSCORE
         stab = mean([margin_s, fcf_s])
-        assert stab is not None
+        if stab is None:
+            raise ValueError("stab cannot be None")
         components["stability"] = stab
 
         # Final score blending
