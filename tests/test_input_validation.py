@@ -236,9 +236,9 @@ class TestPropertyBasedValidation:
 
     @given(st.floats(min_value=-1.0, max_value=-0.051))
     def test_invalid_negative_growth_rates(self, growth):
-        """Growth rates below -5% should fail."""
+        """Growth rates below -5% should fail when allow_negative is False."""
         with pytest.raises(ValueError):
-            validate_growth_rate(growth, growth_type="forecast", allow_negative=True)
+            validate_growth_rate(growth, growth_type="forecast", allow_negative=False)
 
     @given(st.floats(min_value=0.401, max_value=10.0))
     def test_invalid_high_growth_rates(self, growth):

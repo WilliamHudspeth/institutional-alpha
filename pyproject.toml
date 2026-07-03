@@ -54,6 +54,7 @@ test = [
     "pytest>=7.0",
     "pytest-cov",
     "pytest-timeout",
+    "pytest-benchmark",
     "hypothesis",
     "pandas>=2.0",
     "numpy>=1.24",
@@ -126,6 +127,7 @@ ignore_missing_imports = true
 exclude = ["tests/"]
 
 [tool.coverage.run]
+source = ["src/iam"]
 omit = [
     "src/iam/ui/*",
     "src/iam/backtest/*",
