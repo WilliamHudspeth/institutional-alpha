@@ -15,12 +15,12 @@ def test_full_valuation_workflow():
     sec.market.price = 150.0
     sec.fundamentals.fcf_ttm = 100000.0
     sec.fundamentals.shares_outstanding = 15000.0
-    sec.fundamentals.net_debt = 50000.0
+    sec.fundamentals.total_debt = 50000.0
+    sec.fundamentals.cash_and_equivalents = 0.0
     # Add enough history to avoid "Insufficient history" flags
     sec.fundamentals.revenue_history = [1000, 900, 800, 700]
     sec.fundamentals.operating_margin_history = [0.25, 0.24, 0.23, 0.22]
-    sec.fundamentals.pe_ratio_history = [25.0] * 24  # Avoid "Insufficient P/E history"
-    sec.fundamentals.ev_ebitda_history = [15.0] * 24
+    sec.market.pe_history = [25.0] * 24  # Avoid "Insufficient P/E history"
     sec.market.ev_ebitda = 14.5  # Required for Stage 2 fallback
     sec.market.sector_ev_ebitda_median = 12.0
 

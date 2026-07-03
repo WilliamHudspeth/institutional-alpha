@@ -92,6 +92,7 @@ addopts = [
 markers = [
     "slow: marks tests as slow",
     "integration: marks tests as integration tests",
+    "functional: marks tests as end-to-end functional tests",
 ]
 
 [tool.ruff]
