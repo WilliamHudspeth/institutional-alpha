@@ -47,8 +47,8 @@ class BacktestManifest:
     def _get_git_sha(self) -> str:
         """Get current git commit SHA."""
         try:
-            sha = subprocess.check_output(["git", "rev-parse", "HEAD"])  # nosec.decode().strip()
-            return sha
+            sha = subprocess.check_output(["git", "rev-parse", "HEAD"])  # nosec
+            return sha.decode().strip()
         except (subprocess.CalledProcessError, FileNotFoundError):
             return "unknown"
 
