@@ -24,8 +24,8 @@ def test_calculate_sensitivity_increases_fair_value():
                 label="Base",
                 narrative="Base case.",
                 assumptions=[
-                    Assumption("terminal_margin", 0.20, source="user"),
-                    Assumption("revenue_growth_5y", 0.10, source="user"),
+                    Assumption(name="terminal_margin", value=0.20, source="user"),
+                    Assumption(name="revenue_growth_5y", value=0.10, source="user"),
                 ],
             )
         ],

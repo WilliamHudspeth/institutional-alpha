@@ -51,6 +51,13 @@ def test_sotp_integration():
     mock_sec.market.price = 10.0
 
     mock_sec.qualitative = {}
+    mock_sec.sector = "Financials"
+    mock_sec.name = "BlackRock"
+    mock_sec.industry = "Asset Management"
+    mock_sec.country_iso = "US"
+    mock_sec.macro = None
+    mock_sec.theses = []
+    mock_sec.revenue_mix = {}
 
     pipeline = ValuationPipeline()
     pipeline.use_sotp = True

@@ -360,7 +360,7 @@ def test_damodaran_engine_large_segment_count():
 
 
 def test_damodaran_engine_compute_missing_fundamentals():
-    sec = Security("AAPL")
+    sec = Security(ticker="AAPL")
     engine = DamodaranEngine()
     res = engine.compute(sec)
     assert res.confidence == 0.0
@@ -368,7 +368,7 @@ def test_damodaran_engine_compute_missing_fundamentals():
 
 
 def test_damodaran_engine_compute_negative_fcfe():
-    sec = Security("AAPL")
+    sec = Security(ticker="AAPL")
     sec.market.price = 150.0
     sec.fundamentals.shares_outstanding = 100.0
     sec.fundamentals.fcf_ttm = -50.0
@@ -379,7 +379,7 @@ def test_damodaran_engine_compute_negative_fcfe():
 
 
 def test_damodaran_engine_compute_fallback_growth():
-    sec = Security("AAPL")
+    sec = Security(ticker="AAPL")
     sec.market.price = 100.0
     sec.fundamentals.shares_outstanding = 10.0
     sec.fundamentals.fcf_ttm = 100.0
@@ -390,7 +390,7 @@ def test_damodaran_engine_compute_fallback_growth():
 
 
 def test_damodaran_engine_compute_custom_forecast_growth():
-    sec = Security("AAPL")
+    sec = Security(ticker="AAPL")
     sec.market.price = 100.0
     sec.fundamentals.shares_outstanding = 10.0
     sec.fundamentals.fcf_ttm = 100.0
@@ -401,7 +401,7 @@ def test_damodaran_engine_compute_custom_forecast_growth():
 
 
 def test_damodaran_engine_compute_custom_terminal_growth():
-    sec = Security("AAPL")
+    sec = Security(ticker="AAPL")
     sec.market.price = 100.0
     sec.fundamentals.shares_outstanding = 10.0
     sec.fundamentals.fcf_ttm = 100.0
@@ -412,7 +412,7 @@ def test_damodaran_engine_compute_custom_terminal_growth():
 
 
 def test_damodaran_engine_compute_with_segments_uses_ke():
-    sec = Security("AAPL")
+    sec = Security(ticker="AAPL")
     sec.market.price = 100.0
     sec.fundamentals.shares_outstanding = 10.0
     sec.fundamentals.fcf_ttm = 100.0
@@ -428,7 +428,7 @@ def test_damodaran_engine_compute_with_segments_uses_ke():
 
 
 def test_damodaran_engine_compute_with_qualitative_de_ratio():
-    sec = Security("AAPL")
+    sec = Security(ticker="AAPL")
     sec.market.price = 100.0
     sec.fundamentals.shares_outstanding = 10.0
     sec.fundamentals.fcf_ttm = 100.0
@@ -442,15 +442,13 @@ def test_damodaran_engine_compute_with_qualitative_de_ratio():
 
 
 def test_damodaran_engine_compute_with_balance_sheet_mock():
-    @dataclass
-    class BalanceSheetMock:
-        debt_to_equity: float
-
-    sec = Security("AAPL")
+    sec = Security(ticker="AAPL")
     sec.market.price = 100.0
     sec.fundamentals.shares_outstanding = 10.0
     sec.fundamentals.fcf_ttm = 100.0
-    sec.balance_sheet = BalanceSheetMock(debt_to_equity=0.4)
+    # Pass D/E via qualitative — the engine's documented fallback path
+    # (security.balance_sheet no longer accepted; Security is a Pydantic v2 model)
+    sec.qualitative["current_de_ratio"] = 0.4
     sec.qualitative["segments"] = [Segment("Core", 1000, 100, 1.0, 0.21, 0.02, 50)]
     engine = DamodaranEngine()
     res = engine.compute(sec)
@@ -461,7 +459,7 @@ def test_damodaran_engine_compute_with_balance_sheet_mock():
 
 def test_damodaran_engine_compute_discount_rate_limit_low_pv():
     # When discount rate <= terminal growth, pv calculation will fail gracefully
-    sec = Security("AAPL")
+    sec = Security(ticker="AAPL")
     sec.market.price = 100.0
     sec.fundamentals.shares_outstanding = 10.0
     sec.fundamentals.fcf_ttm = 10.0
@@ -473,7 +471,7 @@ def test_damodaran_engine_compute_discount_rate_limit_low_pv():
 
 
 def test_damodaran_engine_compute_implied_move():
-    sec = Security("AAPL")
+    sec = Security(ticker="AAPL")
     sec.market.price = 10.0
     sec.fundamentals.shares_outstanding = 1.0
     # base FCF = 1.0. With WACC=9%, growth=8%, term=2.5%
@@ -485,7 +483,7 @@ def test_damodaran_engine_compute_implied_move():
 
 
 def test_damodaran_engine_compute_fair_value_bounds():
-    sec = Security("AAPL")
+    sec = Security(ticker="AAPL")
     sec.market.price = 10.0
     sec.fundamentals.shares_outstanding = 1.0
     sec.fundamentals.fcf_ttm = 1.0
@@ -495,7 +493,7 @@ def test_damodaran_engine_compute_fair_value_bounds():
 
 
 def test_damodaran_engine_compute_wacc_plus_minus_one_percent():
-    sec = Security("AAPL")
+    sec = Security(ticker="AAPL")
     sec.market.price = 10.0
     sec.fundamentals.shares_outstanding = 1.0
     sec.fundamentals.fcf_ttm = 1.0
@@ -507,7 +505,7 @@ def test_damodaran_engine_compute_wacc_plus_minus_one_percent():
 
 
 def test_damodaran_engine_confidence_rating():
-    sec = Security("AAPL")
+    sec = Security(ticker="AAPL")
     sec.market.price = 100.0
     sec.fundamentals.shares_outstanding = 10.0
     sec.fundamentals.fcf_ttm = 100.0
@@ -522,7 +520,7 @@ def test_damodaran_engine_name():
 
 
 def test_damodaran_engine_compute_zero_shares_handling():
-    sec = Security("AAPL")
+    sec = Security(ticker="AAPL")
     sec.market.price = 10.0
     sec.fundamentals.shares_outstanding = 0.0
     sec.fundamentals.fcf_ttm = 100.0
@@ -625,7 +623,7 @@ def test_sotp_tower_negative_ev_handling():
 
 def test_integration_full_workflow():
     # Step 1: Create security
-    sec = Security("BLK", name="BlackRock")
+    sec = Security(ticker="BLK", name="BlackRock")
     sec.market.price = 800.0
     sec.fundamentals.shares_outstanding = 1.5  # in millions
     sec.fundamentals.fcf_ttm = 3000.0
@@ -671,7 +669,7 @@ def test_integration_full_workflow():
 
 
 def test_integration_sotp_valuation_with_dynamic_ke():
-    sec = Security("BLK")
+    sec = Security(ticker="BLK")
     sec.qualitative["segments"] = [
         Segment(
             "iShares",
@@ -758,7 +756,7 @@ def test_integration_sotp_valuation_formatting():
 
 
 def test_integration_damodaran_engine_with_none_debt():
-    sec = Security("AAPL")
+    sec = Security(ticker="AAPL")
     sec.market.price = 100.0
     sec.fundamentals.shares_outstanding = 10.0
     sec.fundamentals.fcf_ttm = 100.0
@@ -772,7 +770,7 @@ def test_integration_damodaran_engine_with_none_debt():
 
 
 def test_integration_damodaran_engine_with_none_market_cap():
-    sec = Security("AAPL")
+    sec = Security(ticker="AAPL")
     sec.market.price = 100.0
     sec.fundamentals.shares_outstanding = 10.0
     sec.fundamentals.fcf_ttm = 100.0
