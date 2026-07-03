@@ -468,21 +468,22 @@ class TestIntegration:
 # =====================================================================
 
 try:
-    from hypothesis import given
+    from hypothesis import given, settings
     from hypothesis import strategies as st
 
-    class TestPropertyBased:
-        """Property-based tests to catch edge cases."""
-
-        @given(st.datetimes())
-        def test_cache_ttl_always_expires_eventually(self, date, temp_cache_db):
-            """Property: Any cached data should eventually expire."""
-            cache = SQLiteCache(temp_cache_db, ttl_days=0)
-            cache.set("test", {"value": 1}, "source")
-            time.sleep(0.01)
-            result = cache.get("test", source="source")
-            # With 0 TTL, should be None
-            assert result is None
+    # @given args must come AFTER pytest fixtures in the signature so pytest
+    # resolves its own fixtures first, then Hypothesis injects strategies.
+    @given(dt=st.datetimes())
+    @settings(max_examples=10)
+    def test_cache_ttl_always_expires_eventually(tmp_path_factory, dt):
+        """Property: Any cached data should eventually expire."""
+        db_path = tmp_path_factory.mktemp("cache") / "test.db"
+        cache = SQLiteCache(db_path, ttl_days=0)
+        cache.set("test", {"value": 1}, "source")
+        time.sleep(0.01)
+        result = cache.get("test", source="source")
+        # With 0 TTL, should be None
+        assert result is None
 
 except ImportError:
     # hypothesis not installed; skip property-based tests
