@@ -80,10 +80,14 @@ class ScoreResult:
     penalties: dict[str, FactorContribution] = field(default_factory=dict)
     weights: dict[str, float] = field(default_factory=dict)
     penalty_weights: dict[str, float] = field(default_factory=dict)
+    regime: str | None = None  # macro regime used for weight adjustment
 
     def explain(self) -> str:
         """Pretty-print the breakdown."""
-        lines = [f"=== {self.ticker} ===", f"Composite score: {self.composite:+.3f}", ""]
+        lines = [f"=== {self.ticker} ===", f"Composite score: {self.composite:+.3f}"]
+        if self.regime:
+            lines.append(f"  Macro regime: {self.regime} (weights adjusted)")
+        lines.append("")
         lines.append("Additive factors:")
         for name, c in self.factor_breakdown.items():
             weight = self.weights.get(name, 0.0)
@@ -128,6 +132,50 @@ def score(
     w = dict(DEFAULT_WEIGHTS)
     if weights:
         w.update(weights)
+
+    # Regime-aware weight adjustment — apply multipliers from DynamicFactorWeighter
+    # when the security carries a MacroContext. Silent fallback keeps scoring robust.
+    detected_regime: str | None = None
+    if security.macro is not None:
+        try:
+            from iam.data.macro import MacroConditions
+            from iam.pipeline.macro_regimes import MacroRegimeClassifier
+
+            cond = MacroConditions(
+                rate_10y=getattr(security.macro, "rate_10y", None),
+                rate_2y=getattr(security.macro, "rate_2y", None),
+                credit_spread_hy=getattr(security.macro, "credit_spread_hy", None),
+                vix=getattr(security.macro, "vix", None),
+            )
+            detected_regime = MacroRegimeClassifier().classify(cond)
+            # Map regime string -> weight multipliers (mirrors REGIME_WACC_PREMIUM keys)
+            _REGIME_WEIGHT_MAP: dict[str, dict[str, float]] = {
+                "tightening": {
+                    "quality": 1.3,
+                    "intrinsic_value": 1.1,
+                    "momentum": 0.7,
+                    "sentiment": 0.7,
+                },
+                "easing": {
+                    "quality": 0.9,
+                    "intrinsic_value": 0.9,
+                    "momentum": 1.2,
+                    "sentiment": 1.1,
+                },
+                "stagflation": {
+                    "quality": 1.5,
+                    "intrinsic_value": 1.2,
+                    "momentum": 0.5,
+                    "sentiment": 0.5,
+                    "macro_regime": 1.5,
+                },
+                "neutral": {},
+            }
+            for factor_key, mult in _REGIME_WEIGHT_MAP.get(detected_regime, {}).items():
+                if factor_key in w:
+                    w[factor_key] = w[factor_key] * mult
+        except Exception:
+            pass  # regime weighting is additive; never break scoring
     pw = dict(DEFAULT_PENALTY_WEIGHTS)
     if penalty_weights:
         pw.update(penalty_weights)
@@ -153,11 +201,27 @@ def score(
 
     composite = additive_sum - penalty_sum
 
+    # Immutable Audit Logging for SEC/GDPR Compliance
+    try:
+        from iam.compliance.audit import log_scoring_operation
+
+        # Log the operation asynchronously or just synchronously for now
+        log_scoring_operation(
+            model_name="CompositeModel",
+            target=security.ticker,
+            score=composite,
+            user="system",
+            metadata={"additive_sum": additive_sum, "penalty_sum": penalty_sum},
+        )
+    except ImportError:
+        pass
+
     return ScoreResult(
         ticker=security.ticker,
         composite=composite,
         factor_breakdown=factor_results,
         penalties=penalty_results,
         weights=w,
+        regime=detected_regime,
         penalty_weights=pw,
     )
