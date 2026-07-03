@@ -164,37 +164,37 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
 
 #### Test Architecture Improvements
 
-- [ ] **Comprehensive Fixture Library**
+- [x] **Comprehensive Fixture Library**
   - Shared fixtures: temp databases, mock API responses, sample data
   - Fixture factories: generate tickers, dates, fundamentals on demand
   - Context managers for resource cleanup (files, connections)
   - Organized by concern (cache fixtures, source fixtures, integration fixtures)
 
-- [ ] **Mock API Strategy**
+- [x] **Mock API Strategy**
   - Decorator library for mocking yfinance, SEC EDGAR, Stooq
   - Realistic response data (match actual API schemas)
   - Controllable failures (rate limits, timeouts, partial data)
   - Request inspection (verify correct parameters sent)
 
-- [ ] **Parametrized Tests**
+- [x] **Parametrized Tests**
   - Test multiple inputs per test (pytest.mark.parametrize)
   - Reduce copy-paste test code
   - Example: test all data sources with same assertions
   - Example: test all cache TTLs (0s, 1s, 7d, 30d)
 
-- [ ] **Property-Based Testing (Hypothesis)**
+- [x] **Property-Based Testing (Hypothesis)**
   - Generate random inputs, verify invariants hold
   - Example: cache expiry always happens eventually
   - Example: fallback chain always returns data or empty series
   - Catch edge cases (timezone edge cases, leap years, etc.)
 
-- [ ] **Contract Testing**
+- [x] **Contract Testing**
   - Verify all data sources implement the same interface
   - Abstract base class with type hints (Protocol)
   - Test that adapters can be swapped interchangeably
   - Catches breaking changes early
 
-- [ ] **Performance Benchmarking**
+- [x] **Performance Benchmarking**
   - Benchmark critical paths (cache lookups, API fetches)
   - Track performance regressions (pytest-benchmark)
   - Set SLAs (cache lookup < 1ms, API fetch < 5s)
@@ -213,7 +213,7 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
   - Example: remove a fallback, tests should fail
   - Target: >90% mutation kill rate
 
-- [ ] **Coverage Tracking & Enforcement**
+- [x] **Coverage Tracking & Enforcement**
   - Minimum 85% line coverage (enforced on PR)
   - Minimum 80% branch coverage
   - Coverage report generated on every test run
@@ -255,7 +255,7 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
   - Code review requirements
   - Branch protection rules on main
 
-- [ ] **CI/CD Hardening**
+- [x] **CI/CD Hardening**
   - GitHub Actions workflow (test, lint, type-check)
   - Coverage reporting (target 85%+)
   - Automated release tags
@@ -267,7 +267,7 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
   - Lens architecture (multi-perspective framework)
   - Macro regime definitions (4 regimes + transitions)
 
-- [ ] **Assumption Registry**
+- [x] **Assumption Registry**
   - Formalized assumption profiles (Conservative/Base/Aggressive)
   - Sector-specific defaults
   - Historical assumption performance
@@ -407,10 +407,10 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
   - [ ] Idempotency keys (prevent double-scoring on network retry)
 
 - [ ] **Data Availability**
-  - [ ] Graceful degradation on data source failure (Stooq fallback already exists)
-  - [ ] Rate limiting without DOS-ing upstream (exponential backoff on yfinance 429)
+  - [x] Graceful degradation on data source failure (Stooq fallback already exists)
+  - [x] Rate limiting without DOS-ing upstream (exponential backoff on yfinance 429)
   - [ ] Circuit breaker pattern (fail open if data source is down for >N minutes)
-  - [ ] Caching strategy (diskcache + TTL to avoid hammering APIs)
+  - [x] Caching strategy (diskcache + TTL to avoid hammering APIs)
   - [ ] Backup & recovery procedures (versioned parquet snapshots)
 
 #### Security Testing & Validation
@@ -743,25 +743,25 @@ The user should never manually update. Security patches, factor improvements, da
 ### Phase 2: Core Intelligence (Weeks 6-12)
 **Focus**: Financial rigor & scenario sophistication
 
-- [ ] **Advanced Macro Overlay**
+- [x] **Advanced Macro Overlay**
   - Regime-aware WACC adjustment
   - Yield curve positioning (duration risk)
   - Credit spread contagion modeling
   - Geopolitical event overlays
 
-- [ ] **Probabilistic Valuation**
+- [x] **Probabilistic Valuation**
   - Monte Carlo DCF (distribution of outcomes)
   - Scenario probability weighting
   - Confidence degradation on extreme assumptions
   - Expected value reporting
 
-- [ ] **Factor Weighting System**
+- [x] **Factor Weighting System**
   - Regime-dependent factor weights
   - Macro-sensitive factor alphas
   - Dynamic sector rotation framework
   - Correlation breakage detection
 
-- [ ] **Thesis Engine Maturity**
+- [x] **Thesis Engine Maturity**
   - Bear/Base/Bull case workflows
   - Assumption dependency mapping
   - Sensitivity analysis (one-way, two-way)
@@ -770,7 +770,7 @@ The user should never manually update. Security patches, factor improvements, da
 ### Phase 2.5: Reasoning-Engine Evolution (Weeks 10-18)
 **Focus**: Turn the valuation pipeline into a disagreement-first reasoning engine (see "The Reasoning-Engine Direction" above)
 
-- [ ] **Damodaran Laws constraint layer**
+- [x] **Damodaran Laws constraint layer**
   - Enforce `g = ROIC × reinvestment_rate` (growth requires reinvestment)
   - Narrative-vs-numbers consistency check (reject impossible narratives)
   - ROIC decay / excess-return fade curves
@@ -785,17 +785,17 @@ The user should never manually update. Security patches, factor improvements, da
   - [x] ROIC durability (excess-return fade, Damodaran Law 4) + fragility/robustness synthesis
   - [x] Surfaced as a diagnostic `BusinessRealityLens`; `fragility` is the hook for Thesis-Drift / Battlefield
 
-- [ ] **Relative Reality: justified premium**
+- [x] **Relative Reality: justified premium**
   - Estimate the premium/discount a name *deserves* vs sector (not just observed)
   - Drivers: relative margins, ROIC, durability, cyclicality, optionality
   - Output justified-vs-actual premium gap
 
-- [ ] **Valuation Battlefield output**
+- [x] **Valuation Battlefield output**
   - Surface Bull / Bear / Market-implied / Intrinsic theses side-by-side
   - Identify and label the single key disagreement per name
   - Replace "one fair value" framing with a structured disagreement map
 
-- [ ] **Thesis Drift Detection**
+- [x] **Thesis Drift Detection**
   - Register assumptions that must remain true for each active thesis
   - Monitor margins, ROIC, reinvestment, balance sheet, macro regime
   - Degrade conviction and re-rank verdict when assumptions drift
@@ -804,19 +804,20 @@ The user should never manually update. Security patches, factor improvements, da
 ### Phase 3: Operational Excellence (Weeks 12-24)
 **Focus**: Reproducibility, governance, institutional adoption
 
-- [ ] **Reproducibility Framework**
+- [x] **Reproducibility Framework**
   - Build date stamping
   - Seed control (deterministic models)
   - Version-locked dependencies
   - Backtest data versioning
 
-- [ ] **Research Governance**
-  - Research hypothesis registry
-  - Factor inclusion/exclusion audit trail
-  - Model change logs
-  - Assumption override tracking
+- [x] **Research Governance** (`src/iam/governance/`)
+  - [x] Research hypothesis registry (full draft → registered → active → validated/rejected/retired lifecycle)
+  - [x] Factor inclusion/exclusion audit trail
+  - [x] Model change logs
+  - [x] Assumption override tracking (with expiry)
+  - Persists via the existing `iam.audit.AuditLog` convention (`~/.iam/governance/*.jsonl`); not yet wired into pipeline call sites — registry is standalone-callable, see `tests/test_governance.py`
 
-- [ ] **Zero-Configuration Data Layer** (Key for democratization)
+- [x] **Zero-Configuration Data Layer** (Key for democratization)
   - **Philosophy**: Users download repo, run `python data_fetcher.py --prefetch`, then backtest — no API keys, no config.
   - Redundant fetching: yfinance (primary) → Stooq (fallback) for prices
   - SEC EDGAR for point-in-time fundamentals (official, no key required)
@@ -833,11 +834,11 @@ The user should never manually update. Security patches, factor improvements, da
   - Hedge funds get redundant, resilient data pipeline for production
   - Community can contribute data source adapters (Bloomberg, Refinitiv connectors)
 
-- [ ] **Institutional Exports**
-  - HTML research reports
-  - Excel-compatible outputs
-  - PDF summary generation
-  - Institutional risk metrics
+- [ ] **Institutional Exports** (`src/iam/reports/`) — partial
+  - [x] HTML research reports (stdlib-only, `render_html_report`)
+  - [x] Excel-compatible outputs (CSV, `render_csv_export`)
+  - [ ] PDF summary generation — blocked on a dependency decision; no PDF library installed. `render_pdf_summary` raises `NotImplementedError` recommending `fpdf2` (smallest pure-Python option) rather than installing one unasked. Interim path: HTML + browser print-to-PDF.
+  - [x] Institutional risk metrics (surfaces existing law/drift/justified-premium/Monte-Carlo fields, no new metrics invented)
 
 - [ ] **Performance Monitoring**
   - Factor alpha tracking
@@ -854,7 +855,7 @@ The user should never manually update. Security patches, factor improvements, da
   - Anomaly detection (impossible valuations)
   - Regime prediction (macro regime classifier)
 
-- [ ] **Portfolio Optimization**
+- [x] **Portfolio Optimization**
   - Position sizing (Kelly criterion)
   - Sector rotation framework
   - Macro hedge recommendations

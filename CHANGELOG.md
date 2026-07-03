@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ## [Unreleased]
 
 ### Added
+- **Research Governance** (`src/iam/governance/`) — Phase 3 hypothesis registry, factor inclusion/exclusion audit trail, model change log, and assumption override tracking (with expiry). Persists through the existing `iam.audit.AuditLog` convention; every write also emits an audit event. Standalone-callable (not yet wired into pipeline call sites). 11 tests in `tests/test_governance.py`.
+- **Institutional Exports** (`src/iam/reports/`) — Phase 3 HTML research report (`render_html_report`, stdlib-only) and CSV export (`render_csv_export`, satisfies "Excel-compatible" without a new dependency). PDF export (`render_pdf_summary`) intentionally raises `NotImplementedError` recommending `fpdf2` rather than installing a PDF library unasked. 4 tests in `tests/test_reports.py`.
 - **SOTP Integration Test Suite**: Wrote `tests/test_orchestrator_sotp.py` to verify segment-level Sum-of-the-Parts (SOTP) validation calculations inside the orchestrator flow.
 
 ### Changed
@@ -36,6 +38,42 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - Stage 7 verdict degrades the confidence band on large conviction drift (≥ 0.25 one level, ≥ 0.50 two levels)
   - Graceful fallback to the original flat-shock behavior when the elasticity profile is unmeasurable
 
+- **Monte Carlo DCF Engine** (`src/iam/valuation/monte_carlo.py`) — Phase 2 probabilistic valuation layer
+  - Samples joint assumption space (growth, discount rate, operating margin) from independent normals around analyst base case
+  - `MonteCarloDCF.run()` returns a `MonteCarloDistribution` with percentiles, median fair value, P(upside), and effective sample count
+  - Missing inputs degrade confidence rather than raising; draws where model fails to converge are dropped, not clamped
+  - Reproducible via explicit `seed` parameter; standard deviations are module constants (overridable per security)
+
+- **Valuation Battlefield output** (`src/iam/pipeline/battlefield.py`, `src/iam/valuation/expectations_battlefield.py`) — Phase 2.5 disagreement-first thesis surface
+  - Surfaces Bull / Bear / Market-implied / Intrinsic theses side-by-side with structured disagreement map
+  - Labels the single key disagreement per name (growth, margins, moat duration, or terminal value)
+  - Replaces the "one fair value" framing; tested in `tests/test_battlefield.py`
+
+- **Thesis Drift Detection** (`src/iam/thesis/drift.py`) — Phase 2.5 registered-constraint monitoring
+  - `DriftDetector.evaluate()` checks registered assumptions (margins, ROIC, reinvestment, balance sheet, macro regime) against current security state
+  - `ConstraintBreach` dataclass with direction, magnitude, severity, and a human-readable `.describe()`
+  - `DriftReport.degrade_levels()` returns how many conviction bands to drop (capped so verdict never falls below LOW)
+  - Wired into `ValuationPipeline.run()` and `VerdictGenerator` for real-time conviction decay
+
+- **DynamicFactorWeighter regime detection** (`src/iam/analytics/regime.py`, `src/iam/engine/composite.py`) — Phase 2 factor weighting system
+  - `RegimeDetector.detect()` classifies macro environment into 6 regimes (INFLATIONARY, DISINFLATIONARY, RECESSIONARY, EXPANSIONARY, RISK_OFF, RISK_ON)
+  - `RegimeWeights` dispatch per-factor multipliers (0.3×–2.0×) to adjust composite scoring dynamically
+  - Wired into composite scoring pipeline for regime-aware weight adjustment
+
+- **CI/CD Pipeline** (`.github/workflows/`) — Phase 1 automated quality assurance
+  - 8 workflow files: `ci.yml`, `tests.yml`, `lint-type-check.yml`, `security-audit.yml`, `release-drafter.yml`, `release.yml`, `codeql.yml`, `pr-title.yml`
+  - Bandit security linting, mypy type checking, ruff linting/format on every PR
+  - Coverage enforcement at 85% fail-under; Codecov upload for trend tracking
+  - Full spec in `docs/CI-CD.md` (228 lines)
+
+- **Phase 0.5 Testing Infrastructure** — contract tests, property-based testing, benchmarking, coverage
+  - `tests/test_contracts.py` (230 lines): verifies all data sources implement the same `DataSource` interface
+  - `tests/test_input_validation.py`: 6 property-based tests using `hypothesis` for growth/WACC/sanity-check edge cases
+  - `tests/performance/test_benchmarks.py`: pytest-benchmark SLA assertions (cache lookup <1ms, pipeline <10s)
+  - `tests/fixtures/mock_api.py`: `MockYFinance` and `MockStooq` with realistic response data and configurable failures
+  - `tests/fixtures/sample_securities.py`: `make_security()` fixture factory for on-demand ticker/fundamentals generation
+  - `@pytest.mark.parametrize` used throughout `test_input_validation.py` and `test_contracts.py` for data-driven scenarios
+
 - **Research Integrity & Statistical Validation Layer** (`src/iam/backtest/`)
   - `multiple_testing.py`: FWER (Holm) and FDR (Benjamini-Hochberg) corrections with eigenvalue-based effective test count ($M_{eff}$).
   - `spa.py`: Hansen's Superior Predictive Ability (SPA) testing via stationary block bootstrap.
@@ -48,6 +86,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `PipelineReport` carries two new audit fields: `law_report` and `stress_response`
 - `VerdictGenerator.generate()` accepts optional `law_report` and `stress_response` and downgrades the confidence band on law violations/flags and macro conviction drift
 - Removed stale "framework stub / NotImplementedError" status notes from the (fully implemented) `iam.elasticity` modules
+- Wired `justified_premium_gap` into `VerdictGenerator` confidence-band logic — the justified-vs-actual premium gap now downgrades conviction when the market prices a premium the business's fundamentals don't support (`src/iam/valuation/justified_premium.py`, `src/iam/pipeline/verdict.py`)
 
 - **Institutional Analytics Layer** (`src/iam/analytics/`)
   - `AttributionEngine`: Factor-by-factor alpha decomposition with `decompose()` returning `FactorContribution` objects
