@@ -14,9 +14,12 @@ def test_score_security_worker_exception_logging(caplog):
     sec = Security(ticker="FAIL_TICKER", sector="Tech")
 
     # We force build_snapshot to raise an exception to simulate failure
-    with patch("iam.backtest.runner.load_snapshot", return_value=None), \
-         patch("iam.backtest.runner.build_snapshot", side_effect=ValueError("Simulated snapshot error")):
-
+    with (
+        patch("iam.backtest.runner.load_snapshot", return_value=None),
+        patch(
+            "iam.backtest.runner.build_snapshot", side_effect=ValueError("Simulated snapshot error")
+        ),
+    ):
         with caplog.at_level(logging.ERROR):
             ticker, score, sector, mcap = _score_security_worker(
                 sec, "2026-06-16", "composite", Path(".cache/snapshots")
@@ -26,6 +29,7 @@ def test_score_security_worker_exception_logging(caplog):
             assert ticker == "FAIL_TICKER"
             assert pytest.approx(score) is not None  # It returns NaN
             import math
+
             assert math.isnan(score)
             assert sector == "Tech"
             assert mcap is None
@@ -36,6 +40,7 @@ def test_score_security_worker_exception_logging(caplog):
             assert log_record.levelname == "ERROR"
             assert "FAIL_TICKER" in log_record.message
             assert log_record.exc_info is not None  # Stack trace was captured
+
 
 def test_async_bridge_parallel_workflow_exception_logging(caplog):
     workflow = ParallelWorkflow()

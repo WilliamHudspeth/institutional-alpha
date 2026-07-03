@@ -1,7 +1,8 @@
 """Tests for input validation and financial guards."""
 
 import pytest
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 from iam.validation import (
     parse_growth_rate,
@@ -264,10 +265,7 @@ class TestPropertyBasedValidation:
         with pytest.raises(ValueError):
             validate_discount_rate(wacc)
 
-    @given(
-        st.floats(min_value=1e6, max_value=10e12),
-        st.floats(min_value=1e6, max_value=1e12)
-    )
+    @given(st.floats(min_value=1e6, max_value=10e12), st.floats(min_value=1e6, max_value=1e12))
     def test_valuation_sanity_bounds(self, implied_val, mcap):
         """Test random ranges of valuations and market caps."""
         result = sanity_check_valuation(implied_val, mcap, ticker="TEST")

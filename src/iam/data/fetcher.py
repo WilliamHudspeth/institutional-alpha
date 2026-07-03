@@ -42,9 +42,9 @@ logger = logging.getLogger("DataFetcher")
 
 def _open(path: str, timeout: float = 15.0) -> sqlite3.Connection:
     conn = sqlite3.connect(path, timeout=timeout)
-    conn.execute("PRAGMA journal_mode=WAL")     # readers don't block the writer
-    conn.execute("PRAGMA busy_timeout=15000")   # ms; pairs with timeout=
-    conn.execute("PRAGMA synchronous=NORMAL")   # safe under WAL, faster
+    conn.execute("PRAGMA journal_mode=WAL")  # readers don't block the writer
+    conn.execute("PRAGMA busy_timeout=15000")  # ms; pairs with timeout=
+    conn.execute("PRAGMA synchronous=NORMAL")  # safe under WAL, faster
     return conn
 
 
@@ -74,9 +74,10 @@ class DataConfig:
 # ----------------------------------------------------------------------
 from iam.validation.rate_limiter import RateLimiter
 
+
 def with_retry(max_retries=3, base_delay=1.0, rate_limit_per_sec=5):
     limiter = RateLimiter(max_calls=rate_limit_per_sec, period_seconds=1.0)
-    
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):

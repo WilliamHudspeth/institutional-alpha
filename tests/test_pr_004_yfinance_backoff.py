@@ -8,11 +8,7 @@ def test_yfinance_adapter_backoff(caplog):
 
     # We will mock yf.Ticker to fail twice then succeed
     mock_ticker = MagicMock()
-    mock_ticker.info = {
-        "currentPrice": 150.0,
-        "marketCap": 1500000000,
-        "totalRevenue": 100000000
-    }
+    mock_ticker.info = {"currentPrice": 150.0, "marketCap": 1500000000, "totalRevenue": 100000000}
 
     call_count = 0
 
@@ -23,10 +19,11 @@ def test_yfinance_adapter_backoff(caplog):
             raise Exception("Mock 429 Too Many Requests")
         return mock_ticker
 
-    with patch("iam.data.providers.yfinance_adapter.yf.Ticker", side_effect=side_effect), \
-         patch("iam.data.providers.yfinance_adapter.time.sleep") as mock_sleep, \
-         patch("iam.data.providers.yfinance_adapter._get_cached_data", return_value=None):
-
+    with (
+        patch("iam.data.providers.yfinance_adapter.yf.Ticker", side_effect=side_effect),
+        patch("iam.data.providers.yfinance_adapter.time.sleep") as mock_sleep,
+        patch("iam.data.providers.yfinance_adapter._get_cached_data", return_value=None),
+    ):
         sec = adapter.fetch("MOCK_TICKER")
 
         assert call_count == 3

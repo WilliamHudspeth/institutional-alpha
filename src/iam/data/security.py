@@ -13,6 +13,7 @@ Conventions:
 from __future__ import annotations
 
 from typing import Any
+
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -34,8 +35,8 @@ class Thesis(BaseModel):
     fair_value_high: float | None = None
     narrative: str = ""
 
-    @model_validator(mode='after')
-    def validate_fair_value_range(self) -> "Thesis":
+    @model_validator(mode="after")
+    def validate_fair_value_range(self) -> Thesis:
         if self.fair_value_low is not None and self.fair_value_high is not None:
             if self.fair_value_low > self.fair_value_high:
                 raise ValueError(

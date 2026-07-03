@@ -222,8 +222,13 @@ def test_law_registry_evaluates_all_five_laws():
     sec = _rich_security()
     report = DamodaranLawRegistry().evaluate(
         sec,
-        {"high_growth": 0.08, "terminal_growth": 0.025, "discount_rate": 0.09,
-         "high_growth_years": 10.0, "roe": 0.15},
+        {
+            "high_growth": 0.08,
+            "terminal_growth": 0.025,
+            "discount_rate": 0.09,
+            "high_growth_years": 10.0,
+            "roe": 0.15,
+        },
     )
     assert [c.number for c in report.checks] == [1, 2, 3, 4, 5]
     assert 0.5 <= report.conviction_multiplier <= 1.0

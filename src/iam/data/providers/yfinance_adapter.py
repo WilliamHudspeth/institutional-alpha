@@ -31,12 +31,14 @@ logger = logging.getLogger(__name__)
 SEED_CACHE_PATH = "data/cache/seed_cache.sqlite"
 RUNTIME_CACHE_PATH = "data/cache/iam_cache.sqlite"
 
+
 def _open(path: str, timeout: float = 15.0) -> sqlite3.Connection:
     conn = sqlite3.connect(path, timeout=timeout)
-    conn.execute("PRAGMA journal_mode=WAL")     # readers don't block the writer
-    conn.execute("PRAGMA busy_timeout=15000")   # ms; pairs with timeout=
-    conn.execute("PRAGMA synchronous=NORMAL")   # safe under WAL, faster
+    conn.execute("PRAGMA journal_mode=WAL")  # readers don't block the writer
+    conn.execute("PRAGMA busy_timeout=15000")  # ms; pairs with timeout=
+    conn.execute("PRAGMA synchronous=NORMAL")  # safe under WAL, faster
     return conn
+
 
 class DataProviderError(Exception):
     """Raised when data provider fails or returns invalid data."""
@@ -179,10 +181,14 @@ class YFinanceAdapter:
                 break
             except Exception as exc:
                 if attempt == max_retries - 1:
-                    raise RuntimeError(f"Yahoo Finance returned an error for '{ticker}' after {max_retries} attempts: {exc}") from exc
+                    raise RuntimeError(
+                        f"Yahoo Finance returned an error for '{ticker}' after {max_retries} attempts: {exc}"
+                    ) from exc
 
-                delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
-                logger.warning(f"yfinance fetch failed for {ticker}. Retrying in {delay:.1f}s (Attempt {attempt+1}/{max_retries})... Error: {exc}")
+                delay = base_delay * (2**attempt) + random.uniform(0, 1)
+                logger.warning(
+                    f"yfinance fetch failed for {ticker}. Retrying in {delay:.1f}s (Attempt {attempt + 1}/{max_retries})... Error: {exc}"
+                )
                 time.sleep(delay)
 
         # Extract price - required field

@@ -1,7 +1,8 @@
 """Tests for beta unlevering / relevering and CAPM pipeline wiring."""
 
-import pytest
 import unittest.mock
+
+import pytest
 
 from iam.data.security import Fundamentals, MarketData, Security
 from iam.engine.market_implied import MarketImpliedEngine
@@ -272,7 +273,9 @@ class TestStage3CAPMWiring:
             ),
             market=MarketData(price=100.0),
         )
-        with unittest.mock.patch("iam.data.damodaran.DamodaranProvider.get_risk_free_rate", return_value=0.0425):
+        with unittest.mock.patch(
+            "iam.data.damodaran.DamodaranProvider.get_risk_free_rate", return_value=0.0425
+        ):
             result = FCFEDCF().compute(sec)
             # Now uses Damodaran institutional baseline (not generic 9%)
             # For unknown sector/industry with no debt: 4.25% + 0.85 * 4.6% = 8.16%

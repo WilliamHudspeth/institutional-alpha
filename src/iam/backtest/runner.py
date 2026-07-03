@@ -23,7 +23,6 @@ from iam.backtest.snapshots import build_snapshot, load_snapshot
 logger = logging.getLogger(__name__)
 
 
-
 def _score_security_worker(
     base: Security,
     as_of: str,
@@ -235,7 +234,9 @@ def print_backtest_summary(results_df: pd.DataFrame) -> dict:
     logger.info("BACKTEST SUMMARY — COMPOSITE SCORE")
     logger.info("=" * 70)
     logger.info(f"IC Mean:           {summary['ic_mean']:+.4f}")
-    logger.info(f"IC VW:             {results_df['ic_vw'].mean():+.4f}" if "ic_vw" in results_df else "")
+    logger.info(
+        f"IC VW:             {results_df['ic_vw'].mean():+.4f}" if "ic_vw" in results_df else ""
+    )
     logger.info(f"IC Std:            {summary['ic_std']:.4f}")
     logger.info(f"IC IR:             {summary['icir']:.2f}")
     logger.info(f"Hit Rate:          {summary['hit_rate']:.1%}")

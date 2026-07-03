@@ -1966,6 +1966,7 @@ class AlphaTerminal:
                 try:
                     p = st.security.market.price or 150.0
                     from iam.engine.simulations import simulate_price_tick
+
                     new_price = simulate_price_tick(p)
                     st.security.market.price = new_price
                     st.history.append(new_price)

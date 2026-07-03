@@ -145,8 +145,6 @@ def yield_curve_duration_risk(
     """
     if slope_10y_2y is None or rate_elasticity is None:
         return None
-    curve_stress = clamp(
-        0.5 - slope_10y_2y / (2.0 * CURVE_STRESS_SATURATION_SLOPE), 0.0, 1.0
-    )
+    curve_stress = clamp(0.5 - slope_10y_2y / (2.0 * CURVE_STRESS_SATURATION_SLOPE), 0.0, 1.0)
     duration = clamp(rate_elasticity / DURATION_BOUND_ELASTICITY, 0.0, 1.0)
     return curve_stress * duration

@@ -10,15 +10,13 @@ changes reintroducing those failure modes.
 from __future__ import annotations
 
 import math
+from unittest.mock import MagicMock
 
 from iam.data.security import Fundamentals, MarketData, Security
 from iam.factors.earnings_quality import EarningsQualityFactor
 from iam.pipeline import ValuationPipeline
 from iam.pipeline.verdict import VerdictGenerator
 from iam.valuation.types import TriangulationResult
-
-from unittest.mock import MagicMock
-
 
 # --------------------------------------------------------------------------- #
 # 1. Zero revenue

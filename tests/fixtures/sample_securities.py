@@ -6,6 +6,7 @@ Usage::
 
     sec = make_security(operating_margin=0.35, roic_history=[0.22])
 """
+
 from __future__ import annotations
 
 from iam.data.security import Fundamentals, Security

@@ -19,6 +19,7 @@ def saddle_demo_grid(n: int = 16) -> list[list[float]]:
         g.append(row)
     return g
 
+
 def dcf_terrain_grid(
     base_value: float, growth: float, discount: float, n: int = 16
 ) -> list[list[float]]:
@@ -40,6 +41,7 @@ def dcf_terrain_grid(
             row.append(val)
         g.append(row)
     return g
+
 
 def fragility_grid(dcf_grid: list[list[float]]) -> list[list[float]]:
     """Gradient-magnitude surface from a value grid: steep = fragile."""
