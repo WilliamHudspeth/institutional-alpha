@@ -27,6 +27,7 @@ from iam.valuation.expectations_battlefield import (
     Scenario,
     ScenarioDistribution,
 )
+from iam.valuation.monte_carlo import MonteCarloDCF, MonteCarloDistribution
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,7 @@ class PipelineReport:
     stress_response: StressResponse | None = None  # Elasticity-aware macro stress
     battlefield: ExpectationBattlefieldExplicit | None = None
     drift_report: DriftReport | None = None
+    monte_carlo: MonteCarloDistribution | None = None  # sampled fair-value distribution
 
     def explain(self, verbose: bool = False) -> str:
         if verbose:
@@ -116,6 +118,11 @@ class PipelineReport:
             for note in self.intrinsic.notes:
                 lines.append(f"> • {note}")
             lines.append("")
+
+            if self.monte_carlo and self.monte_carlo.percentiles:
+                lines.append("### Monte Carlo — Fair-Value Distribution")
+                lines.append(f"> {self.monte_carlo.narrative}")
+                lines.append("")
 
             lines.append(EXPLAIN_STAGE_4)
             lines.append(f"> Verdict: {self.triangulation.verdict.upper()}")
@@ -177,6 +184,11 @@ class PipelineReport:
             lines.append(f"  • {note}")
         lines.append("")
 
+        if self.monte_carlo and self.monte_carlo.percentiles:
+            lines.append("STAGE 3b — MONTE CARLO DISTRIBUTION")
+            lines.append(f"  {self.monte_carlo.narrative}")
+            lines.append("")
+
         lines.append(f"STAGE 4 — Triangulation: {self.triangulation.verdict.upper()}")
         lines.append(f"  confidence: {self.triangulation.confidence:.2f}")
         for note in self.triangulation.notes:
@@ -218,6 +230,7 @@ class ValuationPipeline:
         self.market_implied_engine = MarketImpliedEngine()
         self.relative = RelativeValuation()
         self.intrinsic_dcf = FCFEDCF()
+        self.monte_carlo = MonteCarloDCF()
         self.sotp = SOTP()
         self.triangulator = Triangulator()
         self.macro_overlay = MacroOverlay(self.intrinsic_dcf)
@@ -338,6 +351,10 @@ class ValuationPipeline:
         if wacc_info and wacc_note:
             intrinsic_res.notes.append(wacc_note)
 
+        # Stage 3b: Monte Carlo fair-value distribution around the intrinsic
+        # base case (percentiles + P(upside) instead of a point estimate).
+        monte_carlo_res = self.monte_carlo.run(security)
+
         # Stage 4: Triangulation
         triangulation_res = self.triangulator.triangulate(
             market_implied_engine_res, relative_res, intrinsic_res
@@ -414,7 +431,11 @@ class ValuationPipeline:
             summary=triangulation_res.verdict,
             battlefield=battlefield_res,
             drift_report=drift_report,
+            monte_carlo=monte_carlo_res,
         )
+
+        if monte_carlo_res.percentiles:
+            report.summary += f"\n[MONTE CARLO]: {monte_carlo_res.narrative}"
 
         # Damodaran Laws: test the assumptions Stage 3 actually used for
         # internal consistency. Violations/flags degrade the Stage 7 verdict.

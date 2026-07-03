@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 from iam.data.macro import MacroConditions, MacroShock
 from iam.data.security import Security
 from iam.elasticity import DurabilityStressEngine, ElasticityScorer, StressScenario
+from iam.pipeline.macro_regimes import MacroRegimeClassifier
 from iam.valuation.fcfe_dcf import FCFEDCF, FCFEAssumptions
 from iam.valuation.types import ValuationResult
 
@@ -40,17 +41,25 @@ class MacroOverlay:
         rate_shock_threshold_bps: float = 50.0,
         durability_stress_engine: DurabilityStressEngine | None = None,
         elasticity_scorer: ElasticityScorer | None = None,
+        regime_classifier: MacroRegimeClassifier | None = None,
     ):
         self.rate_shock_threshold_bps = rate_shock_threshold_bps
         self.stress_engine = MacroStressEngine(intrinsic_dcf)
         self.durability_stress = durability_stress_engine or DurabilityStressEngine()
         self.elasticity_scorer = elasticity_scorer or ElasticityScorer()
+        self.regime_classifier = regime_classifier or MacroRegimeClassifier()
 
     def apply(
         self, report: PipelineReport, security: Security, macro: MacroConditions
     ) -> PipelineReport:
         rate_change = macro.rate_change if macro.rate_change is not None else 0.0
-        raw_rate_shock_bps = rate_change * 10000.0
+
+        # Regime-aware pre-gate: classify the environment first, so a
+        # stagflationary tape tightens the gate before any business-specific
+        # elasticity scaling is applied.
+        regime = self.regime_classifier.classify(macro)
+        raw_rate_shock_bps = rate_change * 10000.0 * regime.shock_multiplier
+        report.summary += f"\n[MACRO REGIME]: {regime.regime.value.upper()} — {regime.narrative}"
 
         # Elasticity-aware gate: a duration-bound business feels a 25bps move
         # like a 50bps one. Fall back to the raw shock when unmeasurable.
@@ -68,7 +77,7 @@ class MacroOverlay:
             effective_rate_shock_bps = raw_rate_shock_bps
 
         if abs(effective_rate_shock_bps) >= self.rate_shock_threshold_bps:
-            shock = self._map_to_shock(macro)
+            shock = regime.shock
             scaled_shock = self._scale_shock(shock, rate_elasticity, growth_elasticity)
 
             report.summary += (

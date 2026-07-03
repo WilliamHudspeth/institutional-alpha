@@ -37,6 +37,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 
+from iam.thesis.scenarios import ScenarioMatrix
 from iam.valuation.types import ImpliedExpectations, TriangulationResult, ValuationResult
 
 # The common parameter space shared by the reverse-DCF (market-implied) and
@@ -264,6 +265,62 @@ def build_battlefield(
     market_vec = market_vector_from_implied(market_implied.implied)
     intrinsic_vec = intrinsic_vector_from_assumptions(intrinsic.assumptions)
     return attribute_disagreement(intrinsic_vec, market_vec, value_fn, triangulation=triangulation)
+
+
+# --------------------------------------------------------------------------- #
+# Scenario rows: project a ScenarioMatrix onto the battlefield's param space
+# --------------------------------------------------------------------------- #
+@dataclass
+class ScenarioRow:
+    """One row of the battlefield table: a labelled point in param space."""
+
+    label: str
+    probability: float
+    vector: ParamVector
+    value: float
+
+
+def rows_from_scenario_matrix(
+    matrix: ScenarioMatrix,
+    value_fn: Callable[[ParamVector], float],
+    market_vector: ParamVector | None = None,
+) -> list[ScenarioRow]:
+    """Bull/Base/Bear rows from a ``ScenarioMatrix``, plus a market-implied row.
+
+    Each ``ValuationScenario``'s assumptions map directly onto the shared
+    ``ParamVector`` (forecast_growth -> growth, wacc -> discount_rate,
+    terminal_growth -> terminal_growth; the matrix carries no ROE axis, so
+    ``roe`` is left None and ``value_fn`` applies its own default). When a
+    ``market_vector`` is supplied (from ``market_vector_from_implied``), it is
+    appended as a probability-0 "Market-implied" row so the analyst sees where
+    the current price sits inside the thesis's own scenario span.
+    """
+    rows: list[ScenarioRow] = []
+    for scenario in matrix.scenarios.values():
+        a = scenario.assumptions
+        vector = ParamVector(
+            growth=a.forecast_growth,
+            terminal_growth=a.terminal_growth,
+            discount_rate=a.wacc,
+        )
+        rows.append(
+            ScenarioRow(
+                label=scenario.name,
+                probability=scenario.probability,
+                vector=vector,
+                value=value_fn(vector),
+            )
+        )
+    if market_vector is not None:
+        rows.append(
+            ScenarioRow(
+                label="Market-implied",
+                probability=0.0,
+                vector=market_vector,
+                value=value_fn(market_vector),
+            )
+        )
+    return rows
 
 
 # --------------------------------------------------------------------------- #
