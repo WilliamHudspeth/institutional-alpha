@@ -840,11 +840,12 @@ The user should never manually update. Security patches, factor improvements, da
   - [ ] PDF summary generation — blocked on a dependency decision; no PDF library installed. `render_pdf_summary` raises `NotImplementedError` recommending `fpdf2` (smallest pure-Python option) rather than installing one unasked. Interim path: HTML + browser print-to-PDF.
   - [x] Institutional risk metrics (surfaces existing law/drift/justified-premium/Monte-Carlo fields, no new metrics invented)
 
-- [ ] **Performance Monitoring**
-  - Factor alpha tracking
-  - Valuation accuracy vs. realized price
-  - Model performance by sector
-  - Assumption forecast accuracy
+- [x] **Performance Monitoring** (`src/iam/monitoring/`)
+  - [x] Factor alpha tracking (IC computation, rolling-window alpha decay detection, sector-sliced ICs)
+  - [x] Valuation accuracy vs. realized price (confidence-band and Monte Carlo percentile hit rates)
+  - [x] Model performance by sector (snapshot recording, latest-by-sector lookup, cross-sector ranking)
+  - [x] Assumption forecast accuracy (forecast vs. realized error, directional accuracy)
+  - Persists via the existing `iam.audit.AuditLog` convention, same as governance; not yet wired into pipeline call sites — recorder/query facades are standalone-callable via `MonitoringRecorder`/`MonitoringQueries`, see `tests/test_monitoring.py`
 
 ### Phase 4: Advanced Research (Quarter 2+)
 **Focus**: ML integration, portfolio-level optimization, institutional-grade tooling

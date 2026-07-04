@@ -16,6 +16,7 @@ import json
 import os
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -71,3 +72,40 @@ class AuditLog:
             return []
         lines = _LOG_PATH.read_text(encoding="utf-8").splitlines()
         return [json.loads(l) for l in lines[-n:] if l.strip()]
+
+    @staticmethod
+    def query(
+        event_type: str | None = None,
+        *,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        **filters: Any,
+    ) -> list[dict[str, Any]]:
+        """Return audit records matching an event type, a `ts` time range, and field filters.
+
+        `start_time`/`end_time` bound the record's write timestamp (`ts`), not any
+        business-date field the caller passed in as metadata. `filters` are exact-match
+        against top-level record fields; a `None`-valued filter is treated as unconstrained.
+        Reads and parses the entire log file — fine for periodic monitoring queries, not a
+        hot path.
+        """
+        if not _LOG_PATH.exists():
+            return []
+        lines = _LOG_PATH.read_text(encoding="utf-8").splitlines()
+        results = []
+        for line in lines:
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            if event_type is not None and record.get("event") != event_type:
+                continue
+            if start_time is not None or end_time is not None:
+                ts = datetime.strptime(record["ts"], "%Y-%m-%dT%H:%M:%SZ")
+                if start_time is not None and ts < start_time:
+                    continue
+                if end_time is not None and ts > end_time:
+                    continue
+            if any(record.get(key) != value for key, value in filters.items() if value is not None):
+                continue
+            results.append(record)
+        return results
