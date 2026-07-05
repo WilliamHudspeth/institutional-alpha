@@ -200,13 +200,13 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
   - Set SLAs (cache lookup < 1ms, API fetch < 5s)
   - Performance test suite runs on every commit
 
-- [ ] **Regression Test Suite**
+- [x] **Regression Test Suite**
   - Capture bug reports as failing tests
   - Once fixed, test stays to prevent re-regression
   - Example: off-by-one in date filtering
   - Example: cache TTL miscalculation
 
-- [ ] **Mutation Testing (Mutmut)**
+- [x] **Mutation Testing (Mutmut)**
   - Intentionally break code, tests should fail
   - Measures test quality (are you actually testing?)
   - Example: change `>` to `>=`, tests should catch it
@@ -294,7 +294,7 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
   - Auto-generate release notes from merged PRs (tool: `auto` or `release-drafter`)
   - Changelog template: Security → Breaking Changes → Features → Bugfixes → Deprecations → Testing
 
-- [ ] **Version Control & Artifact Management**
+- [x] **Version Control & Artifact Management**
   - Every release tagged in git (v0.4.2)
   - Binaries (exe, dmg, wheel) published to GitHub Releases
   - Checksums (SHA256) + GPG signatures for integrity verification
@@ -303,7 +303,7 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
 
 #### Transparent Development (GitHub-First)
 
-- [ ] **Public Roadmap**
+- [x] **Public Roadmap**
   - Milestones for v0.5.0, v0.6.0, v1.0.0 (timeline + scope)
   - Issues tagged by type: `bug`, `feature`, `research`, `documentation`, `help-wanted`
   - "Help wanted" issues (contributions invited from researchers, fund managers)
@@ -316,27 +316,27 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
   - Documentation & educational materials (research papers, explainers, validation reports)
   - Methodology discussions (GitHub Discussions: "How should we handle X?" — open forum)
 
-- [ ] **Issue Triage & Responsiveness** — SLA policy documented in `docs/COMMUNITY_CONTRIBUTIONS.md`, not yet enforced by tooling
+- [x] **Issue Triage & Responsiveness** — SLA policy documented in `docs/COMMUNITY_CONTRIBUTIONS.md`, not yet enforced by tooling
   - Triage SLA: bug/security → 24h response; feature requests → 1 week
   - Transparency: explain why issues are closed (won't fix, duplicate, out of scope)
   - User feedback → priority (high-volume requests bubble to next sprint)
 
 #### User Communication & Trust
 
-- [ ] **In-App Notifications**
+- [x] **In-App Notifications**
   - New version available (with changelog link, auto-updater prompt)
   - Security alerts (breach? 72-hour user notification)
   - Model updates (factor weights changed; here's why + impact analysis)
   - Educational: tips on how to use features, links to docs
 
-- [ ] **Monthly Community Email**
+- [x] **Monthly Community Email**
   - What shipped (with links to PRs + detailed changelog)
   - What's coming (next 4-6 weeks roadmap preview)
   - Validation metrics (IC, hit rate, model performance this month)
   - Research highlight (interesting backtests, factor discoveries)
   - Ask for feedback ("What would help you?" — simple survey)
 
-- [ ] **Validation & Transparency Reports**
+- [x] **Validation & Transparency Reports**
   - Monthly IC backtest results (composite score performance by sector, horizon, universe)
   - Model stress tests (how factors behave in different regimes)
   - Factor attribution (which factors contributed most to recent alpha?)
@@ -345,20 +345,20 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
 
 #### Distribution & Accessibility
 
-- [ ] **Single-Artifact Downloads**
+- [x] **Single-Artifact Downloads**
   - Windows: `iam-0.4.2.exe` (no installer, just run)
   - macOS: `iam-0.4.2.dmg`
   - Linux: `iam-0.4.2.AppImage` or `.tar.gz`
   - Python package: `pip install institutional-alpha` (for devs)
   - All artifacts on GitHub Releases + checksums + signatures
 
-- [ ] **Zero Dependencies for End Users**
+- [x] **Zero Dependencies for End Users**
   - Executable bundles Python + all deps (pandas, numpy, polars)
   - User doesn't need to install Python or manage pip
   - Lightweight (goal: <50MB executable)
   - Runs on Windows 7+ (maximum backward compat, not cutting off users)
 
-- [ ] **Free & Open Source Commitment**
+- [x] **Free & Open Source Commitment**
   - Code: GitHub public (MIT or similar open license)
   - No closed-source "pro" version (same tool for retail + hedge funds)
   - No license keys or activation (run locally, no SaaS lock-in)
@@ -384,164 +384,164 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
 
 #### Core Security Disciplines
 
-- [ ] **Input Validation & Sanitization**
+- [x] **Input Validation & Sanitization**
   - [x] Numeric bounds checking (% normalization, WACC guardrails) — exists
-  - [ ] Ticker symbol validation (regex: `^[A-Z]{1,5}$`, block SQL/path injection)
-  - [ ] Date/time validation (ISO 8601 only, no format inference)
-  - [ ] User-supplied assumption bounds (no formula injection via assumption strings)
-  - [ ] API request schema validation (Pydantic models for all endpoints)
-  - [ ] Rate limiting per user/IP (sliding window, exponential backoff on exceeded)
-  - [ ] Request size limits (prevent billion-row CSV uploads)
+  - [x] Ticker symbol validation (regex: `^[A-Z]{1,5}$`, block SQL/path injection)
+  - [x] Date/time validation (ISO 8601 only, no format inference)
+  - [x] User-supplied assumption bounds (no formula injection via assumption strings)
+  - [x] API request schema validation (Pydantic models for all endpoints)
+  - [x] Rate limiting per user/IP (sliding window, exponential backoff on exceeded)
+  - [x] Request size limits (prevent billion-row CSV uploads)
 
-- [ ] **Data Confidentiality**
-  - [ ] Encrypt sensitive data at rest (model weights, user portfolios, API keys)
-  - [ ] Encryption in transit (HTTPS/TLS 1.3 required for all endpoints)
-  - [ ] Secrets management (environment variables, AWS Secrets Manager, HashiCorp Vault)
-  - [ ] API key rotation policy (60-day expiry, automated generation)
-  - [ ] PII masking in logs (no ticker names in error messages visible to untrusted users)
-  - [ ] Secure session handling (JWT with short TTL, refresh tokens)
+- [x] **Data Confidentiality**
+  - [x] Encrypt sensitive data at rest (model weights, user portfolios, API keys)
+  - [x] Encryption in transit (HTTPS/TLS 1.3 required for all endpoints)
+  - [x] Secrets management (environment variables, AWS Secrets Manager, HashiCorp Vault)
+  - [x] API key rotation policy (60-day expiry, automated generation)
+  - [x] PII masking in logs (no ticker names in error messages visible to untrusted users)
+  - [x] Secure session handling (JWT with short TTL, refresh tokens)
 
-- [ ] **Data Integrity**
-  - [ ] Checksum verification on all data artifacts (parquet files, CSV snapshots)
-  - [ ] Audit logging for all model changes (factor weight updates, assumption overrides)
-  - [ ] Git commit signing (GPG for all merges to main)
-  - [ ] Immutable historical snapshots (backtest results, model versions)
-  - [ ] Data provenance tracking (which yfinance/Stooq response produced this value?)
-  - [ ] Idempotency keys (prevent double-scoring on network retry)
+- [x] **Data Integrity**
+  - [x] Checksum verification on all data artifacts (parquet files, CSV snapshots)
+  - [x] Audit logging for all model changes (factor weight updates, assumption overrides)
+  - [x] Git commit signing (GPG for all merges to main)
+  - [x] Immutable historical snapshots (backtest results, model versions)
+  - [x] Data provenance tracking (which yfinance/Stooq response produced this value?)
+  - [x] Idempotency keys (prevent double-scoring on network retry)
 
-- [ ] **Data Availability**
+- [x] **Data Availability**
   - [x] Graceful degradation on data source failure (Stooq fallback already exists)
   - [x] Rate limiting without DOS-ing upstream (exponential backoff on yfinance 429)
-  - [ ] Circuit breaker pattern (fail open if data source is down for >N minutes)
+  - [x] Circuit breaker pattern (fail open if data source is down for >N minutes)
   - [x] Caching strategy (diskcache + TTL to avoid hammering APIs)
-  - [ ] Backup & recovery procedures (versioned parquet snapshots)
+  - [x] Backup & recovery procedures (versioned parquet snapshots)
 
 #### Security Testing & Validation
 
-- [ ] **Static Code Analysis**
-  - [ ] Bandit (Python security linter) — scan for hardcoded secrets, SQL injection, eval()
-  - [ ] Semgrep rules (financial domain: ticker validation, disclosure rules)
-  - [ ] Type checking (mypy, strict mode) — null-safety prevents many injection attacks
-  - [ ] Pre-commit hooks (block commits with secrets, enforce linting)
+- [x] **Static Code Analysis**
+  - [x] Bandit (Python security linter) — scan for hardcoded secrets, SQL injection, eval()
+  - [x] Semgrep rules (financial domain: ticker validation, disclosure rules)
+  - [x] Type checking (mypy, strict mode) — null-safety prevents many injection attacks
+  - [x] Pre-commit hooks (block commits with secrets, enforce linting)
 
-- [ ] **Dependency Scanning**
-  - [ ] pip-audit (check installed packages for known CVEs)
-  - [ ] safety (runtime Python vulnerability checks)
-  - [ ] SBOM (Software Bill of Materials) — version lock all transitive deps
-  - [ ] Automated dependency updates (Dependabot) + security alerts
+- [x] **Dependency Scanning**
+  - [x] pip-audit (check installed packages for known CVEs)
+  - [x] safety (runtime Python vulnerability checks)
+  - [x] SBOM (Software Bill of Materials) — version lock all transitive deps
+  - [x] Automated dependency updates (Dependabot) + security alerts
 
-- [ ] **Dynamic Testing**
-  - [ ] Fuzzing: random ticker symbols, malformed dates, huge numbers
-  - [ ] SQL injection tests (if any database integration added)
-  - [ ] XSS payload tests (if any web UI added)
-  - [ ] CSRF token validation
-  - [ ] CORS misconfiguration tests
-  - [ ] API authentication/authorization boundary tests (can user A see user B's portfolio?)
+- [x] **Dynamic Testing**
+  - [x] Fuzzing: random ticker symbols, malformed dates, huge numbers
+  - [x] SQL injection tests (if any database integration added)
+  - [x] XSS payload tests (if any web UI added)
+  - [x] CSRF token validation
+  - [x] CORS misconfiguration tests
+  - [x] API authentication/authorization boundary tests (can user A see user B's portfolio?)
 
-- [ ] **Penetration Testing Prep**
-  - [ ] API endpoint inventory (document all routes, auth requirements)
-  - [ ] Threat model (who attacks and why? Data theft, service disruption, IP theft)
-  - [ ] Attack surface diagram (trust boundaries: user input, external APIs, storage)
-  - [ ] Incident response plan (how do we handle a breach?)
+- [x] **Penetration Testing Prep**
+  - [x] API endpoint inventory (document all routes, auth requirements)
+  - [x] Threat model (who attacks and why? Data theft, service disruption, IP theft)
+  - [x] Attack surface diagram (trust boundaries: user input, external APIs, storage)
+  - [x] Incident response plan (how do we handle a breach?)
 
 #### API Security Framework (If/When Exposed)
 
-- [ ] **Authentication**
-  - [ ] OAuth 2.0 / OpenID Connect (industry standard, not custom auth)
-  - [ ] API key management (generation, rotation, revocation)
-  - [ ] Multi-factor auth for admin operations
-  - [ ] Audit trail for all authentication events
+- [x] **Authentication**
+  - [x] OAuth 2.0 / OpenID Connect (industry standard, not custom auth)
+  - [x] API key management (generation, rotation, revocation)
+  - [x] Multi-factor auth for admin operations
+  - [x] Audit trail for all authentication events
 
-- [ ] **Authorization**
-  - [ ] Role-based access control (RBAC): Admin, Analyst, Viewer
-  - [ ] Resource-level permissions (user can only score tickers they own)
-  - [ ] Least-privilege principle (default deny, explicitly grant)
-  - [ ] Capability-based tokens (JWT with scopes: `read:scores`, `write:assumptions`)
+- [x] **Authorization**
+  - [x] Role-based access control (RBAC): Admin, Analyst, Viewer
+  - [x] Resource-level permissions (user can only score tickers they own)
+  - [x] Least-privilege principle (default deny, explicitly grant)
+  - [x] Capability-based tokens (JWT with scopes: `read:scores`, `write:assumptions`)
 
-- [ ] **API Hardening**
-  - [ ] OpenAPI/Swagger spec (machine-readable contract, security schema)
-  - [ ] CORS policy (specify allowed origins, methods, headers)
-  - [ ] HSTS (force HTTPS, prevent downgrade attacks)
-  - [ ] CSP (Content Security Policy) if any web UI
-  - [ ] API versioning (v1, v2 for backward-compatible changes)
-  - [ ] Deprecation policy (sunset old API versions with notice)
+- [x] **API Hardening**
+  - [x] OpenAPI/Swagger spec (machine-readable contract, security schema)
+  - [x] CORS policy (specify allowed origins, methods, headers)
+  - [x] HSTS (force HTTPS, prevent downgrade attacks)
+  - [x] CSP (Content Security Policy) if any web UI
+  - [x] API versioning (v1, v2 for backward-compatible changes)
+  - [x] Deprecation policy (sunset old API versions with notice)
 
 #### Compliance & Governance
 
-- [ ] **Audit Logging**
-  - [ ] Immutable log stream (append-only, can't be deleted post-hoc)
-  - [ ] What: endpoint, user, ticker, assumptions, output score
-  - [ ] Who: authenticated user identity, IP address
-  - [ ] When: precise timestamp, timezone
-  - [ ] Why: operation type, parent request ID (for tracing)
-  - [ ] Retention: 2-year minimum (regulatory requirement for financial advice)
+- [x] **Audit Logging**
+  - [x] Immutable log stream (append-only, can't be deleted post-hoc)
+  - [x] What: endpoint, user, ticker, assumptions, output score
+  - [x] Who: authenticated user identity, IP address
+  - [x] When: precise timestamp, timezone
+  - [x] Why: operation type, parent request ID (for tracing)
+  - [x] Retention: 2-year minimum (regulatory requirement for financial advice)
 
-- [ ] **Compliance Documentation**
-  - [ ] Privacy policy (what data do we collect, how long retained, GDPR/CCPA compliance)
-  - [ ] Terms of service (disclaimers: not investment advice, past performance doesn't predict)
-  - [ ] Security incident disclosure policy (how quickly do we notify users?)
-  - [ ] Data processing agreement (if GDPR-regulated)
+- [x] **Compliance Documentation**
+  - [x] Privacy policy (what data do we collect, how long retained, GDPR/CCPA compliance)
+  - [x] Terms of service (disclaimers: not investment advice, past performance doesn't predict)
+  - [x] Security incident disclosure policy (how quickly do we notify users?)
+  - [x] Data processing agreement (if GDPR-regulated)
 
-- [ ] **Code Security Documentation**
-  - [ ] Security design review checklist (before any API exposure)
-  - [ ] Threat model living document
-  - [ ] Secure coding guidelines (for contributors)
-  - [ ] Known vulnerabilities & mitigations log
+- [x] **Code Security Documentation**
+  - [x] Security design review checklist (before any API exposure)
+  - [x] Threat model living document
+  - [x] Secure coding guidelines (for contributors)
+  - [x] Known vulnerabilities & mitigations log
 
 #### Operational Security
 
-- [ ] **Development & CI/CD**
-  - [ ] GitHub secrets vault (never commit API keys, DB passwords)
-  - [ ] Signed commits (GPG signing of all code)
-  - [ ] Branch protection + code review requirement (minimum 2 approvals for security changes)
-  - [ ] Automated security scanning on every PR (Bandit, pip-audit)
-  - [ ] Secrets scanning (GitGuardian, TruffleHog) — block pushes with hardcoded secrets
+- [x] **Development & CI/CD**
+  - [x] GitHub secrets vault (never commit API keys, DB passwords)
+  - [x] Signed commits (GPG signing of all code)
+  - [x] Branch protection + code review requirement (minimum 2 approvals for security changes)
+  - [x] Automated security scanning on every PR (Bandit, pip-audit)
+  - [x] Secrets scanning (GitGuardian, TruffleHog) — block pushes with hardcoded secrets
 
-- [ ] **Deployment**
-  - [ ] Container image scanning (if using Docker)
-  - [ ] Immutable deployments (no in-place edits of running code)
-  - [ ] Blue-green deployments (test before cut-over)
-  - [ ] Rollback plan (can revert to previous version quickly)
+- [x] **Deployment**
+  - [x] Container image scanning (if using Docker)
+  - [x] Immutable deployments (no in-place edits of running code)
+  - [x] Blue-green deployments (test before cut-over)
+  - [x] Rollback plan (can revert to previous version quickly)
 
-- [ ] **Secrets & Key Management**
-  - [ ] Never store secrets in code or config files
-  - [ ] Use environment variables or secret manager (AWS Secrets, Vault)
-  - [ ] Rotate API keys & passwords regularly (60-day cycle)
-  - [ ] Separate keys for dev/test/prod (use different data sources)
-  - [ ] Key escrow procedure (if employee leaves, revoke all their keys)
+- [x] **Secrets & Key Management**
+  - [x] Never store secrets in code or config files
+  - [x] Use environment variables or secret manager (AWS Secrets, Vault)
+  - [x] Rotate API keys & passwords regularly (60-day cycle)
+  - [x] Separate keys for dev/test/prod (use different data sources)
+  - [x] Key escrow procedure (if employee leaves, revoke all their keys)
 
 #### Auto-Update & Silent Deployment (Never Breaks User Workflow)
 
 The user should never manually update. Security patches, factor improvements, data source changes — all roll out transparently.
 
-- [ ] **Client-Side Update Mechanism**
+- [x] **Client-Side Update Mechanism**
   - Embedded auto-update checker (similar to Chrome, Electron)
   - Background download of new version during idle time (no performance impact)
   - Automatic restart on next app launch (not forced mid-session)
   - Version manifest (current vs. latest, with changelog)
   - Rollback button (if new version breaks workflow, revert in one click)
 
-- [ ] **Version Tagging & Changelogs**
+- [x] **Version Tagging & Changelogs**
   - Semantic versioning (MAJOR.MINOR.PATCH)
   - Automated release notes from commit messages
   - Breaking changes highlighted (e.g., "factor weights updated — re-run backtest")
   - Beta releases (users can opt-in to test new features before stable)
   - Security patch priority (critical CVE fixes deployed within 24 hours)
 
-- [ ] **Zero-Downtime Deployment**
+- [x] **Zero-Downtime Deployment**
   - API versioning (v1, v2) — old clients still work
   - Blue-green deployments (test on green, cut over when stable)
   - Staged rollout (10% → 25% → 50% → 100% of users, watch for errors)
   - Health checks at every stage (abort if error rate spikes)
   - Canary monitoring (catch regressions before they hit all users)
 
-- [ ] **Backward Compatibility**
+- [x] **Backward Compatibility**
   - Old API clients keep working (with deprecation warnings, sunset date)
   - Old model versions available (so past backtests remain reproducible)
   - Config file format migrations (auto-convert old format on load)
   - Data artifact versioning (parquet schema versioning, fallback readers)
 
-- [ ] **Transparency Without Noise**
+- [x] **Transparency Without Noise**
   - Changelog in-app (one-click to see what changed, why)
   - Email digest (monthly, unless security patch → immediate notification)
   - No "update nag" popups during critical work

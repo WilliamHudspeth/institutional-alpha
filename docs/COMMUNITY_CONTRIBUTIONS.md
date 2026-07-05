@@ -87,7 +87,7 @@ thread.
 | `documentation` | Docs gap or correction |
 | `help-wanted` | Maintainer-confirmed, open for anyone to pick up |
 
-**Target triage SLA** (aspirational — not yet enforced by tooling):
+**Target triage SLA**:
 - `bug` / anything security-adjacent: response within 24 hours
 - `feature`: response within 1 week
 
@@ -123,3 +123,14 @@ domain contributions specifically:
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — module map, factor/lens contracts
 - [`factors.md`](factors.md) — existing factor inventory and weights
 - [`REAL_DATA_BACKTEST_STRATEGY.md`](REAL_DATA_BACKTEST_STRATEGY.md) — backtest validation gates
+
+---
+
+## Open Source Commitment
+
+Institutional Alpha is built for everyone. We commit to the following principles:
+
+1. **Free & Open Source**: The core codebase and methodology are permanently open-source under a permissive license (e.g., MIT).
+2. **No Paywalls**: The same tool serves both retail investors and hedge funds. We do not gate features behind "Pro" tiers.
+3. **Local-First**: The software runs locally. We require no SaaS lock-in, no license keys, and no telemetry (except opt-in analytics for development priorities).
+4. **Transparent Methodology**: We believe in glass-box analytics. Factors, weights, and assumptions will always be fully disclosed.
