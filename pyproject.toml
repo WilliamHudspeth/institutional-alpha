@@ -29,6 +29,7 @@ dependencies = [
     "pydantic>=2.0.0",
     "PyYAML>=6.0",
     "plotly>=5.0.0",
+    "mutmut",
 ]
 
 [project.optional-dependencies]
