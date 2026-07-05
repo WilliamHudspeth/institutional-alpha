@@ -1573,6 +1573,76 @@ class SwitchPanel(_Panel):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+#  TI-89 PROJECTION PANEL
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TI89Panel(_Panel):
+    title = "TI-89 3D VALUATION PROJECTION"
+
+    def render(
+        self,
+        cv: Canvas,
+        r0: int,
+        r1: int,
+        c0: int,
+        c1: int,
+        sec: SecState | None,
+        system_state: SystemState | None = None,
+        ticks: int = 0,
+    ) -> None:
+        if not sec or not sec.pipeline_result:
+            self._loading(cv, r0, r1, c0, c1, sec.ticker if sec else "N/A", ticks)
+            return
+            
+        try:
+            from iam.ui.ti89_graph import generate_ti89_3d_wireframe
+        except ImportError:
+            cv.put(r0 + 2, c0 + 2, "Error: ti89_graph module not found", C_RED)
+            return
+
+        pr = sec.pipeline_result
+        intrinsic = getattr(pr.intrinsic, 'fair_value_to_price', 0) if pr.intrinsic else 0
+        relative = getattr(pr.relative, 'fair_value_to_price', 0) if pr.relative else 0
+        expectations = 0 # Default if reverse dcf to ratio fails
+        if pr.market_implied_engine and pr.market_implied_engine.implied:
+            vs_max = pr.market_implied_engine.implied.growth_vs_history_max
+            if vs_max and vs_max > 0:
+                expectations = max(-0.9, min(2.0, (1.0 / vs_max) - 1.0))
+                
+        art = generate_ti89_3d_wireframe(intrinsic or 0.0, relative or 0.0, expectations or 0.0, mode="tui")
+        
+        cv.put(r0 + 1, c0 + 2, "3D WIREFRAME PROJECTION", C_ACCENT + BOLD)
+        
+        lines = art.split("\n")
+        for i, line in enumerate(lines):
+            if r0 + 3 + i >= r1:
+                break
+            # Render in green (like old TI calculator)
+            cv.put(r0 + 3 + i, c0 + 5, line, "\x1b[32m")
+            
+        # Add ML Lens status if possible
+        try:
+            from iam.ml.ml_lens import MLDiagnosticLens
+            lens = MLDiagnosticLens()
+            res = lens.compute(sec.security) if hasattr(sec, "security") else None
+            if res and r0 + 4 + len(lines) < r1:
+                col = "\x1b[31m" if res.confidence < 1.0 else "\x1b[32m"
+                cv.put(r0 + 4 + len(lines), c0 + 2, f"ML Diagnostics: {res.narrative}", col)
+        except Exception:
+            pass
+            
+        # Add Plugin status
+        try:
+            from iam.plugins.manager import PluginManager
+            pm = PluginManager()
+            plugins = pm.list_plugins() if hasattr(pm, 'list_plugins') else []
+            if r0 + 6 + len(lines) < r1:
+                cv.put(r0 + 6 + len(lines), c0 + 2, f"Active Plugins: {len(plugins)}", C_DIM)
+        except Exception:
+            pass
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 #  MAIN APPLICATION
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -1596,6 +1666,7 @@ class AlphaTerminal:
         "Portfolio Overview",
         "Learning & Glossary",
         "Matrix Digital Rain",
+        "TI-89 3D Projection",
         "Settings",  # NEW
         "System Info",
         "Switch Security",
@@ -1649,6 +1720,7 @@ class AlphaTerminal:
             "Portfolio Overview": PortfolioPanel(),
             "Learning & Glossary": LearningPanel(),
             "Matrix Digital Rain": MatrixPanel(),
+            "TI-89 3D Projection": TI89Panel(),
             "Settings": SettingsPanel(on_apply=self._apply_settings),
             "System Info": SysInfoPanel(),
             "Switch Security": SwitchPanel(),

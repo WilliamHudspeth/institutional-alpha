@@ -414,6 +414,61 @@ if run_button:
                 else:
                     st.info("Thesis drift metrics unavailable.")
 
+            # Row 4: TI-89 Projection & Plugins / ML
+            st.markdown("---")
+            col_vis, col_sys = st.columns([2, 1])
+            with col_vis:
+                st.markdown("<div class='terminal-header'>🧊 TI-89 3D Valuation Projection</div>", unsafe_allow_html=True)
+                try:
+                    from iam.ui.ti89_graph import generate_ti89_3d_wireframe
+                    pr = report
+                    intrinsic = getattr(pr.intrinsic, 'fair_value_to_price', 0) if pr and pr.intrinsic else 0
+                    relative = getattr(pr.relative, 'fair_value_to_price', 0) if pr and pr.relative else 0
+                    expectations = 0
+                    if pr and pr.market_implied_engine and pr.market_implied_engine.implied:
+                        vs_max = pr.market_implied_engine.implied.growth_vs_history_max
+                        if vs_max and vs_max > 0:
+                            expectations = max(-0.9, min(2.0, (1.0 / vs_max) - 1.0))
+                    
+                    fig = generate_ti89_3d_wireframe(intrinsic or 0.0, relative or 0.0, expectations or 0.0, mode="gui")
+                    if fig:
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.info("Plotly is required for 3D GUI visualization.")
+                except Exception as e:
+                    st.error(f"Failed to generate TI-89 3D plot: {e}")
+
+            with col_sys:
+                st.markdown("<div class='terminal-header'>🤖 ML & System Status</div>", unsafe_allow_html=True)
+                # ML Lens
+                try:
+                    from iam.ml.ml_lens import MLDiagnosticLens
+                    lens = MLDiagnosticLens()
+                    res = lens.compute(sec)
+                    color = "#ff7b72" if res.confidence < 1.0 else "#7ee787"
+                    st.markdown(f"""
+                        <div class="card">
+                            <div class="metric-label">ML Diagnostic Lens</div>
+                            <div style="color: {color}; font-weight: 600; margin-top: 0.5rem;">{res.narrative}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                except Exception as e:
+                    st.info("ML Diagnostics unavailable.")
+                
+                # Plugins
+                try:
+                    from iam.plugins.manager import PluginManager
+                    pm = PluginManager()
+                    plugins = pm.list_plugins() if hasattr(pm, 'list_plugins') else []
+                    st.markdown(f"""
+                        <div class="card" style="margin-top: 1rem;">
+                            <div class="metric-label">Active Plugins</div>
+                            <div style="font-size: 1.2rem; font-weight: 700; color: #58a6ff;">{len(plugins)}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                except Exception:
+                    pass
+
         except Exception as e:
             st.error(f"Execution Error: {e}")
             with st.expander("Show Traceback"):

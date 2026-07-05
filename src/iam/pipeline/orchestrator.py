@@ -391,6 +391,18 @@ class ValuationPipeline:
         # base case (percentiles + P(upside) instead of a point estimate).
         monte_carlo_res = self.monte_carlo.run(security)
 
+        # ML Lens Anomaly Detection for Triangulation Weighting
+        try:
+            from iam.ml.ml_lens import MLDiagnosticLens
+            ml_res = MLDiagnosticLens().compute(security)
+            if ml_res.confidence < 1.0:
+                # If fundamentals are anomalous, relative valuation (comps) is less reliable
+                relative_res.confidence *= ml_res.confidence
+                relative_res.notes.append("Confidence reduced due to ML fundamental anomaly.")
+                intrinsic_res.notes.append(f"ML Anomaly Note: {ml_res.narrative}")
+        except Exception:
+            pass
+
         # Stage 4: Triangulation
         triangulation_res = self.triangulator.triangulate(
             market_implied_engine_res, relative_res, intrinsic_res
