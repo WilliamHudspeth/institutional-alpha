@@ -1776,6 +1776,10 @@ class AlphaTerminal:
                                 self._canvas._dirty = True
         elif key.lower() == b"q":
             self._quit()
+        elif key.lower() == b"k":
+            self._nav(-1)
+        elif key.lower() == b"j":
+            self._nav(+1)
         elif key.lower() == b"s":
             self._switch_flow()
         elif key.lower() == b"r":
