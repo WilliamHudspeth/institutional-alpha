@@ -573,8 +573,11 @@ Full conceptual documentation:
 
 **Infrastructure & releases:**
 - [`docs/REAL_DATA_BACKTEST_STRATEGY.md`](docs/REAL_DATA_BACKTEST_STRATEGY.md) — empirical validation plan and gates
-- [`RELEASES.md`](RELEASES.md) — release-by-release notes
+- [`docs/releases.md`](docs/releases.md) — release-by-release notes
 - [`CHANGELOG.md`](CHANGELOG.md) — Keep-a-Changelog format
+- [`docs/RELEASE_SCHEDULE.md`](docs/RELEASE_SCHEDULE.md) — cadence, versioning policy, what's automated
+- [`docs/CONVENTIONAL_COMMITS.md`](docs/CONVENTIONAL_COMMITS.md) — commit/PR-title convention
+- [`docs/COMMUNITY_CONTRIBUTIONS.md`](docs/COMMUNITY_CONTRIBUTIONS.md) — factor/data-source/methodology contribution guide
 
 ## Design principles
 
@@ -648,4 +651,6 @@ MIT — see [LICENSE](LICENSE).
 
 ## Disclaimer
 
-This is a research framework, not investment advice. Nothing here is a recommendation to buy or sell any security. Past performance of any factor model does not guarantee future results.
+This is a research framework, not investment advice. Nothing here is a recommendation to buy or sell any security. Past performance of any factor model does not guarantee future results. Model outputs are subject to model error and data limitations — consult a licensed financial advisor before making investment decisions.
+
+See [`docs/legal/`](docs/legal/) for the full Privacy Policy, Terms of Service, and Model Governance documentation.

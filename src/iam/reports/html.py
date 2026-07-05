@@ -9,6 +9,8 @@ from __future__ import annotations
 import html as _html
 from typing import TYPE_CHECKING
 
+from iam.compliance.disclaimers import disclaimer_html
+
 if TYPE_CHECKING:
     from iam.pipeline.orchestrator import PipelineReport
 
@@ -138,6 +140,8 @@ body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans
 .law-violations {{ background: #fff0f0; border-left: 3px solid #ef5350; padding: 16px; border-radius: 0 6px 6px 0; margin-top: 12px; }}
 .law-flags {{ background: #fff8e1; border-left: 3px solid #ffa000; padding: 16px; border-radius: 0 6px 6px 0; margin-top: 12px; }}
 .footer {{ background: #1a1a2e; color: #888; padding: 20px 30px; font-size: 11px; text-align: center; }}
+.footer .disclaimer {{ list-style: none; margin-top: 8px; }}
+.footer .disclaimer li {{ padding: 2px 0; }}
 </style>
 </head>
 <body>
@@ -170,7 +174,8 @@ body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans
         {_law_section(report.law_report)}
     </div>
     <div class="footer">
-        Institutional Alpha &mdash; generated research report. Not investment advice.
+        Institutional Alpha &mdash; generated research report.
+        {disclaimer_html()}
     </div>
 </div>
 </body>

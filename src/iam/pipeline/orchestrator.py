@@ -6,6 +6,11 @@ from dataclasses import dataclass
 from iam.data.macro import MacroConditions
 from iam.data.security import Security
 from iam.elasticity.types import StressResponse
+from iam.engine.growth_estimator import (
+    GrowthEstimateResult,
+    GrowthQuestionnaire,
+    QuestionnaireGrowthEngine,
+)
 from iam.engine.market_implied import MarketImpliedEngine
 from iam.laws import DamodaranLawRegistry
 from iam.laws.types import LawReport
@@ -90,6 +95,7 @@ class PipelineReport:
     drift_report: DriftReport | None = None
     monte_carlo: MonteCarloDistribution | None = None  # sampled fair-value distribution
     justified_premium: JustifiedPremiumResult | None = None  # Relative Reality gap
+    growth_estimate: GrowthEstimateResult | None = None  # questionnaire-based growth vs. Stage 1
 
     def explain(self, verbose: bool = False) -> str:
         if verbose:
@@ -109,6 +115,13 @@ class PipelineReport:
             lines.append(f"> Verdict: {self.market_implied_engine.verdict_text}")
             lines.append(f"> Confidence: {self.market_implied_engine.confidence:.2f}")
             lines.append("")
+
+            if self.growth_estimate:
+                lines.append("### Questionnaire Growth Estimate (Fundamental vs. Reverse DCF)")
+                lines.append(f"> {self.growth_estimate.narrative}")
+                if self.growth_estimate.gap_verdict:
+                    lines.append(f"> {self.growth_estimate.gap_verdict}")
+                lines.append("")
 
             lines.append(EXPLAIN_STAGE_2)
             lines.append(f"> Verdict: {self.relative.verdict_text}")
@@ -174,6 +187,13 @@ class PipelineReport:
         lines.append(f"  {self.market_implied_engine.verdict_text}")
         lines.append(f"  confidence: {self.market_implied_engine.confidence:.2f}")
         lines.append("")
+
+        if self.growth_estimate:
+            lines.append("STAGE 1b — Questionnaire Growth Estimate (fundamental vs. market-implied)")
+            lines.append(f"  {self.growth_estimate.narrative}")
+            if self.growth_estimate.gap_verdict:
+                lines.append(f"  {self.growth_estimate.gap_verdict}")
+            lines.append("")
 
         lines.append("STAGE 2 — Relative Valuation (do peers/history agree?)")
         lines.append(f"  {self.relative.verdict_text}")
@@ -276,6 +296,7 @@ class ValuationPipeline:
         fcfe_assumptions: FCFEAssumptions | None = None,
         macro: MacroConditions | None = None,
         synthesis_upside: float | None = None,
+        growth_questionnaire: GrowthQuestionnaire | None = None,
     ) -> PipelineReport:
         wacc_info = self._calculate_dynamic_wacc(security)
         wacc_note = ""
@@ -298,6 +319,18 @@ class ValuationPipeline:
 
         if wacc_info:
             self.market_implied_engine.r = original_r
+
+        # Stage 1b: Questionnaire-based fundamental growth, contrasted against
+        # Stage 1's market-implied growth (opt-in — only runs when the caller
+        # supplies a completed questionnaire).
+        growth_estimate_res = None
+        if growth_questionnaire is not None:
+            growth_estimate_res = QuestionnaireGrowthEngine().compute(
+                security, growth_questionnaire
+            )
+            growth_estimate_res = QuestionnaireGrowthEngine().contrast_with_reverse_dcf(
+                growth_estimate_res, market_implied_engine_res
+            )
 
         # Stage 2: Relative Valuation
         from iam.data.providers.yfinance_adapter import build_regression_inputs
@@ -435,10 +468,16 @@ class ValuationPipeline:
             battlefield=battlefield_res,
             drift_report=drift_report,
             monte_carlo=monte_carlo_res,
+            growth_estimate=growth_estimate_res,
         )
 
         if monte_carlo_res.percentiles:
             report.summary += f"\n[MONTE CARLO]: {monte_carlo_res.narrative}"
+
+        if growth_estimate_res is not None:
+            report.summary += f"\n[GROWTH QUESTIONNAIRE]: {growth_estimate_res.narrative}"
+            if growth_estimate_res.gap_verdict:
+                report.summary += f"\n[GROWTH vs. REVERSE DCF]: {growth_estimate_res.gap_verdict}"
 
         # Damodaran Laws: test the assumptions Stage 3 actually used for
         # internal consistency. Violations/flags degrade the Stage 7 verdict.

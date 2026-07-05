@@ -4,6 +4,7 @@ import traceback
 import pandas as pd
 import streamlit as st
 
+from iam.compliance.disclaimers import SHORT_DISCLAIMER
 from iam.data import Security
 from iam.integration.orchestrator import Orchestrator
 from iam.pipeline.orchestrator import ValuationPipeline
@@ -419,3 +420,9 @@ if run_button:
                 st.code(traceback.format_exc())
 else:
     st.info("👈 Enter a ticker and press 'Run Valuation Engine' in the control center to begin.")
+
+st.markdown(
+    f"<div style='margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #30363d; "
+    f"font-size: 0.75rem; color: #8b949e; text-align: center;'>{SHORT_DISCLAIMER}</div>",
+    unsafe_allow_html=True,
+)

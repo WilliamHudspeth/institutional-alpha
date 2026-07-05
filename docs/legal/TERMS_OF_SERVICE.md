@@ -36,7 +36,7 @@ The Software is provided **"as is"**, without warranty of any kind, express or i
 
 ## 6. Model Governance
 
-Any material changes to the underlying scoring models, factor weights, or valuation methodology will be documented in the `CHANGELOG.md` and announced via GitHub releases. You accept that model outputs may change across versions.
+Any material changes to the underlying scoring models, factor weights, or valuation methodology will be documented in the `CHANGELOG.md`, announced via GitHub releases, and recorded in the local model-change audit trail described in [`docs/legal/MODEL_GOVERNANCE.md`](MODEL_GOVERNANCE.md). You accept that model outputs may change across versions.
 
 ## 7. Intellectual Property
 

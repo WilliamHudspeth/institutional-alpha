@@ -10,6 +10,11 @@ lint:
 	ruff check src/ tests/
 	ruff format src/ tests/ --check
 
+security:
+	bandit -r src/ -c pyproject.toml || true
+	pip-audit || true
+
+
 typecheck:
 	mypy src/ --ignore-missing-imports
 

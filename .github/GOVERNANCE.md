@@ -80,6 +80,8 @@ Prevents crash when roic_history has fewer than 3 elements.
 
 ## Release Management
 
+Full policy: [`docs/RELEASE_SCHEDULE.md`](../docs/RELEASE_SCHEDULE.md). Summary below.
+
 **Cadence** (Phase 1.1 target):
 - **Patch** (v0.4.2): Every Friday if ready; bugfixes + data updates + security patches
 - **Minor** (v0.5.0): Every 6 weeks; features + factor improvements

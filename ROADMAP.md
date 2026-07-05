@@ -261,7 +261,7 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
   - Automated release tags
   - Build artifacts
 
-- [ ] **Architecture Documentation**
+- [x] **Architecture Documentation** — `docs/ARCHITECTURE.md`
   - Module dependency graph
   - Factor design specs per assumption bounds
   - Lens architecture (multi-perspective framework)
@@ -280,13 +280,15 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
 
 #### Semantic Versioning & Release Cadence
 
-- [ ] **Release Schedule**
+- [x] **Release Schedule** — documented in `docs/RELEASE_SCHEDULE.md`; automation
+  (release-drafter, tag-triggered builds) already live, see doc §3 for what's not yet automated
   - Patch releases (v0.4.2): Every Friday if ready; includes bugfixes, security patches, data updates
   - Minor releases (v0.5.0): Every 6 weeks; includes features, factor improvements, UI enhancements
   - Major releases (v1.0.0): Quarterly; breaking changes, architectural shifts, production-grade milestones
   - Security patches: Within 24 hours of identification (no waiting for next scheduled release)
 
-- [ ] **Conventional Commits & Auto-Changelog**
+- [x] **Conventional Commits & Auto-Changelog** — documented in `docs/CONVENTIONAL_COMMITS.md`;
+  enforced today by `.pre-commit-config.yaml` (commit-msg) + `.github/workflows/pr-title.yml` (PR title)
   - All commits tagged: `feat:`, `fix:`, `chore:`, `docs:`, `perf:`, `test:`, `security:`
   - PR descriptions include: what/why/impact + link to issue + changelog entry
   - Auto-generate release notes from merged PRs (tool: `auto` or `release-drafter`)
@@ -307,13 +309,14 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
   - "Help wanted" issues (contributions invited from researchers, fund managers)
   - Monthly status update (in-app + email): what shipped, what's next, known issues
 
-- [ ] **Community Contributions**
+- [x] **Community Contributions** — guidelines documented in `docs/COMMUNITY_CONTRIBUTIONS.md`;
+  issue templates in `.github/ISSUE_TEMPLATE/` (bug, feature, factor proposal, data source adapter)
   - Factor improvement PRs (propose new factor, include backtest + IC improvement)
   - Data source adapters (add alternative to yfinance/Stooq; community-maintained)
   - Documentation & educational materials (research papers, explainers, validation reports)
   - Methodology discussions (GitHub Discussions: "How should we handle X?" — open forum)
 
-- [ ] **Issue Triage & Responsiveness**
+- [ ] **Issue Triage & Responsiveness** — SLA policy documented in `docs/COMMUNITY_CONTRIBUTIONS.md`, not yet enforced by tooling
   - Triage SLA: bug/security → 24h response; feature requests → 1 week
   - Transparency: explain why issues are closed (won't fix, duplicate, out of scope)
   - User feedback → priority (high-volume requests bubble to next sprint)

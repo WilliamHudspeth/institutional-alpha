@@ -10,6 +10,8 @@ import csv
 import io
 from typing import TYPE_CHECKING
 
+from iam.compliance.disclaimers import DISCLAIMER_LINES
+
 if TYPE_CHECKING:
     from iam.pipeline.orchestrator import PipelineReport
 
@@ -51,5 +53,10 @@ def render_csv_export(report: "PipelineReport") -> str:
         writer.writerow(["cluster_center", tri.cluster_center])
         writer.writerow(["spread", tri.spread])
         writer.writerow(["triangulation_confidence", tri.confidence])
+
+    writer.writerow([])
+    writer.writerow(["disclaimer"])
+    for line in DISCLAIMER_LINES:
+        writer.writerow([line])
 
     return buf.getvalue()

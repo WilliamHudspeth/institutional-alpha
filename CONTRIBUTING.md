@@ -14,9 +14,15 @@ Thanks for helping build a better valuation engine for everyone!
 
 ---
 
+## Domain contributions (factors, data sources, methodology)
+
+Proposing a new factor, a new data source adapter, or a methodology change? See
+[`docs/COMMUNITY_CONTRIBUTIONS.md`](docs/COMMUNITY_CONTRIBUTIONS.md) — it covers the
+evidence (backtest IC, contract tests) those PRs need beyond what's below.
+
 ## Commit Message Format
 
-We follow **[Conventional Commits](https://www.conventionalcommits.org/)** to automate changelog generation. Pre-commit hooks enforce this.
+We follow **[Conventional Commits](https://www.conventionalcommits.org/)** to automate changelog generation. Pre-commit hooks enforce this. Full guide, including exactly where this is enforced and how it feeds release notes: [`docs/CONVENTIONAL_COMMITS.md`](docs/CONVENTIONAL_COMMITS.md).
 
 ### Format
 
@@ -153,6 +159,9 @@ Releases are **automated**:
 3. Semver tags (v0.4.2) created on `main`
 
 **Cadence**: Patch every Friday, Minor every 6 weeks, Major quarterly.
+
+Full cadence, versioning policy, and what's automated vs. still manual:
+[`docs/RELEASE_SCHEDULE.md`](docs/RELEASE_SCHEDULE.md).
 
 ---
 

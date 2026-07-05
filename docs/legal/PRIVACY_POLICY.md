@@ -15,6 +15,7 @@ When you use the tool, the following data may be generated **locally**:
 | Data | Location | Purpose |
 |------|----------|---------|
 | Ticker queries | `~/.iam/audit.jsonl` | Audit trail (SEC compliance) |
+| Model/factor/assumption changes | `~/.iam/governance/*.jsonl` | Model governance audit trail — see [`docs/legal/MODEL_GOVERNANCE.md`](MODEL_GOVERNANCE.md) |
 | Valuation outputs | Local only | Your research |
 | Error logs | Local only | Debugging |
 

@@ -8,6 +8,10 @@ for a human to make, not something to install silently.
 
 Until that dependency is added, this raises NotImplementedError so callers
 get a clear, actionable message instead of a silent no-op or a fake PDF.
+
+Whoever implements this must include ``iam.compliance.disclaimers.STANDARD_DISCLAIMER``
+in the rendered output, matching the HTML and CSV exports (see ROADMAP.md Phase 1.5b,
+"Disclaimers embedded in every output").
 """
 
 from __future__ import annotations

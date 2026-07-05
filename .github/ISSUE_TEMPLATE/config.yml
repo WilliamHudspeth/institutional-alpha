@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Methodology Discussion
+    url: https://github.com/WilliamHudspeth/institutional-alpha/discussions
+    about: Open questions about how the model should work — not a bug or feature request. See docs/COMMUNITY_CONTRIBUTIONS.md.
