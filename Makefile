@@ -11,12 +11,13 @@ lint:
 	ruff format src/ tests/ --check
 
 security:
-	bandit -r src/ -c pyproject.toml || true
-	pip-audit || true
+	bandit -r src/ -c pyproject.toml
+	pip-audit
 
 
 typecheck:
 	mypy src/ --ignore-missing-imports
+	mypy --strict src/iam/validation/
 
 benchmark:
 	pytest tests/performance --benchmark-only
