@@ -1618,7 +1618,7 @@ class TI89Panel(_Panel):
             if r0 + 3 + i >= r1:
                 break
             # Render in green (like old TI calculator)
-            cv.put(r0 + 3 + i, c0 + 5, line, "\x1b[32m")
+            cv.put(r0 + 3 + i, c0 + 5, line, "\x1b[38;2;0;0;139m\x1b[48;2;143;159;143m")
             
         # Add ML Lens status if possible
         try:

@@ -14,20 +14,20 @@ def generate_ti89_3d_wireframe(intrinsic: float, relative: float, expectations: 
     if mode == "tui":
         # ASCII art representation of a 3D surface
         art = [
-            "      .      +       .      .   .   .",
-            "  .       .      .      .       .    ",
-            "    .  /---------------------\ .  .  ",
-            " .    /  Valuation Surface    \      ",
-            "     /    Intrinsic: {:+.1f}%    \    ".format(intrinsic * 100),
-            "    /     Relative: {:+.1f}%     \   ".format(relative * 100),
-            "   /      Expected: {:+.1f}%     \  ".format(expectations * 100),
-            "  /_____________________________\ .  ",
-            "  | \  .                     .  |    ",
-            "  |  \      _/\_                | .  ",
-            "  |   \   _/    \_     _/\      |    ",
-            "  |    \_/        \___/   \_    |    ",
-            "  |                         \   |    ",
-            "  +-----------------------------+    "
+            r"      .      +       .      .   .   .",
+            r"  .       .      .      .       .    ",
+            r"    .  /---------------------\ .  .  ",
+            r" .    /  Valuation Surface    \      ",
+            f"     / Intrinsic: {intrinsic * 100:<10.2f}% \    ",
+            f"    /  Relative:  {relative * 100:<10.2f}% \   ",
+            f"   /   Expected:  {expectations * 100:<10.2f}% \  ",
+            r"  /_____________________________\ .  ",
+            r"  | \  .                     .  |    ",
+            r"  |  \      _/\_                | .  ",
+            r"  |   \   _/    \_     _/\      |    ",
+            r"  |    \_/        \___/   \_    |    ",
+            r"  |                         \   |    ",
+            r"  +-----------------------------+    "
         ]
         return "\n".join(art)
     
@@ -43,24 +43,24 @@ def generate_ti89_3d_wireframe(intrinsic: float, relative: float, expectations: 
         # Simple polynomial surface using the three pillars as coefficients
         w = intrinsic * (u**2) + relative * (v**2) + expectations * u * v
         
-        # TI-89 Monochrome green theme
-        color = "#77FF77"
+        # TI-89 Monochrome LCD theme
+        color = "#00008B"
         
         fig = go.Figure(data=[go.Surface(z=w, x=u, y=v, 
                                        colorscale=[[0, color], [1, color]],
                                        showscale=False,
                                        opacity=0.7)])
-        fig.update_traces(contours_z=dict(show=True, usecolormap=True, highlightcolor="limegreen", project_z=True))
+        fig.update_traces(contours_z=dict(show=True, usecolormap=True, highlightcolor="darkblue", project_z=True))
         
         fig.update_layout(
             title="TI-89 Valuation Projection",
             scene=dict(
-                xaxis=dict(showbackground=False, showgrid=True, gridcolor='rgba(0,255,0,0.2)'),
-                yaxis=dict(showbackground=False, showgrid=True, gridcolor='rgba(0,255,0,0.2)'),
-                zaxis=dict(showbackground=False, showgrid=True, gridcolor='rgba(0,255,0,0.2)')
+                xaxis=dict(showbackground=False, showgrid=True, gridcolor='rgba(0,0,139,0.2)'),
+                yaxis=dict(showbackground=False, showgrid=True, gridcolor='rgba(0,0,139,0.2)'),
+                zaxis=dict(showbackground=False, showgrid=True, gridcolor='rgba(0,0,139,0.2)')
             ),
-            paper_bgcolor='#001100',
-            plot_bgcolor='#001100',
+            paper_bgcolor='#8F9F8F',
+            plot_bgcolor='#8F9F8F',
             font=dict(color=color, family="Courier New, monospace"),
             margin=dict(l=0, r=0, b=0, t=30)
         )
