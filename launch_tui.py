@@ -17,8 +17,9 @@ def main():
     try:
         import textual
     except ImportError:
-        print("[!] Textual not found. Installing UI dependencies...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "textual"])
+        if not getattr(sys, 'frozen', False):
+            print("[!] Textual not found. Installing UI dependencies...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "textual"])
 
     print("\n[✓] Setup Complete! Launching Terminal UI...")
     print("=" * 42)

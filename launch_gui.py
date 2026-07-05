@@ -17,8 +17,9 @@ def main():
     try:
         import streamlit
     except ImportError:
-        print("[!] Streamlit not found. Installing UI dependencies...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "streamlit"])
+        if not getattr(sys, 'frozen', False):
+            print("[!] Streamlit not found. Installing UI dependencies...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "streamlit"])
     
     gui_path = Path(__file__).parent / "src" / "iam" / "ui" / "gui.py"
     print(f"\n[✓] Setup Complete! Launching GUI server...")

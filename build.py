@@ -7,6 +7,7 @@ def build():
         "--hidden-import=yfinance",
         "--hidden-import=sklearn",
         "--hidden-import=streamlit",
+        "--hidden-import=plotly",
     ]
     
     # Common arguments for single-executable generation
