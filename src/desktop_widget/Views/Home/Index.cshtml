@@ -1,0 +1,36 @@
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Institutional Alpha - Micro-Widget</title>
+    <link rel="stylesheet" href="~/css/style.css" />
+</head>
+<body>
+    <div class="widget-container">
+        <h1>Alpha Sync</h1>
+        <div class="status">Connecting to backend...</div>
+        <button id="sync-btn">Sync Data</button>
+    </div>
+
+    <script>
+        document.getElementById('sync-btn').addEventListener('click', async () => {
+            const status = document.querySelector('.status');
+            status.textContent = 'Syncing...';
+            try {
+                const response = await fetch('/api/sync/valuation');
+                if (response.ok) {
+                    status.textContent = 'Synced successfully!';
+                } else {
+                    status.textContent = 'Sync failed.';
+                }
+            } catch (error) {
+                status.textContent = 'Error connecting to widget backend.';
+            }
+        });
+    </script>
+</body>
+</html>
