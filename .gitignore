@@ -95,5 +95,7 @@ Thumbs.db
 /outputs/
 /tmp_zip/
 
-# Runtime audit trail (regenerated on every run, not source)
 /audit_log.jsonl
+
+# PyInstaller
+*.spec
