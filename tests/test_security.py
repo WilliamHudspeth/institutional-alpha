@@ -23,7 +23,7 @@ def test_sanitize_ticker_fixes_whitespace():
     assert sanitize_ticker("brk.b") == "BRK.B"
 
 def test_sanitize_ticker_rejects_unsafe():
-    with pytest.raises(ValueError, match="Unsafe ticker input detected"):
+    with pytest.raises(ValueError, match="SQL/path injection payload detected"):
         sanitize_ticker("AAPL; rm -rf /")
 
 def test_mask_pii_masks_email():

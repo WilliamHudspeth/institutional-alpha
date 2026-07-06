@@ -145,7 +145,7 @@ def build_prices(
     typer.echo("📋 Writing manifest...")
     manifest = {
         "_meta": {
-            "version": "v0.4.0",
+            "version": "v0.4.0-rc1",
             "timestamp": datetime.utcnow().isoformat(),
             "data_source": data_source,
             "source_breakdown": source_counts,

@@ -14,7 +14,10 @@ from iam.engine.growth_estimator import (
 from iam.engine.market_implied import MarketImpliedEngine
 from iam.laws import DamodaranLawRegistry
 from iam.laws.types import LawReport
+from iam.lenses.base import LensResult
+from iam.lenses.synthesis import synthesize_lenses
 from iam.pipeline.macro import MacroOverlay
+from iam.plugins.manager import PluginManager, get_plugin_manager
 from iam.pipeline.verdict import VerdictGenerator, VerdictResult
 from iam.thesis.drift import DriftReport
 from iam.valuation import (
@@ -78,7 +81,7 @@ def print_assumption_table(
 
 @dataclass
 class PipelineReport:
-    """The full output of a v0.2.0-alpha pipeline run."""
+    """The full output of a v0.4.0-rc1 pipeline run."""
 
     ticker: str
     market_implied_engine: ValuationResult
@@ -96,6 +99,8 @@ class PipelineReport:
     monte_carlo: MonteCarloDistribution | None = None  # sampled fair-value distribution
     justified_premium: JustifiedPremiumResult | None = None  # Relative Reality gap
     growth_estimate: GrowthEstimateResult | None = None  # questionnaire-based growth vs. Stage 1
+    plugin_lenses: list[LensResult] | None = None  # registered IA_LensPlugin outputs
+    plugin_factors: dict[str, dict] | None = None  # registered IA_FactorPlugin outputs
 
     def explain(self, verbose: bool = False) -> str:
         if verbose:
@@ -248,8 +253,64 @@ class PipelineReport:
         return "\n".join(lines)
 
 
+def _coerce_optional_float(value) -> float | None:
+    """Best-effort float coercion for loosely-typed plugin output values."""
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _plugin_output_to_lens_result(plugin_name: str, raw) -> LensResult | None:
+    """Convert an IA_LensPlugin.analyze() dict into a LensResult.
+
+    Plugins are third-party code, so the shape is validated defensively.
+    Returns None (and logs) when the output carries nothing the synthesis
+    machinery can use — i.e. neither a narrative nor an implied move.
+    """
+    if not isinstance(raw, dict):
+        logger.warning(
+            "Lens plugin %s returned %s, expected dict — ignoring.",
+            plugin_name,
+            type(raw).__name__,
+        )
+        return None
+
+    implied_move = _coerce_optional_float(raw.get("implied_move_pct"))
+    narrative = raw.get("narrative")
+    if implied_move is None and not narrative:
+        logger.debug(
+            "Lens plugin %s output has neither implied_move_pct nor narrative — skipping.",
+            plugin_name,
+        )
+        return None
+
+    confidence = _coerce_optional_float(raw.get("confidence"))
+    confidence = 0.5 if confidence is None else min(max(confidence, 0.0), 1.0)
+
+    notes = raw.get("notes")
+    if not isinstance(notes, list):
+        notes = []
+
+    return LensResult(
+        lens_name=str(raw.get("lens_name") or plugin_name),
+        fair_value_low=_coerce_optional_float(raw.get("fair_value_low")),
+        fair_value_high=_coerce_optional_float(raw.get("fair_value_high")),
+        implied_move_pct=implied_move,
+        confidence=confidence,
+        narrative=str(narrative or ""),
+        notes=[str(n) for n in notes],
+    )
+
+
 class ValuationPipeline:
-    def __init__(self, use_sotp_when_segments_available: bool = True):
+    def __init__(
+        self,
+        use_sotp_when_segments_available: bool = True,
+        plugin_manager: PluginManager | None = None,
+    ):
         self.market_implied_engine = MarketImpliedEngine()
         self.relative = RelativeValuation()
         self.intrinsic_dcf = FCFEDCF()
@@ -258,6 +319,71 @@ class ValuationPipeline:
         self.triangulator = Triangulator()
         self.macro_overlay = MacroOverlay(self.intrinsic_dcf)
         self.use_sotp = use_sotp_when_segments_available
+        # None -> fall back to the process-wide manager at run() time, so
+        # plugins registered via iam.plugins.manager.get_plugin_manager()
+        # affect valuations without any extra wiring.
+        self.plugin_manager = plugin_manager
+
+    def _collect_plugin_results(
+        self,
+        security: Security,
+        market_implied_res: ValuationResult,
+        relative_res: ValuationResult,
+        intrinsic_res: ValuationResult,
+        triangulation_res: TriangulationResult,
+    ) -> tuple[list[LensResult], dict[str, dict]]:
+        """Run registered IA_LensPlugin / IA_FactorPlugin instances.
+
+        Each plugin receives a read-oriented data payload describing the
+        security and the stage results computed so far. Failures are logged
+        and skipped — a broken plugin must never take down a valuation run.
+        """
+        manager = self.plugin_manager if self.plugin_manager is not None else get_plugin_manager()
+        lens_instances = manager.create_lens_instances()
+        factor_instances = manager.create_factor_instances()
+        if not lens_instances and not factor_instances:
+            return [], {}
+
+        data = {
+            "ticker": security.ticker,
+            "security": security,
+            "price": security.market.price if security.market else None,
+            "fundamentals": security.fundamentals,
+            "market": security.market,
+            "market_implied": market_implied_res,
+            "relative": relative_res,
+            "intrinsic": intrinsic_res,
+            "triangulation": triangulation_res,
+        }
+
+        lens_results: list[LensResult] = []
+        for name, plugin in lens_instances.items():
+            try:
+                raw = plugin.analyze(data)
+                lens_result = _plugin_output_to_lens_result(name, raw)
+                if lens_result is not None:
+                    lens_results.append(lens_result)
+            except Exception as e:
+                logger.warning("Lens plugin %s failed: %s", name, e)
+                continue
+
+        factor_results: dict[str, dict] = {}
+        for name, plugin in factor_instances.items():
+            try:
+                raw = plugin.calculate(data)
+            except Exception as e:
+                logger.warning("Factor plugin %s failed: %s", name, e)
+                continue
+            if isinstance(raw, dict):
+                factor_results[name] = raw
+            else:
+                logger.warning(
+                    "Factor plugin %s returned %s, expected dict — ignoring.",
+                    name,
+                    type(raw).__name__,
+                )
+
+        return lens_results, factor_results
 
     @staticmethod
     def _calculate_dynamic_wacc(security: Security) -> dict | None:
@@ -400,13 +526,31 @@ class ValuationPipeline:
                 relative_res.confidence *= ml_res.confidence
                 relative_res.notes.append("Confidence reduced due to ML fundamental anomaly.")
                 intrinsic_res.notes.append(f"ML Anomaly Note: {ml_res.narrative}")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("ML anomaly check failed: %s", e, exc_info=True)
 
         # Stage 4: Triangulation
         triangulation_res = self.triangulator.triangulate(
             market_implied_engine_res, relative_res, intrinsic_res
         )
+
+        # Stage 4a: Registered plugins (iam.plugins). Lens plugins are folded
+        # into a synthesis whose weighted implied move feeds Stage 7 (below);
+        # their narratives are appended to the triangulation notes so they
+        # surface in explain()/reports.
+        plugin_lens_results, plugin_factor_results = self._collect_plugin_results(
+            security, market_implied_engine_res, relative_res, intrinsic_res, triangulation_res
+        )
+        plugin_synthesis_move: float | None = None
+        plugin_notes: list[str] = []
+        if plugin_lens_results:
+            plugin_synthesis = synthesize_lenses(plugin_lens_results)
+            plugin_synthesis_move = plugin_synthesis.weighted_implied_move_pct
+            plugin_notes.extend(
+                f"[PLUGIN {lr.lens_name}]: {lr.narrative}" for lr in plugin_lens_results
+            )
+        for plugin_name, factor_values in plugin_factor_results.items():
+            plugin_notes.append(f"[PLUGIN FACTOR {plugin_name}]: {factor_values}")
 
         # Stage 4b: Valuation Battlefield
         battlefield_res = None
@@ -509,8 +653,27 @@ class ValuationPipeline:
                 )
                 report.implied_move_pct = report.triangulation.cluster_center
 
+        # Plugin results (Stage 4a) are attached after the macro overlay so a
+        # macro-driven re-triangulation cannot drop the plugin notes.
+        report.plugin_lenses = plugin_lens_results or None
+        report.plugin_factors = plugin_factor_results or None
+        report.triangulation.notes.extend(plugin_notes)
+        if plugin_lens_results or plugin_factor_results:
+            report.summary += (
+                f"\n[PLUGINS]: {len(plugin_lens_results)} lens / "
+                f"{len(plugin_factor_results)} factor plugin(s) applied"
+            )
+
         # Stage 7: Verdict (with optional Master Arbitration Layer)
         report.synthesis_upside = synthesis_upside
+        if report.synthesis_upside is None and plugin_synthesis_move is not None:
+            # No caller-supplied multi-lens synthesis: let the registered lens
+            # plugins' weighted implied move drive the arbitration layer.
+            report.synthesis_upside = plugin_synthesis_move
+            report.summary += (
+                f"\n[PLUGIN SYNTHESIS]: weighted implied move "
+                f"{plugin_synthesis_move:+.1%} from lens plugin(s)"
+            )
 
         # Relative Reality: justified premium vs actual
         try:
@@ -530,7 +693,7 @@ class ValuationPipeline:
             report.triangulation,
             report.relative,
             security,
-            synthesis_upside=synthesis_upside,
+            synthesis_upside=report.synthesis_upside,
             law_report=report.law_report,
             stress_response=report.stress_response,
             drift_report=report.drift_report,

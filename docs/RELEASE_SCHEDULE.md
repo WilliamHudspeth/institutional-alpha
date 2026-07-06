@@ -39,14 +39,14 @@ tagged release goes out under this policy.
 
 ## 2. Cadence
 
+> **⚠️ Important: Cadence is a ceiling, not a quota.** A Friday with nothing merge-worthy is skipped. The schedule below represents the *maximum* frequency — we do not ship empty releases to hit a calendar target.
+
 | Release type | Frequency | Contents |
 |---|---|---|
 | **Patch** | Every Friday, if there's something ready | Bugfixes, security patches, data/universe updates |
 | **Minor** | Every 6 weeks | Features, factor/lens improvements, UI changes |
 | **Major** | Quarterly | Breaking changes, architectural shifts |
 | **Security** | Within 24 hours of confirmed vulnerability | Out-of-band, does not wait for the next scheduled window |
-
-A Friday with nothing merge-worthy is skipped — cadence is a ceiling, not a quota.
 
 ---
 

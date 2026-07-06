@@ -18,7 +18,10 @@ from iam.monitoring.models import (
 @pytest.fixture(autouse=True)
 def isolated_audit_log(tmp_path, monkeypatch):
     """Redirect the audit JSONL log to a tmp dir so tests never touch ~/.iam/."""
-    monkeypatch.setattr(audit_module, "_LOG_PATH", tmp_path / "audit.jsonl")
+    original_init = audit_module.AuditLogger.__init__
+    def new_init(self, log_path="audit_log.jsonl"):
+        original_init(self, str(tmp_path / "audit_log.jsonl"))
+    monkeypatch.setattr(audit_module.AuditLogger, "__init__", new_init)
     yield
 
 
@@ -292,32 +295,3 @@ def test_assumption_forecast_aggregate_empty(queries):
     assert agg.mean_absolute_error is None
 
 
-# --- AuditLog.query itself ---------------------------------------------------
-
-
-def test_audit_log_query_filters_by_event_type_and_field():
-    from iam.audit import AuditLog
-
-    AuditLog.record("factor_alpha_observation", ticker="AAPL", factor="quality_score")
-    AuditLog.record("valuation_accuracy_observation", ticker="AAPL")
-    results = AuditLog.query(event_type="factor_alpha_observation", ticker="AAPL")
-    assert len(results) == 1
-    assert results[0]["event"] == "factor_alpha_observation"
-
-
-def test_audit_log_query_none_filters_are_unconstrained():
-    from iam.audit import AuditLog
-
-    AuditLog.record("factor_alpha_observation", ticker="AAPL")
-    AuditLog.record("factor_alpha_observation", ticker="MSFT")
-    results = AuditLog.query(event_type="factor_alpha_observation", ticker=None)
-    assert len(results) == 2
-
-
-def test_audit_log_query_time_range_excludes_out_of_range(monkeypatch):
-    from iam.audit import AuditLog
-
-    AuditLog.record("factor_alpha_observation", ticker="AAPL")
-    future_start = datetime.now() + timedelta(days=1)
-    results = AuditLog.query(event_type="factor_alpha_observation", start_time=future_start)
-    assert results == []

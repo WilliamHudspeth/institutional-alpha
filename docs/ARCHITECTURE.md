@@ -31,8 +31,10 @@ The root package is `iam` (`src/iam/`). As of this writing, it contains **27 sub
 | `laws/` | Damodaran-law consistency checks | pipeline |
 | `learning/` | ML-based learning module | backtest, ui |
 | `lenses/` | Valuation lenses (DCF variants) | engine, ui, valuation, elasticity |
+| `ml/` | IsolationForest anomaly detection lens (diagnostic) | pipeline |
 | `monitoring/` | System monitoring | (leaf) |
 | `pipeline/` | Valuation pipeline orchestrator | engine, reports, ui |
+| `plugins/` | Plugin architecture (ABCs for custom lenses/factors/data adapters) | — |
 | `portfolio/` | Portfolio construction | ui |
 | `reasoning/` | Business reality engine | pipeline, lenses |
 | `reports/` | Report generation | (leaf — imports from pipeline) |

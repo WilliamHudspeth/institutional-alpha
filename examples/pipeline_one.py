@@ -1,4 +1,4 @@
-"""Run the v0.2.0-alpha valuation pipeline on a hypothetical security.
+"""Run the v0.4.0-rc1 valuation pipeline on a hypothetical security.
 
 Demonstrates the sequence: Reverse DCF -> Relative -> Intrinsic -> Triangulation.
 

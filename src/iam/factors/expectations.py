@@ -6,7 +6,7 @@ penalizes prices that require performance the business has never demonstrated.
 Inverted convention: *easier* expectations score *higher*.
 
 The growth sub-component delegates to ``iam.valuation.MarketImpliedEngine`` so the
-math here matches the v0.2.0 pipeline. The factor's role is to convert that
+math here matches the v0.4.0-rc1 pipeline. The factor's role is to convert that
 expectations vector into a [-1, 1] cross-sectional score.
 """
 

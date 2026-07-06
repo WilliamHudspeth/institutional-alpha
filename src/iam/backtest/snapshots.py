@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 from diskcache import Cache
-from tenacity import retry, stop_after_attempt, wait_exponential
+from iam.data.retry import retry_call
 
 from iam.data.fetcher import RedundantDataFetcher
 from iam.data.security import MarketData, Security
@@ -53,7 +53,6 @@ def set_default_fetcher(fetcher: RedundantDataFetcher) -> None:
     _default_fetcher = fetcher
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
 def _fetch_snapshot_data(
     ticker: str,
     as_of: pd.Timestamp,
@@ -69,25 +68,33 @@ def _fetch_snapshot_data(
     Returns:
         Tuple of (price, debt). Debt is 0.0 if unavailable.
     """
-    as_of_dt = as_of.to_pydatetime()
-    # Fetch a small window of prices to handle weekends/holidays
-    start_dt = as_of_dt - pd.Timedelta(days=7)
-    prices = fetcher.fetch_price_history(ticker, start_dt, as_of_dt)
+    def _run():
+        as_of_dt = as_of.to_pydatetime()
+        # Fetch a small window of prices to handle weekends/holidays
+        start_dt = as_of_dt - pd.Timedelta(days=7)
+        prices = fetcher.fetch_price_history(ticker, start_dt, as_of_dt)
 
-    if prices.empty:
-        raise ValueError(f"No price data available for {ticker} around {as_of}")
+        if prices.empty:
+            raise ValueError(f"No price data available for {ticker} around {as_of}")
 
-    valid_prices = prices[prices.index <= as_of_dt]
-    if valid_prices.empty:
-        raise ValueError(f"No valid price data on or before {as_of} for {ticker}")
+        valid_prices = prices[prices.index <= as_of_dt]
+        if valid_prices.empty:
+            raise ValueError(f"No valid price data on or before {as_of} for {ticker}")
 
-    price = float(valid_prices.iloc[-1])
+        price = float(valid_prices.iloc[-1])
 
-    fundamentals = fetcher.fetch_fundamentals(ticker, as_of_dt)
-    # Map Liabilities or totalDebt depending on what's available
-    debt = float(fundamentals.get("Liabilities", fundamentals.get("totalDebt", 0.0)))
+        fundamentals = fetcher.fetch_fundamentals(ticker, as_of_dt)
+        # Map Liabilities or totalDebt depending on what's available
+        debt = float(fundamentals.get("Liabilities", fundamentals.get("totalDebt", 0.0)))
 
-    return price, debt
+        return price, debt
+
+    return retry_call(
+        _run,
+        attempts=3,
+        base_delay=1.0,
+        description="_fetch_snapshot_data",
+    )
 
 
 def build_snapshot(

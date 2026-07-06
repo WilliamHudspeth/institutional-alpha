@@ -2,13 +2,13 @@
 Passive recording layer for Performance Monitoring.
 
 Provides recorder classes for each of the four monitoring capabilities.
-Uses the existing iam.audit.AuditLog for append-only logging.
+Uses the existing iam.audit.AuditLogger for append-only logging.
 """
 
 from datetime import datetime
 from typing import Any
 
-from iam.audit import AuditLog
+from iam.audit import AuditLogger
 from iam.monitoring.models import (
     AssumptionForecastRecord,
     AssumptionType,
@@ -30,8 +30,8 @@ class FactorAlphaRecorder:
 
     EVENT_TYPE = "factor_alpha_observation"
 
-    def __init__(self, audit_log: AuditLog | None = None):
-        self._audit_log = audit_log or AuditLog()
+    def __init__(self, audit_log: AuditLogger | None = None):
+        self._audit_log = audit_log or AuditLogger()
 
     def record(
         self,
@@ -67,22 +67,25 @@ class FactorAlphaRecorder:
             benchmark_return_63d=benchmark_return_63d,
             metadata=metadata or {},
         )
-        self._audit_log.record(
-            self.EVENT_TYPE,
-            ticker=security_id,
-            factor=factor.value,
-            sector=sector.value,
-            as_of=as_of.isoformat(),
-            factor_score=factor_score,
-            forward_return_1d=forward_return_1d,
-            forward_return_5d=forward_return_5d,
-            forward_return_21d=forward_return_21d,
-            forward_return_63d=forward_return_63d,
-            benchmark_return_1d=benchmark_return_1d,
-            benchmark_return_5d=benchmark_return_5d,
-            benchmark_return_21d=benchmark_return_21d,
-            benchmark_return_63d=benchmark_return_63d,
-            **record.metadata,
+        self._audit_log.log_change(
+            model_id=security_id,
+            change_type=self.EVENT_TYPE,
+            details={
+                "ticker": security_id,
+                "factor": factor.value,
+                "sector": sector.value,
+                "as_of": as_of.isoformat(),
+                "factor_score": factor_score,
+                "forward_return_1d": forward_return_1d,
+                "forward_return_5d": forward_return_5d,
+                "forward_return_21d": forward_return_21d,
+                "forward_return_63d": forward_return_63d,
+                "benchmark_return_1d": benchmark_return_1d,
+                "benchmark_return_5d": benchmark_return_5d,
+                "benchmark_return_21d": benchmark_return_21d,
+                "benchmark_return_63d": benchmark_return_63d,
+                **record.metadata,
+            }
         )
         return record
 
@@ -97,8 +100,8 @@ class ValuationAccuracyRecorder:
 
     EVENT_TYPE = "valuation_accuracy_observation"
 
-    def __init__(self, audit_log: AuditLog | None = None):
-        self._audit_log = audit_log or AuditLog()
+    def __init__(self, audit_log: AuditLogger | None = None):
+        self._audit_log = audit_log or AuditLogger()
 
     def record(
         self,
@@ -126,23 +129,26 @@ class ValuationAccuracyRecorder:
             monte_carlo_percentiles=monte_carlo_percentiles or {},
             metadata=metadata or {},
         )
-        self._audit_log.record(
-            self.EVENT_TYPE,
-            ticker=security_id,
-            sector=sector.value,
-            valuation_date=valuation_date.isoformat(),
-            realized_date=realized_date.isoformat(),
-            fair_value=fair_value,
-            realized_price=realized_price,
-            absolute_error=record.absolute_error,
-            relative_error=record.relative_error,
-            within_confidence_band=record.within_confidence_band,
-            within_monte_carlo_range=record.within_monte_carlo_range,
-            realized_percentile=record.realized_percentile,
-            confidence_band_low=confidence_band_low,
-            confidence_band_high=confidence_band_high,
-            monte_carlo_percentiles=monte_carlo_percentiles or {},
-            **record.metadata,
+        self._audit_log.log_change(
+            model_id=security_id,
+            change_type=self.EVENT_TYPE,
+            details={
+                "ticker": security_id,
+                "sector": sector.value,
+                "valuation_date": valuation_date.isoformat(),
+                "realized_date": realized_date.isoformat(),
+                "fair_value": fair_value,
+                "realized_price": realized_price,
+                "absolute_error": record.absolute_error,
+                "relative_error": record.relative_error,
+                "within_confidence_band": record.within_confidence_band,
+                "within_monte_carlo_range": record.within_monte_carlo_range,
+                "realized_percentile": record.realized_percentile,
+                "confidence_band_low": confidence_band_low,
+                "confidence_band_high": confidence_band_high,
+                "monte_carlo_percentiles": monte_carlo_percentiles or {},
+                **record.metadata,
+            }
         )
         return record
 
@@ -157,8 +163,8 @@ class SectorPerformanceRecorder:
 
     EVENT_TYPE = "sector_performance_snapshot"
 
-    def __init__(self, audit_log: AuditLog | None = None):
-        self._audit_log = audit_log or AuditLog()
+    def __init__(self, audit_log: AuditLogger | None = None):
+        self._audit_log = audit_log or AuditLogger()
 
     def record(
         self,
@@ -200,25 +206,28 @@ class SectorPerformanceRecorder:
             n_valuation_observations=n_valuation_observations,
             metadata=metadata or {},
         )
-        self._audit_log.record(
-            self.EVENT_TYPE,
-            sector=sector.value,
-            as_of=as_of.isoformat(),
-            period_start=period_start.isoformat(),
-            period_end=period_end.isoformat(),
-            factor_quality_ic=factor_quality_ic,
-            factor_value_ic=factor_value_ic,
-            factor_momentum_ic=factor_momentum_ic,
-            factor_size_ic=factor_size_ic,
-            factor_volatility_ic=factor_volatility_ic,
-            mean_absolute_error=mean_absolute_error,
-            mean_relative_error=mean_relative_error,
-            median_relative_error=median_relative_error,
-            hit_rate_confidence_band=hit_rate_confidence_band,
-            hit_rate_monte_carlo=hit_rate_monte_carlo,
-            n_factor_observations=n_factor_observations,
-            n_valuation_observations=n_valuation_observations,
-            **record.metadata,
+        self._audit_log.log_change(
+            model_id=sector.value,
+            change_type=self.EVENT_TYPE,
+            details={
+                "sector": sector.value,
+                "as_of": as_of.isoformat(),
+                "period_start": period_start.isoformat(),
+                "period_end": period_end.isoformat(),
+                "factor_quality_ic": factor_quality_ic,
+                "factor_value_ic": factor_value_ic,
+                "factor_momentum_ic": factor_momentum_ic,
+                "factor_size_ic": factor_size_ic,
+                "factor_volatility_ic": factor_volatility_ic,
+                "mean_absolute_error": mean_absolute_error,
+                "mean_relative_error": mean_relative_error,
+                "median_relative_error": median_relative_error,
+                "hit_rate_confidence_band": hit_rate_confidence_band,
+                "hit_rate_monte_carlo": hit_rate_monte_carlo,
+                "n_factor_observations": n_factor_observations,
+                "n_valuation_observations": n_valuation_observations,
+                **record.metadata,
+            }
         )
         return record
 
@@ -233,8 +242,8 @@ class AssumptionForecastRecorder:
 
     EVENT_TYPE = "assumption_forecast_observation"
 
-    def __init__(self, audit_log: AuditLog | None = None):
-        self._audit_log = audit_log or AuditLog()
+    def __init__(self, audit_log: AuditLogger | None = None):
+        self._audit_log = audit_log or AuditLogger()
 
     def record(
         self,
@@ -260,29 +269,32 @@ class AssumptionForecastRecorder:
             forecast_horizon_days=forecast_horizon_days,
             metadata=metadata or {},
         )
-        self._audit_log.record(
-            self.EVENT_TYPE,
-            ticker=security_id,
-            sector=sector.value,
-            assumption_type=assumption_type.value,
-            valuation_date=valuation_date.isoformat(),
-            realized_date=realized_date.isoformat(),
-            forecast_value=forecast_value,
-            realized_value=realized_value,
-            absolute_error=record.absolute_error,
-            relative_error=record.relative_error,
-            directional_accuracy=record.directional_accuracy,
-            forecast_horizon_days=forecast_horizon_days,
-            **record.metadata,
+        self._audit_log.log_change(
+            model_id=security_id,
+            change_type=self.EVENT_TYPE,
+            details={
+                "ticker": security_id,
+                "sector": sector.value,
+                "assumption_type": assumption_type.value,
+                "valuation_date": valuation_date.isoformat(),
+                "realized_date": realized_date.isoformat(),
+                "forecast_value": forecast_value,
+                "realized_value": realized_value,
+                "absolute_error": record.absolute_error,
+                "relative_error": record.relative_error,
+                "directional_accuracy": record.directional_accuracy,
+                "forecast_horizon_days": forecast_horizon_days,
+                **record.metadata,
+            }
         )
         return record
 
 
 class MonitoringRecorder:
-    """Facade bundling the four Performance Monitoring recorders onto one AuditLog."""
+    """Facade bundling the four Performance Monitoring recorders onto one AuditLogger."""
 
-    def __init__(self, audit_log: AuditLog | None = None):
-        audit_log = audit_log or AuditLog()
+    def __init__(self, audit_log: AuditLogger | None = None):
+        audit_log = audit_log or AuditLogger()
         self.factor_alpha = FactorAlphaRecorder(audit_log)
         self.valuation_accuracy = ValuationAccuracyRecorder(audit_log)
         self.sector_performance = SectorPerformanceRecorder(audit_log)

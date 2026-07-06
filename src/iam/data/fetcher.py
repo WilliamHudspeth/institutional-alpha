@@ -16,7 +16,6 @@ import sqlite3
 import time
 import warnings
 from datetime import datetime
-from functools import wraps
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
@@ -70,39 +69,9 @@ class DataConfig:
 
 
 # ----------------------------------------------------------------------
-# Retry & Rate Limiting
+# Retry & Rate Limiting (shared implementation — see iam.data.retry)
 # ----------------------------------------------------------------------
-from iam.validation.rate_limiter import RateLimiter
-
-
-def with_retry(max_retries=3, base_delay=1.0, rate_limit_per_sec=5):
-    limiter = RateLimiter(max_calls=rate_limit_per_sec, period_seconds=1.0)
-
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            last_exception = None
-            delay = base_delay
-            for attempt in range(max_retries + 1):
-                try:
-                    # Proper rate limiting
-                    while not limiter.is_allowed():
-                        time.sleep(0.1)
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    last_exception = e
-                    if attempt == max_retries:
-                        break
-                    logger.warning(
-                        f"Attempt {attempt + 1} failed for {func.__name__}: {e}. Retrying in {delay:.2f}s"
-                    )
-                    time.sleep(delay)
-                    delay *= 2
-            raise last_exception
-
-        return wrapper
-
-    return decorator
+from iam.data.retry import with_retry  # noqa: E402  (re-exported for back-compat)
 
 
 # ----------------------------------------------------------------------

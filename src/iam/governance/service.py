@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from iam.audit import AuditLog
+from iam.audit import AuditLogger
 from iam.governance.models import (
     AssumptionOverride,
     FactorAuditEntry,
@@ -186,13 +186,15 @@ class GovernanceService:
     def _audit_hypothesis(
         self, hypothesis: Hypothesis, action: GovernanceAction, user: str
     ) -> None:
-        AuditLog.record(
-            event=action.value,
-            ticker=hypothesis.ticker,
-            user=user,
-            hypothesis_id=hypothesis.id,
-            hypothesis_title=hypothesis.title,
-            hypothesis_status=hypothesis.status.value,
+        AuditLogger().log_change(
+            model_id=hypothesis.id,
+            change_type=action.value,
+            details={
+                "ticker": hypothesis.ticker,
+                "user": user,
+                "hypothesis_title": hypothesis.title,
+                "hypothesis_status": hypothesis.status.value,
+            }
         )
 
     # --- Factor Audit Trail ---
@@ -230,15 +232,17 @@ class GovernanceService:
             backtest_verification=backtest_verification,
         )
         _append_jsonl(_FACTOR_AUDIT_FILE, entry.model_dump())
-        AuditLog.record(
-            event=action.value,
-            user=user,
-            factor_name=factor_name,
-            factor_type=factor_type,
-            old_value=old_value,
-            new_value=new_value,
-            rationale=rationale,
-            ticket_ref=ticket_ref,
+        AuditLogger().log_change(
+            model_id=factor_name,
+            change_type=action.value,
+            details={
+                "user": user,
+                "factor_type": factor_type,
+                "old_value": old_value,
+                "new_value": new_value,
+                "rationale": rationale,
+                "ticket_ref": ticket_ref,
+            }
         )
         return entry
 
@@ -306,16 +310,18 @@ class GovernanceService:
             validation_notes=validation_notes,
         )
         _append_jsonl(_MODEL_CHANGE_FILE, entry.model_dump())
-        AuditLog.record(
-            event=f"MODEL_{change_type.value}",
-            user=user,
-            model_name=model_name,
-            change_type=change_type.value,
-            old_version=old_version,
-            new_version=new_version,
-            config_changes=config_changes,
-            rationale=rationale,
-            ticket_ref=ticket_ref,
+        AuditLogger().log_change(
+            model_id=model_name,
+            change_type=f"MODEL_{change_type.value}",
+            details={
+                "user": user,
+                "change_type": change_type.value,
+                "old_version": old_version,
+                "new_version": new_version,
+                "config_changes": config_changes,
+                "rationale": rationale,
+                "ticket_ref": ticket_ref,
+            }
         )
         return entry
 
@@ -374,16 +380,12 @@ class GovernanceService:
             impact_estimate=impact_estimate,
         )
         _append_jsonl(_ASSUMPTION_OVERRIDE_FILE, override.model_dump())
-        AuditLog.record(
-            event="ASSUMPTION_OVERRIDE",
-            user=user,
-            assumption_name=assumption_name,
-            override_type=override_type,
+        AuditLogger().log_override(
+            model_id=pipeline_name,
+            assumption=assumption_name,
             original_value=original_value,
-            override_value=override_value,
-            pipeline_name=pipeline_name,
-            rationale=rationale,
-            ticket_ref=ticket_ref,
+            new_value=override_value,
+            reason=rationale or "",
         )
         return override
 
@@ -421,11 +423,13 @@ class GovernanceService:
                 record["expired_by"] = expired_by
                 _write_jsonl(_ASSUMPTION_OVERRIDE_FILE, records)
                 override = AssumptionOverride(**record)
-                AuditLog.record(
-                    event="ASSUMPTION_OVERRIDE_EXPIRED",
-                    user=expired_by,
-                    assumption_name=override.assumption_name,
-                    pipeline_name=override.pipeline_name,
+                AuditLogger().log_change(
+                    model_id=override.pipeline_name,
+                    change_type="ASSUMPTION_OVERRIDE_EXPIRED",
+                    details={
+                        "user": expired_by,
+                        "assumption_name": override.assumption_name,
+                    }
                 )
                 return override
         return None

@@ -15,11 +15,11 @@ logging layers exist, and they are complementary, not redundant:
 | Layer | Module | File | Records |
 |-------|--------|------|---------|
 | Governance detail | `iam.governance.service.GovernanceService` | `~/.iam/governance/*.jsonl` | Full structured entries: hypothesis registry, factor audit trail, model change log, assumption overrides (see below) |
-| Flat audit trail | `iam.audit.AuditLog` | `~/.iam/audit.jsonl` | One line per event, mirrored from every governance action plus scoring/data-access events |
+| Flat audit trail | `iam.audit.AuditLogger` | `~/.iam/audit.jsonl` | One line per event, mirrored from every governance action plus scoring/data-access events |
 | Hash-chained log | `iam.compliance.audit.ImmutableAuditLog` | `audit_log.jsonl` (repo root by default) | Tamper-evident chain (each entry hashes the previous one) for `MODEL_CHANGE` / `SCORING_OPERATION` events where cryptographic tamper-evidence is required |
 
 Use `GovernanceService` to query structured history (e.g. "show me every
-weight change to the `quality` factor"); use `AuditLog.query()` for a flat
+weight change to the `quality` factor"); use `AuditLogger.query()` for a flat
 chronological view; use `ImmutableAuditLog.verify_chain()` to prove a log
 segment hasn't been altered.
 

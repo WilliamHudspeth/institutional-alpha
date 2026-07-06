@@ -1,4 +1,4 @@
-"""Tests for the v0.2.0-alpha valuation pipeline."""
+"""Tests for the v0.4.0-rc1 valuation pipeline."""
 
 from iam import Fundamentals, MarketData, Security, ValuationPipeline
 from iam.engine.market_implied import (

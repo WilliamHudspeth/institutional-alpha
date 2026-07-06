@@ -17,7 +17,10 @@ def isolated_governance_storage(tmp_path, monkeypatch):
     monkeypatch.setattr(
         governance_service_module, "_ASSUMPTION_OVERRIDE_FILE", tmp_path / "assumption_overrides.jsonl"
     )
-    monkeypatch.setattr(audit_module, "_LOG_PATH", tmp_path / "audit.jsonl")
+    original_init = audit_module.AuditLogger.__init__
+    def new_init(self, log_path="audit_log.jsonl"):
+        original_init(self, str(tmp_path / "audit_log.jsonl"))
+    monkeypatch.setattr(audit_module.AuditLogger, "__init__", new_init)
     yield
 
 
@@ -134,15 +137,15 @@ def test_assumption_override_expire(svc):
 
 
 def test_governance_actions_are_audited(svc, monkeypatch):
-    """Every governance write should also emit an entry to the shared AuditLog."""
+    """Every governance write should also emit an entry to the shared AuditLogger."""
     recorded_events = []
-    original_record = audit_module.AuditLog.record
+    original_log_change = audit_module.AuditLogger.log_change
 
-    def spy_record(event, **kwargs):
-        recorded_events.append(event)
-        return original_record(event, **kwargs)
+    def spy_log_change(self, model_id, change_type, details):
+        recorded_events.append(change_type)
+        return original_log_change(self, model_id, change_type, details)
 
-    monkeypatch.setattr(audit_module.AuditLog, "record", staticmethod(spy_record))
+    monkeypatch.setattr(audit_module.AuditLogger, "log_change", spy_log_change)
 
     svc.register_hypothesis(title="Audited thesis", description="Should emit an audit event")
     assert GovernanceAction.HYPOTHESIS_REGISTERED.value in recorded_events

@@ -9,7 +9,7 @@ Sub-components:
   - Owner earnings yield
 
 The DCF and reverse DCF sub-components delegate to ``iam.valuation`` (the
-same code that powers the v0.2.0 pipeline). That way there's one source of
+same code that powers the v0.4.0-rc1 pipeline). That way there's one source of
 truth for the math, and contributors who improve the pipeline automatically
 improve this factor too.
 

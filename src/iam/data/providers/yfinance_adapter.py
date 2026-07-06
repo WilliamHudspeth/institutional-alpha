@@ -10,16 +10,15 @@ from __future__ import annotations
 import json
 import logging
 import os
-import random
 import shutil
 import sqlite3
-import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
 import yfinance as yf
 
+from iam.data.retry import retry_call
 from iam.data.security import Fundamentals, MarketData, Security
 
 if TYPE_CHECKING:
@@ -172,24 +171,22 @@ class YFinanceAdapter:
         max_retries = 3
         base_delay = 2.0
 
-        info: dict[str, Any] = {}
-        yt: Any = None
-        for attempt in range(max_retries):
-            try:
-                yt = yf.Ticker(ticker)
-                info = yt.info or {}
-                break
-            except Exception as exc:
-                if attempt == max_retries - 1:
-                    raise RuntimeError(
-                        f"Yahoo Finance returned an error for '{ticker}' after {max_retries} attempts: {exc}"
-                    ) from exc
+        def _fetch_info() -> tuple[Any, dict[str, Any]]:
+            t = yf.Ticker(ticker)
+            return t, (t.info or {})
 
-                delay = base_delay * (2**attempt) + random.uniform(0, 1)
-                logger.warning(
-                    f"yfinance fetch failed for {ticker}. Retrying in {delay:.1f}s (Attempt {attempt + 1}/{max_retries})... Error: {exc}"
-                )
-                time.sleep(delay)
+        try:
+            yt, info = retry_call(
+                _fetch_info,
+                attempts=max_retries,
+                base_delay=base_delay,
+                jitter=1.0,
+                description=f"yfinance fetch for {ticker}",
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Yahoo Finance returned an error for '{ticker}' after {max_retries} attempts: {exc}"
+            ) from exc
 
         # Extract price - required field
         price = self._get_numeric(info, "currentPrice", "regularMarketPrice", "previousClose")

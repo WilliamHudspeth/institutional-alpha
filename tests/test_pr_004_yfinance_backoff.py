@@ -21,7 +21,8 @@ def test_yfinance_adapter_backoff(caplog):
 
     with (
         patch("iam.data.providers.yfinance_adapter.yf.Ticker", side_effect=side_effect),
-        patch("iam.data.providers.yfinance_adapter.time.sleep") as mock_sleep,
+        # Backoff/sleep now lives in the shared retry utility (iam.data.retry).
+        patch("iam.data.retry.time.sleep") as mock_sleep,
         patch("iam.data.providers.yfinance_adapter._get_cached_data", return_value=None),
     ):
         sec = adapter.fetch("MOCK_TICKER")

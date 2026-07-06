@@ -43,12 +43,14 @@ class IAShell(cmd.Cmd):
 
     def do_screen(self, arg):
         """Factor screening: screen quality > 1.5"""
+        console.print("[bold red on white]*** DEMO MODE — hardcoded example output, NOT a real analysis ***[/bold red on white]")
         console.print(f"Filtering coverage universe for: [cyan]{arg}[/cyan]...")
         # TODO: Integration with real engine
         console.print("[yellow]Found 12 matches (MOCKED for demo).[/yellow]")
 
     def do_backtest(self, arg):
         """Run backtest: backtest momentum"""
+        console.print("[bold red on white]*** DEMO MODE — hardcoded example output, NOT a real analysis ***[/bold red on white]")
         console.print(f"Initializing backtest: [cyan]{arg}[/cyan]...")
         # TODO: Integration with real engine
         console.print(

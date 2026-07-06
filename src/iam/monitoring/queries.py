@@ -11,7 +11,9 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-from iam.audit import AuditLog
+import json
+from datetime import datetime
+from iam.audit import AuditLogger
 from iam.monitoring.models import (
     AssumptionForecastAggregate,
     AssumptionForecastQueryFilter,
@@ -53,6 +55,32 @@ _ASSUMPTION_FORECAST_CORE_FIELDS = {
 }
 
 
+
+def _query_audit(audit_logger, event_type, start_time, end_time, **filters):
+    if not audit_logger.log_path.exists():
+        return []
+    results = []
+    with open(audit_logger.log_path, 'r') as f:
+        for line in f:
+            if not line.strip(): continue
+            record = json.loads(line)
+            if record.get("change_type") != event_type: continue
+            
+            ts = datetime.fromisoformat(record["timestamp"])
+            if start_time and ts < start_time: continue
+            if end_time and ts > end_time: continue
+            
+            details = record.get("details", {})
+            match = True
+            for k, v in filters.items():
+                if v is not None and details.get(k) != v:
+                    match = False
+                    break
+            if match:
+                results.append(details)
+    return results
+
+
 def _extra_metadata(event: dict, core_fields: set[str]) -> dict:
     return {k: v for k, v in event.items() if k not in core_fields and k not in {"id", "ts", "event", "user"}}
 
@@ -75,12 +103,13 @@ class FactorAlphaQuery:
     and sector-sliced factor performance.
     """
 
-    def __init__(self, audit_log: AuditLog | None = None):
-        self._audit_log = audit_log or AuditLog()
+    def __init__(self, audit_log: AuditLogger | None = None):
+        self._audit_log = audit_log or AuditLogger()
 
     def _load_records(self, filter_: FactorAlphaQueryFilter | None = None) -> list[FactorAlphaRecord]:
         """Load factor alpha records from audit log."""
-        events = self._audit_log.query(
+        events = _query_audit(
+            self._audit_log,
             event_type="factor_alpha_observation",
             start_time=filter_.start_time if filter_ else None,
             end_time=filter_.end_time if filter_ else None,
@@ -253,13 +282,14 @@ class ValuationAccuracyQuery:
     Tracks PipelineReport fair value estimates vs. realized prices.
     """
 
-    def __init__(self, audit_log: AuditLog | None = None):
-        self._audit_log = audit_log or AuditLog()
+    def __init__(self, audit_log: AuditLogger | None = None):
+        self._audit_log = audit_log or AuditLogger()
 
     def _load_records(
         self, filter_: ValuationAccuracyQueryFilter | None = None
     ) -> list[ValuationAccuracyRecord]:
-        events = self._audit_log.query(
+        events = _query_audit(
+            self._audit_log,
             event_type="valuation_accuracy_observation",
             start_time=filter_.start_time if filter_ else None,
             end_time=filter_.end_time if filter_ else None,
@@ -319,13 +349,14 @@ class SectorPerformanceQuery:
     chosen metric (e.g. lowest mean_absolute_error, highest factor IC).
     """
 
-    def __init__(self, audit_log: AuditLog | None = None):
-        self._audit_log = audit_log or AuditLog()
+    def __init__(self, audit_log: AuditLogger | None = None):
+        self._audit_log = audit_log or AuditLogger()
 
     def _load_records(
         self, filter_: SectorPerformanceQueryFilter | None = None
     ) -> list[SectorPerformanceRecord]:
-        events = self._audit_log.query(
+        events = _query_audit(
+            self._audit_log,
             event_type="sector_performance_snapshot",
             start_time=filter_.start_time if filter_ else None,
             end_time=filter_.end_time if filter_ else None,
@@ -392,13 +423,14 @@ class AssumptionForecastQuery:
     Tracks forecast vs. actual for valuation assumptions over time.
     """
 
-    def __init__(self, audit_log: AuditLog | None = None):
-        self._audit_log = audit_log or AuditLog()
+    def __init__(self, audit_log: AuditLogger | None = None):
+        self._audit_log = audit_log or AuditLogger()
 
     def _load_records(
         self, filter_: AssumptionForecastQueryFilter | None = None
     ) -> list[AssumptionForecastRecord]:
-        events = self._audit_log.query(
+        events = _query_audit(
+            self._audit_log,
             event_type="assumption_forecast_observation",
             start_time=filter_.start_time if filter_ else None,
             end_time=filter_.end_time if filter_ else None,
@@ -447,10 +479,10 @@ class AssumptionForecastQuery:
 
 
 class MonitoringQueries:
-    """Facade bundling the four Performance Monitoring query surfaces onto one AuditLog."""
+    """Facade bundling the four Performance Monitoring query surfaces onto one AuditLogger."""
 
-    def __init__(self, audit_log: AuditLog | None = None):
-        audit_log = audit_log or AuditLog()
+    def __init__(self, audit_log: AuditLogger | None = None):
+        audit_log = audit_log or AuditLogger()
         self.factor_alpha = FactorAlphaQuery(audit_log)
         self.valuation_accuracy = ValuationAccuracyQuery(audit_log)
         self.sector_performance = SectorPerformanceQuery(audit_log)

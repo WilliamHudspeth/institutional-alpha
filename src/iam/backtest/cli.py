@@ -140,7 +140,7 @@ def backtest(
     calibration_path.parent.mkdir(parents=True, exist_ok=True)
     calibration_data = {
         "_meta": {
-            "version": "v0.4.0-empirical",
+            "version": "v0.4.0-rc1",
             "data_source": "empirical",
             "timestamp": manifest.timestamp,
             "git_sha": manifest.git_sha,

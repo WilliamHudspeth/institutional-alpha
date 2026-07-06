@@ -53,7 +53,7 @@ class TestBacktestManifest:
         assert "_meta" in d
         assert "config" in d
         assert "file_hashes" in d
-        assert d["_meta"]["version"] == "v0.4.0"
+        assert d["_meta"]["version"] == "v0.4.0-rc1"
         assert "git_sha" in d["_meta"]
         assert "timestamp" in d["_meta"]
 
@@ -66,7 +66,7 @@ class TestBacktestManifest:
         assert out.exists()
         with open(out) as f:
             loaded = json.load(f)
-        assert loaded["_meta"]["version"] == "v0.4.0"
+        assert loaded["_meta"]["version"] == "v0.4.0-rc1"
 
     def test_write_creates_parent_directory(self, tmp_path):
         cfg = BacktestConfig(data_root=tmp_path)
@@ -82,7 +82,7 @@ class TestBacktestManifest:
         manifest.write(out)
 
         loaded = BacktestManifest.load(out)
-        assert loaded["_meta"]["version"] == "v0.4.0"
+        assert loaded["_meta"]["version"] == "v0.4.0-rc1"
         assert loaded["_meta"]["git_sha"] == manifest.git_sha
 
     def test_load_missing_file_returns_empty(self, tmp_path):

@@ -1,6 +1,6 @@
-# The Valuation Pipeline (v0.2.0)
+# The Valuation Pipeline (v0.4.0-rc1)
 
-> **Status:** v0.2.0-alpha implements Stages 1–4. Stages 5–7 are coming in subsequent releases.
+> **Status:** v0.4.0-rc1 implements all 7 stages.
 
 ## Motivation
 
@@ -22,7 +22,7 @@ Stage 6: Macro Re-overlay  → Re-run only the names whose verdict actually chan
 Stage 7: Verdict           → Buy/hold/sell + confidence + peer-relative ranking.
 ```
 
-The first four stages are the valuation core and ship in v0.2.0-alpha.
+All seven stages are the valuation core and ship in v0.4.0-rc1.
 
 ## Stage 1 — Reverse DCF
 
@@ -74,17 +74,21 @@ If the market is implying peak growth, the conversion produces ~0% (the price re
 
 The conversion is an approximation, but a defensible one — it lets reverse DCF participate in the cluster math without inventing a phony fair-value number.
 
-## Coming next
+## Stages 5–7 — Macro Overlay & Verdict (v0.4.0-rc1)
 
-**v0.2.0-beta** (Stages 5–6): Macro overlay applied to every name, but with a threshold gate. If the macro adjustment moves the cluster center by less than the threshold (default 5–10%), the original verdict stands. Only names where macro materially changes the conclusion get re-run. This is the "no meaningless averaging" principle applied at the macro level.
+**Stage 5 — Macro Outlier:** Macro conditions applied to every name, but with a materiality gate. If the macro adjustment moves the cluster center by less than the threshold (default 5–10%), the original verdict stands. Only names where macro materially changes the conclusion get re-run.
 
-**v0.2.0** (Stage 7): The verdict and peer-relative ranking. Each name gets a buy/hold/sell, a confidence band derived from Stage 4 spread, and a within-segment ranking using Damodaran's industry classifications as the peer-group source of truth.
+**Stage 6 — Macro Re-overlay:** Re-run only the names whose verdict actually changed under macro stress. This is the "no meaningless averaging" principle applied at the macro level.
+
+**Stage 7 — Verdict:** Each name gets a buy/hold/sell, a confidence band derived from Stage 4 spread, and a within-segment ranking using Damodaran's industry classifications as the peer-group source of truth.
+
+---
 
 ## Relationship to v0.1.0 factors
 
 The v0.1.0 factors aren't going away — they become *inputs* to specific pipeline stages:
 
-| v0.1.0 factor | Where it feeds in v0.2.0 |
+| v0.1.0 factor | Where it feeds in v0.4.0-rc1 |
 |---|---|
 | Quality | Modulates Stage 3 confidence (durable businesses = more trustworthy FCFE forecast) |
 | Earnings quality | Same — adjusts Stage 3 confidence downward when reported FCF is suspect |

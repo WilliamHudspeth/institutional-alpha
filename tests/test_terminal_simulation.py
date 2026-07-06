@@ -101,6 +101,13 @@ class TestTerminalSimulation(unittest.TestCase):
         self.sec.pipeline_result.law_report.violations = []
         self.sec.pipeline_result.law_report.flags = []
 
+        self.sec.pipeline_result.market_implied_engine = MagicMock()
+        self.sec.pipeline_result.market_implied_engine.implied = MagicMock()
+        self.sec.pipeline_result.market_implied_engine.implied.growth_vs_history_max = 1.5
+        
+        self.sec.pipeline_result.intrinsic = None
+        self.sec.pipeline_result.relative = None
+
         for name, panel in self.terminal._panels.items():
             try:
                 panel.render(self.canvas, 5, 20, 28, 78, self.sec, self.sys, ticks=1)
@@ -140,6 +147,13 @@ class TestTerminalSimulation(unittest.TestCase):
         self.sec.pipeline_result.battlefield.alignment_score = None
         self.sec.pipeline_result.battlefield.expectation_mismatch_score = None
         self.sec.pipeline_result.battlefield.growth_overlap = None
+
+        self.sec.pipeline_result.market_implied_engine = MagicMock()
+        self.sec.pipeline_result.market_implied_engine.implied = MagicMock()
+        self.sec.pipeline_result.market_implied_engine.implied.growth_vs_history_max = None
+
+        self.sec.pipeline_result.intrinsic = None
+        self.sec.pipeline_result.relative = None
 
         for name, panel in self.terminal._panels.items():
             try:

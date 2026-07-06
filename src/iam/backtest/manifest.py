@@ -100,7 +100,7 @@ class BacktestManifest:
         config_dict = {k: (str(v) if isinstance(v, Path) else v) for k, v in config_dict.items()}
         out: dict[str, Any] = {
             "_meta": {
-                "version": "v0.4.0",
+                "version": "v0.4.0-rc1",
                 "git_sha": self.git_sha,
                 "timestamp": self.timestamp,
             },

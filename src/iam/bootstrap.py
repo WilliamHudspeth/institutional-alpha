@@ -1,4 +1,10 @@
-"""Environment bootstrap and system initialization for Institutional Alpha."""
+"""Environment bootstrap and system initialization for Institutional Alpha.
+
+Diagnostic/status output goes through the stdlib ``logging`` module (not
+``print``) so it can be filtered, redirected, and captured like the rest of
+the framework's diagnostics. This module is the reference example for the
+codebase-wide print() -> logging migration.
+"""
 
 import logging
 import shutil
@@ -20,12 +26,14 @@ REQUIRED_DIRECTORIES = [
 def check_python_version():
     """Verify that the current Python version meets requirements."""
     if sys.version_info < REQUIRED_PYTHON_VERSION:
-        print(
-            f"[!] Institutional Alpha requires Python {REQUIRED_PYTHON_VERSION[0]}.{REQUIRED_PYTHON_VERSION[1]}+"
+        logger.error(
+            "Institutional Alpha requires Python %d.%d+ (current version: %s)",
+            REQUIRED_PYTHON_VERSION[0],
+            REQUIRED_PYTHON_VERSION[1],
+            sys.version.split()[0],
         )
-        print(f"    Current version: {sys.version.split()[0]}")
         return False
-    print(f"[✓] Python {sys.version.split()[0]} detected")
+    logger.info("Python %s detected", sys.version.split()[0])
     return True
 
 
@@ -36,9 +44,9 @@ def ensure_directories():
         path = project_root / d
         if not path.exists():
             path.mkdir(parents=True, exist_ok=True)
-            print(f"[✓] Created directory: {d}")
+            logger.info("Created directory: %s", d)
         else:
-            print(f"[✓] Directory ready: {d}")
+            logger.debug("Directory ready: %s", d)
 
 
 def check_dependencies():
@@ -50,16 +58,16 @@ def check_dependencies():
         import yaml  # noqa: F401
         import yfinance  # noqa: F401
 
-        print("[✓] Core dependencies detected")
+        logger.info("Core dependencies detected")
         return True
     except ImportError:
-        print("[!] Missing dependencies. Attempting automatic installation...")
+        logger.warning("Missing dependencies. Attempting automatic installation...")
         try:
             subprocess.check_call([sys.executable, "-m", "pip", "install", "-e", "."])  # nosec
-            print("[✓] Dependencies installed successfully")
+            logger.info("Dependencies installed successfully")
             return True
         except subprocess.CalledProcessError as e:
-            print(f"[X] Failed to install dependencies: {e}")
+            logger.error("Failed to install dependencies: %s", e)
             return False
 
 
@@ -71,29 +79,32 @@ def init_config():
 
     if not user_config.exists() and example_config.exists():
         shutil.copy(example_config, user_config)
-        print("[✓] Created user configuration from template (config.yml)")
+        logger.info("Created user configuration from template (config.yml)")
     elif user_config.exists():
-        print("[✓] Configuration loaded")
+        logger.info("Configuration loaded")
     else:
-        print("[!] config.example.yml not found. Please ensure it exists in the root.")
+        logger.warning("config.example.yml not found. Please ensure it exists in the root.")
 
 
 def initialize_system():
     """Run all bootstrap steps."""
-    print("Initializing Institutional Alpha Environment...")
-    print("=" * 40)
+    if not logging.getLogger().hasHandlers():
+        logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    logger.info("Initializing Institutional Alpha Environment...")
 
     steps = [check_python_version, ensure_directories, check_dependencies, init_config]
 
     for step in steps:
         if step() is False:
-            print("\n[X] Bootstrap failed. Please troubleshoot and try again.")
+            logger.error("Bootstrap failed. Please troubleshoot and try again.")
             return False
 
-    print("\nInstitutional Alpha Ready")
-    print("=" * 40)
+    logger.info("Institutional Alpha Ready")
     return True
 
 
 if __name__ == "__main__":
+    # Running the module directly is a diagnostic action — surface the log
+    # output on the console the way the old print() calls did.
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     initialize_system()
