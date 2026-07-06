@@ -1172,6 +1172,60 @@ class PortfolioPanel(_Panel):
             cv.put(r, c0 + 19, f"{bar:<{bar_w}}", col)
             cv.put(r, c0 + 19 + bar_w + 1, f"{exposure:>+5.2f}σ", col)
 
+        # Sector rotation signal — real sector weights from current holdings,
+        # blended with the macro regime detected from the active security's
+        # real MacroContext. Momentum defaults to empty (no live sector-level
+        # return series is wired in yet) so the tilt shown is regime-only;
+        # that limitation is stated in the panel rather than left implicit.
+        rot_r = exp_r + 5 + len(self._EXPOSURES) + 2
+        if rot_r < r1 - 2:
+            cv.put(rot_r, c0 + 1, "Sector Rotation Signal", C_ACCENT + BOLD)
+            cv.hline(rot_r + 1, c0, c1)
+            try:
+                from iam.data.macro import MacroConditions
+                from iam.pipeline.macro_regimes import MacroRegimeClassifier
+                from iam.portfolio.analytics import PortfolioAnalyzer
+                from iam.portfolio.sector_rotation import SectorRotationEngine
+
+                sector_weights = PortfolioAnalyzer.compute_sector_concentration(portfolio)
+                if not sector_weights:
+                    cv.put(
+                        rot_r + 2,
+                        c0 + 1,
+                        "No sector data on current holdings — signal unavailable.",
+                        C_DIM,
+                    )
+                else:
+                    macro_ctx = sec.security.macro if sec and sec.security else None
+                    regime = MacroRegimeClassifier().classify(
+                        MacroConditions.from_context(macro_ctx)
+                    ).regime.value
+                    tilts = SectorRotationEngine.recommend_sector_tilts(regime, {})
+                    cv.put(
+                        rot_r + 2,
+                        c0 + 1,
+                        f"Regime: {regime} (momentum signal not wired in — regime-only tilt)",
+                        C_DIM,
+                    )
+                    if not tilts:
+                        cv.put(rot_r + 3, c0 + 1, "No active tilt for this regime.", C_DIM)
+                    else:
+                        for idx, (sector, tilt) in enumerate(
+                            sorted(tilts.items(), key=lambda kv: -kv[1])
+                        ):
+                            r = rot_r + 4 + idx
+                            if r > r1 - 1:
+                                break
+                            col = C_GREEN if tilt > 0 else C_RED
+                            arrow = "↑" if tilt > 0 else "↓"
+                            current = sector_weights.get(sector, 0.0)
+                            sector_label = sector[:23]
+                            cv.put(r, c0 + 1, f"{arrow} {sector_label:<24}", col)
+                            cv.put(r, c0 + 27, f"current {current:>5.1%}", C_DIM)
+                            cv.put(r, c0 + 44, f"tilt {tilt:>+5.1%}", col)
+            except Exception as e:
+                cv.put(rot_r + 2, c0 + 1, f"Sector rotation signal unavailable: {e}", C_RED)
+
 
 # ── Matrix Rain ───────────────────────────────────────────────────────────
 
@@ -1926,6 +1980,16 @@ class AlphaTerminal:
 
             positions = []
             for tkr in watchlist[:8]:  # Limit to first 8 for the mock/default
+                # Reuse the real sector if this ticker has already been
+                # fetched elsewhere (e.g. the active security or watchlist
+                # panel) — cheap and honest, no extra fetch, no fabrication.
+                with self._lock:
+                    loaded = self._secs.get(tkr)
+                real_sector = (
+                    loaded.security.sector
+                    if loaded and loaded.security and getattr(loaded.security, "sector", None)
+                    else None
+                )
                 positions.append(
                     Position(
                         ticker=tkr,
@@ -1934,6 +1998,7 @@ class AlphaTerminal:
                         entry_price=100.0,
                         current_price=110.0,
                         weight=1.0 / len(watchlist[:8]),
+                        sector=real_sector,
                         conviction=random.choice(["HIGH", "MODERATE", "LOW"]),
                     )
                 )

@@ -161,6 +161,67 @@ class TestTerminalSimulation(unittest.TestCase):
             except Exception as e:
                 self.fail(f"Panel '{name}' crashed with None values: {e}")
 
+    def test_portfolio_panel_shows_sector_tilts_when_sector_data_present(self):
+        """PortfolioPanel's sector-rotation section should classify the active
+        security's real macro regime and render real tilts when positions
+        carry sector data."""
+        from iam.data.security import MacroContext, Security
+        from iam.portfolio import Portfolio, Position
+        from iam.ui.alpha_terminal import PortfolioPanel
+
+        positions = [
+            Position(
+                ticker="XOM",
+                name="Exxon",
+                quantity=100,
+                entry_price=100,
+                current_price=105,
+                weight=1.0,
+                sector="Energy",
+            ),
+        ]
+        sys_state = SystemState(portfolio=Portfolio(positions=positions), loading=False)
+        sec_state = SecState(
+            ticker="XOM",
+            security=Security(
+                ticker="XOM",
+                macro=MacroContext(real_rate_trend="rising", pmi_direction="contracting"),
+            ),
+        )
+
+        canvas = Canvas(60, 100)
+        PortfolioPanel().render(canvas, 0, 55, 0, 90, sec_state, sys_state, ticks=1)
+
+        rendered = "\n".join(
+            "".join(ch for ch, _ in row).rstrip() for row in canvas._back
+        )
+        self.assertIn("Sector Rotation Signal", rendered)
+        self.assertIn("stagflation", rendered)
+        # Stagflation favors Energy per REGIME_SECTOR_PREFERENCES -> overweight tilt.
+        self.assertIn("Energy", rendered)
+
+    def test_portfolio_panel_sector_tilts_degrade_honestly_without_sector_data(self):
+        """No position carries sector data -> an explicit unavailable message,
+        not a fabricated tilt."""
+        from iam.portfolio import Portfolio, Position
+        from iam.ui.alpha_terminal import PortfolioPanel
+
+        positions = [
+            Position(
+                ticker="AAPL", name="Apple", quantity=100, entry_price=100,
+                current_price=110, weight=1.0,
+            )
+        ]
+        sys_state = SystemState(portfolio=Portfolio(positions=positions), loading=False)
+
+        canvas = Canvas(60, 100)
+        PortfolioPanel().render(canvas, 0, 55, 0, 90, None, sys_state, ticks=1)
+
+        rendered = "\n".join(
+            "".join(ch for ch, _ in row).rstrip() for row in canvas._back
+        )
+        self.assertIn("signal unavailable", rendered)
+
 
 if __name__ == "__main__":
     unittest.main()

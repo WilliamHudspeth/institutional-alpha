@@ -6,9 +6,12 @@ fully-decomposed score.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 
 from iam.data.security import Security
+
+logger = logging.getLogger(__name__)
 from iam.factors import (
     CrowdingFactor,
     EarningsQualityFactor,
@@ -141,13 +144,13 @@ def score(
             from iam.data.macro import MacroConditions
             from iam.pipeline.macro_regimes import MacroRegimeClassifier
 
-            cond = MacroConditions(
-                rate_10y=getattr(security.macro, "rate_10y", None),
-                rate_2y=getattr(security.macro, "rate_2y", None),
-                credit_spread_hy=getattr(security.macro, "credit_spread_hy", None),
-                vix=getattr(security.macro, "vix", None),
-            )
-            detected_regime = MacroRegimeClassifier().classify(cond)
+            # This previously called MacroConditions with kwargs
+            # (rate_10y/rate_2y/vix) that don't exist on the dataclass, which
+            # raised TypeError on every call and was silently swallowed below
+            # — regime-aware weighting has never actually run. Fixed 2026-07-06.
+            cond = MacroConditions.from_context(security.macro)
+            detected_regime_assessment = MacroRegimeClassifier().classify(cond)
+            detected_regime = detected_regime_assessment.regime.value
             # Map regime string -> weight multipliers (mirrors REGIME_WACC_PREMIUM keys)
             _REGIME_WEIGHT_MAP: dict[str, dict[str, float]] = {
                 "tightening": {
@@ -174,8 +177,10 @@ def score(
             for factor_key, mult in _REGIME_WEIGHT_MAP.get(detected_regime, {}).items():
                 if factor_key in w:
                     w[factor_key] = w[factor_key] * mult
-        except Exception:
-            pass  # regime weighting is additive; never break scoring
+        except Exception as e:
+            # Regime weighting is additive — never break scoring — but the
+            # failure must be visible, not silent (see fix note above).
+            logger.warning("Regime-aware weight adjustment failed: %s", e, exc_info=True)
     pw = dict(DEFAULT_PENALTY_WEIGHTS)
     if penalty_weights:
         pw.update(penalty_weights)

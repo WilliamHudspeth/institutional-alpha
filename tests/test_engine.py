@@ -1,6 +1,7 @@
 """End-to-end smoke and behavior tests for the scoring engine."""
 
 from iam import Fundamentals, MarketData, Security, score
+from iam.data.security import MacroContext
 from iam.factors.base import FactorContribution
 
 
@@ -115,6 +116,55 @@ def test_custom_weights_change_composite():
         },
     )
     assert custom.composite != default_result.composite
+
+
+def test_regime_aware_weighting_does_not_crash_with_macro_context():
+    """Regression test: security.macro used to construct MacroConditions with
+    kwargs (rate_10y/rate_2y/vix) that don't exist on the dataclass, raising
+    TypeError on every call. It was silently swallowed by a bare `except
+    Exception: pass`, so regime-aware factor weighting never actually ran.
+    Fixed by MacroConditions.from_context(); this pins the fix.
+    """
+    sec = Security(
+        ticker="REGIME",
+        fundamentals=Fundamentals(roic_history=[0.20] * 5),
+        macro=MacroContext(
+            real_rate_trend="rising",
+            pmi_direction="contracting",
+            credit_spread_hy=0.04,
+        ),
+    )
+    result = score(sec)
+    # Should compute cleanly, not just avoid raising.
+    assert result.composite is not None
+    assert len(result.factor_breakdown) == 10
+
+
+def test_macro_context_from_context_classifies_stagflation():
+    """Direct test of the fixed mapping (MacroConditions.from_context) feeding
+    MacroRegimeClassifier — this is the exact chain that used to raise
+    TypeError. Rising rate + contracting PMI must classify as stagflation.
+    """
+    from iam.data.macro import MacroConditions
+    from iam.pipeline.macro_regimes import MacroRegime, MacroRegimeClassifier
+
+    ctx = MacroContext(real_rate_trend="rising", pmi_direction="contracting")
+    cond = MacroConditions.from_context(ctx)
+    assessment = MacroRegimeClassifier().classify(cond)
+    assert assessment.regime == MacroRegime.STAGFLATION
+
+
+def test_macro_context_from_context_handles_none_and_missing_fields():
+    """No MacroContext, or one with unset trend fields, must degrade to the
+    neutral defaults rather than raise."""
+    from iam.data.macro import MacroConditions
+    from iam.pipeline.macro_regimes import MacroRegime, MacroRegimeClassifier
+
+    assert MacroConditions.from_context(None) == MacroConditions()
+
+    ctx = MacroContext()  # all fields unset
+    assessment = MacroRegimeClassifier().classify(MacroConditions.from_context(ctx))
+    assert assessment.regime == MacroRegime.NEUTRAL
 
 
 def test_explain_runs_and_returns_string():
