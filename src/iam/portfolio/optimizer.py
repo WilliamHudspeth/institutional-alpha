@@ -5,12 +5,41 @@ Optimizes:
 - Rebalancing to target weights
 - Factor exposure balancing
 - Risk-adjusted returns
+- Kelly criterion sizing
+- Risk parity (equal risk contribution)
 """
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
+
+import numpy as np
+from scipy.optimize import minimize
+
+from iam.backtest.weight_optimizer import ledoit_wolf_shrinkage
+
+logger = logging.getLogger(__name__)
+
+# ── Kelly Criterion constants ──────────────────────────────────────────────
+# Fractional Kelly default: half-Kelly is industry-standard for practical
+# portfolio management. Full Kelly (f* = μ/σ²) maximizes expected log wealth
+# but produces extreme drawdowns (30-50% common in empirical studies).
+# Half-Kelly reduces the betting fraction by 50%, cutting drawdown severity
+# while retaining ~75% of the optimal growth rate. See MacLean, Thorp &
+# Ziemba, "The Kelly Capital Growth Investment Criterion" (2011).
+DEFAULT_KELLY_FRACTION: float = 0.5
+
+# ── Risk Parity constants ─────────────────────────────────────────────────
+# Minimum number of assets for meaningful risk parity optimization.
+# With fewer assets the equal-contribution constraint is too tight or
+# degenerate; fall back to inverse-vol weighting instead.
+MIN_RISK_PARITY_ASSETS: int = 3
+
+# Scipy optimizer tolerances for risk parity
+RISK_PARITY_FTOL: float = 1e-9
+RISK_PARITY_MAXITER: int = 1000
 
 
 @dataclass
@@ -210,6 +239,212 @@ class PositionSizer:
 
         return constrained
 
+    @staticmethod
+    def size_by_kelly(
+        tickers: list[str],
+        expected_returns: dict[str, float],  # ticker -> expected return (decimal)
+        volatilities: dict[str, float],  # ticker -> annual volatility (decimal)
+        kelly_fraction: float = DEFAULT_KELLY_FRACTION,
+        constraints: OptimizationConstraints | None = None,
+    ) -> dict[str, float]:
+        """Size positions using continuous Kelly criterion.
+
+        Implements the continuous-form Kelly formula for normally-distributed
+        returns::
+
+            f* = μ / σ²
+
+        where μ = expected return and σ² = variance. This maximises the
+        expected logarithm of wealth under i.i.d. normal returns (Thorp, "The
+        Kelly Criterion in Blackjack Sports Betting, and the Stock Market",
+        2008).
+
+        Fractional Kelly (default *half*-Kelly) is applied uniformly to the
+        raw Kelly fraction before normalisation.  This preserves the relative
+        Kelly-optimal proportions across positive-expected-return positions
+        while reducing overall aggressiveness — the industry-standard
+        compromise between growth and drawdown control.
+
+        Positions with non-positive expected return receive zero raw Kelly
+        weight but may still appear at ``min_position_size`` after the
+        clamping step, matching the degrade-don't-crash convention used
+        across the codebase.
+
+        Args:
+            tickers: List of security tickers.
+            expected_returns: Expected annual return per ticker (decimal).
+            volatilities: Annual volatility per ticker (decimal).
+            kelly_fraction: Fractional Kelly multiplier (0..1). Default 0.5.
+            constraints: Optimization constraints.
+
+        Returns:
+            Dict mapping ticker -> target weight.
+        """
+        if not constraints:
+            constraints = OptimizationConstraints()
+
+        raw_kelly: dict[str, float] = {}
+        total_kelly = 0.0
+
+        for ticker in tickers:
+            mu = expected_returns.get(ticker, 0.0)
+            vol = volatilities.get(ticker, 0.20)
+            if mu > 0 and vol > 0:
+                variance = vol * vol
+                kf = mu / variance
+            else:
+                kf = 0.0
+            kf *= kelly_fraction
+            raw_kelly[ticker] = kf
+            total_kelly += kf
+
+        if total_kelly == 0:
+            return {ticker: 1.0 / len(tickers) for ticker in tickers}
+
+        # Normalize relative Kelly proportions
+        normalized = {ticker: w / total_kelly for ticker, w in raw_kelly.items()}
+
+        # Apply min/max constraints
+        constrained = {}
+        for ticker, weight in normalized.items():
+            weight = max(
+                constraints.min_position_size,
+                min(constraints.max_position_size, weight),
+            )
+            constrained[ticker] = weight
+
+        # Renormalize to target gross exposure
+        constrained_sum = sum(constrained.values())
+        if constrained_sum > 0:
+            constrained = {
+                ticker: w / constrained_sum * constraints.target_gross_exposure
+                for ticker, w in constrained.items()
+            }
+
+        return constrained
+
+    @staticmethod
+    def size_by_risk_parity(
+        tickers: list[str],
+        position_returns: dict[str, list[float]],  # ticker -> return series
+        constraints: OptimizationConstraints | None = None,
+    ) -> dict[str, float]:
+        """Size positions by equal risk contribution (true risk parity).
+
+        Unlike the simple inverse-volatility heuristic (:meth:`size_by_risk`),
+        this method uses the **full covariance matrix** and solves for weights
+        where every position contributes equally to total portfolio variance::
+
+            RC_i = w_i · (Σ w)_i  /  √(wᵀ Σ w)
+
+        The objective minimises the sum of squared deviations of each RC_i
+        from the target RC = portfolio_vol / N.
+
+        The covariance matrix is estimated via **Ledoit-Wolf shrinkage**
+        (:func:`iam.backtest.weight_optimizer.ledoit_wolf_shrinkage`) to
+        remain robust with short return histories.
+
+        Args:
+            tickers: List of security tickers.
+            position_returns: Dict mapping ticker -> list of periodic returns.
+            constraints: Optimization constraints.
+
+        Returns:
+            Dict mapping ticker -> target weight.
+        """
+        if not constraints:
+            constraints = OptimizationConstraints()
+
+        # Minimum-assets guard — risk parity is not meaningful / degenerate
+        # for very small universes.
+        if len(tickers) < MIN_RISK_PARITY_ASSETS:
+            logger.warning(
+                "Risk parity requires at least %d assets (%d provided); "
+                "falling back to inverse-vol sizing.",
+                MIN_RISK_PARITY_ASSETS,
+                len(tickers),
+            )
+            # Compute volatilities from the return series for the fallback
+            vols = {}
+            for t in tickers:
+                series = position_returns.get(t, [])
+                if len(series) >= 2:
+                    mu = sum(series) / len(series)
+                    var = sum((r - mu) ** 2 for r in series) / (len(series) - 1)
+                    vols[t] = float(np.sqrt(var)) if var > 0 else 0.20
+                else:
+                    vols[t] = 0.20
+            return PositionSizer.size_by_risk(tickers, vols, constraints=constraints)
+
+        # Build aligned return matrix (n_obs x n_assets)
+        n = len(tickers)
+        n_obs = min(len(position_returns.get(t, [])) for t in tickers)
+        if n_obs < 2:
+            logger.warning(
+                "Fewer than 2 observations available; "
+                "falling back to inverse-vol sizing."
+            )
+            vols = {t: 0.20 for t in tickers}
+            return PositionSizer.size_by_risk(tickers, vols, constraints=constraints)
+
+        X = np.column_stack(
+            [position_returns[t][:n_obs] for t in tickers]
+        )
+        cov = ledoit_wolf_shrinkage(X)
+
+        # Objective: minimise squared deviation of risk contributions
+        def _objective(w: np.ndarray) -> float:
+            port_var = float(w @ cov @ w)
+            if port_var <= 0:
+                return 1e6
+            port_vol = np.sqrt(port_var)
+            rc = w * (cov @ w) / port_vol
+            target_rc = port_vol / n
+            return float(np.sum((rc - target_rc) ** 2))
+
+        bounds = [(0.0, 1.0)] * n
+        constraints_list = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]
+        x0 = np.ones(n) / n
+
+        result = minimize(
+            _objective,
+            x0,
+            method="SLSQP",
+            bounds=bounds,
+            constraints=constraints_list,
+            options={"ftol": RISK_PARITY_FTOL, "maxiter": RISK_PARITY_MAXITER},
+        )
+
+        if not result.success:
+            logger.warning(
+                "Risk parity optimizer did not converge (%s); "
+                "falling back to inverse-vol sizing.",
+                result.message,
+            )
+            vols = {t: float(np.sqrt(np.var(position_returns[t]))) for t in tickers}
+            return PositionSizer.size_by_risk(tickers, vols, constraints=constraints)
+
+        weights = dict(zip(tickers, result.x))
+
+        # Apply min/max constraints
+        constrained = {}
+        for ticker, weight in weights.items():
+            weight = max(
+                constraints.min_position_size,
+                min(constraints.max_position_size, weight),
+            )
+            constrained[ticker] = weight
+
+        # Renormalize to target gross exposure
+        constrained_sum = sum(constrained.values())
+        if constrained_sum > 0:
+            constrained = {
+                ticker: w / constrained_sum * constraints.target_gross_exposure
+                for ticker, w in constrained.items()
+            }
+
+        return constrained
+
 
 class Rebalancer:
     """Portfolio rebalancing logic."""
@@ -351,5 +586,43 @@ class FactorBalancer:
                 )
                 if best_buy:
                     suggestions.append((best_buy[0], "BUY"))
+
+        return suggestions
+
+    @staticmethod
+    def suggest_sector_rotation_trades(
+        sector_tilts: dict[str, float],  # sector -> overweight/underweight delta
+        position_sectors: dict[str, str],  # ticker -> sector
+        current_weights: dict[str, float],  # ticker -> current weight
+    ) -> list[tuple[str, str]]:
+        """Translate sector-rotation tilts into per-ticker BUY/SELL suggestions.
+
+        This is the integration point between :class:`SectorRotationEngine`
+        and the factor-balancing framework.  Sector tilts (deltas from current
+        sector exposure) are mapped onto individual positions: tickers in
+        overweight sectors get BUY suggestions, tickers in underweight sectors
+        get SELL suggestions.
+
+        Args:
+            sector_tilts: Sector-level over/underweight deltas
+                (e.g. ``{"Technology": +0.03, "Utilities": -0.02}``).
+            position_sectors: Sector assignment per ticker.
+            current_weights: Current weight per ticker (used only for
+                non-zero-weight tickers — zero-weight / new candidates always
+                receive BUY if their sector is tilted upward).
+
+        Returns:
+            List of (ticker, "BUY"/"SELL") suggestions.
+        """
+        suggestions: list[tuple[str, str]] = []
+
+        for ticker, sector in position_sectors.items():
+            tilt = sector_tilts.get(sector, 0.0)
+            if tilt > 0.01:
+                suggestions.append((ticker, "BUY"))
+            elif tilt < -0.01:
+                current = current_weights.get(ticker, 0.0)
+                if current > 0:
+                    suggestions.append((ticker, "SELL"))
 
         return suggestions

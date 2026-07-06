@@ -6,6 +6,10 @@ Provides:
 - Concentration and diversification metrics
 - Position sizing and rebalancing
 - Risk decomposition and VaR
+- Kelly criterion sizing
+- Risk parity (equal risk contribution)
+- Sector rotation framework
+- Macro hedge recommendations
 
 Usage:
     from iam.portfolio import Portfolio, Position, PortfolioAnalyzer
@@ -25,12 +29,14 @@ Usage:
 """
 
 from iam.portfolio.analytics import PortfolioAnalyzer
+from iam.portfolio.macro_hedge import HedgeRecommendation, MacroHedgeEngine
 from iam.portfolio.optimizer import (
     FactorBalancer,
     OptimizationConstraints,
     PositionSizer,
     Rebalancer,
 )
+from iam.portfolio.sector_rotation import SectorRotationEngine
 from iam.portfolio.types import (
     ExposureProfile,
     Portfolio,
@@ -65,6 +71,11 @@ __all__ = [
     "Rebalancer",
     "FactorBalancer",
     "OptimizationConstraints",
+    # Sector rotation
+    "SectorRotationEngine",
+    # Macro hedge
+    "MacroHedgeEngine",
+    "HedgeRecommendation",
     # Verdicts
     "PortfolioVerdict",
     "PortfolioRecommendation",

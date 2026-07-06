@@ -862,11 +862,16 @@ The user should never manually update. Security patches, factor improvements, da
   - Anomaly detection (impossible valuations)
   - Regime prediction (macro regime classifier)
 
-- [x] **Portfolio Optimization**
-  - Position sizing (Kelly criterion)
-  - Sector rotation framework
-  - Macro hedge recommendations
-  - Risk parity weighting
+- [ ] **Portfolio Optimization** — audited 2026-07-06: none of the four items below
+  actually exist in `src/iam/portfolio/` today. `optimizer.py`'s `size_by_risk()` is
+  simple inverse-volatility weighting (no covariance, no equal risk contribution) —
+  it does NOT implement risk parity despite being informally described that way
+  elsewhere. This section was previously checked `[x]` in error; now tracked as
+  planned work.
+  - [ ] Position sizing (Kelly criterion) — not implemented, no Kelly formula anywhere in the codebase
+  - [ ] Sector rotation framework — not implemented; only static `compute_sector_concentration()` exists (no timing/momentum logic)
+  - [ ] Macro hedge recommendations — not implemented; the `macro_environment` param only toggles verdict wording, no hedge construction
+  - [ ] Full risk parity weighting (equal risk contribution via covariance matrix) — not implemented; current `size_by_risk()` is inverse-vol only
 
 - [x] **Interactive ANSI Terminal UI**
   - [x] Pure ANSI escape-sequence renderer (no heavy library dependency)
@@ -874,7 +879,13 @@ The user should never manually update. Security patches, factor improvements, da
   - [x] Live fluctuating portfolio watchlist with dynamic sparklines
   - [x] Solid block factor scorecard meters & custom animation engines
 
-- [ ] **Desktop Integration: C# ASP.NET Micro-Widget**
+- [ ] **Desktop Integration: C# ASP.NET Micro-Widget** — DECISION NEEDED (flagged 2026-07-06):
+  `src/desktop_widget/` is a ~100-line scaffold whose `SyncController.cs` proxies to
+  `http://localhost:8000/api/valuation` — a Python HTTP server that does not exist
+  anywhere in this repo. It cannot function as-is. Pick one: (a) drop it — no backend
+  exists and nothing else in the roadmap calls for building one, or (b) actually stand
+  up a minimal local FastAPI/Flask server for it to talk to (real scope, not a quick
+  fix). Leaving it as inert scaffolding indefinitely just confuses future readers.
   - [ ] Standalone C# .NET 8 desktop webview/window container
   - [ ] Compact side-panel view (occupies 1/4 of screen)
   - [ ] Real-time local API sync to the Python valuation engine

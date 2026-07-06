@@ -35,6 +35,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "pytest-cov", "pytest-timeout", "build", "twine"]
 data = ["pandas>=2.0", "numpy>=1.24", "scipy>=1.10"]
+gui = ["streamlit>=1.30.0", "plotly>=5.0.0"]
 live = [
     "yfinance>=0.2",
     "pandas>=2.0",
