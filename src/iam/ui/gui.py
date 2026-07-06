@@ -188,11 +188,22 @@ except Exception:
 
 run_button = st.sidebar.button("Run Valuation Engine")
 
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🧪 Portfolio Lab")
+basket_input = st.sidebar.text_input("Basket (comma-separated)", "AAPL,MSFT,NVDA").upper().strip()
+run_portfolio = st.sidebar.button("Run Portfolio Optimization")
+
 if run_button:
     with st.spinner(f"Initiating institutional pipeline for {ticker}..."):
         try:
             # 1. Initialize data & orchestrator
-            security = Security(ticker=ticker)
+            from iam.data.providers.yfinance_adapter import fetch_security
+            try:
+                security = fetch_security(ticker)
+            except Exception as e:
+                st.warning(f"Failed to fetch data for {ticker}, using default generic output. ({e})")
+                security = Security(ticker=ticker)
+                
             if security.qualitative is None:
                 security.qualitative = {}
             security.qualitative["forecast_growth"] = growth_override / 100.0
@@ -202,9 +213,7 @@ if run_button:
 
             # 2. Run valuation pipeline (full 7-stages)
             pipeline = ValuationPipeline()
-            # Simulate or fetch synthesis upside
-            synthesis_upside = 0.02  # Default baseline
-            report = pipeline.run(security, synthesis_upside=synthesis_upside)
+            report = pipeline.run(security)
 
             # 3. Assess Business Reality narrative
             try:
@@ -473,8 +482,103 @@ if run_button:
             st.error(f"Execution Error: {e}")
             with st.expander("Show Traceback"):
                 st.code(traceback.format_exc())
+
+elif run_portfolio:
+    with st.spinner("Fetching basket data and running portfolio optimization..."):
+        from iam.data.providers.yfinance_adapter import fetch_security
+        from iam.portfolio.optimizer import PositionSizer, OptimizationConstraints
+        
+        tickers = [t.strip() for t in basket_input.split(",") if t.strip()]
+        if not tickers:
+            st.warning("Please enter at least one ticker.")
+        else:
+            expected_returns = {}
+            volatilities = {}
+            position_returns = {}
+            valid_tickers = []
+            
+            from datetime import datetime, timedelta
+
+            from iam.data.fetcher import RedundantDataFetcher
+
+            price_fetcher = RedundantDataFetcher()
+            hist_end = datetime.now()
+            hist_start = hist_end - timedelta(days=90)
+
+            for t in tickers:
+                try:
+                    sec = fetch_security(t)
+                    valid_tickers.append(t)
+
+                    # CAPM-style expected return from beta (4.3% risk-free +
+                    # 5% ERP); this is a standard proxy, not the real
+                    # historical-return series, which isn't in Security yet.
+                    beta = sec.market.beta if (sec.market and sec.market.beta is not None) else 1.0
+                    expected_returns[t] = 0.043 + beta * 0.05
+
+                    # Real daily returns for risk parity's covariance matrix,
+                    # via the same RedundantDataFetcher the backtest module
+                    # uses (not the yfinance_adapter's Security, which doesn't
+                    # carry price_history).
+                    prices = price_fetcher.fetch_price_history(t, hist_start, hist_end)
+                    returns = prices.pct_change().dropna().tolist() if prices is not None else []
+                    position_returns[t] = returns
+                    # Kelly's volatility input: realized daily-return stdev
+                    # annualized, falling back to the beta proxy if the price
+                    # history fetch came back too short to be meaningful.
+                    if len(returns) >= 5:
+                        import statistics
+
+                        volatilities[t] = statistics.stdev(returns) * (252 ** 0.5)
+                    else:
+                        volatilities[t] = beta * 0.15
+                except Exception as e:
+                    st.warning(f"Failed to fetch data for {t}, skipping. ({e})")
+            
+            if valid_tickers:
+                constraints = OptimizationConstraints()
+                kelly_weights = PositionSizer.size_by_kelly(
+                    valid_tickers, expected_returns, volatilities, constraints=constraints
+                )
+                rp_weights = PositionSizer.size_by_risk_parity(
+                    valid_tickers, position_returns, constraints=constraints
+                )
+                
+                st.markdown("<div class='terminal-header'>🧪 Portfolio Optimization Results</div>", unsafe_allow_html=True)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown(
+                        "<div class='card'>"
+                        "<div class='metric-label'>Kelly Criterion Sizing</div>"
+                        "</div>",
+                        unsafe_allow_html=True
+                    )
+                    rows = "".join([f"<tr><td><b>{t}</b></td><td>{kelly_weights.get(t, 0.0)*100:.1f}%</td></tr>" for t in valid_tickers])
+                    st.markdown(f'''
+                    <table class="table-container">
+                        <thead><tr><th>Ticker</th><th>Kelly Target Weight</th></tr></thead>
+                        <tbody>{rows}</tbody>
+                    </table>
+                    ''', unsafe_allow_html=True)
+                    
+                with col2:
+                    st.markdown(
+                        "<div class='card'>"
+                        "<div class='metric-label'>Risk Parity (Equal Risk Contribution)</div>"
+                        "</div>",
+                        unsafe_allow_html=True
+                    )
+                    rows = "".join([f"<tr><td><b>{t}</b></td><td>{rp_weights.get(t, 0.0)*100:.1f}%</td></tr>" for t in valid_tickers])
+                    st.markdown(f'''
+                    <table class="table-container">
+                        <thead><tr><th>Ticker</th><th>Risk Parity Weight</th></tr></thead>
+                        <tbody>{rows}</tbody>
+                    </table>
+                    ''', unsafe_allow_html=True)
+
 else:
-    st.info("👈 Enter a ticker and press 'Run Valuation Engine' in the control center to begin.")
+    st.info("👈 Enter a ticker and press 'Run Valuation Engine' in the control center to begin, or run Portfolio Lab.")
 
 st.markdown(
     f"<div style='margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #30363d; "
