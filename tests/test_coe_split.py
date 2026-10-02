@@ -226,3 +226,34 @@ def test_fcfe_bottom_up_path_caps_at_profile_rf():
     with p1, p2:
         res = FCFEDCF().compute(sec, FCFEAssumptions(high_growth=0.08, terminal_growth=0.06))
     assert res.assumptions["terminal_growth"] == pytest.approx(RF)
+
+
+# ------------------------------------------------- AGY review follow-ups (gemini)
+def test_pipeline_caps_stage1_terminal_growth_at_the_consensus_rf():
+    """No caller override: Stage 1's cap must use the consensus Rf passed by the orchestrator."""
+    sec = _blk_like()
+    p1, p2 = _offline()
+    with p1, p2:
+        pipeline = ValuationPipeline()
+        pipeline.market_implied_engine = MarketImpliedEngine(terminal_growth=0.06)
+        report = pipeline.run(sec)
+    stage1 = report.market_implied_engine
+    assert stage1.assumptions["terminal_growth"] == pytest.approx(RF)
+    assert any("terminal growth capped at Rf" in n for n in stage1.notes)
+    assert any("consensus Ke" in n for n in stage1.notes)
+
+
+@pytest.mark.parametrize("engine_cls", [MarketImpliedEngine, ReverseDCF])
+def test_string_caller_overrides_are_used_not_crashing(engine_cls):
+    """Overrides parsed from JSON arrive as strings; they must be honoured, not crash the note."""
+    sec = _blk_like(risk_free_rate=str(RF), equity_risk_premium="0.05")
+    res = engine_cls().compute(sec)
+    assert res.assumptions["discount_rate"] == pytest.approx(RF + BETA * 0.05)
+
+
+def test_string_caller_overrides_are_not_silently_dropped_by_fcfe():
+    sec = _blk_like(risk_free_rate=str(RF), equity_risk_premium="0.05")
+    res = FCFEDCF().compute(sec, FCFEAssumptions(high_growth=0.08, terminal_growth=0.02))
+    assert any("custom CAPM" in n for n in res.notes)
+    beta = get_custom_beta_for_intrinsic(_blk_like(risk_free_rate=RF, equity_risk_premium=0.05))
+    assert res.assumptions["discount_rate"] == pytest.approx(RF + beta * 0.05)

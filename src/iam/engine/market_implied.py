@@ -21,7 +21,7 @@ from dataclasses import dataclass
 
 from iam.data.security import Security
 from iam.valuation.beta import get_yahoo_beta
-from iam.valuation.reverse_dcf import cap_terminal_growth
+from iam.valuation.reverse_dcf import as_rate, cap_terminal_growth
 from iam.valuation.types import ImpliedExpectations, Method, ValuationResult
 
 # Reasonable defaults; can be overridden via Security or call-site.
@@ -160,8 +160,8 @@ class MarketImpliedEngine:
         # are supplied, compute cost of equity from Yahoo beta.  Otherwise use
         # the flat rate passed at construction time.
         r = self.r
-        rfr = qualitative.get("risk_free_rate")
-        erp = qualitative.get("equity_risk_premium")
+        rfr = as_rate(qualitative.get("risk_free_rate"))
+        erp = as_rate(qualitative.get("equity_risk_premium"))
         g_terminal = self.g_terminal
         rf_used: float | None = None
         if consensus is not None and (rfr is None) != (erp is None):

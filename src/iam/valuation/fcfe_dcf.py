@@ -19,7 +19,7 @@ from typing import TypedDict
 from iam.data.ground_truth import GroundTruthProvider
 from iam.data.security import Security
 from iam.valuation.beta import get_custom_beta_for_intrinsic
-from iam.valuation.reverse_dcf import _present_value_two_stage, cap_terminal_growth
+from iam.valuation.reverse_dcf import _present_value_two_stage, as_rate, cap_terminal_growth
 from iam.valuation.types import Method, ValuationResult
 
 logger = logging.getLogger(__name__)
@@ -99,8 +99,8 @@ class FCFEDCF:
         #    x revenue-weighted ERP (GroundTruthProvider).
         # 3. Forecast discount rate from qualitative / model default, stated in the notes.
         q = security.qualitative
-        rfr = q.get("risk_free_rate")
-        erp = q.get("equity_risk_premium")
+        rfr = as_rate(q.get("risk_free_rate"))
+        erp = as_rate(q.get("equity_risk_premium"))
         rf_used: float | None = None
 
         if rfr is not None or erp is not None:

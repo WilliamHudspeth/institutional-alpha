@@ -28,6 +28,11 @@ DEFAULT_TERMINAL_GROWTH = 0.025  # GDP-ish steady state
 DEFAULT_ROE = 0.15  # Return on Equity for reinvestment constraint (g / ROE)
 
 
+def as_rate(value: object) -> float | None:
+    """Caller-supplied rates may arrive as strings (e.g. parsed from JSON); coerce once."""
+    return None if value is None else float(value)  # type: ignore[arg-type]
+
+
 def cap_terminal_growth(g_terminal: float, rf: float | None) -> tuple[float, str | None]:
     """Cap terminal growth at the risk-free rate (Damodaran 2012).
 
@@ -149,8 +154,8 @@ class ReverseDCF:
         # are supplied, compute cost of equity from Yahoo beta.  Otherwise use
         # the flat rate passed at construction time.
         r = self.r
-        rfr = qualitative.get("risk_free_rate")
-        erp = qualitative.get("equity_risk_premium")
+        rfr = as_rate(qualitative.get("risk_free_rate"))
+        erp = as_rate(qualitative.get("equity_risk_premium"))
         g_terminal = self.g_terminal
         if rfr is not None and erp is not None:
             beta = get_yahoo_beta(security)
