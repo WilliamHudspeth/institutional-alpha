@@ -8,7 +8,7 @@ not be built, callers show "n/a"; nothing here invents a surface.
 
 from __future__ import annotations
 
-from iam.valuation.value_grid import ValueGrid
+from iam.valuation.value_grid import ValueGrid, fair_value_frontier
 
 try:
     import plotly.graph_objects as go
@@ -48,6 +48,13 @@ def render_ti89_map(grid: ValueGrid, cell_w: int = 6) -> list[str]:
     if grid.market is not None:
         mi, mj = _nearest(grid.rates, grid.market[1]), _nearest(grid.growths, grid.market[0])
 
+    frontier = fair_value_frontier(grid)
+    frontier_cells = (
+        {(_nearest(grid.rates, fr), _nearest(grid.growths, fg)) for fg, fr in frontier}
+        if frontier is not None
+        else set()
+    )
+
     header = " r \\ g ".ljust(8) + "".join(f"{g * 100:>{cell_w}.1f}" for g in grid.growths)
     lines = [header]
     for i, r in enumerate(grid.rates):
@@ -57,12 +64,16 @@ def render_ti89_map(grid: ValueGrid, cell_w: int = 6) -> list[str]:
                 ch = "B"
             elif (i, j) == (mi, mj):
                 ch = "M"
+            elif (i, j) in frontier_cells:
+                ch = "~"
             elif v is None:
                 ch = "?"
             else:
                 ch = _band(v / ref)
             cells.append(ch * (cell_w - 1) + " " if ch not in "BM" else f"[{ch}]".center(cell_w))
         lines.append(f"{r * 100:6.2f}% " + "".join(cells))
+    if frontier is not None:
+        lines.append("~ = V = price (fair-value frontier)")
     return lines
 
 
@@ -107,6 +118,19 @@ def ti89_figure(grid: ValueGrid):
                 text=["Market"],
                 marker=dict(size=6, color="#8B0000"),
                 name="Market-implied",
+            )
+        )
+    frontier = fair_value_frontier(grid)
+    if frontier is not None and grid.price:
+        fig.add_trace(
+            go.Scatter3d(
+                x=[p[0] * 100 for p in frontier],
+                y=[p[1] * 100 for p in frontier],
+                z=[grid.price] * len(frontier),
+                mode="lines+markers",
+                line=dict(color="#FFD700", width=4),
+                marker=dict(size=4, color="#FFD700"),
+                name="V = price (fair-value frontier)",
             )
         )
     fig.update_layout(
