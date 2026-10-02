@@ -135,6 +135,38 @@ Write the classification table into this doc before changing code.
 
 **Tests:** for each removed silent fill, the missing value surfaces as missing.
 
+## WS4 classification
+
+Line numbers are for the code before the WS4 fix. "Documented assumption" means the value stays
+but must be shown with its source. "Silent fill" means a made-up number that looked like data.
+
+| File:line | Value | What it feeds | Classification | Action |
+|---|---|---|---|---|
+| `valuation/profile_builder.py:140` | `operating_margin or 0.10` | `CompanyProfile.op_margin`, cyclical fade and confidence grade (a real 0% margin also became 10%) | Silent fill | Use the reported value (0 is kept). If missing, the sector baseline stands in and `BuiltCompanyProfile.missing_inputs` says so |
+| `valuation/profile_builder.py:148` | `roe ... or 0.12` | `CompanyProfile.roe` | Silent fill | Now `None` when no ROIC history or incremental ROIC; listed in `missing_inputs` |
+| `valuation/profile_builder.py:149` | `roic ... or 0.10` | `CompanyProfile.roic` | Silent fill | Same as above |
+| `valuation/profile_builder.py:151` | `op_margin * 0.9` mid-cycle margin | cyclical fade | Documented heuristic | Kept; now listed in `missing_inputs` when used |
+| `valuation/profile_builder.py:192-193` | `wacc=0.09`, `terminal_growth=0.025` | reverse-DCF growth estimate | Documented assumption (duplicate literal of `FCFEAssumptions`) | Reads `FCFEAssumptions` defaults instead of literals |
+| `pipeline/macro.py:158-159,167` | 0.09 / 0.08 / 0.025 | base case for the macro stress DCF | Documented assumption, but shown nowhere and not equal to what the unstressed DCF used (`forecast_roe`, years ignored) | Base case now comes from `FCFEDCF._resolve_assumptions`; when any of the three keys is missing the result gets "model-default" note and confidence x0.7, as the unstressed DCF does |
+| `ui/menu.py:158-159` | `wacc_override` default 0.09, terminal 0.025 | pre-run assumption table (and it went to `logger.info`, so it was not even on screen) | Silent fill for WACC (the real WACC is computed inside the run); documented assumption for terminal growth | Menu prints its own table: WACC "computed by the pipeline" unless supplied; every row labelled user input / supplied / model default |
+| `ui/menu.py:143,153` | growth default 8% | menu growth prompt | Documented assumption | Reads `FCFEDCF().defaults.high_growth`; also resets to the default when validation rejects the input |
+| `ui/gui.py:263` | `discount_rate` default 0.09 | "Discount Rate (WACC)" card | Silent fill | Shows the intrinsic stage's real rate (FCFE discount rate or SOTP cost of equity), else "n/a" |
+| `pipeline/orchestrator.py` SOTP `assumptions` | `high_growth` 0.08, `roe` 0.15 | `PipelineReport.intrinsic.assumptions`, then Damodaran laws and the battlefield vector; SOTP never used them | Silent fill | Removed. Readers already treat missing keys as "not applicable" (`intrinsic_vector_from_assumptions`, laws, `build_value_grid`) |
+| `pipeline/orchestrator.py` SOTP `tax_rate` | 0.21 | SOTP levered beta / cost of equity | Documented assumption (US statutory federal rate) | Uses `qualitative["tax_rate"]` if supplied; the SOTP notes now say "supplied" or "model default" |
+| `valuation/beta.py:98` | tax 0.21 | unlever / relever beta, CAPM discount rate | Documented assumption | Named constant `DEFAULT_TAX_RATE`; use recorded in `qualitative["beta_assumptions"]` |
+| `valuation/beta.py:107` | cost of debt 7.5% | market value of debt, relevered beta | Documented assumption (no debt quote is fetched) | Named constant; use recorded in `beta_assumptions` |
+| `valuation/beta.py:108` | maturity 5y | market value of debt | Documented assumption | Named constant; recorded |
+| `valuation/beta.py:~70` | beta 1.0 when no beta | stage 3 beta | Documented assumption (market-neutral) | Named constant; recorded |
+| `valuation/beta.py:113` | `market_cap or 1.0` | current D/E (gave D/E in the hundreds when cap missing) | Silent fill | Removed. Without a market cap the regression beta is returned unrelevered and the note says so |
+| `valuation/fcfe_dcf.py` `FCFEAssumptions` | 8% growth, 2.5% terminal, 9% rate, 15% ROE, 10y | FCFE DCF base case | Documented assumption | Left as is. It already notes "Using model defaults" and cuts confidence |
+
+Found but left alone (outside WS4 scope or owned elsewhere):
+- `pipeline/orchestrator.py` `_calculate_dynamic_wacc`: `ke=0.09`, `rf=0.043`, `tax_rate=0.21` feed the dynamic WACC. Needs its own fix (use the live risk-free rate and CAPM cost of equity).
+- `ui/gui.py` `pwev_target` falls back to `$0.00` when there is no intrinsic result. Should read "n/a".
+- `data/providers/yfinance_adapter.py:340-358`: `or 0.15`, `or 0.12`, `or 0.10`, `or 0.21` fills for margin/ROE/ROIC/tax.
+- `valuation/probabilistic_growth.py:656` (`reinvestment_rate or 0.60`), `lenses/*` and `valuation/sensitivity.py` / `expectations_surface.py` (`forecast_growth` default 0.08 / 0.12), `engine/damodaran.py:98` (tax 0.21), `portfolio/verdicts.py` (volatility 0.15, correlation 0.3), `validation/ground_truth.py:44` (IC 0.02).
+- `ui/alpha_terminal.py`, `ui/state.py`, `ui/research_panels.py`, `pipeline/battlefield.py`: owned by other workstreams.
+
 ### WS5: Historical financials data source. Priority: P2. Needs a decision first
 - Both sources already exist:
   - `backtest/sources/fmp_source.py` and `backtest/sources/sec_edgar_source.py`, routed by `backtest/sources/tiers.py`.

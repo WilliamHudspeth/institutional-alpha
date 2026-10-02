@@ -18,6 +18,47 @@ import urllib.request
 from iam.validation import parse_growth_rate
 
 
+def fmt_pct_or_na(value: float | None, digits: int = 2) -> str:
+    """Format a fraction as a percentage, or ``n/a`` when it is missing."""
+    if value is None:
+        return "n/a"
+    return f"{value * 100:.{digits}f}%"
+
+
+def format_assumption_lines(
+    qualitative: dict,
+    forecast_growth: float,
+    growth_from_user: bool,
+) -> str:
+    """Pre-run assumption summary with the source of every number.
+
+    Defaults come from ``FCFEAssumptions`` (the engine's documented model
+    defaults). The discount rate is not fixed here: the pipeline computes it
+    (dynamic WACC / CAPM) unless the user supplied ``forecast_discount_rate``.
+    """
+    from iam.valuation.fcfe_dcf import FCFEDCF
+
+    d = FCFEDCF().defaults
+    terminal = qualitative.get("forecast_terminal_growth")
+    rate = qualitative.get("forecast_discount_rate")
+    g_src = "user input" if growth_from_user else "model default (FCFEAssumptions)"
+    t_src = "supplied" if terminal is not None else "model default (FCFEAssumptions)"
+    r_text = (
+        f"{fmt_pct_or_na(rate)} (supplied)"
+        if rate is not None
+        else "computed by the pipeline (dynamic WACC / CAPM); shown in the results"
+    )
+    return "\n".join(
+        [
+            " [ CORE ASSUMPTIONS ]",
+            f"   - Forecast Growth : {fmt_pct_or_na(forecast_growth, 1)} [{g_src}]",
+            f"   - Terminal Growth : {fmt_pct_or_na(terminal if terminal is not None else d.terminal_growth, 1)} [{t_src}]",
+            f"   - Discount Rate   : {r_text}",
+            f"   - DCF Horizon     : {d.high_growth_years} years [model default (FCFEAssumptions)]",
+        ]
+    )
+
+
 def safe_input(prompt: str, default: str | None = None) -> str:
     """Return user input if interactive, otherwise return default.
     Strips whitespace and returns default when stdin is not a TTY.
@@ -132,32 +173,38 @@ def run_valuation_pipeline(ticker: str) -> None:
         from iam.lenses.platform_compounder import PlatformCompounderLens
         from iam.lenses.rate_sensitive import RateSensitiveLens
         from iam.lenses.synthesis import synthesize_lenses
-        from iam.pipeline.orchestrator import ValuationPipeline, print_assumption_table
+        from iam.pipeline.orchestrator import ValuationPipeline
 
         security = fetch_security(ticker)
         print(f"  ✓ {security.name or ticker} loaded")
         print()
 
         # Optional growth override
+        from iam.valuation.fcfe_dcf import FCFEDCF
+
+        default_growth = FCFEDCF().defaults.high_growth
         g_input = safe_input(
-            "  Forecast growth (e.g. 13 or 0.13 for 13%) [Enter for model default 8%]: ", default=""
+            "  Forecast growth (e.g. 13 or 0.13 for 13%) "
+            f"[Enter for model default {default_growth:.0%}]: ",
+            default="",
         )
-        forecast_growth = 0.08
+        forecast_growth = default_growth
+        growth_from_user = False
         if g_input:
             try:
-                forecast_growth = parse_growth_rate(g_input, default=0.08)
+                forecast_growth = parse_growth_rate(g_input, default=default_growth)
                 from iam.validation import validate_growth_rate
 
                 validate_growth_rate(forecast_growth, growth_type="forecast")
                 security.qualitative["forecast_growth"] = forecast_growth
+                growth_from_user = True
                 print(f"  Using forecast growth: {forecast_growth:.1%}\n")
             except ValueError as e:
+                forecast_growth = default_growth
                 print(f"  Invalid input: {e} — using model default.\n")
 
         # Print Assumption Table
-        wacc = security.qualitative.get("wacc_override", 0.09)
-        terminal_growth = security.qualitative.get("forecast_terminal_growth", 0.025)
-        print_assumption_table(forecast_growth, wacc, terminal_growth)
+        print(format_assumption_lines(security.qualitative, forecast_growth, growth_from_user))
 
         print("-" * 70)
         print("  RUNNING 7-STAGE VALUATION PIPELINE")

@@ -487,6 +487,7 @@ class ValuationPipeline:
             and getattr(security.fundamentals, "segments", None)
         ):
             from iam.engine.damodaran import DamodaranEngine
+            from iam.valuation.beta import DEFAULT_TAX_RATE
             from iam.valuation.sotp import Segment
             from iam.valuation.types import Method
 
@@ -497,7 +498,13 @@ class ValuationPipeline:
             total_debt = getattr(security.fundamentals, "total_debt", 0.0) or 0.0
             market_cap = getattr(security.market, "market_cap", 1.0) or 1.0
             debt_equity = total_debt / market_cap if market_cap > 0 else 0.0
-            tax_rate = 0.21  # default corporate tax rate
+            q = security.qualitative or {}
+            if q.get("tax_rate") is not None:
+                tax_rate = float(q["tax_rate"])
+                tax_note = f"Tax rate: {tax_rate:.1%} (supplied)"
+            else:
+                tax_rate = DEFAULT_TAX_RATE
+                tax_note = f"Tax rate: {tax_rate:.1%} (model default: US statutory federal rate)"
             cost_of_equity = damodaran.compute_cost_of_equity(
                 segments, debt_to_equity=debt_equity, tax_rate=tax_rate
             )
@@ -512,10 +519,12 @@ class ValuationPipeline:
                     f"Weighted unlevered beta: {sotp_result.weighted_unlevered_beta:.3f}",
                     f"Cost of equity: {cost_of_equity:.2%}",
                 ]
-                + [f"{seg['name']}: ${seg['ev']:,.0f}" for seg in sotp_result.segments],
+                + [f"{seg['name']}: ${seg['ev']:,.0f}" for seg in sotp_result.segments]
+                + [tax_note],
+                # Only what the SOTP valuation actually used. It has no
+                # growth/ROE inputs, so none are reported (downstream readers
+                # treat missing keys as "not applicable").
                 assumptions={
-                    "high_growth": 0.08,
-                    "roe": 0.15,
                     "cost_of_equity": cost_of_equity,
                     "debt_equity": debt_equity,
                 },
