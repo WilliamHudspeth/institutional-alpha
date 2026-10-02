@@ -468,21 +468,39 @@ class TestIntegration:
 # =====================================================================
 
 try:
-    from hypothesis import given, settings
+    from datetime import timezone
+    from types import SimpleNamespace
+
+    from hypothesis import example, given, settings
     from hypothesis import strategies as st
 
     # @given args must come AFTER pytest fixtures in the signature so pytest
     # resolves its own fixtures first, then Hypothesis injects strategies.
-    @given(dt=st.datetimes())
-    @settings(max_examples=10)
-    def test_cache_ttl_always_expires_eventually(tmp_path_factory, dt):
-        """Property: Any cached data should eventually expire."""
-        db_path = tmp_path_factory.mktemp("cache") / "test.db"
-        cache = SQLiteCache(db_path, ttl_days=0)
-        cache.set("test", {"value": 1}, "source")
-        time.sleep(0.01)
-        result = cache.get("test", source="source")
-        # With 0 TTL, should be None
+    #
+    # The cache clock is patched rather than slept on, so the result never
+    # depends on wall-clock resolution. deadline=None because each example
+    # does real SQLite file I/O (~40ms locally), which exceeded Hypothesis's
+    # 200ms default deadline during slow full-suite runs on Windows.
+    @given(
+        dt=st.datetimes(),
+        ttl_days=st.integers(min_value=0, max_value=30),
+        extra_seconds=st.integers(min_value=0, max_value=10 * 365 * 86400),
+    )
+    @example(dt=datetime(2024, 1, 1), ttl_days=0, extra_seconds=0)
+    @settings(max_examples=10, deadline=None)
+    def test_cache_ttl_always_expires_eventually(tmp_path_factory, dt, ttl_days, extra_seconds):
+        """Property: cached data written at any time `dt` is expired once its age >= TTL."""
+        # Whole-second timestamps keep (now - written_at) exact in float math.
+        written_at = int(dt.replace(tzinfo=timezone.utc).timestamp())
+        clock = SimpleNamespace(time=lambda: written_at)
+        cache_module = sys.modules[SQLiteCache.__module__]
+
+        with mock.patch.object(cache_module, "time", clock):
+            cache = SQLiteCache(tmp_path_factory.mktemp("cache") / "test.db", ttl_days=ttl_days)
+            cache.set("test", {"value": 1}, "source")
+            clock.time = lambda: written_at + ttl_days * 86400 + extra_seconds
+            result = cache.get("test", source="source")
+
         assert result is None
 
 except ImportError:
