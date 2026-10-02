@@ -366,7 +366,6 @@ class YFinanceAdapter:
             # Fallback if fetch fails
             yt = yf.Ticker(ticker)
             info = yt.info or {}
-            self._get_numeric(info, "currentPrice", "regularMarketPrice")
             market_cap = self._get_numeric(info, "marketCap")
             total_debt = self._get_numeric(info, "totalDebt")
             beta = self._get_numeric(info, "beta")
