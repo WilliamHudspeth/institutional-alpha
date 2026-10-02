@@ -109,7 +109,7 @@ class ReverseDCFDistributionPanel:
         intrinsic = getattr(rpt, "intrinsic", None) if rpt else None
         comps = getattr(intrinsic, "components", None) if intrinsic else None
         scenarios = comps.get("scenarios") if isinstance(comps, dict) else None
-        if not isinstance(mkt_g, (int, float)) or not isinstance(scenarios, dict) or not scenarios:
+        if not isinstance(mkt_g, int | float) or not isinstance(scenarios, dict) or not scenarios:
             _need_data(cv, r0, c0, "Needs reverse-DCF implied growth and FCFE scenarios.")
             return
 
@@ -117,7 +117,7 @@ class ReverseDCFDistributionPanel:
         for name, data in scenarios.items():
             g = data.get("g") if isinstance(data, dict) else None
             prob = data.get("prob") if isinstance(data, dict) else None
-            if isinstance(g, (int, float)):
+            if isinstance(g, int | float):
                 rows.append((str(name), float(g), prob))
         if not rows:
             _need_data(cv, r0, c0, "FCFE scenarios carry no growth rates.")
@@ -143,7 +143,7 @@ class ReverseDCFDistributionPanel:
                 break
             is_mkt = prob is None
             col = w.C_RED() if is_mkt else w.C_GREEN()
-            tag = "" if is_mkt else f" {prob * 100:.0f}%" if isinstance(prob, (int, float)) else ""
+            tag = "" if is_mkt else f" {prob * 100:.0f}%" if isinstance(prob, int | float) else ""
             cv.put(r, c0 + 1, f"{(name + tag)[:label_w]:<{label_w}}", col)
             cv.put(r, c0 + 1 + label_w, f"{w.fmt_pct(g, 1, signed=False):>7}", w.C_WHITE())
             cv.put(r, axis_x, "·" * axis_w if w._UNICODE else "." * axis_w, w.C_DIM())
@@ -279,7 +279,7 @@ class ArbitrationVisualizerPanel:
             obj = getattr(rpt, attr, None)
             if obj is not None:
                 v = getattr(obj, "fair_value", None) or (
-                    obj if isinstance(obj, (int, float)) else None
+                    obj if isinstance(obj, int | float) else None
                 )
                 if v:
                     lenses.append((name, float(v)))
