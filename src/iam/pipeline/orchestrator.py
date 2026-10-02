@@ -437,13 +437,13 @@ class ValuationPipeline:
         ke = macro.risk_free_rate + beta * macro.implied_erp
 
         tax_rate = None
-        defaults_used = []
+        defaults_used: list[str] = []
 
         if getattr(f, "effective_tax_rate", None) is not None:
             tax_rate = float(getattr(f, "effective_tax_rate"))
         else:
             tax_rate = US_FEDERAL_STATUTORY_TAX
-            defaults_used.append("tax_rate: US federal statutory 21% (no effective rate)")
+            defaults_used.append("tax: US federal statutory 21% (no effective rate)")
 
         wacc_info = build_wacc(
             ke=ke,
@@ -453,10 +453,7 @@ class ValuationPipeline:
             d_to_e=d_to_e,
             tax_rate=tax_rate,
         )
-        if "defaults_used" not in wacc_info:
-            wacc_info["defaults_used"] = []
-        if defaults_used:
-            wacc_info["defaults_used"].extend(defaults_used)
+        wacc_info.setdefault("defaults_used", []).extend(defaults_used)
         wacc_info["rf_source"] = macro.rf_source
         wacc_info["erp_source"] = macro.erp_source
         wacc_info["cost_of_equity"] = ke
@@ -479,9 +476,17 @@ class ValuationPipeline:
 
             if security.qualitative is None:
                 security.qualitative = {}
-            security.qualitative["wacc_override"] = dynamic_wacc
             security.qualitative["wacc_info"] = wacc_info
-            wacc_note = f"Dynamic WACC applied: {dynamic_wacc:.2%} (Rating: {rating})"
+            details: list[str] = [f"rating {rating}"]
+            if "rf_source" in wacc_info and wacc_info["rf_source"]:
+                details.append(f"rf: {wacc_info['rf_source']}")
+            if wacc_info.get("defaults_used"):
+                details.extend(wacc_info["defaults_used"])
+            details_str = f" ({', '.join(details)})" if details else ""
+            wacc_note = (
+                f"WACC (reference only; FCFE stages discount at cost of equity): "
+                f"{dynamic_wacc:.2%}{details_str}"
+            )
 
         if security.market and getattr(security.market, "beta", None) is not None:
             from iam.data.damodaran import DamodaranProvider
@@ -491,10 +496,15 @@ class ValuationPipeline:
                 security.qualitative = {}
             if "risk_free_rate" not in security.qualitative:
                 security.qualitative["risk_free_rate"] = macro_state.risk_free_rate
+                security.qualitative["rf_source"] = macro_state.rf_source
+            else:
+                security.qualitative.setdefault("rf_source", "caller-supplied")
+
             if "equity_risk_premium" not in security.qualitative:
                 security.qualitative["equity_risk_premium"] = macro_state.implied_erp
-            security.qualitative["rf_source"] = macro_state.rf_source
-            security.qualitative["erp_source"] = macro_state.erp_source
+                security.qualitative["erp_source"] = macro_state.erp_source
+            else:
+                security.qualitative.setdefault("erp_source", "caller-supplied")
 
         # Stage 1: Reverse DCF
         market_implied_engine_res = self.market_implied_engine.compute(security)
