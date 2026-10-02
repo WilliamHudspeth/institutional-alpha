@@ -13,7 +13,8 @@ Inputs are always in decimal form: 12% = 0.12.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Literal
 
 Region = Literal["US", "Europe", "Japan", "Emerging", "Global"]
@@ -80,36 +81,38 @@ class RegressionInputs:
     """
 
     region: Region = "US"
-    beta: float = 1.0
-    g_eps: float = 0.10  # expected EPS growth rate
-    payout: float = 0.0  # dividend payout ratio
+    beta: float | None = 1.0
+    g_eps: float | None = 0.10  # expected EPS growth rate
+    payout: float | None = 0.0  # dividend payout ratio
     roe: float | None = None  # return on equity
-    g: float = 0.10  # revenue / FCFE growth
+    g: float | None = 0.10  # revenue / FCFE growth
     roic: float | None = None  # return on invested capital
-    dfr: float = 0.20  # debt / (debt + market cap)
-    oper_margin: float = 0.15  # operating margin
-    tax_rate: float = 0.21  # effective tax rate
+    dfr: float | None = 0.20  # debt / (debt + market cap)
+    oper_margin: float | None = 0.15  # operating margin
+    tax_rate: float | None = 0.21  # effective tax rate
+    defaulted_inputs: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, float]:
-        d = {
+        mapping = {
             "Beta": self.beta,
             "gEPS": self.g_eps,
             "Payout": self.payout,
+            "ROE": self.roe,
             "g": self.g,
+            "ROIC": self.roic,
             "DFR": self.dfr,
             "OperMargin": self.oper_margin,
             "TaxRate": self.tax_rate,
         }
-        if self.roe is not None:
-            d["ROE"] = self.roe
-        if self.roic is not None:
-            d["ROIC"] = self.roic
-        return d
+        return {k: v for k, v in mapping.items() if v is not None}
 
 
-def predict_multiple(region: Region, multiple: Multiple, inputs: dict[str, float]) -> float:
+def predict_multiple(
+    region: Region, multiple: Multiple, inputs: Mapping[str, float | None]
+) -> float | None:
     """Predict a fair multiple from fundamentals via the Damodaran Jan 2026 regression.
 
+    Returns None if any required input variable for the multiple is missing (None or absent).
     Raises KeyError for unknown region/multiple.
     Raises ValueError when PEG is requested with gEPS <= 0 (ln is undefined).
     """
@@ -119,7 +122,9 @@ def predict_multiple(region: Region, multiple: Multiple, inputs: dict[str, float
         if key == "const":
             continue
         if key == "ln_gEPS":
-            g_eps = inputs.get("gEPS", 0.0)
+            g_eps = inputs.get("gEPS")
+            if g_eps is None:
+                return None
             if g_eps <= 0:
                 raise ValueError(
                     f"PEG regression requires gEPS > 0 (got {g_eps}). "
@@ -127,15 +132,18 @@ def predict_multiple(region: Region, multiple: Multiple, inputs: dict[str, float
                 )
             value += coeff * math.log(g_eps)
         else:
-            value += coeff * inputs.get(key, 0.0)
+            val = inputs.get(key)
+            if val is None:
+                return None
+            value += coeff * val
     return round(value, 4)
 
 
-def predict_all(region: Region, inputs: dict[str, float]) -> dict[str, float | None]:
+def predict_all(region: Region, inputs: Mapping[str, float | None]) -> dict[str, float | None]:
     """Predict all six multiples for a region.
 
-    PEG is set to None when gEPS <= 0 rather than raising.  All other
-    multiples always return a value.
+    PEG is set to None when gEPS <= 0 rather than raising. Any multiple whose
+    required inputs are missing (None or absent) is also set to None.
     """
     results: dict[str, float | None] = {}
     for multiple in REGRESSIONS[region]:

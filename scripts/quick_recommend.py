@@ -158,13 +158,17 @@ def show_recommendation(ticker: str, force_details: bool = False) -> None:
         print()
 
         # Run Expectations Battlefield
-        intrinsic_dist, market_dist = build_distributions(profile, triangulation)
-        battlefield_engine = ExpectationsBattlefieldEngine(intrinsic_dist, market_dist)
-        battlefield_result = battlefield_engine.compute()
+        dists = build_distributions(profile, triangulation)
+        if dists is not None:
+            intrinsic_dist, market_dist = dists
+            battlefield_engine = ExpectationsBattlefieldEngine(intrinsic_dist, market_dist)
+            battlefield_result = battlefield_engine.compute()
 
-        # Print Battlefield Summary unconditionally
-        print(battlefield_result.summary().replace("\n", "\n  "))
-        print()
+            # Print Battlefield Summary unconditionally
+            print(battlefield_result.summary().replace("\n", "\n  "))
+            print()
+        else:
+            print("  Note: Expectations battlefield skipped (ROIC missing).\n")
 
         # Ask if user wants details
         if force_details:

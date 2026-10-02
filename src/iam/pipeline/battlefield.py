@@ -443,9 +443,7 @@ def two_stage_fcfe_value(
     g = p.growth if p.growth is not None else 0.0
     gt = p.terminal_growth if p.terminal_growth is not None else 0.025
     r = p.discount_rate if p.discount_rate is not None else 0.09
-
-    DEFAULT_TEST_ROE = 0.15
-    roe = p.roe if p.roe is not None else DEFAULT_TEST_ROE
+    roe = p.roe if p.roe is not None else 0.15
     if r <= gt:  # convergence guard, matches reverse_dcf
         return float("nan")
 

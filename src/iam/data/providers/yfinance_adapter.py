@@ -22,7 +22,7 @@ from iam.data.retry import retry_call
 from iam.data.security import Fundamentals, MarketData, Security
 
 if TYPE_CHECKING:
-    from iam.valuation.multiples_regression import Region, RegressionInputs
+    from iam.valuation.multiples_regression import RegressionInputs
 
 logger = logging.getLogger(__name__)
 
@@ -309,7 +309,8 @@ class YFinanceAdapter:
         qualitative: dict[str, Any] = {
             "payout": self._get_numeric(info, "payoutRatio"),
             "roe": self._get_numeric(info, "returnOnEquity"),
-            "roic": self._get_numeric(info, "returnOnAssets"),
+            "roa": self._get_numeric(info, "returnOnAssets"),
+            "roic": None,
         }
 
         tax_rate = self._get_numeric(info, "effectiveTaxRate")
@@ -345,54 +346,59 @@ class YFinanceAdapter:
         g: float | None = None,
     ) -> RegressionInputs:
         """Build Damodaran regression inputs from Yahoo Finance data."""
-        from iam.valuation.multiples_regression import RegressionInputs
+        from iam.valuation.multiples_regression import Region, RegressionInputs
 
         # Try to use caching via fetch
+        defaulted: list[str] = []
         try:
             security = self.fetch(ticker)
-            market_cap = security.market.market_cap or 1.0
-            total_debt = security.fundamentals.total_debt or 0.0
-            beta = security.market.beta or 1.0
-            oper_margin = security.fundamentals.operating_margin or 0.15
-            # Fallbacks for regression
-            payout = security.qualitative.get("payout") or 0.0
+            market_cap = security.market.market_cap
+            total_debt = security.fundamentals.total_debt
+            beta = security.market.beta
+            oper_margin = security.fundamentals.operating_margin
+            payout = security.qualitative.get("payout")
             roe = security.qualitative.get("roe")
             roic = security.qualitative.get("roic")
             tax_rate = security.qualitative.get("tax_rate")
+            if "tax_rate" in security.qualitative.get("defaulted_inputs", []):
+                defaulted.append("tax_rate")
         except Exception:
             # Fallback if fetch fails
             yt = yf.Ticker(ticker)
             info = yt.info or {}
-            self._get_numeric(info, "currentPrice", "regularMarketPrice") or 1.0
-            market_cap = self._get_numeric(info, "marketCap") or 1.0
-            total_debt = self._get_numeric(info, "totalDebt") or 0.0
-            beta = self._get_numeric(info, "beta") or 1.0
-            oper_margin = self._get_numeric(info, "operatingMargins") or 0.15
-            payout = self._get_numeric(info, "payoutRatio") or 0.0
+            self._get_numeric(info, "currentPrice", "regularMarketPrice")
+            market_cap = self._get_numeric(info, "marketCap")
+            total_debt = self._get_numeric(info, "totalDebt")
+            beta = self._get_numeric(info, "beta")
+            oper_margin = self._get_numeric(info, "operatingMargins")
+            payout = self._get_numeric(info, "payoutRatio")
             roe = self._get_numeric(info, "returnOnEquity")
-            roic = self._get_numeric(info, "returnOnAssets")
+            roic = None
             tax_rate = self._get_numeric(info, "effectiveTaxRate")
             if tax_rate is None:
                 tax_rate = US_FEDERAL_TAX_RATE
+                defaulted.append("tax_rate")
 
-        dfr = total_debt / (total_debt + market_cap)
+        if market_cap is not None and total_debt is not None and (total_debt + market_cap) > 0:
+            dfr = total_debt / (total_debt + market_cap)
+        else:
+            dfr = None
 
-        if g_eps is None:
-            g_eps = 0.10
-        if g is None:
+        if g is None and g_eps is not None:
             g = g_eps
 
         return RegressionInputs(
             region=cast(Region, region),
-            beta=float(beta),
-            g_eps=float(g_eps),
-            payout=float(payout),
+            beta=float(beta) if beta is not None else None,
+            g_eps=float(g_eps) if g_eps is not None else None,
+            payout=float(payout) if payout is not None else None,
             roe=float(roe) if roe is not None else None,
-            g=float(g),
+            g=float(g) if g is not None else None,
             roic=float(roic) if roic is not None else None,
-            dfr=float(dfr),
-            oper_margin=float(oper_margin),
-            tax_rate=float(tax_rate) if tax_rate is not None else US_FEDERAL_TAX_RATE,
+            dfr=float(dfr) if dfr is not None else None,
+            oper_margin=float(oper_margin) if oper_margin is not None else None,
+            tax_rate=float(tax_rate) if tax_rate is not None else None,
+            defaulted_inputs=defaulted,
         )
 
     def _get_numeric(self, info: dict, *keys: str) -> float | None:
