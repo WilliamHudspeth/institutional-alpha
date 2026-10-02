@@ -26,7 +26,7 @@ family (agent `iam-reviewer`) and by Claude.
 | `agy/adapter-defaults` | gemini-3.1-pro-high | Claude CHANGES; gemini-3.8-flash-high CHANGES (same findings plus two tautological tests, one asserting the invented 10% ROIC) | **Merged after round 2** (gemini-3.8-flash-high), plus a Claude fix accepted from gemini-3.1-pro-high's review: `RegressionInputs` has no invented default fundamentals. Disputed: the `quick_recommend.py` edit is not scope creep, because the brief asked for callers to be checked. |
 | `agy/wacc-provenance` | claude-opus-4-6-thinking (quota-stopped; partial discarded) | n/a | **Round 2, redesigned.** `_calculate_dynamic_wacc` hardcodes ke 9%, rf 4.3% and tax 21% for every company, and the result overrides the discount rate of the FCFE reverse DCF (Stage 1), which must use the cost of equity. The owner approved the merge. Round 2 (gemini-3.1-pro-high) moved Stage 1 to the engine's CAPM path. Round 3 (gemini-3.7-flash-high, quota-stopped, committed by Claude) labels WACC as a reference figure. **Merged.** |
 
-## ERP methodology (owner request, in progress)
+## ERP methodology (owner request) — merged
 
 The owner asked for the ERP to follow the method of their NYU Stern paper "On BLK": Damodaran country and
 regional ERPs, weighted by where the company earns its revenue. Damodaran's `ctryprem.xlsx`, downloaded
@@ -39,3 +39,18 @@ The wiring task (`company_erp(security)`, region aliases, no silent Baa3 default
 for the US ERP) is fully briefed but not built. Every AGY model returned HTTP 429 (quota) before
 starting: Gemini 3.1 Pro, 3.8 Flash and 3.6 Flash, after Claude, GPT-OSS and Gemini 3.7 Flash ran out
 earlier in the round.
+
+**Outcome.** AGY quotas stayed exhausted (a one-word probe showed only Claude Opus 4.6 had quota, and it
+returned HTTP 429 on the real task), so at the owner's direction a Claude Sonnet subagent built it
+(`agy/wacc-erp`, merged). No revenue mix gives the US ERP of 4.46%. BLK's 66/30/4 mix blends to 4.74%
+(0.66 × North America 4.45% + 0.30 × Western Europe 5.27% + 0.04 × Asia 5.72%). No AGY review yet: run
+one when quota returns.
+
+**Follow-ups found during review:**
+- The GUI's "Arbitrated Cost of Equity" comes from `integration/orchestrator.py` via
+  `ground_truth.get_risk_profile`, which still prices ERP from `DamodaranProvider.REGIONAL_ERPS` /
+  `COUNTRY_ERPS` (US 4.6%). Route it through `country_risk.company_erp` so there is one ERP everywhere.
+- `valuation/damodaran_defaults.py` keeps its own `COUNTRY_ERPS` and a `__main__` demo with
+  `us_erp=0.0503`.
+- Damodaran's spreadsheet itself carries a garbled "Côte d'Ivoire" name. It is cosmetic; no alias
+  points to it.
