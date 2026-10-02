@@ -15,11 +15,35 @@ your DCF valuations become immune to short-term market noise.
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Damodaran country/regional ERP dataset (ctryprem.xlsx, Jan 2026) shipped as JSON.
+# Re-exported as iam.valuation.country_risk.load_country_erp.
+COUNTRY_ERP_ENV = "IAM_COUNTRY_ERP_FILE"
+_DEFAULT_COUNTRY_ERP_FILE = (
+    Path(__file__).resolve().parent / "reference" / "country_erp_2026-01.json"
+)
+
+
+@lru_cache(maxsize=8)
+def _read_cached(path: str) -> dict[str, Any]:
+    with open(path, encoding="utf-8") as fh:
+        data: dict[str, Any] = json.load(fh)
+    return data
+
+
+def read_country_erp(path: str | os.PathLike[str] | None = None) -> dict[str, Any]:
+    """Load the country ERP file (explicit path, env override, else the packaged file)."""
+    chosen = path or os.environ.get(COUNTRY_ERP_ENV) or _DEFAULT_COUNTRY_ERP_FILE
+    return _read_cached(str(Path(chosen).resolve()))
 
 
 class DamodaranProviderError(Exception):
@@ -103,10 +127,10 @@ class DamodaranProvider:
         "latam": "latin_america",
     }
 
-    # Damodaran's Implied Equity Risk Premium (Updated Jan 2026)
-    # This is the forward-looking market risk premium derived from current S&P 500 valuation
-    # Unlike historical ERP (5.5-6%), Implied ERP reacts to market dislocations
-    CURRENT_IMPLIED_ERP = 0.046  # 4.6%
+    # US equity risk premium (Damodaran Jan 2026 country-ERP file). Single source of
+    # truth: iam/data/reference/country_erp_2026-01.json "us_erp" (mature-market ERP
+    # plus the US default spread; distinct from the Aaa mature-market ERP).
+    CURRENT_IMPLIED_ERP = float(read_country_erp()["us_erp"])
 
     # Risk-Free Rate (10-Year US Treasury)
     # This should be updated monthly from FRED API or Treasury website
