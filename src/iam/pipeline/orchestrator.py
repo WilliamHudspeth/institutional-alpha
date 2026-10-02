@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from iam.data.macro import MacroConditions
 from iam.data.security import Security
@@ -16,9 +17,15 @@ from iam.laws import DamodaranLawRegistry
 from iam.laws.types import LawReport
 from iam.lenses.base import LensResult
 from iam.lenses.synthesis import synthesize_lenses
+from iam.pipeline.battlefield import (
+    BattlefieldAttribution,
+    build_battlefield,
+    fcfe_value_fn,
+    intrinsic_vector_from_assumptions,
+)
 from iam.pipeline.macro import MacroOverlay
-from iam.plugins.manager import PluginManager, get_plugin_manager
 from iam.pipeline.verdict import VerdictGenerator, VerdictResult
+from iam.plugins.manager import PluginManager, get_plugin_manager
 from iam.thesis.drift import DriftReport
 from iam.valuation import (
     FCFEDCF,
@@ -29,13 +36,10 @@ from iam.valuation import (
     Triangulator,
     ValuationResult,
 )
-from iam.valuation.expectations_battlefield import (
-    ExpectationBattlefieldExplicit,
-    ExpectationsBattlefieldEngine,
-    Scenario,
-    ScenarioDistribution,
-)
 from iam.valuation.monte_carlo import MonteCarloDCF, MonteCarloDistribution
+
+if TYPE_CHECKING:
+    from iam.valuation.justified_premium import JustifiedPremiumResult
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +98,7 @@ class PipelineReport:
     synthesis_upside: float | None = None  # Multi-lens synthesis weighted implied move
     law_report: LawReport | None = None  # Damodaran-law consistency checks
     stress_response: StressResponse | None = None  # Elasticity-aware macro stress
-    battlefield: ExpectationBattlefieldExplicit | None = None
+    battlefield: BattlefieldAttribution | None = None
     drift_report: DriftReport | None = None
     monte_carlo: MonteCarloDistribution | None = None  # sampled fair-value distribution
     justified_premium: JustifiedPremiumResult | None = None  # Relative Reality gap
@@ -194,7 +198,9 @@ class PipelineReport:
         lines.append("")
 
         if self.growth_estimate:
-            lines.append("STAGE 1b — Questionnaire Growth Estimate (fundamental vs. market-implied)")
+            lines.append(
+                "STAGE 1b — Questionnaire Growth Estimate (fundamental vs. market-implied)"
+            )
             lines.append(f"  {self.growth_estimate.narrative}")
             if self.growth_estimate.gap_verdict:
                 lines.append(f"  {self.growth_estimate.gap_verdict}")
@@ -225,8 +231,11 @@ class PipelineReport:
 
         if self.battlefield:
             lines.append("STAGE 4b — VALUATION BATTLEFIELD")
-            lines.append(f"  Key Disagreement: {self.battlefield.primary_disagreement}")
-            lines.append(f"  Mismatch Score: {self.battlefield.expectation_mismatch_score:.0f}/100")
+            lines.append(f"  Key Disagreement: {self.battlefield.key_disagreement}")
+            if self.battlefield.value_gap_pct is not None:
+                lines.append(
+                    f"  Market-implied value vs ours: {self.battlefield.value_gap_pct * 100:+.1f}%"
+                )
             lines.append("")
 
         if self.drift_report:
@@ -520,6 +529,7 @@ class ValuationPipeline:
         # ML Lens Anomaly Detection for Triangulation Weighting
         try:
             from iam.ml.ml_lens import MLDiagnosticLens
+
             ml_res = MLDiagnosticLens().compute(security)
             if ml_res.confidence < 1.0:
                 # If fundamentals are anomalous, relative valuation (comps) is less reliable
@@ -552,38 +562,24 @@ class ValuationPipeline:
         for plugin_name, factor_values in plugin_factor_results.items():
             plugin_notes.append(f"[PLUGIN FACTOR {plugin_name}]: {factor_values}")
 
-        # Stage 4b: Valuation Battlefield
+        # Stage 4b: Valuation Battlefield — which single assumption explains
+        # the gap between the market-implied and intrinsic lenses. Uses the
+        # real FCFE maths on the two real parameter vectors; nothing invented.
         battlefield_res = None
-        if market_implied_engine_res.implied is not None and intrinsic_res.assumptions:
+        base_ni = (intrinsic_res.components or {}).get("base_ni_per_share")
+        if market_implied_engine_res.implied is not None and intrinsic_res.assumptions and base_ni:
             try:
-                # Build Intrinsic Scenarios
-                int_g = intrinsic_res.assumptions.get("high_growth", 0.08)
-                int_r = intrinsic_res.assumptions.get("roe", 0.15)
-                int_m = getattr(security.fundamentals, "operating_margin", None) or 0.20
-
-                intrinsic_dist = ScenarioDistribution(
-                    [
-                        Scenario(0.20, growth=int_g * 0.60, margin=int_m * 0.90, roic=int_r * 0.80),
-                        Scenario(0.60, growth=int_g, margin=int_m, roic=int_r),
-                        Scenario(0.20, growth=int_g * 1.30, margin=int_m * 1.10, roic=int_r * 1.20),
-                    ]
+                value_fn = fcfe_value_fn(
+                    float(base_ni),
+                    int(intrinsic_res.assumptions.get("high_growth_years", 10)),
+                    intrinsic_vector_from_assumptions(intrinsic_res.assumptions),
                 )
-
-                # Build Market Scenarios
-                mkt_g = market_implied_engine_res.implied.implied_revenue_growth
-                mkt_r = getattr(market_implied_engine_res.implied, "implied_roic", int_r)
-                mkt_m = int_m  # Assume market margin is base margin if not solved
-
-                market_dist = ScenarioDistribution(
-                    [
-                        Scenario(0.20, growth=mkt_g * 0.80, margin=mkt_m * 0.95, roic=mkt_r * 0.90),  # type: ignore
-                        Scenario(0.50, growth=mkt_g, margin=mkt_m, roic=mkt_r),  # type: ignore
-                        Scenario(0.30, growth=mkt_g * 1.20, margin=mkt_m * 1.05, roic=mkt_r * 1.10),  # type: ignore
-                    ]
+                battlefield_res = build_battlefield(
+                    market_implied=market_implied_engine_res,
+                    intrinsic=intrinsic_res,
+                    value_fn=value_fn,
+                    triangulation=triangulation_res,
                 )
-
-                battle_engine = ExpectationsBattlefieldEngine(intrinsic_dist, market_dist)
-                battlefield_res = battle_engine.compute()
             except Exception as e:
                 logger.warning(f"Failed to build valuation battlefield for {security.ticker}: {e}")
 
@@ -698,9 +694,7 @@ class ValuationPipeline:
             stress_response=report.stress_response,
             drift_report=report.drift_report,
             justified_premium=report.justified_premium,
-            mismatch_score=report.battlefield.expectation_mismatch_score
-            if report.battlefield
-            else None,
+            mismatch_score=report.battlefield.mismatch_score if report.battlefield else None,
         )
 
         return report

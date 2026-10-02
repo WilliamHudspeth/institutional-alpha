@@ -40,20 +40,18 @@ class _Canvas:
 
 
 def _mock_sec():
-    bf = types.SimpleNamespace(
-        market_growth=0.182,
-        intrinsic_growth=0.121,
-        market_margin=0.224,
-        intrinsic_margin=0.185,
-        market_roic=0.30,
-        intrinsic_roic=0.26,
-        growth_gap=0.061,
-        margin_gap=0.039,
-        roic_gap=0.04,
-        growth_overlap=0.6,
-        alignment_score=71,
-        expectation_mismatch_score=42,
-        primary_disagreement="growth",
+    from iam.pipeline.battlefield import BattlefieldAttribution, DriverContribution
+
+    bf = BattlefieldAttribution(
+        key_disagreement="GROWTH expectations",
+        key_parameter="growth",
+        base_value=176.4,
+        target_value=180.0,
+        total_gap=3.6,
+        contributions=[
+            DriverContribution("growth", 0.06, 0.101, 215.6, 39.2, 0.61),
+            DriverContribution("discount_rate", 0.082, 0.09, 151.0, -25.4, 0.39),
+        ],
     )
     breach = types.SimpleNamespace(describe=lambda: "ROIC 22% < floor 25%")
     drift = types.SimpleNamespace(
@@ -62,9 +60,21 @@ def _mock_sec():
     report = types.SimpleNamespace(
         battlefield=bf,
         drift_report=drift,
-        intrinsic=types.SimpleNamespace(fair_value_to_price=0.12),
+        intrinsic=types.SimpleNamespace(
+            fair_value_to_price=0.12,
+            components={
+                "scenarios": {
+                    "Bear Case": {"prob": 0.2, "g": 0.036},
+                    "Base Case": {"prob": 0.6, "g": 0.06},
+                    "Bull Case": {"prob": 0.2, "g": 0.078},
+                }
+            },
+        ),
         relative=types.SimpleNamespace(fair_value_to_price=-0.03),
-        market_implied_engine=types.SimpleNamespace(fair_value_to_price=0.05),
+        market_implied_engine=types.SimpleNamespace(
+            fair_value_to_price=0.05,
+            implied=types.SimpleNamespace(implied_revenue_growth=0.101),
+        ),
         final_verdict=types.SimpleNamespace(
             rating="HOLD", blended_upside=0.04, confidence_band="MODERATE"
         ),

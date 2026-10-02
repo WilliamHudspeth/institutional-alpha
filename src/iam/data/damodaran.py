@@ -196,20 +196,20 @@ class DamodaranProvider:
         """
         Returns the current 10-Year US Treasury yield.
 
-        Fetches live data from the markets data layer.
+        Uses a single cached live ^TNX quote. If no live value is available
+        (offline, rate-limited) it returns the documented baseline
+        ``CURRENT_RISK_FREE_RATE`` — never mock/random market data.
         """
         try:
-            from iam.data.markets import fetch_market_snapshot
+            from iam.data.markets import fetch_live_quote
 
-            snapshot = fetch_market_snapshot()
-            q = snapshot.get("^TNX")
-            if q and q.last is not None:
-                # rates might be provided as whole numbers (e.g. 4.2 for 4.2%)
+            q = fetch_live_quote("^TNX")
+            if q is not None and q.last is not None and q.last > 0:
+                # ^TNX is quoted in percent (4.2 means 4.2%).
                 return float(q.last) / 100.0 if q.last > 1.0 else float(q.last)
-            return cls.CURRENT_RISK_FREE_RATE
         except Exception:
-            # Fallback to hardcoded value if live fetch fails
-            return cls.CURRENT_RISK_FREE_RATE
+            pass
+        return cls.CURRENT_RISK_FREE_RATE
 
     @classmethod
     def get_macro_state(cls) -> MacroBaselines:

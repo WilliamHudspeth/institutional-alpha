@@ -198,12 +198,15 @@ if run_button:
         try:
             # 1. Initialize data & orchestrator
             from iam.data.providers.yfinance_adapter import fetch_security
+
             try:
                 security = fetch_security(ticker)
             except Exception as e:
-                st.warning(f"Failed to fetch data for {ticker}, using default generic output. ({e})")
+                st.warning(
+                    f"Failed to fetch data for {ticker}, using default generic output. ({e})"
+                )
                 security = Security(ticker=ticker)
-                
+
             if security.qualitative is None:
                 security.qualitative = {}
             security.qualitative["forecast_growth"] = growth_override / 100.0
@@ -331,49 +334,48 @@ if run_button:
                     unsafe_allow_html=True,
                 )
                 if report and report.battlefield:
+                    import html as _html
+
+                    from iam.pipeline.battlefield import PARAM_LABELS
+
                     bf = report.battlefield
+                    rows_html = "".join(
+                        f"<tr><td>{PARAM_LABELS.get(c.parameter, c.parameter)}</td>"
+                        f"<td>{c.value_intrinsic * 100:.2f}%</td>"
+                        f"<td>{c.value_market * 100:.2f}%</td>"
+                        f"<td>{c.delta_value:+.2f}</td>"
+                        f"<td>{c.share * 100:.0f}%</td></tr>"
+                        for c in bf.contributions
+                    )
+                    gap_html = (
+                        f"Market-implied value vs ours: <b>{bf.value_gap_pct * 100:+.1f}%</b>"
+                        if bf.value_gap_pct is not None
+                        else "Value gap not measurable."
+                    )
                     st.markdown(
                         f"""
                         <div class="card">
-                            <div class="metric-label">Primary Disagreement Parameter</div>
+                            <div class="metric-label">Key Disagreement</div>
                             <div style="color: #ff7b72; font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; font-weight: 700; margin-bottom: 0.8rem;">
-                                {bf.primary_disagreement.upper()}
+                                {_html.escape(bf.key_disagreement)}
                             </div>
                             <table class="table-container" style="font-size: 0.9rem;">
                                 <thead>
                                     <tr>
-                                        <th>Factor</th>
+                                        <th>Assumption</th>
+                                        <th>Ours</th>
                                         <th>Market-Implied</th>
-                                        <th>Intrinsic</th>
-                                        <th>Gap</th>
+                                        <th>Value Δ/sh</th>
+                                        <th>Share</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>Growth</td>
-                                        <td>{bf.market_growth * 100:.1f}%</td>
-                                        <td>{bf.intrinsic_growth * 100:.1f}%</td>
-                                        <td>{bf.growth_gap * 100:+.1f}%</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Margin</td>
-                                        <td>{bf.market_margin * 100:.1f}%</td>
-                                        <td>{bf.intrinsic_margin * 100:.1f}%</td>
-                                        <td>{bf.margin_gap * 100:+.1f}%</td>
-                                    </tr>
-                                    <tr>
-                                        <td>ROIC</td>
-                                        <td>{bf.market_roic * 100:.1f}%</td>
-                                        <td>{bf.intrinsic_roic * 100:.1f}%</td>
-                                        <td>{bf.roic_gap * 100:+.1f}%</td>
-                                    </tr>
-                                </tbody>
+                                <tbody>{rows_html}</tbody>
                             </table>
                             <div style="margin-top: 1rem; font-size: 0.9rem; color: #8b949e;">
-                                Mismatch Score: <b>{bf.expectation_mismatch_score:.0f}/100</b> | Alignment: <b>{bf.alignment_score:.0f}/100</b>
+                                {gap_html}
                             </div>
-                            <div style="font-style: italic; margin-top: 0.5rem; font-size: 0.9rem; color: #c9d1d9;">
-                                "{bf._interpretation()}"
+                            <div style="font-style: italic; margin-top: 0.5rem; font-size: 0.85rem; color: #8b949e;">
+                                Value Δ = change in value if only that input moved to the market's figure.
                             </div>
                         </div>
                         """,
@@ -427,19 +429,31 @@ if run_button:
             st.markdown("---")
             col_vis, col_sys = st.columns([2, 1])
             with col_vis:
-                st.markdown("<div class='terminal-header'>🧊 TI-89 3D Valuation Projection</div>", unsafe_allow_html=True)
+                st.markdown(
+                    "<div class='terminal-header'>🧊 TI-89 3D Valuation Projection</div>",
+                    unsafe_allow_html=True,
+                )
                 try:
                     from iam.ui.ti89_graph import generate_ti89_3d_wireframe
+
                     pr = report
-                    intrinsic = getattr(pr.intrinsic, 'fair_value_to_price', 0) if pr and pr.intrinsic else 0
-                    relative = getattr(pr.relative, 'fair_value_to_price', 0) if pr and pr.relative else 0
+                    intrinsic = (
+                        getattr(pr.intrinsic, "fair_value_to_price", 0)
+                        if pr and pr.intrinsic
+                        else 0
+                    )
+                    relative = (
+                        getattr(pr.relative, "fair_value_to_price", 0) if pr and pr.relative else 0
+                    )
                     expectations = 0
                     if pr and pr.market_implied_engine and pr.market_implied_engine.implied:
                         vs_max = pr.market_implied_engine.implied.growth_vs_history_max
                         if vs_max and vs_max > 0:
                             expectations = max(-0.9, min(2.0, (1.0 / vs_max) - 1.0))
-                    
-                    fig = generate_ti89_3d_wireframe(intrinsic or 0.0, relative or 0.0, expectations or 0.0, mode="gui")
+
+                    fig = generate_ti89_3d_wireframe(
+                        intrinsic or 0.0, relative or 0.0, expectations or 0.0, mode="gui"
+                    )
                     if fig:
                         st.plotly_chart(fig, use_container_width=True)
                     else:
@@ -448,33 +462,44 @@ if run_button:
                     st.error(f"Failed to generate TI-89 3D plot: {e}")
 
             with col_sys:
-                st.markdown("<div class='terminal-header'>🤖 ML & System Status</div>", unsafe_allow_html=True)
+                st.markdown(
+                    "<div class='terminal-header'>🤖 ML & System Status</div>",
+                    unsafe_allow_html=True,
+                )
                 # ML Lens
                 try:
                     from iam.ml.ml_lens import MLDiagnosticLens
+
                     lens = MLDiagnosticLens()
-                    res = lens.compute(sec)
+                    res = lens.compute(security)
                     color = "#ff7b72" if res.confidence < 1.0 else "#7ee787"
-                    st.markdown(f"""
+                    st.markdown(
+                        f"""
                         <div class="card">
                             <div class="metric-label">ML Diagnostic Lens</div>
                             <div style="color: {color}; font-weight: 600; margin-top: 0.5rem;">{res.narrative}</div>
                         </div>
-                    """, unsafe_allow_html=True)
-                except Exception as e:
+                    """,
+                        unsafe_allow_html=True,
+                    )
+                except Exception:
                     st.info("ML Diagnostics unavailable.")
-                
+
                 # Plugins
                 try:
                     from iam.plugins.manager import PluginManager
+
                     pm = PluginManager()
-                    plugins = pm.list_plugins() if hasattr(pm, 'list_plugins') else []
-                    st.markdown(f"""
+                    plugins = pm.list_plugins() if hasattr(pm, "list_plugins") else []
+                    st.markdown(
+                        f"""
                         <div class="card" style="margin-top: 1rem;">
                             <div class="metric-label">Active Plugins</div>
                             <div style="font-size: 1.2rem; font-weight: 700; color: #58a6ff;">{len(plugins)}</div>
                         </div>
-                    """, unsafe_allow_html=True)
+                    """,
+                        unsafe_allow_html=True,
+                    )
                 except Exception:
                     pass
 
@@ -486,8 +511,8 @@ if run_button:
 elif run_portfolio:
     with st.spinner("Fetching basket data and running portfolio optimization..."):
         from iam.data.providers.yfinance_adapter import fetch_security
-        from iam.portfolio.optimizer import PositionSizer, OptimizationConstraints
-        
+        from iam.portfolio.optimizer import OptimizationConstraints, PositionSizer
+
         tickers = [t.strip() for t in basket_input.split(",") if t.strip()]
         if not tickers:
             st.warning("Please enter at least one ticker.")
@@ -496,7 +521,7 @@ elif run_portfolio:
             volatilities = {}
             position_returns = {}
             valid_tickers = []
-            
+
             from datetime import datetime, timedelta
 
             from iam.data.fetcher import RedundantDataFetcher
@@ -529,12 +554,12 @@ elif run_portfolio:
                     if len(returns) >= 5:
                         import statistics
 
-                        volatilities[t] = statistics.stdev(returns) * (252 ** 0.5)
+                        volatilities[t] = statistics.stdev(returns) * (252**0.5)
                     else:
                         volatilities[t] = beta * 0.15
                 except Exception as e:
                     st.warning(f"Failed to fetch data for {t}, skipping. ({e})")
-            
+
             if valid_tickers:
                 constraints = OptimizationConstraints()
                 kelly_weights = PositionSizer.size_by_kelly(
@@ -543,42 +568,63 @@ elif run_portfolio:
                 rp_weights = PositionSizer.size_by_risk_parity(
                     valid_tickers, position_returns, constraints=constraints
                 )
-                
-                st.markdown("<div class='terminal-header'>🧪 Portfolio Optimization Results</div>", unsafe_allow_html=True)
-                
+
+                st.markdown(
+                    "<div class='terminal-header'>🧪 Portfolio Optimization Results</div>",
+                    unsafe_allow_html=True,
+                )
+
                 col1, col2 = st.columns(2)
                 with col1:
                     st.markdown(
                         "<div class='card'>"
                         "<div class='metric-label'>Kelly Criterion Sizing</div>"
                         "</div>",
-                        unsafe_allow_html=True
+                        unsafe_allow_html=True,
                     )
-                    rows = "".join([f"<tr><td><b>{t}</b></td><td>{kelly_weights.get(t, 0.0)*100:.1f}%</td></tr>" for t in valid_tickers])
-                    st.markdown(f'''
+                    rows = "".join(
+                        [
+                            f"<tr><td><b>{t}</b></td><td>{kelly_weights.get(t, 0.0) * 100:.1f}%</td></tr>"
+                            for t in valid_tickers
+                        ]
+                    )
+                    st.markdown(
+                        f"""
                     <table class="table-container">
                         <thead><tr><th>Ticker</th><th>Kelly Target Weight</th></tr></thead>
                         <tbody>{rows}</tbody>
                     </table>
-                    ''', unsafe_allow_html=True)
-                    
+                    """,
+                        unsafe_allow_html=True,
+                    )
+
                 with col2:
                     st.markdown(
                         "<div class='card'>"
                         "<div class='metric-label'>Risk Parity (Equal Risk Contribution)</div>"
                         "</div>",
-                        unsafe_allow_html=True
+                        unsafe_allow_html=True,
                     )
-                    rows = "".join([f"<tr><td><b>{t}</b></td><td>{rp_weights.get(t, 0.0)*100:.1f}%</td></tr>" for t in valid_tickers])
-                    st.markdown(f'''
+                    rows = "".join(
+                        [
+                            f"<tr><td><b>{t}</b></td><td>{rp_weights.get(t, 0.0) * 100:.1f}%</td></tr>"
+                            for t in valid_tickers
+                        ]
+                    )
+                    st.markdown(
+                        f"""
                     <table class="table-container">
                         <thead><tr><th>Ticker</th><th>Risk Parity Weight</th></tr></thead>
                         <tbody>{rows}</tbody>
                     </table>
-                    ''', unsafe_allow_html=True)
+                    """,
+                        unsafe_allow_html=True,
+                    )
 
 else:
-    st.info("👈 Enter a ticker and press 'Run Valuation Engine' in the control center to begin, or run Portfolio Lab.")
+    st.info(
+        "👈 Enter a ticker and press 'Run Valuation Engine' in the control center to begin, or run Portfolio Lab."
+    )
 
 st.markdown(
     f"<div style='margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #30363d; "
