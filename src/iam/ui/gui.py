@@ -406,22 +406,34 @@ if run_button:
                     unsafe_allow_html=True,
                 )
                 if report and report.drift_report:
+                    import html as _html
+
                     dr = report.drift_report
                     status_class = "badge-bearish" if dr.has_drift else "badge-bullish"
                     status_text = "DRIFT DETECTED" if dr.has_drift else "THESIS ALIGNED"
+                    breach_html = "".join(
+                        f"<li>{_html.escape(b.describe())}</li>" for b in dr.breaches
+                    )
                     st.markdown(
                         f"""
                         <div class="card">
                             <div style="margin-bottom: 0.8rem;">
                                 Status: <span class="badge {status_class}">{status_text}</span>
                             </div>
-                            <div style="font-size: 0.9rem; color: #8b949e;">
-                                Weighed parameters check: <b>{len(dr.drift_signals)} attributes assessed</b>.
+                            <ul style="font-size: 0.9rem;">{breach_html}</ul>
+                            <div style="font-size: 0.85rem; color: #8b949e;">
+                                Skipped (missing data): {_html.escape(", ".join(dr.skipped) or "none")}
                             </div>
                         </div>
                         """,
                         unsafe_allow_html=True,
                     )
+                    if dr.source_banner:
+                        st.warning(dr.source_banner)
+                elif report:
+                    from iam.thesis.drift import no_thesis_message
+
+                    st.info(no_thesis_message(report.ticker))
                 else:
                     st.info("Thesis drift metrics unavailable.")
 

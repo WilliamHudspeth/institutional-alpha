@@ -291,6 +291,8 @@ def main() -> None:
             f" THESIS DRIFT DETECTOR | STATUS: {'DRIFT BREACH' if report.drift_report.has_drift else 'PASS'}"
         )
         print("-" * 80)
+        if report.drift_report.source_banner:
+            print(f"  ! {report.drift_report.source_banner}")
         if report.drift_report.has_drift:
             print(f"  • Breaches Detected ({len(report.drift_report.breaches)}):")
             for breach in report.drift_report.breaches:
@@ -303,6 +305,10 @@ def main() -> None:
                 f"  • Skipped constraints (missing data): {', '.join(report.drift_report.skipped)}"
             )
         print("=" * 80)
+    else:
+        from iam.thesis.drift import no_thesis_message
+
+        print(f"\n{no_thesis_message(report.ticker)}")
 
     # ----- Business Reality reasoning (diagnostic, non-fatal) -----
     business_reality, br_error = _gather_business_reality(security)

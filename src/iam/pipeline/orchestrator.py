@@ -161,6 +161,8 @@ class PipelineReport:
 
             if self.drift_report:
                 lines.append("### Thesis Drift Detector — Registered Constraints")
+                if self.drift_report.source_banner:
+                    lines.append(f"> ⚠ {self.drift_report.source_banner}")
                 lines.append(f"> Breaches: {len(self.drift_report.breaches)}")
                 for note in self.drift_report.notes():
                     lines.append(f"> • {note}")
@@ -240,6 +242,8 @@ class PipelineReport:
 
         if self.drift_report:
             lines.append(f"THESIS DRIFT — {len(self.drift_report.breaches)} breaches detected")
+            if self.drift_report.source_banner:
+                lines.append(f"  ! {self.drift_report.source_banner}")
             for note in self.drift_report.notes():
                 lines.append(f"  • {note}")
             lines.append("")
@@ -584,16 +588,12 @@ class ValuationPipeline:
                 logger.warning(f"Failed to build valuation battlefield for {security.ticker}: {e}")
 
         # Stage 4c: Thesis Drift Detection
-        from pathlib import Path
-
-        from iam.thesis.drift import DriftDetector, load_constraints
+        from iam.thesis.drift import DriftDetector, find_constraints, load_constraints
 
         drift_report = None
-        constraints_path = Path("data/constraints") / f"{security.ticker}.yml"
-        if not constraints_path.exists():
-            constraints_path = Path("data/constraints") / f"{security.ticker}.example.yml"
-
-        if constraints_path.exists():
+        found = find_constraints(security.ticker)
+        if found is not None:
+            constraints_path, source = found
             try:
                 _, constraints = load_constraints(constraints_path)
                 detector = DriftDetector()
@@ -606,6 +606,8 @@ class ValuationPipeline:
                     business_reality=br,
                     fundamentals=security.fundamentals,
                 )
+                drift_report.source = source
+                drift_report.constraints_path = str(constraints_path)
             except Exception as e:
                 logger.warning(f"Failed to evaluate thesis drift for {security.ticker}: {e}")
 

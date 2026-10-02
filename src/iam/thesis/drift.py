@@ -172,6 +172,14 @@ class DriftReport:
     ticker: str
     breaches: list[ConstraintBreach] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)  # metric ids lacking data
+    # "user" = the owner's own <TICKER>.yml; "example" = a shipped
+    # <TICKER>.example.yml whose illustrative bounds are NOT the owner's thesis.
+    source: str = "user"
+    constraints_path: str | None = None
+
+    @property
+    def is_example(self) -> bool:
+        return self.source == "example"
 
     @property
     def has_drift(self) -> bool:
@@ -185,6 +193,9 @@ class DriftReport:
         noisy data point should not be able to do more damage than the worst
         existing hook (Damodaran-law hard breach also caps at 2).
         """
+        if self.is_example:
+            # Example bounds are illustrative; they must never move the verdict.
+            return 0
         return min(2, sum(b.severity for b in self.breaches))
 
     @property
@@ -198,6 +209,23 @@ class DriftReport:
 
     def notes(self) -> list[str]:
         return [b.describe() for b in self.breaches]
+
+    @property
+    def source_banner(self) -> str | None:
+        """Warning shown with the report when the bounds aren't the owner's."""
+        if not self.is_example:
+            return None
+        return (
+            f"EXAMPLE THRESHOLDS, not your thesis; no effect on the verdict. "
+            f"Create data/constraints/{self.ticker}.yml to register your own."
+        )
+
+
+def no_thesis_message(ticker: str) -> str:
+    return (
+        f"No thesis constraints defined for {ticker}. "
+        f"Create data/constraints/{ticker}.yml to monitor drift."
+    )
 
 
 class DriftDetector:
@@ -238,6 +266,39 @@ class DriftDetector:
 # --------------------------------------------------------------------------- #
 # YAML loader — lazy import keeps PyYAML out of the core import path.
 # --------------------------------------------------------------------------- #
+def constraints_dir() -> Path:
+    """Where per-ticker constraint files live, independent of the CWD.
+
+    ``IAM_CONSTRAINTS_DIR`` wins; otherwise the repo's ``data/constraints``
+    next to the package; otherwise ``./data/constraints`` as a last resort.
+    """
+    import os
+
+    env = os.environ.get("IAM_CONSTRAINTS_DIR")
+    if env:
+        return Path(env)
+    repo = Path(__file__).resolve().parents[3] / "data" / "constraints"
+    if repo.is_dir():
+        return repo
+    return Path("data") / "constraints"
+
+
+def find_constraints(ticker: str) -> tuple[Path, str] | None:
+    """Return (path, source) for a ticker's constraint file, or None.
+
+    The owner's ``<TICKER>.yml`` is preferred; a shipped
+    ``<TICKER>.example.yml`` is used only as a clearly labelled fallback.
+    """
+    base = constraints_dir()
+    user = base / f"{ticker}.yml"
+    if user.exists():
+        return user, "user"
+    example = base / f"{ticker}.example.yml"
+    if example.exists():
+        return example, "example"
+    return None
+
+
 def load_constraints(path: str | Path) -> tuple[str, list[ThesisConstraint]]:
     """Load a per-ticker constraint file. Returns (ticker, constraints).
 

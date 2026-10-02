@@ -336,7 +336,10 @@ class ThesisDriftPanel:
         rpt = _report(sec)
         dr = getattr(rpt, "drift_report", None) if rpt else None
         if dr is None:
-            _need_data(cv, r0, c0, "No thesis registered for this security (define YAML bounds).")
+            ticker = getattr(rpt, "ticker", None) or getattr(sec, "ticker", None) or "this security"
+            from iam.thesis.drift import no_thesis_message
+
+            _need_data(cv, r0, c0, no_thesis_message(str(ticker))[: c1 - c0 - 3])
             return
 
         has_drift = bool(getattr(dr, "has_drift", False))
@@ -344,6 +347,14 @@ class ThesisDriftPanel:
         scol = w.C_RED() if has_drift else w.C_GREEN()
         cv.put(r0, c0 + 1, "STATUS: ", w.C_DIM())
         cv.put(r0, c0 + 9, status, scol + w.BOLD)
+        banner = getattr(dr, "source_banner", None)
+        if isinstance(banner, str) and banner:
+            cv.put(
+                r0,
+                c0 + 32,
+                "EXAMPLE THRESHOLDS — not your thesis"[: max(0, c1 - c0 - 33)],
+                w.C_YELLOW() + w.BOLD,
+            )
         cv.hline(r0 + 1, c0, c1, style=w.C_DIM())
 
         breaches = list(getattr(dr, "breaches", []) or [])
@@ -360,7 +371,10 @@ class ThesisDriftPanel:
                     desc = str(b)
                 cv.put(r, c0 + 3, f"• {desc[: (c1 - c0 - 6)]}", w.C_YELLOW())
             degrade = getattr(dr, "degrade_levels", 0)
-            cv.put(r1 - 3, c0 + 1, f"Confidence degradation: -{degrade} level(s)", w.C_RED())
+            if isinstance(banner, str) and banner:
+                cv.put(r1 - 3, c0 + 1, "Example bounds: no effect on the verdict.", w.C_DIM())
+            else:
+                cv.put(r1 - 3, c0 + 1, f"Confidence degradation: -{degrade} level(s)", w.C_RED())
         else:
             cv.put(r0 + 2, c0 + 2, "All registered constraints satisfied.", w.C_GREEN())
 
