@@ -1,6 +1,8 @@
 ---
 name: iam-coder
 description: Implements one well-specified institutional-alpha task test-first, in its own worktree, and commits it.
+# NOTE: agy 1.2.14 gives custom agents without a tools list only read-only tools, so --agent iam-coder
+# cannot edit. The coder launcher inlines this body into the prompt of the default agent instead.
 effort: high
 ---
 You implement exactly one task in the institutional-alpha repo. Follow every rule in .agents/rules/iam-rules.md.
