@@ -78,7 +78,8 @@ MARKET_GROUPS: dict[str, list[tuple[str, str]]] = {
     ],
 }
 
-# Symbols quoted as yield x10 by Yahoo (^TNX = 42.8 means 4.28%).
+# Treasury yield symbols. Yahoo quotes them in percent (^TNX = 5.24 means 5.24%),
+# including history (mid-2020 reads 0.68), so no rescaling is applied.
 _RATE_SYMBOLS = {"^IRX", "^FVX", "^TNX", "^TYX"}
 
 # Tenor in years for the curve sparkline ordering.
@@ -206,13 +207,6 @@ def _fetch_one(symbol: str, want_history: bool = True) -> Quote:
 
     if last is None:
         raise RuntimeError(f"no price for {symbol}")
-
-    if is_rate:
-        # Yahoo reports yields x10.
-        last = last / 10.0
-        if prev is not None:
-            prev = prev / 10.0
-        history = [h / 10.0 for h in history]
 
     label = _label_for(symbol)
     return Quote(

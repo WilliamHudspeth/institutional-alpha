@@ -46,13 +46,13 @@ def build_value_grid(report, price: float | None = None, steps: int = 9) -> Valu
     comps = getattr(intrinsic, "components", None) or {}
     a = getattr(intrinsic, "assumptions", None) or {}
     base_ni = comps.get("base_ni_per_share")
-    need = ("high_growth", "discount_rate", "terminal_growth", "roe")
+    need = ("high_growth", "high_growth_years", "discount_rate", "terminal_growth", "roe")
     if not base_ni or any(a.get(k) is None for k in need):
         return None
 
     g0, r0 = float(a["high_growth"]), float(a["discount_rate"])
     gt, roe = float(a["terminal_growth"]), float(a["roe"])
-    n = int(a.get("high_growth_years", 10))
+    n = int(a["high_growth_years"])
 
     if price is None:
         fv = getattr(intrinsic, "fair_value_per_share", None)

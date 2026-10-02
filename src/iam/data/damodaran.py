@@ -109,6 +109,9 @@ class DamodaranProvider:
     # Risk-Free Rate (10-Year US Treasury)
     # This should be updated monthly from FRED API or Treasury website
     CURRENT_RISK_FREE_RATE = 0.0425  # 4.25%
+    # Highest 10-year Treasury yield on record is ~15.8% (Sep 1981). A quote above
+    # 20% is a scale error (e.g. the old x10 convention, 42.5), not a real yield.
+    MAX_PLAUSIBLE_YIELD_PCT = 20.0
 
     # Unlevered Industry Betas (Damodaran Jan 2026)
     # This is the pure business risk of each industry, stripped of debt effects
@@ -204,15 +207,14 @@ class DamodaranProvider:
             from iam.data.markets import fetch_live_quote
 
             q = fetch_live_quote("^TNX")
-            if q is not None and q.last is not None and q.last > 0:
-                # ^TNX has been quoted as 42.5, 4.25 and (after the market
-                # layer's own /10) 0.425 for a 4.25% yield. Scale down by 10
-                # until it is a plausible decimal yield.
-                v = float(q.last)
-                while v > 0.25:
-                    v /= 10.0
-                if 0.001 <= v <= 0.25:
-                    return v
+            if q is not None and q.last is not None:
+                # The market layer passes Yahoo's ^TNX through in percent
+                # (5.24 means 5.24%). Guessing the scale from the magnitude
+                # misread every yield under 2.5% as 10x too high, so convert
+                # once and reject anything outside the historical range.
+                pct = float(q.last)
+                if 0.0 < pct <= cls.MAX_PLAUSIBLE_YIELD_PCT:
+                    return pct / 100.0
         except Exception:
             pass
         return cls.CURRENT_RISK_FREE_RATE

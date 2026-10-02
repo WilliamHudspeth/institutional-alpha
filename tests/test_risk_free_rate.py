@@ -42,10 +42,35 @@ def test_live_quotes_are_cached():
     assert fetch.call_count == 1
 
 
-@pytest.mark.parametrize("quoted", [43.1, 4.31, 0.431, 0.0431])
-def test_rate_handles_every_tnx_scale(quoted):
-    with patch.object(markets, "fetch_live_quote", return_value=markets.Quote("^TNX", last=quoted)):
-        assert DamodaranProvider.get_risk_free_rate() == pytest.approx(0.0431)
+@pytest.mark.parametrize(
+    ("pct", "expected"),
+    # Low yields matter: 0.68% (mid-2020) and 2.0% used to come back 10x too high.
+    [(5.24, 0.0524), (4.31, 0.0431), (2.0, 0.02), (0.68, 0.0068), (15.8, 0.158)],
+)
+def test_rate_reads_tnx_quote_as_percent(pct, expected):
+    with patch.object(markets, "fetch_live_quote", return_value=markets.Quote("^TNX", last=pct)):
+        assert DamodaranProvider.get_risk_free_rate() == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("pct", [0.0, -0.1, 42.5])
+def test_implausible_tnx_quote_falls_back_to_baseline(pct):
+    with patch.object(markets, "fetch_live_quote", return_value=markets.Quote("^TNX", last=pct)):
+        assert DamodaranProvider.get_risk_free_rate() == DamodaranProvider.CURRENT_RISK_FREE_RATE
+
+
+class _FakeTicker:
+    """Yahoo quotes ^TNX in percent: 5.24 means 5.24% (checked live, Oct 2026)."""
+
+    def __init__(self, _symbol):
+        self.fast_info = type("FI", (), {"last_price": 5.24, "previous_close": 5.20})()
+
+
+def test_market_layer_keeps_yahoo_rate_quotes_in_percent():
+    with patch.object(markets, "_HAS_YF", True), patch.object(markets, "yf", create=True) as yf:
+        yf.Ticker = _FakeTicker
+        q = markets._fetch_one("^TNX", want_history=False)
+    assert q.last == pytest.approx(5.24)
+    assert q.change_bps == pytest.approx(4.0)
 
 
 def test_rate_falls_back_to_documented_baseline():
