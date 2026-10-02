@@ -154,6 +154,9 @@ def _deserialize_security(data: dict[str, Any]) -> Security:
     )
 
 
+US_FEDERAL_TAX_RATE = 0.21
+
+
 class YFinanceAdapter:
     """Fetches data from Yahoo Finance, caches locally, and normalizes inputs."""
 
@@ -303,6 +306,19 @@ class YFinanceAdapter:
         if f.fcf_ttm is not None and m.market_cap is not None and m.market_cap > 0:
             m.fcf_yield = f.fcf_ttm / m.market_cap
 
+        qualitative: dict[str, Any] = {
+            "payout": self._get_numeric(info, "payoutRatio"),
+            "roe": self._get_numeric(info, "returnOnEquity"),
+            "roic": self._get_numeric(info, "returnOnAssets"),
+        }
+
+        tax_rate = self._get_numeric(info, "effectiveTaxRate")
+        if tax_rate is None:
+            qualitative["tax_rate"] = US_FEDERAL_TAX_RATE
+            qualitative["defaulted_inputs"] = ["tax_rate"]
+        else:
+            qualitative["tax_rate"] = tax_rate
+
         security = Security(
             ticker=ticker.upper(),
             name=info.get("longName") or info.get("shortName") or ticker.upper(),
@@ -310,7 +326,7 @@ class YFinanceAdapter:
             industry=info.get("industryDisp") or info.get("industry"),
             fundamentals=f,
             market=m,
-            qualitative={},
+            qualitative=qualitative,
         )
 
         # Cache the result
@@ -339,10 +355,10 @@ class YFinanceAdapter:
             beta = security.market.beta or 1.0
             oper_margin = security.fundamentals.operating_margin or 0.15
             # Fallbacks for regression
-            payout = 0.0
-            roe = 0.12
-            roic = 0.10
-            tax_rate = 0.21
+            payout = security.qualitative.get("payout") or 0.0
+            roe = security.qualitative.get("roe")
+            roic = security.qualitative.get("roic")
+            tax_rate = security.qualitative.get("tax_rate")
         except Exception:
             # Fallback if fetch fails
             yt = yf.Ticker(ticker)
@@ -353,9 +369,11 @@ class YFinanceAdapter:
             beta = self._get_numeric(info, "beta") or 1.0
             oper_margin = self._get_numeric(info, "operatingMargins") or 0.15
             payout = self._get_numeric(info, "payoutRatio") or 0.0
-            roe = self._get_numeric(info, "returnOnEquity") or 0.12
-            roic = self._get_numeric(info, "returnOnAssets") or 0.10
-            tax_rate = self._get_numeric(info, "effectiveTaxRate") or 0.21
+            roe = self._get_numeric(info, "returnOnEquity")
+            roic = self._get_numeric(info, "returnOnAssets")
+            tax_rate = self._get_numeric(info, "effectiveTaxRate")
+            if tax_rate is None:
+                tax_rate = US_FEDERAL_TAX_RATE
 
         dfr = total_debt / (total_debt + market_cap)
 
@@ -369,12 +387,12 @@ class YFinanceAdapter:
             beta=float(beta),
             g_eps=float(g_eps),
             payout=float(payout),
-            roe=float(roe),
+            roe=float(roe) if roe is not None else None,
             g=float(g),
-            roic=float(roic),
+            roic=float(roic) if roic is not None else None,
             dfr=float(dfr),
             oper_margin=float(oper_margin),
-            tax_rate=float(tax_rate),
+            tax_rate=float(tax_rate) if tax_rate is not None else US_FEDERAL_TAX_RATE,
         )
 
     def _get_numeric(self, info: dict, *keys: str) -> float | None:

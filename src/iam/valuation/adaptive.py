@@ -27,8 +27,8 @@ class CompanyProfile:
     adjacent_growth: float  # adjacent sector growth (for diversification)
     op_margin: float  # current operating margin
     sector_margin: float  # sector median margin
-    roe: float = 0.0  # return on equity
-    roic: float = 0.0  # return on invested capital
+    roe: float | None = None  # return on equity
+    roic: float | None = None  # return on invested capital
     mid_cycle_margin: float = 0.0  # mid-cycle operating margin (for cyclicals)
 
 

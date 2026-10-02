@@ -325,7 +325,9 @@ def build_distributions(
     """
     mkt_g = profile.implied_growth
     mkt_m = profile.op_margin
-    mkt_r = profile.roic
+
+    DEFAULT_MISSING_ROIC = 0.10
+    mkt_r = profile.roic if profile.roic is not None else DEFAULT_MISSING_ROIC
 
     market_dist = ScenarioDistribution(
         [
@@ -337,7 +339,7 @@ def build_distributions(
 
     int_g = triangulation.blended_growth
     int_m = profile.op_margin
-    int_r = profile.roic
+    int_r = profile.roic if profile.roic is not None else DEFAULT_MISSING_ROIC
     spread = profile.hist_volatility
 
     intrinsic_dist = ScenarioDistribution(

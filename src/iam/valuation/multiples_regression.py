@@ -83,25 +83,28 @@ class RegressionInputs:
     beta: float = 1.0
     g_eps: float = 0.10  # expected EPS growth rate
     payout: float = 0.0  # dividend payout ratio
-    roe: float = 0.15  # return on equity
+    roe: float | None = None  # return on equity
     g: float = 0.10  # revenue / FCFE growth
-    roic: float = 0.12  # return on invested capital
+    roic: float | None = None  # return on invested capital
     dfr: float = 0.20  # debt / (debt + market cap)
     oper_margin: float = 0.15  # operating margin
     tax_rate: float = 0.21  # effective tax rate
 
     def to_dict(self) -> dict[str, float]:
-        return {
+        d = {
             "Beta": self.beta,
             "gEPS": self.g_eps,
             "Payout": self.payout,
-            "ROE": self.roe,
             "g": self.g,
-            "ROIC": self.roic,
             "DFR": self.dfr,
             "OperMargin": self.oper_margin,
             "TaxRate": self.tax_rate,
         }
+        if self.roe is not None:
+            d["ROE"] = self.roe
+        if self.roic is not None:
+            d["ROIC"] = self.roic
+        return d
 
 
 def predict_multiple(region: Region, multiple: Multiple, inputs: dict[str, float]) -> float:
