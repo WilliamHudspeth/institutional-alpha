@@ -313,7 +313,7 @@ class ExpectationsBattlefieldEngine:
 
 def build_distributions(
     profile, triangulation
-) -> tuple[ScenarioDistribution, ScenarioDistribution]:
+) -> tuple[ScenarioDistribution, ScenarioDistribution] | None:
     """Helper to generate intrinsic and market scenario distributions.
 
     Args:
@@ -321,8 +321,11 @@ def build_distributions(
         triangulation: TriangulatedGrowth
 
     Returns:
-        (intrinsic_dist, market_dist)
+        (intrinsic_dist, market_dist) or None if required inputs (such as ROIC) are missing.
     """
+    if profile.roic is None:
+        return None
+
     mkt_g = profile.implied_growth
     mkt_m = profile.op_margin
     mkt_r = profile.roic
