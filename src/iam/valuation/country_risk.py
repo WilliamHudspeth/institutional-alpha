@@ -234,9 +234,6 @@ NAMED_AGGREGATES: dict[str, dict[str, tuple[str, ...]]] = {
     "asia": {"regions": ("Asia",)},
 }
 
-# Largest shortfall of a revenue mix below 100% still treated as share rounding.
-REVENUE_MIX_ROUNDING_TOLERANCE = 0.02
-
 BASES = ("average", "rating", "cds")  # how a country's ERP is formed from rating and CDS ERPs
 
 
@@ -514,16 +511,6 @@ def blended_erp(
     scale = 100.0 if total_raw > 1.5 else 1.0
     positive = {k: v / scale for k, v in positive.items()}
     total_raw = sum(positive.values())
-    # Published shares are rounded, so a mix can sum to a little under 100% (the owner's
-    # BLK mix sums to 99%). That rounding residual is left unallocated, as in the owner's
-    # SUMPRODUCT: the blend is NOT scaled up to 100%. Any larger shortfall, and keys that do
-    # not resolve, are renormalised over the resolved part as before.
-    residual = 1.0 - total_raw if 1.0 - REVENUE_MIX_ROUNDING_TOLERANCE <= total_raw < 1.0 else 0.0
-    if residual > 0:
-        notes.append(
-            f"revenue mix sums to {total_raw:.1%}: rounding residual {residual:.1%} left "
-            "unallocated (not scaled up), as in the owner's report"
-        )
     agg: dict[str, float] = {}
     erps: dict[str, float] = {}
     unresolved: list[str] = []
@@ -562,8 +549,6 @@ def blended_erp(
         weights = {n: lam.get(n, 0.0) for n in agg}
         notes.append("Using explicit lambda exposures as blend weights, not raw revenue share.")
     total_w = sum(weights.values())
-    if not lambdas:
-        total_w += residual
     if total_w <= 0:
         notes.append("No resolvable revenue weight; no geographic blend.")
         return BlendedERP(

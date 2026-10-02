@@ -2,7 +2,30 @@
  "source": "Damodaran, Country Default Spreads and Risk Premiums (ctrypremApr26.xlsx), https://pages.stern.nyu.edu/~adamodar/pc/datasets/ctrypremApr26.xlsx",
  "as_of": "2026-04-01 (sovereign ratings updated 2026-02-16)",
  "downloaded": "2026-10-02",
- "method": "Country ERP = mature market ERP + country risk premium. erp_rating uses the rating-based default spread x relative equity volatility; erp_cds uses the sovereign CDS net of the Swiss CDS x relative equity volatility (null where Damodaran has no CDS). Regional values are Damodaran's GDP-weighted (2024 GDP) rating-based averages; CDS regional averages must be computed from the countries.",
+ "method": "Country ERP = mature market ERP + country risk premium. erp_rating uses the rating-based default spread x relative equity volatility; erp_cds uses the sovereign CDS net of the Swiss CDS x relative equity volatility (null where Damodaran has no CDS). gdp_musd_2024 is from the 'Country GDP' sheet (World Bank 2024). Regional values are Damodaran's GDP-weighted rating-based averages. Unrated frontier markets (PRS-based block) are excluded.",
+ "excluded_unrated_prs_block": [
+  "Algeria",
+  "Brunei",
+  "Gambia",
+  "Guinea",
+  "Guinea-Bissau",
+  "Guyana",
+  "Haiti",
+  "Iran",
+  "Korea, D.P.R.",
+  "Liberia",
+  "Libya",
+  "Madagascar",
+  "Malawi",
+  "Myanmar",
+  "Russia",
+  "Sierra Leone",
+  "Somalia",
+  "Sudan",
+  "Syria",
+  "Yemen, Republic",
+  "Zimbabwe"
+ ],
  "mature_market_erp": 0.0477,
  "us_erp": 0.0503,
  "us_erp_cds": 0.053838,
@@ -341,7 +364,7 @@
    "crp_rating": 0.010297,
    "erp_cds": 0.056906,
    "crp_cds": 0.009206,
-   "gdp_musd_2024": 0
+   "gdp_musd_2024": 18743803
   },
   "Colombia": {
    "region": "Central and South America",
@@ -638,7 +661,7 @@
    "crp_rating": 0.032091,
    "erp_cds": 0.060742,
    "crp_cds": 0.013042,
-   "gdp_musd_2024": 0
+   "gdp_musd_2024": 3909892
   },
   "Indonesia": {
    "region": "Asia",
@@ -710,7 +733,7 @@
    "crp_rating": 0.010297,
    "erp_cds": 0.052917,
    "crp_cds": 0.005217,
-   "gdp_musd_2024": 0
+   "gdp_musd_2024": 4027598
   },
   "Jersey (States of)": {
    "region": "Western Europe",
@@ -1467,195 +1490,6 @@
    "erp_cds": 0.123805,
    "crp_cds": 0.076105,
    "gdp_musd_2024": 25303
-  },
-  "Algeria": {
-   "region": 67,
-   "moodys": 0.1134273794076581,
-   "erp_rating": 0.042836,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Brunei": {
-   "region": 80.75,
-   "moodys": 0.056452209790575886,
-   "erp_rating": 0.005704,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Gambia": {
-   "region": 65.5,
-   "moodys": 0.12801439572528456,
-   "erp_rating": 0.052343,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Guinea": {
-   "region": 59.5,
-   "moodys": 0.17915475881531617,
-   "erp_rating": 0.085673,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Guinea-Bissau": {
-   "region": 60.75,
-   "moodys": 0.1571884283605375,
-   "erp_rating": 0.071357,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Guyana": {
-   "region": 75.5,
-   "moodys": 0.07103922610820235,
-   "erp_rating": 0.015211,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Haiti": {
-   "region": 56.75,
-   "moodys": 0.19374177513294266,
-   "erp_rating": 0.09518,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Iran": {
-   "region": 61.25,
-   "moodys": 0.1571884283605375,
-   "erp_rating": 0.071357,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Korea, D.P.R.": {
-   "region": 51,
-   "moodys": 0.22291580776819558,
-   "erp_rating": 0.114193,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Liberia": {
-   "region": 57.75,
-   "moodys": 0.17915475881531617,
-   "erp_rating": 0.085673,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Libya": {
-   "region": 71.5,
-   "moodys": 0.09163266090955738,
-   "erp_rating": 0.028632,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Madagascar": {
-   "region": 62.5,
-   "moodys": 0.14260141204291102,
-   "erp_rating": 0.06185,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Malawi": {
-   "region": 56,
-   "moodys": 0.19374177513294266,
-   "erp_rating": 0.09518,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Myanmar": {
-   "region": 54.75,
-   "moodys": 0.22291580776819558,
-   "erp_rating": 0.114193,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Russia": {
-   "region": 70.25,
-   "moodys": 0.09163266090955738,
-   "erp_rating": 0.028632,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Sierra Leone": {
-   "region": 62.75,
-   "moodys": 0.14260141204291102,
-   "erp_rating": 0.06185,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Somalia": {
-   "region": 55.5,
-   "moodys": 0.19374177513294266,
-   "erp_rating": 0.09518,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Sudan": {
-   "region": 47.75,
-   "moodys": 0.3162165718025344,
-   "erp_rating": 0.175,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Syria": {
-   "region": 51.5,
-   "moodys": 0.22291580776819558,
-   "erp_rating": 0.114193,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Yemen, Republic": {
-   "region": 51.75,
-   "moodys": 0.22291580776819558,
-   "erp_rating": 0.114193,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
-  },
-  "Zimbabwe": {
-   "region": 58.5,
-   "moodys": 0.17915475881531617,
-   "erp_rating": 0.085673,
-   "crp_rating": null,
-   "erp_cds": null,
-   "crp_cds": null,
-   "gdp_musd_2024": null
   }
  }
 }
