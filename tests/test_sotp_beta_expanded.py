@@ -1,4 +1,3 @@
-
 import pytest
 
 from iam.data.security import Security

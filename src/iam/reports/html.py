@@ -88,7 +88,7 @@ def _justified_premium_section(jp) -> str:
 </div>"""
 
 
-def render_html_report(report: "PipelineReport") -> str:
+def render_html_report(report: PipelineReport) -> str:
     """Render a self-contained HTML research report for one PipelineReport."""
     verdict = report.final_verdict
     rating = verdict.rating if verdict else "N/A"

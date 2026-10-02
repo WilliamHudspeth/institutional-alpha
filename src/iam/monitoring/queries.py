@@ -6,13 +6,12 @@ with time-windowed aggregations, decay detection, sector slicing,
 and forecast error statistics.
 """
 
+import json
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
 
-import json
-from datetime import datetime
 from iam.audit import AuditLogger
 from iam.monitoring.models import (
     AssumptionForecastAggregate,
@@ -33,43 +32,87 @@ from iam.monitoring.models import (
 )
 
 _FACTOR_ALPHA_CORE_FIELDS = {
-    "factor", "ticker", "sector", "as_of", "factor_score",
-    "forward_return_1d", "forward_return_5d", "forward_return_21d", "forward_return_63d",
-    "benchmark_return_1d", "benchmark_return_5d", "benchmark_return_21d", "benchmark_return_63d",
+    "factor",
+    "ticker",
+    "sector",
+    "as_of",
+    "factor_score",
+    "forward_return_1d",
+    "forward_return_5d",
+    "forward_return_21d",
+    "forward_return_63d",
+    "benchmark_return_1d",
+    "benchmark_return_5d",
+    "benchmark_return_21d",
+    "benchmark_return_63d",
 }
 _VALUATION_ACCURACY_CORE_FIELDS = {
-    "ticker", "sector", "valuation_date", "realized_date", "fair_value", "realized_price",
-    "absolute_error", "relative_error", "within_confidence_band", "within_monte_carlo_range",
-    "realized_percentile", "confidence_band_low", "confidence_band_high", "monte_carlo_percentiles",
+    "ticker",
+    "sector",
+    "valuation_date",
+    "realized_date",
+    "fair_value",
+    "realized_price",
+    "absolute_error",
+    "relative_error",
+    "within_confidence_band",
+    "within_monte_carlo_range",
+    "realized_percentile",
+    "confidence_band_low",
+    "confidence_band_high",
+    "monte_carlo_percentiles",
 }
 _SECTOR_PERFORMANCE_CORE_FIELDS = {
-    "sector", "as_of", "period_start", "period_end",
-    "factor_quality_ic", "factor_value_ic", "factor_momentum_ic", "factor_size_ic",
-    "factor_volatility_ic", "mean_absolute_error", "mean_relative_error", "median_relative_error",
-    "hit_rate_confidence_band", "hit_rate_monte_carlo", "n_factor_observations", "n_valuation_observations",
+    "sector",
+    "as_of",
+    "period_start",
+    "period_end",
+    "factor_quality_ic",
+    "factor_value_ic",
+    "factor_momentum_ic",
+    "factor_size_ic",
+    "factor_volatility_ic",
+    "mean_absolute_error",
+    "mean_relative_error",
+    "median_relative_error",
+    "hit_rate_confidence_band",
+    "hit_rate_monte_carlo",
+    "n_factor_observations",
+    "n_valuation_observations",
 }
 _ASSUMPTION_FORECAST_CORE_FIELDS = {
-    "ticker", "sector", "assumption_type", "valuation_date", "realized_date",
-    "forecast_value", "realized_value", "absolute_error", "relative_error",
-    "directional_accuracy", "forecast_horizon_days",
+    "ticker",
+    "sector",
+    "assumption_type",
+    "valuation_date",
+    "realized_date",
+    "forecast_value",
+    "realized_value",
+    "absolute_error",
+    "relative_error",
+    "directional_accuracy",
+    "forecast_horizon_days",
 }
-
 
 
 def _query_audit(audit_logger, event_type, start_time, end_time, **filters):
     if not audit_logger.log_path.exists():
         return []
     results = []
-    with open(audit_logger.log_path, 'r') as f:
+    with open(audit_logger.log_path) as f:
         for line in f:
-            if not line.strip(): continue
+            if not line.strip():
+                continue
             record = json.loads(line)
-            if record.get("change_type") != event_type: continue
-            
+            if record.get("change_type") != event_type:
+                continue
+
             ts = datetime.fromisoformat(record["timestamp"])
-            if start_time and ts < start_time: continue
-            if end_time and ts > end_time: continue
-            
+            if start_time and ts < start_time:
+                continue
+            if end_time and ts > end_time:
+                continue
+
             details = record.get("details", {})
             match = True
             for k, v in filters.items():
@@ -82,7 +125,11 @@ def _query_audit(audit_logger, event_type, start_time, end_time, **filters):
 
 
 def _extra_metadata(event: dict, core_fields: set[str]) -> dict:
-    return {k: v for k, v in event.items() if k not in core_fields and k not in {"id", "ts", "event", "user"}}
+    return {
+        k: v
+        for k, v in event.items()
+        if k not in core_fields and k not in {"id", "ts", "event", "user"}
+    }
 
 
 def _safe_mean(vals: list) -> float | None:
@@ -106,7 +153,9 @@ class FactorAlphaQuery:
     def __init__(self, audit_log: AuditLogger | None = None):
         self._audit_log = audit_log or AuditLogger()
 
-    def _load_records(self, filter_: FactorAlphaQueryFilter | None = None) -> list[FactorAlphaRecord]:
+    def _load_records(
+        self, filter_: FactorAlphaQueryFilter | None = None
+    ) -> list[FactorAlphaRecord]:
         """Load factor alpha records from audit log."""
         events = _query_audit(
             self._audit_log,
@@ -119,22 +168,24 @@ class FactorAlphaQuery:
         )
         records = []
         for event in events:
-            records.append(FactorAlphaRecord(
-                factor=FactorType(event["factor"]),
-                security_id=event["ticker"],
-                sector=SectorType(event["sector"]),
-                as_of=datetime.fromisoformat(event["as_of"]),
-                factor_score=event["factor_score"],
-                forward_return_1d=event.get("forward_return_1d"),
-                forward_return_5d=event.get("forward_return_5d"),
-                forward_return_21d=event.get("forward_return_21d"),
-                forward_return_63d=event.get("forward_return_63d"),
-                benchmark_return_1d=event.get("benchmark_return_1d"),
-                benchmark_return_5d=event.get("benchmark_return_5d"),
-                benchmark_return_21d=event.get("benchmark_return_21d"),
-                benchmark_return_63d=event.get("benchmark_return_63d"),
-                metadata=_extra_metadata(event, _FACTOR_ALPHA_CORE_FIELDS),
-            ))
+            records.append(
+                FactorAlphaRecord(
+                    factor=FactorType(event["factor"]),
+                    security_id=event["ticker"],
+                    sector=SectorType(event["sector"]),
+                    as_of=datetime.fromisoformat(event["as_of"]),
+                    factor_score=event["factor_score"],
+                    forward_return_1d=event.get("forward_return_1d"),
+                    forward_return_5d=event.get("forward_return_5d"),
+                    forward_return_21d=event.get("forward_return_21d"),
+                    forward_return_63d=event.get("forward_return_63d"),
+                    benchmark_return_1d=event.get("benchmark_return_1d"),
+                    benchmark_return_5d=event.get("benchmark_return_5d"),
+                    benchmark_return_21d=event.get("benchmark_return_21d"),
+                    benchmark_return_63d=event.get("benchmark_return_63d"),
+                    metadata=_extra_metadata(event, _FACTOR_ALPHA_CORE_FIELDS),
+                )
+            )
         return records
 
     def compute_ic(
@@ -154,7 +205,11 @@ class FactorAlphaQuery:
         factor_scores = [r.factor_score for r in records]
         forward_returns = [getattr(r, forward_col) for r in records]
 
-        valid_pairs = [(f, ret) for f, ret in zip(factor_scores, forward_returns, strict=False) if ret is not None]
+        valid_pairs = [
+            (f, ret)
+            for f, ret in zip(factor_scores, forward_returns, strict=False)
+            if ret is not None
+        ]
         if len(valid_pairs) < 2:
             return None
 
@@ -163,10 +218,12 @@ class FactorAlphaQuery:
             # Correlation is undefined with zero variance on either side;
             # np.corrcoef would silently return NaN.
             return None
-        return float(np.corrcoef(
-            pd.Series(factor_vals).rank(),
-            pd.Series(return_vals).rank(),
-        )[0, 1])
+        return float(
+            np.corrcoef(
+                pd.Series(factor_vals).rank(),
+                pd.Series(return_vals).rank(),
+            )[0, 1]
+        )
 
     def compute_ics_by_sector(
         self,
@@ -208,11 +265,17 @@ class FactorAlphaQuery:
         if len(records) < 10:
             return []
 
-        df = pd.DataFrame([{
-            "as_of": r.as_of,
-            "factor_score": r.factor_score,
-            "forward_return": getattr(r, f"forward_return_{horizon}"),
-        } for r in records if getattr(r, f"forward_return_{horizon}") is not None])
+        df = pd.DataFrame(
+            [
+                {
+                    "as_of": r.as_of,
+                    "factor_score": r.factor_score,
+                    "forward_return": getattr(r, f"forward_return_{horizon}"),
+                }
+                for r in records
+                if getattr(r, f"forward_return_{horizon}") is not None
+            ]
+        )
 
         if df.empty:
             return []
@@ -227,11 +290,17 @@ class FactorAlphaQuery:
                 end_time,
             )
             window_df = df[(df["as_of"] >= current_start) & (df["as_of"] < current_end)]
-            if len(window_df) >= 2 and window_df["factor_score"].nunique() > 1 and window_df["forward_return"].nunique() > 1:
-                ic = float(np.corrcoef(
-                    window_df["factor_score"].rank(),
-                    window_df["forward_return"].rank(),
-                )[0, 1])
+            if (
+                len(window_df) >= 2
+                and window_df["factor_score"].nunique() > 1
+                and window_df["forward_return"].nunique() > 1
+            ):
+                ic = float(
+                    np.corrcoef(
+                        window_df["factor_score"].rank(),
+                        window_df["forward_return"].rank(),
+                    )[0, 1]
+                )
             else:
                 ic = None
             results.append((current_start, current_end, ic))
@@ -298,23 +367,27 @@ class ValuationAccuracyQuery:
         )
         records = []
         for event in events:
-            records.append(ValuationAccuracyRecord(
-                security_id=event["ticker"],
-                sector=SectorType(event["sector"]),
-                valuation_date=datetime.fromisoformat(event["valuation_date"]),
-                realized_date=datetime.fromisoformat(event["realized_date"]),
-                fair_value=event["fair_value"],
-                realized_price=event["realized_price"],
-                confidence_band_low=event.get("confidence_band_low"),
-                confidence_band_high=event.get("confidence_band_high"),
-                monte_carlo_percentiles={
-                    int(k): v for k, v in (event.get("monte_carlo_percentiles") or {}).items()
-                },
-                metadata=_extra_metadata(event, _VALUATION_ACCURACY_CORE_FIELDS),
-            ))
+            records.append(
+                ValuationAccuracyRecord(
+                    security_id=event["ticker"],
+                    sector=SectorType(event["sector"]),
+                    valuation_date=datetime.fromisoformat(event["valuation_date"]),
+                    realized_date=datetime.fromisoformat(event["realized_date"]),
+                    fair_value=event["fair_value"],
+                    realized_price=event["realized_price"],
+                    confidence_band_low=event.get("confidence_band_low"),
+                    confidence_band_high=event.get("confidence_band_high"),
+                    monte_carlo_percentiles={
+                        int(k): v for k, v in (event.get("monte_carlo_percentiles") or {}).items()
+                    },
+                    metadata=_extra_metadata(event, _VALUATION_ACCURACY_CORE_FIELDS),
+                )
+            )
         return records
 
-    def list(self, filter_: ValuationAccuracyQueryFilter | None = None) -> list[ValuationAccuracyRecord]:
+    def list(
+        self, filter_: ValuationAccuracyQueryFilter | None = None
+    ) -> list[ValuationAccuracyRecord]:
         return self._load_records(filter_)
 
     def aggregate(
@@ -327,8 +400,12 @@ class ValuationAccuracyQuery:
                 n_observations=0,
             )
 
-        band_hits = [r.within_confidence_band for r in records if r.within_confidence_band is not None]
-        mc_hits = [r.within_monte_carlo_range for r in records if r.within_monte_carlo_range is not None]
+        band_hits = [
+            r.within_confidence_band for r in records if r.within_confidence_band is not None
+        ]
+        mc_hits = [
+            r.within_monte_carlo_range for r in records if r.within_monte_carlo_range is not None
+        ]
 
         return ValuationAccuracyAggregate(
             sector=filter_.sector if filter_ else None,
@@ -364,28 +441,32 @@ class SectorPerformanceQuery:
         )
         records = []
         for event in events:
-            records.append(SectorPerformanceRecord(
-                sector=SectorType(event["sector"]),
-                as_of=datetime.fromisoformat(event["as_of"]),
-                period_start=datetime.fromisoformat(event["period_start"]),
-                period_end=datetime.fromisoformat(event["period_end"]),
-                factor_quality_ic=event.get("factor_quality_ic"),
-                factor_value_ic=event.get("factor_value_ic"),
-                factor_momentum_ic=event.get("factor_momentum_ic"),
-                factor_size_ic=event.get("factor_size_ic"),
-                factor_volatility_ic=event.get("factor_volatility_ic"),
-                mean_absolute_error=event.get("mean_absolute_error"),
-                mean_relative_error=event.get("mean_relative_error"),
-                median_relative_error=event.get("median_relative_error"),
-                hit_rate_confidence_band=event.get("hit_rate_confidence_band"),
-                hit_rate_monte_carlo=event.get("hit_rate_monte_carlo"),
-                n_factor_observations=event.get("n_factor_observations", 0),
-                n_valuation_observations=event.get("n_valuation_observations", 0),
-                metadata=_extra_metadata(event, _SECTOR_PERFORMANCE_CORE_FIELDS),
-            ))
+            records.append(
+                SectorPerformanceRecord(
+                    sector=SectorType(event["sector"]),
+                    as_of=datetime.fromisoformat(event["as_of"]),
+                    period_start=datetime.fromisoformat(event["period_start"]),
+                    period_end=datetime.fromisoformat(event["period_end"]),
+                    factor_quality_ic=event.get("factor_quality_ic"),
+                    factor_value_ic=event.get("factor_value_ic"),
+                    factor_momentum_ic=event.get("factor_momentum_ic"),
+                    factor_size_ic=event.get("factor_size_ic"),
+                    factor_volatility_ic=event.get("factor_volatility_ic"),
+                    mean_absolute_error=event.get("mean_absolute_error"),
+                    mean_relative_error=event.get("mean_relative_error"),
+                    median_relative_error=event.get("median_relative_error"),
+                    hit_rate_confidence_band=event.get("hit_rate_confidence_band"),
+                    hit_rate_monte_carlo=event.get("hit_rate_monte_carlo"),
+                    n_factor_observations=event.get("n_factor_observations", 0),
+                    n_valuation_observations=event.get("n_valuation_observations", 0),
+                    metadata=_extra_metadata(event, _SECTOR_PERFORMANCE_CORE_FIELDS),
+                )
+            )
         return records
 
-    def list(self, filter_: SectorPerformanceQueryFilter | None = None) -> list[SectorPerformanceRecord]:
+    def list(
+        self, filter_: SectorPerformanceQueryFilter | None = None
+    ) -> list[SectorPerformanceRecord]:
         return self._load_records(filter_)
 
     def latest(self, sector: SectorType) -> SectorPerformanceRecord | None:
@@ -436,24 +517,30 @@ class AssumptionForecastQuery:
             end_time=filter_.end_time if filter_ else None,
             ticker=filter_.security_id if filter_ else None,
             sector=filter_.sector.value if filter_ and filter_.sector else None,
-            assumption_type=filter_.assumption_type.value if filter_ and filter_.assumption_type else None,
+            assumption_type=filter_.assumption_type.value
+            if filter_ and filter_.assumption_type
+            else None,
         )
         records = []
         for event in events:
-            records.append(AssumptionForecastRecord(
-                security_id=event["ticker"],
-                sector=SectorType(event["sector"]),
-                assumption_type=AssumptionType(event["assumption_type"]),
-                valuation_date=datetime.fromisoformat(event["valuation_date"]),
-                realized_date=datetime.fromisoformat(event["realized_date"]),
-                forecast_value=event["forecast_value"],
-                realized_value=event["realized_value"],
-                forecast_horizon_days=event["forecast_horizon_days"],
-                metadata=_extra_metadata(event, _ASSUMPTION_FORECAST_CORE_FIELDS),
-            ))
+            records.append(
+                AssumptionForecastRecord(
+                    security_id=event["ticker"],
+                    sector=SectorType(event["sector"]),
+                    assumption_type=AssumptionType(event["assumption_type"]),
+                    valuation_date=datetime.fromisoformat(event["valuation_date"]),
+                    realized_date=datetime.fromisoformat(event["realized_date"]),
+                    forecast_value=event["forecast_value"],
+                    realized_value=event["realized_value"],
+                    forecast_horizon_days=event["forecast_horizon_days"],
+                    metadata=_extra_metadata(event, _ASSUMPTION_FORECAST_CORE_FIELDS),
+                )
+            )
         return records
 
-    def list(self, filter_: AssumptionForecastQueryFilter | None = None) -> list[AssumptionForecastRecord]:
+    def list(
+        self, filter_: AssumptionForecastQueryFilter | None = None
+    ) -> list[AssumptionForecastRecord]:
         return self._load_records(filter_)
 
     def aggregate(

@@ -47,6 +47,7 @@ from unittest.mock import MagicMock
 
 from iam.config.settings import get_settings
 from iam.data import markets as MKT
+from iam.data.http import safe_urlopen
 from iam.ui import widgets as W
 from iam.ui.market_panels import GlobalMarketsPanel, RealWatchlistPanel, render_ribbon
 from iam.ui.research_panels import (
@@ -493,7 +494,7 @@ def _resolve_ticker(query: str) -> tuple[str, str | None]:
             f"?q={urllib.parse.quote(query)}&quotesCount=1&newsCount=0"
         )
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with safe_urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read().decode())
             quotes = data.get("quotes", [])
             if quotes and "symbol" in quotes[0]:

@@ -4,6 +4,7 @@ from iam.data.security import Security
 from iam.lenses.base import BaseLens, LensResult
 from iam.ml.models.anomaly_forest import AnomalyDetector
 
+
 class MLDiagnosticLens(BaseLens):
     """
     Diagnostic lens that uses IsolationForest to flag fundamental anomalies.
@@ -23,36 +24,36 @@ class MLDiagnosticLens(BaseLens):
     def _extract_features(self, security: Security) -> list[float]:
         # Basic ratios
         ev_sales = security.market.ev_sales or 0.0
-        
+
         roic = 0.0
         if security.fundamentals.roic_history:
             roic = security.fundamentals.roic_history[0]
-            
+
         rev_growth = 0.0
         if len(security.fundamentals.revenue_history) > 1:
             curr = security.fundamentals.revenue_history[0]
             prev = security.fundamentals.revenue_history[1]
             if prev and prev != 0:
                 rev_growth = (curr / prev) - 1.0
-                
+
         return [ev_sales, roic, rev_growth]
 
     def compute(self, security: Security) -> LensResult:
         features = self._extract_features(security)
-        
+
         # In a real world case, self.detector would be fitted on a universe.
         # We check if it's an anomaly.
         is_anomaly = self.detector.is_anomaly(features)
-        
+
         narrative = "Fundamentals appear normal based on ML anomaly detection."
         confidence = 1.0
         notes = []
-        
+
         if is_anomaly:
             narrative = "ML model flagged these fundamental ratios as anomalous."
             confidence = 0.5  # Apply a penalty to confidence
             notes.append("Anomaly detected in [EV/Sales, ROIC, Rev Growth] combination.")
-            
+
         return LensResult(
             lens_name=self.name,
             fair_value_low=None,
@@ -64,7 +65,7 @@ class MLDiagnosticLens(BaseLens):
                 "is_anomaly": 1.0 if is_anomaly else 0.0,
                 "ev_sales": features[0],
                 "roic": features[1],
-                "rev_growth": features[2]
+                "rev_growth": features[2],
             },
             notes=notes,
         )

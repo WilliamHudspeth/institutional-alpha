@@ -85,7 +85,7 @@ class FactorAlphaRecorder:
                 "benchmark_return_21d": benchmark_return_21d,
                 "benchmark_return_63d": benchmark_return_63d,
                 **record.metadata,
-            }
+            },
         )
         return record
 
@@ -148,7 +148,7 @@ class ValuationAccuracyRecorder:
                 "confidence_band_high": confidence_band_high,
                 "monte_carlo_percentiles": monte_carlo_percentiles or {},
                 **record.metadata,
-            }
+            },
         )
         return record
 
@@ -227,7 +227,7 @@ class SectorPerformanceRecorder:
                 "n_factor_observations": n_factor_observations,
                 "n_valuation_observations": n_valuation_observations,
                 **record.metadata,
-            }
+            },
         )
         return record
 
@@ -285,7 +285,7 @@ class AssumptionForecastRecorder:
                 "directional_accuracy": record.directional_accuracy,
                 "forecast_horizon_days": forecast_horizon_days,
                 **record.metadata,
-            }
+            },
         )
         return record
 

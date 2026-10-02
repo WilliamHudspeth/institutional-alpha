@@ -188,9 +188,7 @@ def test_contrast_end_to_end_with_market_implied_engine():
     the shape MarketImpliedEngine().compute() actually produces."""
     sec = Security(
         ticker="TEST",
-        fundamentals=Fundamentals(
-            net_income_ttm=900.0, fcf_ttm=1000.0, shares_outstanding=100.0
-        ),
+        fundamentals=Fundamentals(net_income_ttm=900.0, fcf_ttm=1000.0, shares_outstanding=100.0),
         market=MarketData(price=50.0),
     )
     reverse_dcf = MarketImpliedEngine().compute(sec)
@@ -222,7 +220,9 @@ def test_pipeline_surfaces_growth_estimate_when_questionnaire_supplied():
         ),
         market=MarketData(price=50.0, market_cap=5000.0),
     )
-    q = GrowthQuestionnaire(analyst_consensus_growth=0.12, retention_ratio=0.6, return_on_equity=0.20)
+    q = GrowthQuestionnaire(
+        analyst_consensus_growth=0.12, retention_ratio=0.6, return_on_equity=0.20
+    )
 
     report = ValuationPipeline().run(sec, growth_questionnaire=q)
 

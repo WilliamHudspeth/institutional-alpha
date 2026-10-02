@@ -19,8 +19,10 @@ from iam.monitoring.models import (
 def isolated_audit_log(tmp_path, monkeypatch):
     """Redirect the audit JSONL log to a tmp dir so tests never touch ~/.iam/."""
     original_init = audit_module.AuditLogger.__init__
+
     def new_init(self, log_path="audit_log.jsonl"):
         original_init(self, str(tmp_path / "audit_log.jsonl"))
+
     monkeypatch.setattr(audit_module.AuditLogger, "__init__", new_init)
     yield
 
@@ -127,7 +129,9 @@ def test_factor_alpha_detect_alpha_decay_handles_month_end_dates(recorder, queri
 
 
 def test_factor_alpha_compute_ics_by_sector_covers_all_sectors(recorder, queries):
-    result = queries.factor_alpha.compute_ics_by_sector(FactorAlphaQueryFilter(factor=FactorType.QUALITY))
+    result = queries.factor_alpha.compute_ics_by_sector(
+        FactorAlphaQueryFilter(factor=FactorType.QUALITY)
+    )
     assert set(result.keys()) == set(SectorType)
 
 
@@ -158,28 +162,42 @@ def test_valuation_accuracy_record_and_properties(recorder, queries):
 
 def test_valuation_accuracy_aggregate_hit_rates(recorder, queries):
     recorder.valuation_accuracy.record(
-        security_id="A", sector=SectorType.HEALTH_CARE,
-        valuation_date=datetime(2026, 1, 1), realized_date=datetime(2026, 2, 1),
-        fair_value=100.0, realized_price=100.0,
-        confidence_band_low=90.0, confidence_band_high=110.0,
+        security_id="A",
+        sector=SectorType.HEALTH_CARE,
+        valuation_date=datetime(2026, 1, 1),
+        realized_date=datetime(2026, 2, 1),
+        fair_value=100.0,
+        realized_price=100.0,
+        confidence_band_low=90.0,
+        confidence_band_high=110.0,
     )
     recorder.valuation_accuracy.record(
-        security_id="B", sector=SectorType.HEALTH_CARE,
-        valuation_date=datetime(2026, 1, 1), realized_date=datetime(2026, 2, 1),
-        fair_value=100.0, realized_price=200.0,
-        confidence_band_low=90.0, confidence_band_high=110.0,
+        security_id="B",
+        sector=SectorType.HEALTH_CARE,
+        valuation_date=datetime(2026, 1, 1),
+        realized_date=datetime(2026, 2, 1),
+        fair_value=100.0,
+        realized_price=200.0,
+        confidence_band_low=90.0,
+        confidence_band_high=110.0,
     )
-    agg = queries.valuation_accuracy.aggregate(ValuationAccuracyQueryFilter(sector=SectorType.HEALTH_CARE))
+    agg = queries.valuation_accuracy.aggregate(
+        ValuationAccuracyQueryFilter(sector=SectorType.HEALTH_CARE)
+    )
     assert agg.n_observations == 2
     assert agg.hit_rate_confidence_band == pytest.approx(0.5)
 
 
 def test_valuation_accuracy_rejects_non_positive_price():
     from iam.monitoring.models import ValuationAccuracyRecord
+
     with pytest.raises(ValueError):
         ValuationAccuracyRecord(
-            security_id="X", valuation_date=datetime(2026, 1, 1), realized_date=datetime(2026, 2, 1),
-            fair_value=0.0, realized_price=100.0,
+            security_id="X",
+            valuation_date=datetime(2026, 1, 1),
+            realized_date=datetime(2026, 2, 1),
+            fair_value=0.0,
+            realized_price=100.0,
         )
 
 
@@ -214,30 +232,42 @@ def test_sector_performance_latest_returns_none_when_absent(queries):
 
 def test_sector_performance_rank_sectors_ascending_by_error(recorder, queries):
     recorder.sector_performance.record(
-        sector=SectorType.MATERIALS, as_of=datetime(2026, 1, 1),
-        period_start=datetime(2025, 10, 1), period_end=datetime(2026, 1, 1),
+        sector=SectorType.MATERIALS,
+        as_of=datetime(2026, 1, 1),
+        period_start=datetime(2025, 10, 1),
+        period_end=datetime(2026, 1, 1),
         mean_absolute_error=8.0,
     )
     recorder.sector_performance.record(
-        sector=SectorType.INDUSTRIALS, as_of=datetime(2026, 1, 1),
-        period_start=datetime(2025, 10, 1), period_end=datetime(2026, 1, 1),
+        sector=SectorType.INDUSTRIALS,
+        as_of=datetime(2026, 1, 1),
+        period_start=datetime(2025, 10, 1),
+        period_end=datetime(2026, 1, 1),
         mean_absolute_error=2.0,
     )
     ranked = queries.sector_performance.rank_sectors(metric="mean_absolute_error", ascending=True)
     sectors_in_order = [s for s, _ in ranked.ranked_sectors]
-    assert sectors_in_order.index(SectorType.INDUSTRIALS) < sectors_in_order.index(SectorType.MATERIALS)
+    assert sectors_in_order.index(SectorType.INDUSTRIALS) < sectors_in_order.index(
+        SectorType.MATERIALS
+    )
 
 
 def test_sector_performance_filter_by_sector(recorder, queries):
     recorder.sector_performance.record(
-        sector=SectorType.UTILITIES, as_of=datetime(2026, 1, 1),
-        period_start=datetime(2025, 10, 1), period_end=datetime(2026, 1, 1),
+        sector=SectorType.UTILITIES,
+        as_of=datetime(2026, 1, 1),
+        period_start=datetime(2025, 10, 1),
+        period_end=datetime(2026, 1, 1),
     )
     recorder.sector_performance.record(
-        sector=SectorType.ENERGY, as_of=datetime(2026, 1, 1),
-        period_start=datetime(2025, 10, 1), period_end=datetime(2026, 1, 1),
+        sector=SectorType.ENERGY,
+        as_of=datetime(2026, 1, 1),
+        period_start=datetime(2025, 10, 1),
+        period_end=datetime(2026, 1, 1),
     )
-    results = queries.sector_performance.list(SectorPerformanceQueryFilter(sector=SectorType.UTILITIES))
+    results = queries.sector_performance.list(
+        SectorPerformanceQueryFilter(sector=SectorType.UTILITIES)
+    )
     assert len(results) == 1
     assert results[0].sector == SectorType.UTILITIES
 
@@ -265,9 +295,14 @@ def test_assumption_forecast_record_and_properties(recorder, queries):
 
 def test_assumption_forecast_directional_accuracy_false_on_sign_flip(recorder, queries):
     recorder.assumption_forecast.record(
-        security_id="X", sector=SectorType.UNKNOWN, assumption_type=AssumptionType.WACC,
-        valuation_date=datetime(2026, 1, 1), realized_date=datetime(2026, 6, 1),
-        forecast_value=0.08, realized_value=-0.02, forecast_horizon_days=150,
+        security_id="X",
+        sector=SectorType.UNKNOWN,
+        assumption_type=AssumptionType.WACC,
+        valuation_date=datetime(2026, 1, 1),
+        realized_date=datetime(2026, 6, 1),
+        forecast_value=0.08,
+        realized_value=-0.02,
+        forecast_horizon_days=150,
     )
     records = queries.assumption_forecast.list()
     assert records[0].directional_accuracy is False
@@ -276,9 +311,14 @@ def test_assumption_forecast_directional_accuracy_false_on_sign_flip(recorder, q
 def test_assumption_forecast_aggregate_by_type(recorder, queries):
     for forecast, realized in [(0.10, 0.09), (0.12, 0.10)]:
         recorder.assumption_forecast.record(
-            security_id="Y", sector=SectorType.UNKNOWN, assumption_type=AssumptionType.EBITDA_MARGIN,
-            valuation_date=datetime(2026, 1, 1), realized_date=datetime(2026, 6, 1),
-            forecast_value=forecast, realized_value=realized, forecast_horizon_days=150,
+            security_id="Y",
+            sector=SectorType.UNKNOWN,
+            assumption_type=AssumptionType.EBITDA_MARGIN,
+            valuation_date=datetime(2026, 1, 1),
+            realized_date=datetime(2026, 6, 1),
+            forecast_value=forecast,
+            realized_value=realized,
+            forecast_horizon_days=150,
         )
     agg = queries.assumption_forecast.aggregate(
         AssumptionForecastQueryFilter(assumption_type=AssumptionType.EBITDA_MARGIN)
@@ -293,5 +333,3 @@ def test_assumption_forecast_aggregate_empty(queries):
     )
     assert agg.n_observations == 0
     assert agg.mean_absolute_error is None
-
-

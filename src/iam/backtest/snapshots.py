@@ -12,9 +12,9 @@ from pathlib import Path
 
 import pandas as pd
 from diskcache import Cache
-from iam.data.retry import retry_call
 
 from iam.data.fetcher import RedundantDataFetcher
+from iam.data.retry import retry_call
 from iam.data.security import MarketData, Security
 
 # Global cache singleton
@@ -68,6 +68,7 @@ def _fetch_snapshot_data(
     Returns:
         Tuple of (price, debt). Debt is 0.0 if unavailable.
     """
+
     def _run():
         as_of_dt = as_of.to_pydatetime()
         # Fetch a small window of prices to handle weekends/holidays
