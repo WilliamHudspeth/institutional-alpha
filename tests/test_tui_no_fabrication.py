@@ -248,3 +248,14 @@ def test_dead_fabrication_removed():
     assert not hasattr(at, "WatchlistPanel")
     assert not hasattr(PortfolioPanel, "_EXPOSURES")
     assert not hasattr(PortfolioPanel, "_HOLDINGS")
+
+
+@pytest.mark.parametrize("module", ["iam.ui.terrain", "iam.engine.simulations"])
+def test_demo_terrain_modules_are_gone(module):
+    """The old terrain panel drew invented grids (saddle_demo_grid, a fixed 0.10/0.09 DCF).
+
+    The TUI terrain now comes from visualization_lab.render_dcf_surface, so these must not return.
+    """
+    import importlib.util
+
+    assert importlib.util.find_spec(module) is None

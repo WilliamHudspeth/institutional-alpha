@@ -158,27 +158,6 @@ def test_watchlist_and_ribbon():
     assert cv.calls > 0
 
 
-def test_terrain_panel():
-    from iam.ui import terrain as tr
-
-    w.configure("cyan", "color", True)
-    cv = _Canvas(40, 120)
-    sec = _mock_sec()
-    panel = tr.TerrainPanel()
-    for _mode in tr.TerrainPanel.MODES:
-        cv.calls = 0
-        panel.render(cv, 3, 36, 2, 118, sec, None, 0)
-        assert cv.calls > 0
-        panel.cycle_mode()
-    panel.toggle_wireframe()
-    cv.calls = 0
-    panel.render(cv, 3, 36, 2, 118, sec, None, 0)
-    assert cv.calls > 0
-    panel.rotate(0.3, 0.1)
-    panel.zoom(1.2)
-    panel.reset_view()
-
-
 def test_example_config_loads():
     cfg = TerminalSettings.from_file(Path(__file__).parent.parent / "config.example.yml")
     assert cfg.display.theme in ("cyan", "amber", "green")
@@ -240,21 +219,6 @@ def test_graceful_degradation_renders():
     cv.calls = 0
     rp.FragilityMapPanel().render(cv, 3, 36, 0, 120, sec, None, 0)
     assert cv.calls > 0
-
-
-def test_terrain_wireframe_and_modes():
-    from iam.ui import terrain as tr
-
-    w.configure("cyan", "color", True, cell_px=(8, 16))
-    cv = _Canvas(50, 120)
-    sec = _mock_sec()
-    panel = tr.TerrainPanel()
-    panel.toggle_wireframe()
-    for _ in tr.TerrainPanel.MODES:
-        cv.calls = 0
-        panel.render(cv, 3, 46, 0, 118, sec, None, 0)
-        assert cv.calls > 0
-        panel.cycle_mode()
 
 
 def test_settings_panel_interaction():

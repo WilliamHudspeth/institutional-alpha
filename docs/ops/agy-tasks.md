@@ -68,7 +68,7 @@ Write `docs/ops/ws5-data-source.md` covering:
 
 No code changes.
 
-## A4 — Remove dead demo terrain code (coding; files listed only)
+## A4 — Remove dead demo terrain code (coding; files listed only) — DONE (deleted; done by Claude, not AGY)
 
 `ui/terrain.py` `TerrainPanel` is not used by the app (only by `tests/test_enhancements_smoke.py`).
 Its fallback path reads a Battlefield field that no longer exists, and it draws

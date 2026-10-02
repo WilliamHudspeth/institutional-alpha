@@ -773,6 +773,32 @@ The user should never manually update. Security patches, factor improvements, da
   - Sensitivity analysis (one-way, two-way)
   - Scenario branching logic
 
+- [ ] **Valuation Terrain (recovered from the deleted `ui/terrain.py`)**
+  The old `TerrainPanel` and `engine/simulations.py` were removed because they drew invented grids
+  (a saddle demo, and a fixed 10% growth / 9% discount Gordon surface). The ideas were good. Rebuild
+  them on real engine values only: every grid comes from `valuation/value_grid.build_value_grid` or
+  `valuation/sensitivity.DCFValuationSurface`, and the panel shows "n/a" when that returns nothing.
+  - [ ] **Fair-value frontier.** Compute the curve where intrinsic value equals the market price
+    (V(g, r) = P) from the real grid, and draw and label it on the 3D terrain and the TI-89 map.
+    Today the 3D view draws a price plane (`sensitivity.py:130`) but never computes or labels the
+    intersection, and the TI-89 map shows only the market point.
+  - [ ] **Fragility surface mode.** Plot the gradient magnitude |∇V| over the grid (steep means
+    knife-edge, flat means robust). `valuation/topology.py` already computes the gradients, but the
+    UI shows them only as text buckets (`research_panels.py` `FragilityMapPanel`). Prerequisite:
+    `topology.compute_gradients` returns `fragility_score=0.0` and `stability_score=1.0` when the
+    grid is too small. That reads as "perfectly stable", so it must become n/a first.
+  - [ ] **Interactive camera in the TUI panel.** Yaw, pitch, zoom and reset keys. Today the TUI
+    "Valuation Terrain" panel shows a cached render at a fixed angle (`visualization_lab.render_dcf_surface`,
+    yaw 45 / pitch 30). Rotation works only in the separate F9 Visualization Lab loop.
+  - [ ] **Shaded and wireframe rendering.** Fill triangles with a z-buffer and Lambert shading,
+    colour by height, and add a wireframe toggle (the old code ported the technique from
+    ecumene/rust-sloth). Today `ui/renderer.py` z-buffers lines and points but does no face shading.
+  - [ ] **Consistent axes.** The 3D terrain plots growth × operating margin, with margin fixed at
+    1–50% (`sensitivity.py:69-72`). The TI-89 map plots growth × discount rate. Offer both as
+    labelled modes, and derive the ranges from the company's base case rather than fixed bounds.
+  - Not carried over: `simulate_price_tick` (a random-walk price ticker). It fabricated prices, and
+    the TUI now uses real quotes (`deba15a`).
+
 ### Phase 2.5: Reasoning-Engine Evolution (Weeks 10-18)
 **Focus**: Turn the valuation pipeline into a disagreement-first reasoning engine (see "The Reasoning-Engine Direction" above)
 

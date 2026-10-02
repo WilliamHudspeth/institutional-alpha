@@ -63,8 +63,9 @@ fails because it makes live network fetches (~18 s). None of these are caused by
 - Both callers (`ui/alpha_terminal.py:1657-1666`, `ui/gui.py:433-442`) substitute `0` for missing
   inputs, so a missing lens shows as a real-looking "0.00%".
 - A real surface already exists: `valuation/sensitivity.py` produces a growth × discount-rate value
-  grid (with topology stats already used in `research_panels.py:194-198`), and `ui/terrain.py` /
-  `ui/surface.py` render it.
+  grid (with topology stats already used in `research_panels.py:194-198`), and `ui/surface.py` /
+  `ui/renderer.py` render it. (`ui/terrain.py` drew invented grids and was deleted in A4; its
+  ideas are on the roadmap under "Valuation Terrain".)
 
 ### F3 detail: Thesis drift
 - Only `data/constraints/MSFT.example.yml` exists. For MSFT, the *illustrative* example thresholds
