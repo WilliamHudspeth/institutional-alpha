@@ -43,6 +43,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+US_FEDERAL_STATUTORY_TAX = 0.21
+
 
 def format_assumption_table(
     forecast_growth: float,
@@ -400,6 +402,7 @@ class ValuationPipeline:
 
     @staticmethod
     def _calculate_dynamic_wacc(security: Security) -> dict | None:
+        from iam.data.damodaran import DamodaranProvider
         from iam.valuation.damodaran_defaults import build_wacc
 
         f = security.fundamentals
@@ -407,13 +410,22 @@ class ValuationPipeline:
         if not f or not m:
             return None
 
+        beta = getattr(m, "beta", None)
+        if beta is None:
+            return None
+
         ebit = None
         if getattr(f, "revenue_ttm", None) and getattr(f, "operating_margin", None):
             ebit = f.revenue_ttm * f.operating_margin  # type: ignore
         if ebit is None:
-            ebit = getattr(f, "ebitda_ttm", None) or 0.0
+            ebit = getattr(f, "ebitda_ttm", None)
 
-        interest = getattr(f, "interest_expense_ttm", None) or 0.0
+        if ebit is None:
+            return None
+
+        interest = getattr(f, "interest_expense_ttm", None)
+        if interest is None:
+            return None
 
         d_to_e = 0.0
         total_debt = getattr(f, "total_debt", None) or 0.0
@@ -421,13 +433,34 @@ class ValuationPipeline:
         if total_debt > 0 and market_cap > 0:
             d_to_e = total_debt / market_cap
 
-        ke = 0.09
-        rf = 0.043
-        tax_rate = 0.21
+        macro = DamodaranProvider.get_macro_state()
+        ke = macro.risk_free_rate + beta * macro.implied_erp
 
-        return build_wacc(
-            ke=ke, ebit=ebit, interest_expense=interest, rf=rf, d_to_e=d_to_e, tax_rate=tax_rate
+        tax_rate = None
+        defaults_used = []
+
+        if getattr(f, "effective_tax_rate", None) is not None:
+            tax_rate = float(getattr(f, "effective_tax_rate"))
+        else:
+            tax_rate = US_FEDERAL_STATUTORY_TAX
+            defaults_used.append("tax_rate: US federal statutory 21% (no effective rate)")
+
+        wacc_info = build_wacc(
+            ke=ke,
+            ebit=ebit,
+            interest_expense=interest,
+            rf=macro.risk_free_rate,
+            d_to_e=d_to_e,
+            tax_rate=tax_rate,
         )
+        if "defaults_used" not in wacc_info:
+            wacc_info["defaults_used"] = []
+        if defaults_used:
+            wacc_info["defaults_used"].extend(defaults_used)
+        wacc_info["rf_source"] = macro.rf_source
+        wacc_info["erp_source"] = macro.erp_source
+        wacc_info["cost_of_equity"] = ke
+        return wacc_info
 
     def run(
         self,
@@ -439,13 +472,10 @@ class ValuationPipeline:
     ) -> PipelineReport:
         wacc_info = self._calculate_dynamic_wacc(security)
         wacc_note = ""
-        original_r = self.market_implied_engine.r
 
         if wacc_info:
             dynamic_wacc = wacc_info["wacc"]
             rating = wacc_info["rating"]
-
-            self.market_implied_engine.r = dynamic_wacc
 
             if security.qualitative is None:
                 security.qualitative = {}
@@ -453,11 +483,24 @@ class ValuationPipeline:
             security.qualitative["wacc_info"] = wacc_info
             wacc_note = f"Dynamic WACC applied: {dynamic_wacc:.2%} (Rating: {rating})"
 
+        if security.market and getattr(security.market, "beta", None) is not None:
+            from iam.data.damodaran import DamodaranProvider
+
+            macro_state = DamodaranProvider.get_macro_state()
+            if security.qualitative is None:
+                security.qualitative = {}
+            if "risk_free_rate" not in security.qualitative:
+                security.qualitative["risk_free_rate"] = macro_state.risk_free_rate
+            if "equity_risk_premium" not in security.qualitative:
+                security.qualitative["equity_risk_premium"] = macro_state.implied_erp
+            security.qualitative["rf_source"] = macro_state.rf_source
+            security.qualitative["erp_source"] = macro_state.erp_source
+
         # Stage 1: Reverse DCF
         market_implied_engine_res = self.market_implied_engine.compute(security)
 
-        if wacc_info:
-            self.market_implied_engine.r = original_r
+        if not security.market or getattr(security.market, "beta", None) is None:
+            market_implied_engine_res.notes.append("CAPM skipped for lack of beta.")
 
         # Stage 1b: Questionnaire-based fundamental growth, contrasted against
         # Stage 1's market-implied growth (opt-in — only runs when the caller
