@@ -36,6 +36,7 @@ from iam.valuation import (
     Triangulator,
     ValuationResult,
 )
+from iam.valuation.country_risk import company_erp
 from iam.valuation.monte_carlo import MonteCarloDCF, MonteCarloDistribution
 
 if TYPE_CHECKING:
@@ -434,7 +435,13 @@ class ValuationPipeline:
             d_to_e = total_debt / market_cap
 
         macro = DamodaranProvider.get_macro_state()
-        ke = macro.risk_free_rate + beta * macro.implied_erp
+        qual = security.qualitative or {}
+        if qual.get("equity_risk_premium") is not None:
+            erp = float(qual["equity_risk_premium"])
+            erp_source = str(qual.get("erp_source") or "caller-supplied")
+        else:
+            erp, erp_source = company_erp(security)
+        ke = macro.risk_free_rate + beta * erp
 
         tax_rate = None
         defaults_used: list[str] = []
@@ -455,7 +462,7 @@ class ValuationPipeline:
         )
         wacc_info.setdefault("defaults_used", []).extend(defaults_used)
         wacc_info["rf_source"] = macro.rf_source
-        wacc_info["erp_source"] = macro.erp_source
+        wacc_info["erp_source"] = erp_source
         wacc_info["cost_of_equity"] = ke
         return wacc_info
 
@@ -501,8 +508,9 @@ class ValuationPipeline:
                 security.qualitative.setdefault("rf_source", "caller-supplied")
 
             if "equity_risk_premium" not in security.qualitative:
-                security.qualitative["equity_risk_premium"] = macro_state.implied_erp
-                security.qualitative["erp_source"] = macro_state.erp_source
+                erp_value, erp_src = company_erp(security)
+                security.qualitative["equity_risk_premium"] = erp_value
+                security.qualitative["erp_source"] = erp_src
             else:
                 security.qualitative.setdefault("erp_source", "caller-supplied")
 

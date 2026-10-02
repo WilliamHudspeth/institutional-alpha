@@ -1,37 +1,37 @@
 """Country risk premium (CRP) and revenue-weighted blended ERP.
 
-Implements Damodaran's country-risk methodology, which the existing
-`build_geographic_erp` only approximates with three fixed regional ERPs:
+Implements the owner's methodology (NYU Stern paper "On BLK"): the equity risk
+premium of a company is Damodaran's country/regional ERP (mature-market ERP +
+country risk premium) weighted by WHERE THE COMPANY EARNS ITS REVENUE
+(``Security.revenue_mix``). The US ERP is the fallback when no revenue mix is
+known or none of its keys resolve.
 
-  1. **Country default spread** from sovereign rating (or an injected market
-     CDS). A static rating->spread table ships as a default and is overridable.
-  2. **Country risk premium**:  CRP = default_spread x (sigma_equity / sigma_bond).
-     The relative-volatility scalar lifts the bond-market default spread to an
-     equity-market risk premium (Damodaran's standard ~1.5 default, configurable).
-  3. **Country total ERP**:  ERP_country = mature_market_ERP + CRP.
-  4. **Company blended ERP** weighted by where revenue is actually earned, using
-     the Security's country-level `revenue_mix`. A per-country lambda override is
-     supported for the (common) case where revenue exposure != operating risk
-     exposure; lambda defaults to the revenue weight.
+Data: ``iam/data/reference/country_erp_2026-01.json`` (Damodaran ctryprem.xlsx,
+Jan 2026), loaded by :func:`load_country_erp`. Regional ERPs are Damodaran's
+GDP-weighted figures. Revenue-mix keys that resolve to nothing are EXCLUDED and
+reported (never given an invented rating).
 
-The output feeds directly into the repo's existing
-`iam.valuation.damodaran_defaults.cost_of_equity(rf, beta_l, erp)`.
-
-All tables are explicit, dated, and injectable — no magic constants (design
-principle #4). The bundled numbers are reasonable static anchors meant to be
-refreshed from Damodaran's January dataset; override via the function args.
+The legacy rating-table helper :func:`country_risk` (sovereign rating ->
+default spread -> CRP = spread x relative volatility) is kept for what-if
+analysis with an injected rating/CDS; it raises on unknown countries.
 
 Pure stdlib; fully offline-testable.
 """
 
 from __future__ import annotations
 
+import os
+import re
 from dataclasses import dataclass, field
+from typing import Any
+
+from iam.data.damodaran import COUNTRY_ERP_ENV as _COUNTRY_ERP_ENV
+from iam.data.damodaran import read_country_erp as _read_country_erp
 
 # --------------------------------------------------------------------------- #
-# Static anchors — REFRESH from Damodaran's annual dataset. Decimals.
-# Moody's-style sovereign-rating -> default spread. Anchored to early-2024
-# levels; treat as defaults, not ground truth, and override per run.
+# Static rating table for the legacy `country_risk()` helper. Decimals.
+# Moody's-style sovereign-rating -> default spread, early-2024 levels; use the
+# shipped dataset (load_country_erp) for current numbers.
 # --------------------------------------------------------------------------- #
 DEFAULT_RATING_SPREADS: dict[str, float] = {
     "Aaa": 0.0000,
@@ -55,7 +55,7 @@ DEFAULT_RATING_SPREADS: dict[str, float] = {
     "Caa3": 0.1344,
 }
 
-# ISO (lower) -> sovereign rating. A small starter set; extend as needed.
+# ISO (lower) -> sovereign rating. A small starter set for `country_risk()`.
 DEFAULT_SOVEREIGN_RATING: dict[str, str] = {
     "us": "Aaa",
     "de": "Aaa",
@@ -84,27 +84,143 @@ DEFAULT_SOVEREIGN_RATING: dict[str, str] = {
     "ru": "Caa3",
 }
 
-# Common region aliases -> a representative ISO, so a region-keyed revenue_mix
-# still resolves. Coarse by construction; prefer country codes when available.
-REGION_TO_ISO: dict[str, str] = {
-    "north_america": "us",
-    "na": "us",
-    "americas": "us",
-    "us": "us",
-    "europe": "de",
-    "emea": "de",
-    "eu": "de",
-    "apac": "cn",
-    "asia": "cn",
-    "asia_pacific": "cn",
-    "latam": "br",
-    "row": "br",
+# Fallback sigma_equity/sigma_bond for `country_risk()` when no dataset value is
+# passed; the Jan 2026 dataset publishes 1.523378 (load_country_erp()).
+DEFAULT_REL_VOL = 1.50
+
+# --------------------------------------------------------------------------- #
+# Shipped Damodaran dataset (ctryprem.xlsx, Jan 2026), extracted to JSON.
+# --------------------------------------------------------------------------- #
+# The loader lives in iam.data.damodaran (a leaf module) because DamodaranProvider
+# needs the same file at class-definition time and iam.valuation imports iam.data.
+COUNTRY_ERP_ENV = _COUNTRY_ERP_ENV
+# Label of the shipped dataset for provenance strings; matches the file name.
+DATASET_LABEL = "Damodaran Jan 2026"
+
+
+def load_country_erp(path: str | os.PathLike[str] | None = None) -> dict[str, Any]:
+    """Load the Damodaran country/regional ERP dataset (cached per file).
+
+    Resolution order: explicit ``path``, env ``IAM_COUNTRY_ERP_FILE``, then the
+    file shipped inside the package (resolved from the package, never the CWD).
+    """
+    return _read_country_erp(path)
+
+
+# Damodaran's MATURE-market ERP (Aaa, no country risk). Differs from the US ERP,
+# which carries a default spread now that the US is Aa1. Read from the dataset.
+DEFAULT_MATURE_ERP: float = float(load_country_erp()["mature_market_erp"])
+
+# --------------------------------------------------------------------------- #
+# Key resolution for revenue_mix keys. Keys are normalised by lower-casing and
+# dropping every non-alphanumeric character ("Asia_Pacific" == "asia pacific").
+# Targets MUST be names present in the dataset (enforced by a test).
+# --------------------------------------------------------------------------- #
+COUNTRY_ALIASES: dict[str, str] = {
+    "us": "United States",
+    "usa": "United States",
+    "unitedstatesofamerica": "United States",
+    "uk": "United Kingdom",
+    "gb": "United Kingdom",
+    "gbr": "United Kingdom",
+    "greatbritain": "United Kingdom",
+    "de": "Germany",
+    "cn": "China",
+    "jp": "Japan",
+    "in": "India",
+    "fr": "France",
+    "it": "Italy",
+    "es": "Spain",
+    "ca": "Canada",
+    "br": "Brazil",
+    "mx": "Mexico",
+    "kr": "Korea",
+    "southkorea": "Korea",
+    "au": "Australia",
+    "ch": "Switzerland",
+    "nl": "Netherlands",
+    "se": "Sweden",
+    "tw": "Taiwan",
+    "hk": "Hong Kong",
+    "sg": "Singapore",
+    "ie": "Ireland",
+    "be": "Belgium",
+    "at": "Austria",
+    "no": "Norway",
+    "dk": "Denmark",
+    "fi": "Finland",
+    "pl": "Poland",
+    "tr": "Turkey",
+    "id": "Indonesia",
+    "th": "Thailand",
+    "my": "Malaysia",
+    "ph": "Philippines",
+    "vn": "Vietnam",
+    "sa": "Saudi Arabia",
+    "ae": "United Arab Emirates",
+    "il": "Israel",
+    "za": "South Africa",
+    "ar": "Argentina",
+    "cl": "Chile",
+    "co": "Colombia",
+    "pe": "Peru",
+    "nz": "New Zealand",
+}
+# Region aliases -> Damodaran region names.
+REGION_ALIASES: dict[str, str] = {
+    "northamerica": "North America",
+    "na": "North America",
+    "americas": "North America",
+    "westerneurope": "Western Europe",
+    "europe": "Western Europe",
+    "eurozone": "Western Europe",
+    "eu": "Western Europe",
+    "emea": "Western Europe",
+    "asia": "Asia",
+    "apac": "Asia",
+    "asiapacific": "Asia",
+    "latam": "Central and South America",
+    "southamerica": "Central and South America",
+    "centralandsouthamerica": "Central and South America",
+    "easterneurope": "Eastern Europe",
+    "middleeast": "Middle East",
+    "africa": "Africa",
+    "anz": "Australia & New Zealand",
+    "oceania": "Australia & New Zealand",
+    "australianewzealand": "Australia & New Zealand",
+    "caribbean": "Caribbean",
+}
+# Coarse region aliases; the approximation is stated in the provenance string.
+_APPROXIMATION_NOTES: dict[str, str] = {
+    "americas": "americas treated as North America",
+    "emea": "emea treated as Western Europe",
+    "apac": "apac treated as Asia",
+    "eurozone": "eurozone treated as Western Europe",
 }
 
-# Damodaran's relative equity-market volatility multiplier (sigma_equity/sigma_bond).
-DEFAULT_REL_VOL = 1.50
-# Mature-market (US) ERP anchor — matches damodaran_defaults.us_erp.
-DEFAULT_MATURE_ERP = 0.0503
+
+def _norm(key: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", str(key).lower())
+
+
+def _resolve_key(key: str, table: dict[str, Any]) -> tuple[str, float, str | None] | None:
+    """Resolve a revenue_mix key to (dataset name, erp, approximation note) or None."""
+    n = _norm(key)
+    countries: dict[str, Any] = table.get("countries", {})
+    regions: dict[str, Any] = table.get("regions", {})
+    for name, row in countries.items():  # (1) exact country name
+        if _norm(name) == n:
+            return name, float(row["erp"]), None
+    target = COUNTRY_ALIASES.get(n)  # (2) country alias
+    if target and target in countries:
+        return target, float(countries[target]["erp"]), None
+    region = REGION_ALIASES.get(n)  # (3) region alias
+    if region and region in regions:
+        return region, float(regions[region]["erp"]), _APPROXIMATION_NOTES.get(n)
+    for name, rrow in regions.items():  # exact region name
+        if _norm(name) == n:
+            return name, float(rrow["erp"]), None
+    return None
 
 
 @dataclass(frozen=True)
@@ -123,25 +239,22 @@ class BlendedERP:
     rel_vol: float
     components: list[tuple[str, float, float]] = field(
         default_factory=list
-    )  # (iso, weight, erp_country)
+    )  # (dataset name, weight, erp)
     notes: list[str] = field(default_factory=list)
+    coverage: float = 1.0  # share (0-1) of revenue weight that resolved to a dataset ERP
+    unresolved: list[str] = field(default_factory=list)  # revenue_mix keys left out
+    source: str = ""
 
     def explain(self) -> str:
         lines = [
-            f"Blended ERP = {self.erp:.4f}  (mature {self.mature_erp:.4f}, rel_vol {self.rel_vol:.2f})"
+            f"Blended ERP = {self.erp:.4f}  (mature {self.mature_erp:.4f}, "
+            f"coverage {self.coverage:.0%})"
         ]
-        for iso, w, e in self.components:
-            lines.append(
-                f"  {iso.upper():>4}  w={w:5.1%}  ERP={e:.4f}  (CRP {e - self.mature_erp:+.4f})"
-            )
+        for name, w, e in self.components:
+            lines.append(f"  {name:>26}  w={w:5.1%}  ERP={e:.4f}")
+        if self.unresolved:
+            lines.append("  unresolved: " + ", ".join(self.unresolved))
         return "\n".join(lines)
-
-
-def _resolve_iso(key: str) -> str:
-    k = key.strip().lower()
-    if k in DEFAULT_SOVEREIGN_RATING:
-        return k
-    return REGION_TO_ISO.get(k, k)
 
 
 def country_risk(
@@ -153,22 +266,22 @@ def country_risk(
     sovereign_rating: dict[str, str] | None = None,
     default_spread_override: float | None = None,
 ) -> CountryRisk:
-    """Compute a single country's CRP and total ERP.
+    """Compute one country's CRP and total ERP from the static rating table.
 
-    Args:
-        iso: ISO country code or region alias (case-insensitive).
-        default_spread_override: market CDS spread to use instead of the
-            rating-derived spread (decimal).
+    Raises:
+        ValueError: ``iso`` has no sovereign rating in the table. An unknown
+            country never receives an invented rating.
     """
     spreads = rating_spreads or DEFAULT_RATING_SPREADS
     ratings = sovereign_rating or DEFAULT_SOVEREIGN_RATING
-    code = _resolve_iso(iso)
-
-    rating = ratings.get(code, "Baa3")  # conservative default for unknowns
+    code = iso.strip().lower()
+    if code not in ratings:
+        raise ValueError(f"No sovereign rating for {iso!r}; refusing to invent one")
+    rating = ratings[code]
     if default_spread_override is not None:
         spread = float(default_spread_override)
     else:
-        spread = spreads.get(rating, spreads["Baa3"])
+        spread = spreads[rating]
 
     crp = spread * rel_vol
     return CountryRisk(
@@ -183,79 +296,112 @@ def country_risk(
 def blended_erp(
     revenue_mix: dict[str, float],
     *,
-    mature_erp: float = DEFAULT_MATURE_ERP,
-    rel_vol: float = DEFAULT_REL_VOL,
+    table: dict[str, Any] | None = None,
     lambdas: dict[str, float] | None = None,
-    rating_spreads: dict[str, float] | None = None,
-    sovereign_rating: dict[str, str] | None = None,
 ) -> BlendedERP:
-    """Revenue-weighted blended ERP across the countries a firm earns in.
+    """Revenue-weighted ERP from Damodaran country/regional ERPs.
 
     Args:
-        revenue_mix: {iso_or_region: weight}. Need not be normalised; weights
-            are rescaled to sum to 1. Accepts the output of
-            `Security.normalized_revenue_mix()`.
-        lambdas: optional per-country exposure overrides (Damodaran lambda). When
-            omitted, lambda == the revenue weight. When supplied, lambdas are
-            used as the blend weights (and renormalised), letting operating-risk
-            exposure differ from raw revenue share.
-
-    Returns a BlendedERP whose `.erp` plugs straight into cost_of_equity().
+        revenue_mix: {country_or_region: weight}. Need not be normalised. Keys
+            that resolve to nothing are excluded and reported in ``unresolved``;
+            weights are renormalised over the resolved part and ``coverage``
+            reports the resolved share.
+        table: dataset in the load_country_erp() shape (default: shipped file).
+        lambdas: optional exposure overrides (Damodaran lambda), keyed like
+            revenue_mix. When given they replace revenue share as blend weights.
     """
+    tbl = table if table is not None else load_country_erp()
+    mature = float(tbl["mature_market_erp"])
+    rel_vol = float(tbl.get("relative_equity_volatility", DEFAULT_REL_VOL))
+    label = f"{tbl.get('source', 'Damodaran country ERP')} as_of {tbl.get('as_of', 'unknown')}"
     notes: list[str] = []
-    if not revenue_mix:
-        notes.append("Empty revenue_mix; defaulting to 100% mature market.")
+
+    positive = {k: float(v) for k, v in (revenue_mix or {}).items() if v is not None and v > 0}
+    if not positive:
+        notes.append("Empty revenue_mix; no geographic blend, mature-market ERP shown.")
         return BlendedERP(
-            erp=mature_erp,
-            mature_erp=mature_erp,
+            erp=mature,
+            mature_erp=mature,
             rel_vol=rel_vol,
-            components=[("us", 1.0, mature_erp)],
             notes=notes,
+            coverage=0.0,
+            source=f"no revenue mix ({label})",
         )
 
-    # Aggregate by resolved ISO (multiple aliases may map to the same country).
+    total_raw = sum(positive.values())
     agg: dict[str, float] = {}
-    for k, v in revenue_mix.items():
-        if v is None or v <= 0:
+    erps: dict[str, float] = {}
+    unresolved: list[str] = []
+    for k, w in positive.items():
+        hit = _resolve_key(k, tbl)
+        if hit is None:
+            unresolved.append(k)
             continue
-        agg[_resolve_iso(k)] = agg.get(_resolve_iso(k), 0.0) + float(v)
+        name, erp_val, note = hit
+        agg[name] = agg.get(name, 0.0) + w
+        erps[name] = erp_val
+        if note and note not in notes:
+            notes.append(note)
+    coverage = sum(agg.values()) / total_raw
+    if unresolved:
+        notes.append("unresolved keys excluded: " + ", ".join(unresolved))
 
-    weight_source = lambdas if lambdas else agg
+    weights = agg
     if lambdas:
+        lam: dict[str, float] = {}
+        for k, v in lambdas.items():
+            hit = _resolve_key(k, tbl)
+            if hit is not None and v and v > 0:
+                lam[hit[0]] = lam.get(hit[0], 0.0) + float(v)
+        weights = {n: lam.get(n, 0.0) for n in agg}
         notes.append("Using explicit lambda exposures as blend weights, not raw revenue share.")
-    total_w = sum(weight_source.get(iso, 0.0) for iso in agg) if lambdas else sum(agg.values())
+    total_w = sum(weights.values())
     if total_w <= 0:
-        notes.append("All weights zero after resolution; defaulting to mature market.")
+        notes.append("No resolvable revenue weight; no geographic blend.")
         return BlendedERP(
-            erp=mature_erp,
-            mature_erp=mature_erp,
+            erp=mature,
+            mature_erp=mature,
             rel_vol=rel_vol,
-            components=[("us", 1.0, mature_erp)],
             notes=notes,
+            coverage=0.0,
+            unresolved=unresolved,
+            source=f"no resolvable revenue mix ({label})",
         )
 
-    erp = 0.0
-    components: list[tuple[str, float, float]] = []
-    for iso in agg:
-        raw_w = lambdas.get(iso, 0.0) if lambdas else agg[iso]
-        w = raw_w / total_w
-        if w <= 0:
-            continue
-        cr = country_risk(
-            iso,
-            mature_erp=mature_erp,
-            rel_vol=rel_vol,
-            rating_spreads=rating_spreads,
-            sovereign_rating=sovereign_rating,
-        )
-        erp += w * cr.erp
-        components.append((iso, w, cr.erp))
-
-    components.sort(key=lambda c: c[1], reverse=True)
+    components = sorted(
+        ((n, w / total_w, erps[n]) for n, w in weights.items() if w > 0),
+        key=lambda c: c[1],
+        reverse=True,
+    )
+    erp = sum(w * e for _, w, e in components)
+    source = f"revenue-weighted {label}; coverage {coverage:.0%}"
+    if notes:
+        source += "; " + "; ".join(notes)
     return BlendedERP(
         erp=erp,
-        mature_erp=mature_erp,
+        mature_erp=mature,
         rel_vol=rel_vol,
         components=components,
         notes=notes,
+        coverage=coverage,
+        unresolved=unresolved,
+        source=source,
     )
+
+
+def company_erp(security: Any) -> tuple[float, str]:
+    """Single entry point: a company's ERP and its provenance string.
+
+    Uses the revenue-weighted blend when ``security.revenue_mix`` is non-empty
+    and at least part of it resolves; otherwise the dataset's US ERP.
+    """
+    tbl = load_country_erp()
+    us = float(tbl["us_erp"])
+    mix = getattr(security, "revenue_mix", None)
+    if not mix:
+        return us, f"US ERP {us:.2%} ({DATASET_LABEL}; no revenue mix)"
+    out = blended_erp(dict(mix), table=tbl)
+    if out.coverage > 0:
+        return out.erp, out.source
+    bad = ", ".join(out.unresolved) if out.unresolved else "none"
+    return us, f"US ERP {us:.2%} ({DATASET_LABEL}; revenue mix unresolved, keys: {bad})"

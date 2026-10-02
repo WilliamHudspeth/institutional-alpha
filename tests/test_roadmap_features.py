@@ -16,6 +16,7 @@ from iam.valuation.country_risk import (
     DEFAULT_MATURE_ERP,
     blended_erp,
     country_risk,
+    load_country_erp,
 )
 
 
@@ -115,8 +116,9 @@ def test_cds_override_bypasses_rating_table():
 
 
 def test_blended_erp_between_pure_country_endpoints():
-    pure_us = country_risk("US").erp
-    pure_cn = country_risk("CN").erp
+    data = load_country_erp()
+    pure_us = data["countries"]["United States"]["erp"]
+    pure_cn = data["countries"]["China"]["erp"]
     mix = blended_erp({"US": 0.6, "CN": 0.4})
     assert pure_us <= mix.erp <= pure_cn or pure_cn <= mix.erp <= pure_us
     assert math.isclose(sum(w for _, w, _ in mix.components), 1.0, rel_tol=1e-9)
@@ -129,10 +131,11 @@ def test_blended_erp_normalises_unnormalised_weights():
 
 
 def test_region_aliases_resolve():
-    # APAC -> cn, EMEA -> de; should not fall back to the unknown-country default.
+    # Regions resolve to Damodaran regional ERPs, never to an invented rating.
     out = blended_erp({"north_america": 0.5, "apac": 0.3, "emea": 0.2})
-    isos = {iso for iso, _, _ in out.components}
-    assert {"us", "cn", "de"} == isos
+    names = {n for n, _, _ in out.components}
+    assert {"North America", "Asia", "Western Europe"} == names
+    assert out.unresolved == []
 
 
 def test_lambda_overrides_revenue_weights():
