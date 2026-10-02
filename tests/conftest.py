@@ -27,6 +27,7 @@ def mock_stooq_global():
 
     This ensures no live network calls escape to Stooq during the test suite.
     """
+    import urllib.error
     import urllib.request
 
     stooq_mock = MockStooq()
@@ -41,8 +42,6 @@ def mock_stooq_global():
 
         if "stooq.com" in url_str:
             if stooq_mock.fail_all:
-                import urllib.error
-
                 raise urllib.error.URLError("Mock network failure")
 
             import numpy as np

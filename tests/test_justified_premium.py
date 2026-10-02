@@ -420,3 +420,43 @@ class TestJustifiedPremiumIntegration:
         assert "implied_price_justified_premium" in result.components
         assert "justified_multiple" in result.components
         assert "premium_gap" in result.components
+
+
+class TestDurabilityAdjustment:
+    """Regression: the durability adjustment used to raise TypeError
+    (``float * DurabilityScore``) that was swallowed, so it never applied."""
+
+    @pytest.fixture
+    def universe(self):
+        return DamodaranUniverse(
+            us_erp=0.05,
+            region_erps={},
+            sector_beta_u={"Tech": 1.2},
+            sector_multiples={
+                "Tech": {"ev_ebitda": 12.0, "pe": 20.0, "roic": 0.15, "operating_margin": 0.20}
+            },
+        )
+
+    def _security(self, recurring):
+        return Security(
+            ticker="TEST",
+            sector="Tech",
+            fundamentals=Fundamentals(
+                roic_history=[0.15],
+                operating_margin=0.20,
+                ebitda_ttm=100,
+                total_debt=50,
+                cash_and_equivalents=20,
+                shares_outstanding=10,
+            ),
+            market=MarketData(price=150.0, ev_ebitda=12.0),
+            qualitative={"recurring_revenue_pct": recurring},
+        )
+
+    def test_durability_changes_multiple(self, universe):
+        high = calculate_justified_premium(self._security(1.0), universe)
+        low = calculate_justified_premium(self._security(0.0), universe)
+
+        assert any("Durability adjustment:" in n for n in high.notes)
+        assert not any("skipped" in n for n in high.notes)
+        assert high.justified_multiple > low.justified_multiple

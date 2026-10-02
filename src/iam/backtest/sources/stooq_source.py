@@ -9,9 +9,10 @@ Limitations:
 from __future__ import annotations
 
 import io
-import urllib.request
 
 import pandas as pd
+
+from iam.data.http import safe_urlopen
 
 from .base import DataSource, DataSourceError
 
@@ -64,7 +65,7 @@ class StooqSource(DataSource):
     ) -> pd.DataFrame | None:
         try:
             url = self._url(ticker, start, end)
-            with urllib.request.urlopen(url, timeout=self.timeout) as response:
+            with safe_urlopen(url, timeout=self.timeout) as response:
                 csv_data = response.read().decode("utf-8")
             df = pd.read_csv(io.StringIO(csv_data))
 

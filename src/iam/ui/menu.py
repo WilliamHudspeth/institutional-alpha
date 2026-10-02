@@ -15,6 +15,7 @@ import sys
 import urllib.parse
 import urllib.request
 
+from iam.data.http import safe_urlopen
 from iam.validation import parse_growth_rate
 
 
@@ -113,7 +114,7 @@ def resolve_ticker(query: str) -> tuple[str, str | None]:
         safe_query = urllib.parse.quote(query)
         url = f"https://query2.finance.yahoo.com/v1/finance/search?q={safe_query}&quotesCount=1&newsCount=0"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=5) as response:
+        with safe_urlopen(req, timeout=5) as response:
             data = json.loads(response.read().decode("utf-8"))
             quotes = data.get("quotes", [])
             if quotes and "symbol" in quotes[0]:
