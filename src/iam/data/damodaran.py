@@ -205,8 +205,14 @@ class DamodaranProvider:
 
             q = fetch_live_quote("^TNX")
             if q is not None and q.last is not None and q.last > 0:
-                # ^TNX is quoted in percent (4.2 means 4.2%).
-                return float(q.last) / 100.0 if q.last > 1.0 else float(q.last)
+                # ^TNX has been quoted as 42.5, 4.25 and (after the market
+                # layer's own /10) 0.425 for a 4.25% yield. Scale down by 10
+                # until it is a plausible decimal yield.
+                v = float(q.last)
+                while v > 0.25:
+                    v /= 10.0
+                if 0.001 <= v <= 0.25:
+                    return v
         except Exception:
             pass
         return cls.CURRENT_RISK_FREE_RATE

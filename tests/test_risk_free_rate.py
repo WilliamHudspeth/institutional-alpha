@@ -42,8 +42,9 @@ def test_live_quotes_are_cached():
     assert fetch.call_count == 1
 
 
-def test_rate_converts_percent_quote():
-    with patch.object(markets, "fetch_live_quote", return_value=markets.Quote("^TNX", last=4.31)):
+@pytest.mark.parametrize("quoted", [43.1, 4.31, 0.431, 0.0431])
+def test_rate_handles_every_tnx_scale(quoted):
+    with patch.object(markets, "fetch_live_quote", return_value=markets.Quote("^TNX", last=quoted)):
         assert DamodaranProvider.get_risk_free_rate() == pytest.approx(0.0431)
 
 
