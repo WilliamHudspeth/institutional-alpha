@@ -132,6 +132,8 @@ def _offline_security(**qual) -> Security:
             shares_outstanding=1.0,
         ),
         market=MarketData(price=10.0, shares_outstanding=1.0, market_cap=10.0, beta=1.5),
+        sector="Investments & Asset Management",
+        industry="Asset Management",
         revenue_mix={"americas": 0.66, "emea": 0.30, "apac": 0.04},
         qualitative=dict(qual),
     )
@@ -146,11 +148,13 @@ def test_pipeline_uses_company_erp(mock_yf, mock_fetch):
     sec = _offline_security()
     expected, src = cr.company_erp(sec)
     ValuationPipeline().run(sec)
-    assert sec.qualitative["equity_risk_premium"] == pytest.approx(expected)
-    assert sec.qualitative["erp_source"] == src
+    # run() never writes the caller-override keys; the reference WACC records the ERP source.
+    assert "equity_risk_premium" not in sec.qualitative
+    assert "risk_free_rate" not in sec.qualitative
     wacc = sec.qualitative["wacc_info"]
-    rf = sec.qualitative["risk_free_rate"]
-    assert wacc["cost_of_equity"] == pytest.approx(rf + 1.5 * expected)
+    rf = DamodaranProvider.get_risk_free_rate()
+    # Bottom-up Ke: asset-management unlevered beta 0.59, no debt, revenue-weighted ERP.
+    assert wacc["cost_of_equity"] == pytest.approx(rf + 0.59 * expected)
     assert wacc["erp_source"] == src
 
 
@@ -164,7 +168,8 @@ def test_pipeline_does_not_overwrite_caller_erp(mock_yf, mock_fetch):
     ValuationPipeline().run(sec)
     assert sec.qualitative["equity_risk_premium"] == 0.055
     assert sec.qualitative["erp_source"] == "caller-supplied"
+    assert "risk_free_rate" not in sec.qualitative  # caller set only the ERP
     assert math.isclose(
         sec.qualitative["wacc_info"]["cost_of_equity"],
-        sec.qualitative["risk_free_rate"] + 1.5 * 0.055,
+        DamodaranProvider.get_risk_free_rate() + 1.5 * 0.055,
     )

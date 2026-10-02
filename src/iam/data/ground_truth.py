@@ -13,7 +13,8 @@ Architecture: The Data Firewall
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+import math
+from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING
 
 from iam.data.damodaran import DamodaranProvider, MacroBaselines
@@ -23,8 +24,17 @@ if TYPE_CHECKING:
     from iam.data.security import Security
 
 
-class GroundTruthProviderError(Exception):
-    """Raised when ground truth calculation fails."""
+# Named model default (not data): used only when the security carries no effective
+# tax rate, and always recorded in ``EquityRiskProfile.defaults_used``.
+US_FEDERAL_STATUTORY_TAX = 0.21
+
+
+class GroundTruthProviderError(ValueError):
+    """Raised when a ground-truth profile cannot be built from real data.
+
+    A ``ValueError`` subclass: missing market cap / unknown industry is a
+    rejection of the input, not a crash.
+    """
 
     pass
 
@@ -54,6 +64,11 @@ class EquityRiskProfile:
     levered_beta: float
     cost_of_equity: float
     erp_breakdown: dict[str, dict] = None  # type: ignore
+    rf_source: str = ""
+    erp_source: str = ""
+    tax_rate: float | None = None
+    debt_to_equity: float | None = None
+    defaults_used: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.erp_breakdown is None:
@@ -92,107 +107,98 @@ class GroundTruthProvider:
         return self.damodaran.get_macro_state()
 
     def get_blended_erp(self, security: Security) -> tuple[float, dict]:
-        """Calculate blended ERP from security's revenue_mix (geography weighting).
+        """Revenue-weighted ERP of the company (owner's "On BLK" method).
 
-        For multi-region companies, uses revenue distribution to weight ERPs
-        by geography. For single-region or no mix, falls back to country_iso.
-
-        Args:
-            security: Security with revenue_mix (optional)
+        Delegates to :func:`iam.valuation.country_risk.company_erp`:
+        Damodaran country/regional ERPs weighted by ``security.revenue_mix``,
+        the dataset's US ERP when there is no usable mix.
 
         Returns:
-            (blended_erp: float, breakdown: dict)
-            Where breakdown shows per-region ERP contributions
-
-        Example:
-            nvda = Security(ticker="NVDA", ..., revenue_mix={"US": 0.44, "CN": 0.25, ...})
-            erp, breakdown = GroundTruthProvider.get_blended_erp(nvda)
-            # erp ~ 0.058 (blended across regions)
-            # breakdown = {"us": {weight: 0.44, erp: 0.046, contrib: 0.020}, ...}
+            (blended_erp, breakdown) where breakdown maps each resolved
+            geography to its weight, ERP and contribution.
         """
-        mix = security.normalized_mix()
-        if not mix:
-            # Fallback: use country_iso if no revenue mix
-            erp = self.damodaran.resolve_erp(security.country_iso or "US")
-            return erp, {
-                (security.country_iso or "US"): {
-                    "weight": 1.0,
-                    "erp": erp,
-                    "contrib": erp,
-                    "fallback": True,
-                }
-            }
+        # Imported lazily: iam.valuation imports this module at package load.
+        from iam.valuation.country_risk import company_erp, revenue_erp_breakdown
 
-        breakdown = {}
-        weighted = 0.0
-        for token, weight in mix.items():
-            erp = self.damodaran.resolve_erp(token)
-            contrib = erp * weight
-            weighted += contrib
-            breakdown[token] = {
-                "weight": round(weight, 4),
-                "erp": erp,
-                "contrib": round(contrib, 5),
-            }
-        return round(weighted, 4), breakdown
+        erp, _source = company_erp(security)
+        return erp, revenue_erp_breakdown(security)
 
-    def get_equity_risk_profile(self, security: Security) -> EquityRiskProfile:
+    def get_equity_risk_profile(self, security: Security) -> EquityRiskProfile | None:
+        """Bottom-up cost of equity for a security, or ``None`` without enough data.
+
+        See :meth:`get_equity_risk_profile_with_reason` for the algorithm and for
+        the reason a profile could not be built.
         """
-        Synthesizes macro data + industry-standard baselines into
-        a coherent risk profile for a specific security.
+        return self.get_equity_risk_profile_with_reason(security)[0]
 
-        This is the core institutional valuation anchor. Every DCF discount rate
-        should be calculated using this profile.
-
-        Args:
-            security: Security object with sector, industry, debt, market_cap, revenue_mix (optional)
-
-        Returns:
-            EquityRiskProfile with institutional Cost of Equity and erp_breakdown
+    def get_equity_risk_profile_with_reason(
+        self, security: Security
+    ) -> tuple[EquityRiskProfile | None, str]:
+        """Bottom-up cost of equity: Rf + relevered industry beta x revenue-weighted ERP.
 
         Algorithm:
-        1. Get blended ERP from revenue_mix (geography weighting)
-        2. Get macro baselines (Rf) from Damodaran
-        3. Get industry unlevered beta from Damodaran sector/industry lookup
-        4. Re-lever the beta using company's current D/E ratio
-        5. Calculate CoE = Rf + Beta * ERP (CAPM)
+        1. Rf (with source) from the Damodaran macro state.
+        2. ERP = ``country_risk.company_erp`` (revenue-weighted, US fallback), with source.
+        3. Industry unlevered beta from the Damodaran table.
+        4. Relever at the company's CURRENT market D/E (total debt / market cap)
+           with the effective tax rate, or the named statutory default.
+        5. Ke = Rf + relevered beta x ERP.
 
-        Example:
-            >>> gt = GroundTruthProvider()
-            >>> profile = gt.get_equity_risk_profile(aapl)
-            >>> print(f"AAPL Cost of Equity: {profile.cost_of_equity*100:.2f}%")
-            AAPL Cost of Equity: 8.45%
+        Returns:
+            ``(profile, "")`` or ``(None, reason)``. No profile is built when the
+            market cap or the industry beta is missing: neither is invented.
         """
-        # 1. Blended ERP from geography
-        blended_erp, erp_breakdown = self.get_blended_erp(security)
+        from iam.valuation.country_risk import company_erp, revenue_erp_breakdown
 
-        # 2. Macro Anchor (The 'Ground Truth')
+        market_cap = security.market.market_cap if security.market else None
+        if market_cap is None or not math.isfinite(market_cap) or market_cap <= 0:
+            return None, "market cap unavailable: current D/E unknown, no bottom-up cost of equity"
+
+        u_beta = self.damodaran.find_industry_unlevered_beta(security.sector, security.industry)
+        if u_beta is None:
+            return None, (
+                f"industry unlevered beta not found for sector {security.sector!r} / "
+                f"industry {security.industry!r}: no bottom-up cost of equity"
+            )
+
+        blended_erp, erp_source = company_erp(security)
+        erp_breakdown = revenue_erp_breakdown(security)
         macro = self.damodaran.get_macro_state()
 
-        # 3. Industry Anchor (Sector-specific business risk)
-        u_beta = self.damodaran.get_industry_unlevered_beta(
-            security.sector or "unknown", security.industry or "unknown"
-        )
-
-        # 4. Calculate Cost of Equity (CAPM with institutional assumptions)
-        # Re-lever the industry beta using the security's own D/E ratio
-        # This is where the institutional "alpha" lives—using current leverage
-        # instead of regression beta's average of 5 years of history
-        market_cap = security.market.market_cap or 1.0  # Avoid division by zero
-        total_debt = security.fundamentals.total_debt or 0.0
+        defaults_used: list[str] = []
+        total_debt = security.fundamentals.total_debt
+        if total_debt is None:
+            total_debt = 0.0
+            defaults_used.append("total debt unavailable: D/E taken as 0")
         de_ratio = total_debt / market_cap
-        tax_rate = 0.21  # US federal corporate tax rate
+
+        effective_tax = getattr(security.fundamentals, "effective_tax_rate", None)
+        if effective_tax is not None:
+            tax_rate = float(effective_tax)
+        else:
+            tax_rate = US_FEDERAL_STATUTORY_TAX
+            defaults_used.append(
+                f"tax: US federal statutory {US_FEDERAL_STATUTORY_TAX:.0%} (no effective rate)"
+            )
 
         levered_beta = self.damodaran.relever_beta(u_beta, de_ratio, tax_rate)
-        cost_of_equity = macro.risk_free_rate + (levered_beta * blended_erp)
+        cost_of_equity = macro.risk_free_rate + levered_beta * blended_erp
 
-        return EquityRiskProfile(
-            erp=blended_erp,
-            risk_free_rate=macro.risk_free_rate,
-            industry_unlevered_beta=u_beta,
-            levered_beta=round(levered_beta, 4),
-            cost_of_equity=round(cost_of_equity, 4),
-            erp_breakdown=erp_breakdown,
+        return (
+            EquityRiskProfile(
+                erp=blended_erp,
+                risk_free_rate=macro.risk_free_rate,
+                industry_unlevered_beta=u_beta,
+                levered_beta=levered_beta,
+                cost_of_equity=cost_of_equity,
+                erp_breakdown=erp_breakdown,
+                rf_source=macro.rf_source,
+                erp_source=erp_source,
+                tax_rate=tax_rate,
+                debt_to_equity=de_ratio,
+                defaults_used=defaults_used,
+            ),
+            "",
         )
 
     def get_risk_profile(self, security: Security) -> dict:
@@ -206,7 +212,10 @@ class GroundTruthProvider:
 
         Returns:
             Dict with erp, risk_free_rate, industry_unlevered_beta, levered_beta,
-            cost_of_equity, erp_breakdown, and _provenance
+            cost_of_equity, erp_breakdown, sources and _provenance
+
+        Raises:
+            GroundTruthProviderError: market cap or industry beta is missing.
 
         Example:
             >>> gt = GroundTruthProvider()
@@ -216,7 +225,9 @@ class GroundTruthProvider:
             >>> print(f"Cost of Equity: {p['cost_of_equity']:.2%}")
             >>> print(f"Source: {p['_provenance']['version']}")
         """
-        profile = self.get_equity_risk_profile(security)
+        profile, reason = self.get_equity_risk_profile_with_reason(security)
+        if profile is None:
+            raise GroundTruthProviderError(reason)
         profile_dict = asdict(profile)
         return attach_provenance(profile_dict)
 
@@ -224,7 +235,7 @@ class GroundTruthProvider:
         self,
         security: Security,
         cost_of_debt: float = 0.04,  # Default 4% CoD if not provided
-    ) -> float:
+    ) -> float | None:
         """
         Calculate Weighted Average Cost of Capital using institutional baselines.
 
@@ -233,32 +244,32 @@ class GroundTruthProvider:
         Where:
         - E/V = Equity weight = Market Cap / Enterprise Value
         - D/V = Debt weight = Total Debt / Enterprise Value
-        - Tc = Corporate tax rate (21% for US)
-        - CoE = Cost of Equity (from ground truth)
-        - CoD = Cost of Debt (or default 4%)
+        - Tc = Corporate tax rate (profile's effective rate, else US statutory 21%)
+        - CoE = Bottom-up cost of equity (from ground truth)
+        - CoD = Cost of debt (or default 4%)
 
         Args:
             security: Security object with debt, market_cap, fundamentals
             cost_of_debt: Cost of debt (use company's actual cost if available)
 
         Returns:
-            WACC as a decimal (0.08 = 8%)
+            WACC as a decimal (0.08 = 8%), or ``None`` when no bottom-up profile
+            can be built (missing market cap or industry beta).
         """
         profile = self.get_equity_risk_profile(security)
+        if profile is None or profile.tax_rate is None:
+            return None
 
-        market_cap = security.market.market_cap or 1.0
+        market_cap = float(security.market.market_cap or 0.0)
         total_debt = security.fundamentals.total_debt or 0.0
-        tax_rate = 0.21
 
         enterprise_value = market_cap + total_debt
         if enterprise_value <= 0:
-            return profile.cost_of_equity  # Fallback to CoE if no debt
+            return profile.cost_of_equity
 
         equity_weight = market_cap / enterprise_value
         debt_weight = total_debt / enterprise_value
 
-        wacc = (equity_weight * profile.cost_of_equity) + (
-            debt_weight * cost_of_debt * (1.0 - tax_rate)
+        return (equity_weight * profile.cost_of_equity) + (
+            debt_weight * cost_of_debt * (1.0 - profile.tax_rate)
         )
-
-        return wacc

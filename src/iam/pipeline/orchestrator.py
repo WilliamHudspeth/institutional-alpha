@@ -12,7 +12,7 @@ from iam.engine.growth_estimator import (
     GrowthQuestionnaire,
     QuestionnaireGrowthEngine,
 )
-from iam.engine.market_implied import MarketImpliedEngine
+from iam.engine.market_implied import ConsensusInputs, MarketImpliedEngine
 from iam.laws import DamodaranLawRegistry
 from iam.laws.types import LawReport
 from iam.lenses.base import LensResult
@@ -36,7 +36,7 @@ from iam.valuation import (
     Triangulator,
     ValuationResult,
 )
-from iam.valuation.country_risk import company_erp
+from iam.valuation.country_risk import company_erp, us_consensus_erp
 from iam.valuation.monte_carlo import MonteCarloDCF, MonteCarloDistribution
 
 if TYPE_CHECKING:
@@ -403,16 +403,21 @@ class ValuationPipeline:
 
     @staticmethod
     def _calculate_dynamic_wacc(security: Security) -> dict | None:
+        """Reference WACC built on the intrinsic (bottom-up) cost of equity.
+
+        Ke is the one the intrinsic stage uses: Rf + relevered industry beta x
+        revenue-weighted ERP. If the caller supplied ``risk_free_rate`` /
+        ``equity_risk_premium`` that explicit CAPM (regression beta) is used
+        instead, as in the intrinsic stage. Returns ``None`` when no cost of
+        equity can be built from real data.
+        """
         from iam.data.damodaran import DamodaranProvider
+        from iam.data.ground_truth import GroundTruthProvider
         from iam.valuation.damodaran_defaults import build_wacc
 
         f = security.fundamentals
         m = security.market
         if not f or not m:
-            return None
-
-        beta = getattr(m, "beta", None)
-        if beta is None:
             return None
 
         ebit = None
@@ -428,40 +433,62 @@ class ValuationPipeline:
         if interest is None:
             return None
 
-        d_to_e = 0.0
-        total_debt = getattr(f, "total_debt", None) or 0.0
-        market_cap = getattr(m, "market_cap", None) or 0.0
-        if total_debt > 0 and market_cap > 0:
-            d_to_e = total_debt / market_cap
-
-        macro = DamodaranProvider.get_macro_state()
         qual = security.qualitative or {}
-        if qual.get("equity_risk_premium") is not None:
-            erp = float(qual["equity_risk_premium"])
-            erp_source = str(qual.get("erp_source") or "caller-supplied")
-        else:
-            erp, erp_source = company_erp(security)
-        ke = macro.risk_free_rate + beta * erp
-
-        tax_rate = None
+        caller_rf = qual.get("risk_free_rate")
+        caller_erp = qual.get("equity_risk_premium")
         defaults_used: list[str] = []
 
-        if getattr(f, "effective_tax_rate", None) is not None:
-            tax_rate = float(getattr(f, "effective_tax_rate"))
+        if caller_rf is not None or caller_erp is not None:
+            # Explicit custom CAPM: caller values with the regression beta.
+            beta = getattr(m, "beta", None)
+            if beta is None:
+                return None
+            macro = DamodaranProvider.get_macro_state()
+            if caller_rf is not None:
+                rf = float(caller_rf)
+                rf_source = str(qual.get("rf_source") or "caller-supplied")
+            else:
+                rf, rf_source = macro.risk_free_rate, macro.rf_source
+            if caller_erp is not None:
+                erp = float(caller_erp)
+                erp_source = str(qual.get("erp_source") or "caller-supplied")
+            else:
+                erp, erp_source = company_erp(security)
+            ke = rf + beta * erp
+            d_to_e = 0.0
+            total_debt = getattr(f, "total_debt", None) or 0.0
+            market_cap = getattr(m, "market_cap", None) or 0.0
+            if total_debt > 0 and market_cap > 0:
+                d_to_e = total_debt / market_cap
+            if getattr(f, "effective_tax_rate", None) is not None:
+                tax_rate = float(getattr(f, "effective_tax_rate"))
+            else:
+                tax_rate = US_FEDERAL_STATUTORY_TAX
+                defaults_used.append("tax: US federal statutory 21% (no effective rate)")
         else:
-            tax_rate = US_FEDERAL_STATUTORY_TAX
-            defaults_used.append("tax: US federal statutory 21% (no effective rate)")
+            profile = GroundTruthProvider().get_equity_risk_profile(security)
+            if profile is None or profile.tax_rate is None or profile.debt_to_equity is None:
+                return None
+            rf, rf_source, erp_source = (
+                profile.risk_free_rate,
+                profile.rf_source,
+                profile.erp_source,
+            )
+            ke = profile.cost_of_equity
+            d_to_e = profile.debt_to_equity
+            tax_rate = profile.tax_rate
+            defaults_used.extend(profile.defaults_used)
 
         wacc_info = build_wacc(
             ke=ke,
             ebit=ebit,
             interest_expense=interest,
-            rf=macro.risk_free_rate,
+            rf=rf,
             d_to_e=d_to_e,
             tax_rate=tax_rate,
         )
         wacc_info.setdefault("defaults_used", []).extend(defaults_used)
-        wacc_info["rf_source"] = macro.rf_source
+        wacc_info["rf_source"] = rf_source
         wacc_info["erp_source"] = erp_source
         wacc_info["cost_of_equity"] = ke
         return wacc_info
@@ -495,29 +522,30 @@ class ValuationPipeline:
                 f"{dynamic_wacc:.2%}{details_str}"
             )
 
+        # Caller overrides keep their meaning: this method never writes
+        # risk_free_rate / equity_risk_premium. It only labels their source.
+        if security.qualitative is None:
+            security.qualitative = {}
+        if "risk_free_rate" in security.qualitative:
+            security.qualitative.setdefault("rf_source", "caller-supplied")
+        if "equity_risk_premium" in security.qualitative:
+            security.qualitative.setdefault("erp_source", "caller-supplied")
+
+        # Stage 1: Reverse DCF ("what does the price imply?"). Consensus Ke =
+        # Rf + regression beta x US-only ERP, handed to Stage 1 for this call
+        # only so it cannot steer any other stage.
+        consensus: ConsensusInputs | None = None
         if security.market and getattr(security.market, "beta", None) is not None:
             from iam.data.damodaran import DamodaranProvider
 
-            macro_state = DamodaranProvider.get_macro_state()
-            if security.qualitative is None:
-                security.qualitative = {}
-            if "risk_free_rate" not in security.qualitative:
-                security.qualitative["risk_free_rate"] = macro_state.risk_free_rate
-                security.qualitative["rf_source"] = macro_state.rf_source
-            else:
-                security.qualitative.setdefault("rf_source", "caller-supplied")
+            rf, rf_source = DamodaranProvider.get_risk_free_rate_with_source()
+            us_erp, us_erp_source = us_consensus_erp()
+            consensus = ConsensusInputs(
+                rf=rf, erp=us_erp, rf_source=rf_source, erp_source=us_erp_source
+            )
+        market_implied_engine_res = self.market_implied_engine.compute(security, consensus)
 
-            if "equity_risk_premium" not in security.qualitative:
-                erp_value, erp_src = company_erp(security)
-                security.qualitative["equity_risk_premium"] = erp_value
-                security.qualitative["erp_source"] = erp_src
-            else:
-                security.qualitative.setdefault("erp_source", "caller-supplied")
-
-        # Stage 1: Reverse DCF
-        market_implied_engine_res = self.market_implied_engine.compute(security)
-
-        if not security.market or getattr(security.market, "beta", None) is None:
+        if consensus is None:
             market_implied_engine_res.notes.append("CAPM skipped for lack of beta.")
 
         # Stage 1b: Questionnaire-based fundamental growth, contrasted against

@@ -364,6 +364,24 @@ class DamodaranProvider:
             >>> # u_beta is 0.59 (very low pure business risk)
             >>> # But a leveraged firm's levered beta might be 1.1 due to debt
         """
+        found = cls.find_industry_unlevered_beta(sector, industry)
+        if found is not None:
+            return found
+
+        # Default: Global average unlevered beta
+        logger.warning(
+            f"Could not find unlevered beta for {sector} / {industry}; using global default (0.85)"
+        )
+        return 0.85
+
+    @classmethod
+    def find_industry_unlevered_beta(cls, sector: str | None, industry: str | None) -> float | None:
+        """Look up the industry unlevered beta; ``None`` when the industry is not in the table.
+
+        Unlike :meth:`get_industry_unlevered_beta` this never substitutes a global
+        default, so callers that must not invent a beta (the bottom-up cost of
+        equity) can report "insufficient data" instead.
+        """
         sector_clean = sector.lower().strip() if sector else ""
         industry_clean = industry.lower().strip() if industry else ""
 
@@ -384,12 +402,7 @@ class DamodaranProvider:
                     if key in term or term in key:
                         logger.debug(f"[BETA] Found substring match for '{term}': {beta}")
                         return beta
-
-        # Default: Global average unlevered beta
-        logger.warning(
-            f"Could not find unlevered beta for {sector} / {industry}; using global default (0.85)"
-        )
-        return 0.85
+        return None
 
     @staticmethod
     def relever_beta(unlevered_beta: float, debt_to_equity: float, tax_rate: float = 0.21) -> float:

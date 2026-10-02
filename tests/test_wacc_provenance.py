@@ -1,8 +1,11 @@
 from unittest.mock import patch
 
+import pytest
+
 from iam.data.damodaran import DamodaranProvider
 from iam.data.security import Fundamentals, MarketData, Security
 from iam.pipeline.orchestrator import ValuationPipeline
+from iam.valuation.country_risk import company_erp
 
 
 @patch("iam.data.markets.fetch_live_quote", return_value=None)
@@ -29,12 +32,15 @@ def test_wacc_provenance_dynamic_wacc(mock_yfinance, mock_fetch):
             revenue_ttm=100.0, operating_margin=0.1, interest_expense_ttm=5.0
         ),
         market=MarketData(price=10.0, shares_outstanding=1.0),
+        sector="Investments & Asset Management",
+        industry="Asset Management",
     )
-    # Missing beta
+    # Missing market cap: no current D/E, so no bottom-up cost of equity
     wacc_info = pipeline._calculate_dynamic_wacc(sec)
     assert wacc_info is None
 
-    sec.market.beta = 1.5
+    sec.market.market_cap = 10.0
+    sec.fundamentals.total_debt = 0.0
     # Missing EBIT (remove revenue_ttm)
     sec.fundamentals.revenue_ttm = None
     wacc_info = pipeline._calculate_dynamic_wacc(sec)
@@ -52,9 +58,10 @@ def test_wacc_provenance_dynamic_wacc(mock_yfinance, mock_fetch):
     assert "baseline" in wacc_info["rf_source"]
 
     macro = DamodaranProvider.get_macro_state()
-    expected_ke = macro.risk_free_rate + 1.5 * macro.implied_erp
-    assert wacc_info["cost_of_equity"] == expected_ke
-    assert expected_ke != 0.09  # never yields a 9% ke for a beta of 1.5
+    erp, _ = company_erp(sec)  # no revenue mix: US ERP
+    expected_ke = macro.risk_free_rate + 0.59 * erp  # asset-management unlevered beta, no debt
+    assert wacc_info["cost_of_equity"] == pytest.approx(expected_ke, abs=1e-12)
+    assert expected_ke != 0.09  # never yields a flat 9% ke
 
 
 @patch("iam.data.markets.fetch_live_quote", return_value=None)
@@ -69,8 +76,11 @@ def test_wacc_provenance_dynamic_wacc_defaults(mock_yfinance, mock_fetch):
         fundamentals=Fundamentals(
             revenue_ttm=100.0, operating_margin=0.1, interest_expense_ttm=5.0
         ),
-        market=MarketData(price=10.0, shares_outstanding=1.0, beta=1.2),
+        market=MarketData(price=10.0, shares_outstanding=1.0, market_cap=10.0, beta=1.2),
+        sector="Investments & Asset Management",
+        industry="Asset Management",
     )
+    sec.fundamentals.total_debt = 0.0
     # Default tax rate used when effective_tax_rate is None
     wacc_info = pipeline._calculate_dynamic_wacc(sec)
     assert wacc_info is not None
@@ -111,6 +121,9 @@ def test_wacc_provenance_run(mock_yfinance, mock_fetch):
         ),
         market=MarketData(price=10.0, shares_outstanding=1.0, market_cap=10.0, beta=1.5),
     )
+    sec.sector = "Investments & Asset Management"
+    sec.industry = "Asset Management"
+    sec.fundamentals.total_debt = 0.0
     original_r = pipeline.market_implied_engine.r
 
     report = pipeline.run(sec)
@@ -118,9 +131,9 @@ def test_wacc_provenance_run(mock_yfinance, mock_fetch):
     # run() does not set market_implied_engine.r to the WACC
     assert pipeline.market_implied_engine.r == original_r
 
-    # Stage 1 notes show the CAPM line when beta is present
+    # Stage 1 notes show the consensus Ke line when beta is present
     stage_1_notes = report.market_implied_engine.notes
-    assert any("CAPM discount rate" in note for note in stage_1_notes)
+    assert any("consensus Ke (US ERP, regression beta)" in note for note in stage_1_notes)
 
     # Stage 3 (Intrinsic) notes:
     # 1. Never contain "Dynamic WACC applied"

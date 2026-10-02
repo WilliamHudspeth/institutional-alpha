@@ -389,19 +389,71 @@ def blended_erp(
     )
 
 
+def resolve_revenue_key(key: str, table: dict[str, Any] | None = None) -> tuple[str, float] | None:
+    """Resolve one revenue_mix key to ``(dataset name, ERP)``; ``None`` if it resolves to nothing."""
+    hit = _resolve_key(key, table if table is not None else load_country_erp())
+    return None if hit is None else (hit[0], hit[1])
+
+
 def company_erp(security: Any) -> tuple[float, str]:
     """Single entry point: a company's ERP and its provenance string.
 
     Uses the revenue-weighted blend when ``security.revenue_mix`` is non-empty
-    and at least part of it resolves; otherwise the dataset's US ERP.
+    and at least part of it resolves. With no usable mix it falls back to the
+    country of domicile (``security.country_iso``) when that is a non-US country
+    the dataset knows, else the dataset's US ERP.
     """
     tbl = load_country_erp()
     us = float(tbl["us_erp"])
     mix = getattr(security, "revenue_mix", None)
     if not mix:
+        iso = str(getattr(security, "country_iso", "") or "")
+        home = _resolve_key(iso, tbl) if iso and _norm(iso) not in ("us", "usa") else None
+        if home is not None:
+            name, erp_val, _ = home
+            return (
+                erp_val,
+                f"{name} ERP {erp_val:.2%} ({DATASET_LABEL}; no revenue mix, country_iso {iso})",
+            )
         return us, f"US ERP {us:.2%} ({DATASET_LABEL}; no revenue mix)"
     out = blended_erp(dict(mix), table=tbl)
     if out.coverage > 0:
         return out.erp, out.source
     bad = ", ".join(out.unresolved) if out.unresolved else "none"
     return us, f"US ERP {us:.2%} ({DATASET_LABEL}; revenue mix unresolved, keys: {bad})"
+
+
+def revenue_erp_breakdown(security: Any) -> dict[str, dict[str, Any]]:
+    """Per-revenue-key ERP rows behind :func:`company_erp`, keyed by the mix key.
+
+    Each row has ``weight`` (renormalised over the keys that resolved), ``erp``
+    and ``contrib``. Without a resolvable mix a single ``fallback`` row holds the
+    ERP :func:`company_erp` returned.
+    """
+    tbl = load_country_erp()
+    mix = security.normalized_mix() if getattr(security, "revenue_mix", None) else {}
+    resolved = {}
+    for token, weight in mix.items():
+        hit = resolve_revenue_key(token, tbl)
+        if hit is not None and weight > 0:
+            resolved[token] = (weight, hit[1])
+    total = sum(w for w, _ in resolved.values())
+    if total <= 0:
+        erp, _ = company_erp(security)
+        key = str(getattr(security, "country_iso", "") or "US")
+        return {key: {"weight": 1.0, "erp": erp, "contrib": erp, "fallback": True}}
+    return {
+        token: {
+            "weight": round(w / total, 4),
+            "erp": e,
+            "contrib": round(w / total * e, 5),
+        }
+        for token, (w, e) in resolved.items()
+    }
+
+
+def us_consensus_erp() -> tuple[float, str]:
+    """The US-only (rating-based) ERP used for the Stage 1 consensus cost of equity."""
+    tbl = load_country_erp()
+    us = float(tbl["us_erp"])
+    return us, f"US ERP {us:.2%} ({DATASET_LABEL}, rating-based)"
