@@ -12,7 +12,7 @@ Rules for every task:
   `valuation/beta.py` and the SOTP block of `pipeline/orchestrator.py` until their work is merged.
 - Every code change ships with a test that fails without it. Run:
   `python -m pytest -q -o addopts="" -p no:cacheprovider --benchmark-disable --ignore=tests/performance`
-- Nothing is pushed without the owner's OK.
+- Push to `claude/adoring-fermat-rvbidx` only (the owner authorised push and pull).
 
 ---
 
@@ -84,7 +84,7 @@ Prefer deleting if nothing else uses it.
 
 Files: `src/iam/ui/terrain.py`, `src/iam/engine/simulations.py`, `tests/test_enhancements_smoke.py`.
 
-## A5 — Lint and security-scan cleanup (coding; only after A2's diffs are merged)
+## A5 — Lint and security-scan cleanup — DONE in 5b025f3
 
 CI's `ruff check src/ tests/` reports about 139 errors on `main`, and bandit fails the
 "Test & Lint" job.
