@@ -21,3 +21,10 @@ globs: "**/*"
    never touch other branches, never rewrite history.
 7. Only edit the files your task lists. If you must touch another file, say so in your final report.
 8. Cite file:line for every claim. Verify against the code; do not speculate.
+9. Never weaken a test to make it pass. Forbidden: replacing assertions with `pass`, loosening an exact
+   check to a range (e.g. `> 0.04`), comparing against a placeholder, renaming a test so it is not
+   collected (e.g. `SKIP_test_...`), adding skip/xfail, or adding autouse fixtures or monkeypatches in
+   conftest.py that change production behaviour or inject values. If an existing test fails because the
+   specified behaviour changed, update its expected value to the new correct value and explain why in
+   the report. If it fails for any other reason, fix the code or stop and report. Never leave scratch
+   scripts in the worktree.
