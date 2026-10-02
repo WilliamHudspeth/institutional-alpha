@@ -86,7 +86,7 @@ iam-menu = "iam.ui.menu:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-iam = ["data/reference/*.json"]
+iam = ["py.typed", "data/reference/*.json", "arbitration/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
