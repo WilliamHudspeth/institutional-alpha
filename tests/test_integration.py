@@ -9,15 +9,8 @@ import pytest
 from iam.api import Security, value_security
 from iam.data import GroundTruthProvider, MarketData, apply_scenario
 from iam.integration import ModelResult, Orchestrator, from_ground_truth
-from iam.valuation.country_risk import load_country_erp
-
-
-def _country_erp(name: str) -> float:
-    return load_country_erp()["countries"][name]["erp"]
-
-
-def _region_erp(name: str) -> float:
-    return load_country_erp()["regions"][name]["erp"]
+from tests.erp_helpers import country_avg as _country_erp
+from tests.erp_helpers import region_erp as _region_erp
 
 
 class TestApplyScenario:
@@ -131,7 +124,8 @@ class TestOrchestrator:
         result = orchestrator.value_security(nvda)
         profile = result["risk_profile"]
 
-        # Country ERPs from the shipped Damodaran dataset (was the stale 4.6/7.5/4.8/5.2% table).
+        # Country ERPs (rating/CDS averaged) from the April 2026 Damodaran dataset
+        # (was the stale 4.6/7.5/4.8/5.2% table).
         expected_erp = (
             0.44 * _country_erp("United States")
             + 0.25 * _country_erp("China")
@@ -193,7 +187,7 @@ class TestMultiRegionBlending:
         gt = GroundTruthProvider()
         profile = gt.get_risk_profile(blk)
 
-        # Expected ERP blending from the shipped dataset's regional ERPs:
+        # Expected ERP blending from the GDP-weighted regional ERPs (April 2026 dataset):
         # 64% North America + 30% Western Europe (EMEA) + 6% Asia (APAC)
         expected_erp = (
             0.64 * _region_erp("North America")

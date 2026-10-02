@@ -1,4 +1,4 @@
-"""Revenue-weighted ERP from Damodaran country/regional data (Jan 2026 file)."""
+"""Revenue-weighted ERP from Damodaran country/regional data (newest shipped file)."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from iam.data.damodaran import DamodaranProvider
 from iam.data.security import Fundamentals, MarketData, Security
 from iam.pipeline.orchestrator import ValuationPipeline
 from iam.valuation import country_risk as cr
+from tests.erp_helpers import region_erp
 
 # Fixture table for the owner's "On BLK" arithmetic: 66% Americas / 30% EMEA / 4% APAC.
 _E_WEST = (0.0540 - 0.66 * 0.0503 - 0.04 * 0.0645) / 0.30
@@ -60,7 +61,8 @@ def test_unknown_key_is_excluded_not_rated():
 def test_only_unknown_keys_fall_back_to_us_erp_with_reason():
     sec = Security(ticker="X", revenue_mix={"atlantis": 1.0})
     erp, src = cr.company_erp(sec)
-    assert erp == pytest.approx(cr.load_country_erp()["us_erp"])
+    # Fallback is the US per-country ERP (rating/CDS averaged), was the rating-only us_erp.
+    assert erp == pytest.approx(cr.country_erp("United States"))
     assert "atlantis" in src and "unresolved" in src.lower()
 
 
@@ -75,17 +77,19 @@ def test_eurozone_uk_row_mix_not_inflated():
 
 def test_no_revenue_mix_uses_us_erp():
     erp, src = cr.company_erp(Security(ticker="X"))
-    assert erp == pytest.approx(0.0446)
-    assert "Damodaran Jan 2026" in src and "no revenue mix" in src
+    # April 2026 US per-country ERP: mean of rating 5.03% and CDS 5.3838% (was 4.46% in January)
+    assert erp == pytest.approx((0.0503 + 0.053838) / 2, abs=1e-9)
+    assert "Damodaran Apr 2026" in src and "no revenue mix" in src
 
 
 def test_shipped_data_blk_mix_matches_regional_values():
     data = cr.load_country_erp()
-    r = data["regions"]
+    # Regions are the GDP-weighted mean of their countries' rating/CDS-averaged ERPs
+    # (was the published rating-only regional figure).
     expected = (
-        0.66 * r["North America"]["erp"]
-        + 0.30 * r["Western Europe"]["erp"]
-        + 0.04 * r["Asia"]["erp"]
+        0.66 * region_erp("North America")
+        + 0.30 * region_erp("Western Europe")
+        + 0.04 * region_erp("Asia")
     )
     sec = Security(ticker="BLK", revenue_mix={"americas": 0.66, "emea": 0.30, "apac": 0.04})
     erp, src = cr.company_erp(sec)
@@ -113,7 +117,7 @@ def test_every_alias_target_exists():
 
 def test_loader_env_override_and_cwd_independence(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    assert cr.load_country_erp()["mature_market_erp"] == 0.0423
+    assert cr.load_country_erp()["mature_market_erp"] == 0.0477
     alt = tmp_path / "alt.json"
     alt.write_text('{"mature_market_erp": 0.01, "us_erp": 0.02}')
     monkeypatch.setenv("IAM_COUNTRY_ERP_FILE", str(alt))

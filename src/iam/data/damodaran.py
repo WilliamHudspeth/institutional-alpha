@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -25,12 +26,32 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Damodaran country/regional ERP dataset (ctryprem.xlsx, Jan 2026) shipped as JSON.
-# Re-exported as iam.valuation.country_risk.load_country_erp.
+# Damodaran country/regional ERP datasets (ctryprem.xlsx) shipped as dated JSON files
+# ``reference/country_erp_YYYY-MM.json``. The newest dated file is the default;
+# older files stay so earlier dates remain reproducible. Re-exported as
+# iam.valuation.country_risk.load_country_erp.
 COUNTRY_ERP_ENV = "IAM_COUNTRY_ERP_FILE"
-_DEFAULT_COUNTRY_ERP_FILE = (
-    Path(__file__).resolve().parent / "reference" / "country_erp_2026-01.json"
-)
+_REFERENCE_DIR = Path(__file__).resolve().parent / "reference"
+_COUNTRY_ERP_NAME = re.compile(r"^country_erp_(\d{4})-(\d{2})\.json$")
+
+
+def latest_country_erp_file(directory: str | os.PathLike[str] | None = None) -> Path:
+    """The newest ``country_erp_YYYY-MM.json`` in ``directory`` (default: the packaged folder).
+
+    Names that do not match the dated pattern are ignored.
+
+    Raises:
+        FileNotFoundError: no dated country ERP file exists in the directory.
+    """
+    folder = Path(directory) if directory is not None else _REFERENCE_DIR
+    dated = [
+        (int(m.group(1)), int(m.group(2)), f)
+        for f in folder.iterdir()
+        if (m := _COUNTRY_ERP_NAME.match(f.name))
+    ]
+    if not dated:
+        raise FileNotFoundError(f"no country_erp_YYYY-MM.json file in {folder}")
+    return max(dated, key=lambda t: (t[0], t[1]))[2]
 
 
 @lru_cache(maxsize=8)
@@ -41,8 +62,8 @@ def _read_cached(path: str) -> dict[str, Any]:
 
 
 def read_country_erp(path: str | os.PathLike[str] | None = None) -> dict[str, Any]:
-    """Load the country ERP file (explicit path, env override, else the packaged file)."""
-    chosen = path or os.environ.get(COUNTRY_ERP_ENV) or _DEFAULT_COUNTRY_ERP_FILE
+    """Load the country ERP file: explicit path, env override, else the newest packaged file."""
+    chosen = path or os.environ.get(COUNTRY_ERP_ENV) or latest_country_erp_file()
     return _read_cached(str(Path(chosen).resolve()))
 
 
@@ -127,9 +148,9 @@ class DamodaranProvider:
         "latam": "latin_america",
     }
 
-    # US equity risk premium (Damodaran Jan 2026 country-ERP file). Single source of
-    # truth: iam/data/reference/country_erp_2026-01.json "us_erp" (mature-market ERP
-    # plus the US default spread; distinct from the Aaa mature-market ERP).
+    # US equity risk premium (rating-based) from the newest shipped country-ERP file.
+    # Single source of truth: iam/data/reference/country_erp_YYYY-MM.json "us_erp"
+    # (mature-market ERP plus the US default spread; distinct from the Aaa mature ERP).
     CURRENT_IMPLIED_ERP = float(read_country_erp()["us_erp"])
 
     # Risk-Free Rate (10-Year US Treasury)

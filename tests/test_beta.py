@@ -13,7 +13,7 @@ from iam.valuation.beta import (
     relever_beta,
     unlever_beta,
 )
-from iam.valuation.country_risk import load_country_erp
+from iam.valuation.country_risk import country_erp
 from iam.valuation.fcfe_dcf import FCFEDCF
 
 # ---------------------------------------------------------------------------
@@ -283,11 +283,10 @@ class TestStage3CAPMWiring:
             return_value=(0.0425, "test rf"),
         ):
             result = FCFEDCF().compute(sec)
-            # Bottom-up Ke, no debt, no revenue mix (US ERP):
+            # Bottom-up Ke, no debt, no revenue mix (US per-country ERP, rating/CDS averaged):
             # 4.25% + software unlevered beta 1.15 * US ERP from the shipped dataset
-            us_erp = load_country_erp()["us_erp"]
             assert result.assumptions["discount_rate"] == pytest.approx(
-                0.0425 + 1.15 * us_erp, abs=1e-9
+                0.0425 + 1.15 * country_erp("United States"), abs=1e-9
             )
             assert any("Damodaran" in n for n in result.notes)
 

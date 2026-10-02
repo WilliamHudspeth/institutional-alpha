@@ -15,15 +15,9 @@ from iam.data import (
     apply_scenario,
 )
 from iam.integration import ModelResult, Orchestrator, from_ground_truth
-from iam.valuation.country_risk import company_erp, load_country_erp
-
-
-def _country_erp(name: str) -> float:
-    return load_country_erp()["countries"][name]["erp"]
-
-
-def _region_erp(name: str) -> float:
-    return load_country_erp()["regions"][name]["erp"]
+from iam.valuation.country_risk import company_erp
+from tests.erp_helpers import country_avg as _country_erp
+from tests.erp_helpers import region_erp as _region_erp
 
 
 class TestSecurityImmutability:
@@ -277,8 +271,8 @@ class TestOrchestratorScenarios:
         result = orchestrator.value_security(sec)
         profile = result["risk_profile"]
 
-        # Should use the dataset's US ERP (was 4.6% in the stale table)
-        assert profile["erp"] == pytest.approx(load_country_erp()["us_erp"], abs=1e-4)
+        # Should use the dataset's US per-country ERP, rating/CDS averaged (was 4.6%)
+        assert profile["erp"] == pytest.approx(_country_erp("United States"), abs=1e-4)
 
     def test_orchestrator_asset_manager_blk(self):
         """BLK (asset manager) gets correct unlevered beta."""

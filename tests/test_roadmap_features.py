@@ -15,8 +15,8 @@ from iam.backtest.term_structure import (
 from iam.valuation.country_risk import (
     DEFAULT_MATURE_ERP,
     blended_erp,
+    country_erp,
     country_risk,
-    load_country_erp,
 )
 
 
@@ -116,9 +116,8 @@ def test_cds_override_bypasses_rating_table():
 
 
 def test_blended_erp_between_pure_country_endpoints():
-    data = load_country_erp()
-    pure_us = data["countries"]["United States"]["erp"]
-    pure_cn = data["countries"]["China"]["erp"]
+    pure_us = country_erp("United States")
+    pure_cn = country_erp("China")
     mix = blended_erp({"US": 0.6, "CN": 0.4})
     assert pure_us <= mix.erp <= pure_cn or pure_cn <= mix.erp <= pure_us
     assert math.isclose(sum(w for _, w, _ in mix.components), 1.0, rel_tol=1e-9)
