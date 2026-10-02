@@ -81,15 +81,15 @@ class RegressionInputs:
     """
 
     region: Region = "US"
-    beta: float | None = 1.0
-    g_eps: float | None = 0.10  # expected EPS growth rate
-    payout: float | None = 0.0  # dividend payout ratio
+    beta: float | None = None
+    g_eps: float | None = None  # expected EPS growth rate
+    payout: float | None = None  # dividend payout ratio
     roe: float | None = None  # return on equity
-    g: float | None = 0.10  # revenue / FCFE growth
+    g: float | None = None  # revenue / FCFE growth
     roic: float | None = None  # return on invested capital
-    dfr: float | None = 0.20  # debt / (debt + market cap)
-    oper_margin: float | None = 0.15  # operating margin
-    tax_rate: float | None = 0.21  # effective tax rate
+    dfr: float | None = None  # debt / (debt + market cap)
+    oper_margin: float | None = None  # operating margin
+    tax_rate: float | None = None  # effective tax rate
     defaulted_inputs: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, float]:

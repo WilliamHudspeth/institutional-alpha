@@ -114,19 +114,42 @@ class TestPredictAll:
         assert us["PE"] != eu["PE"]
 
 
+# Explicit, complete regression inputs for tests. RegressionInputs itself has no
+# defaults, so a partially filled instance yields n/a multiples instead of invented ones.
+_FULL = dict(
+    beta=1.0,
+    g_eps=0.10,
+    payout=0.0,
+    roe=0.15,
+    g=0.10,
+    roic=0.12,
+    dfr=0.20,
+    oper_margin=0.15,
+    tax_rate=0.21,
+)
+
+
+def _inputs(**overrides) -> RegressionInputs:
+    return RegressionInputs(**{**_FULL, **overrides})
+
+
 class TestRegressionInputs:
     def test_to_dict_has_correct_keys(self):
-        inp = RegressionInputs()
-        d = inp.to_dict()
+        d = _inputs().to_dict()
         assert set(d.keys()) == {
             "Beta",
             "gEPS",
             "Payout",
+            "ROE",
             "g",
+            "ROIC",
             "DFR",
             "OperMargin",
             "TaxRate",
         }
+
+    def test_empty_inputs_have_no_invented_values(self):
+        assert RegressionInputs().to_dict() == {}
 
     def test_default_region_is_us(self):
         assert RegressionInputs().region == "US"
@@ -159,7 +182,7 @@ class TestRelativeValuationWithRegression:
 
     def test_regression_signal_adds_components(self):
         sec = self._make_security(price=100.0, pe_ttm=40.0, ev_ebitda=25.0)
-        inputs = RegressionInputs(g_eps=0.10, beta=1.0)
+        inputs = _inputs()
         result = RelativeValuation().compute(sec, regression_inputs=inputs)
         # At least one regression-anchored component should appear
         reg_keys = [k for k in result.components if "regression" in k]
@@ -168,7 +191,7 @@ class TestRelativeValuationWithRegression:
     def test_expensive_stock_gets_negative_move(self):
         # PE = 40 but regression predicts ~27 → implied price = 100 * (27/40) < 100
         sec = self._make_security(price=100.0, pe_ttm=40.0, ev_ebitda=25.0)
-        inputs = RegressionInputs(g_eps=0.10, beta=1.0, roe=0.15, roic=0.12, dfr=0.20)
+        inputs = _inputs()
         result = RelativeValuation().compute(sec, regression_inputs=inputs)
         # Regression implies lower price → negative fair_value_to_price contribution
         assert result.fair_value_to_price is not None
@@ -176,7 +199,7 @@ class TestRelativeValuationWithRegression:
     def test_cheap_stock_gets_positive_regression_contribution(self):
         # PE = 10 but regression predicts ~27 → implied price = 100 * (27/10) > 100
         sec = self._make_security(price=100.0, pe_ttm=10.0, ev_ebitda=8.0)
-        inputs = RegressionInputs(g_eps=0.10, beta=1.0, roe=0.15, roic=0.12, dfr=0.20)
+        inputs = _inputs()
         result = RelativeValuation().compute(sec, regression_inputs=inputs)
         assert result.fair_value_to_price is not None
         assert result.fair_value_to_price > 0
