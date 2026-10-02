@@ -370,9 +370,9 @@ class ValuationPipeline:
         }
 
         lens_results: list[LensResult] = []
-        for name, plugin in lens_instances.items():
+        for name, lens_plugin in lens_instances.items():
             try:
-                raw = plugin.analyze(data)
+                raw = lens_plugin.analyze(data)
                 lens_result = _plugin_output_to_lens_result(name, raw)
                 if lens_result is not None:
                     lens_results.append(lens_result)
@@ -381,9 +381,9 @@ class ValuationPipeline:
                 continue
 
         factor_results: dict[str, dict] = {}
-        for name, plugin in factor_instances.items():
+        for name, factor_plugin in factor_instances.items():
             try:
-                raw = plugin.calculate(data)
+                raw = factor_plugin.calculate(data)
             except Exception as e:
                 logger.warning("Factor plugin %s failed: %s", name, e)
                 continue

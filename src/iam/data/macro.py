@@ -32,8 +32,16 @@ class MacroConditions:
         if context is None:
             return cls()
         return cls(
-            rate_change=_RATE_TREND_TO_CHANGE.get(context.real_rate_trend, 0.0),
-            pmi=_PMI_DIRECTION_TO_VALUE.get(context.pmi_direction, 50.0),
+            rate_change=(
+                _RATE_TREND_TO_CHANGE.get(context.real_rate_trend, 0.0)
+                if context.real_rate_trend is not None
+                else 0.0
+            ),
+            pmi=(
+                _PMI_DIRECTION_TO_VALUE.get(context.pmi_direction, 50.0)
+                if context.pmi_direction is not None
+                else 50.0
+            ),
             credit_spread=(
                 context.credit_spread_hy
                 if context.credit_spread_hy is not None

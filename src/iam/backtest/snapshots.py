@@ -7,7 +7,6 @@ to the pluggable `fetcher` package (RedundantDataFetcher).
 
 from __future__ import annotations
 
-from dataclasses import replace
 from pathlib import Path
 
 import pandas as pd
@@ -69,7 +68,7 @@ def _fetch_snapshot_data(
         Tuple of (price, debt). Debt is 0.0 if unavailable.
     """
 
-    def _run():
+    def _run() -> tuple[float, float]:
         as_of_dt = as_of.to_pydatetime()
         # Fetch a small window of prices to handle weekends/holidays
         start_dt = as_of_dt - pd.Timedelta(days=7)
@@ -139,10 +138,13 @@ def build_snapshot(
     )
     market_cap = price * shares
 
-    snapshot = replace(
-        base,
-        market=MarketData(price=price, market_cap=market_cap),
-        fundamentals=replace(base.fundamentals, total_debt=debt),
+    # Security/Fundamentals are pydantic models (not dataclasses), so
+    # dataclasses.replace() would raise TypeError; use model_copy instead.
+    snapshot = base.model_copy(
+        update={
+            "market": MarketData(price=price, market_cap=market_cap),
+            "fundamentals": base.fundamentals.model_copy(update={"total_debt": debt}),
+        }
     )
 
     cache[cache_key] = snapshot
