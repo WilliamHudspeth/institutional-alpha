@@ -37,6 +37,7 @@ import threading
 import time
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -327,7 +328,7 @@ class Canvas:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  MOCK DATA  (used when IAM packages unavailable or fetch fails)
+#  MOCK DATA  (demo build only: used when IAM packages are unavailable)
 # ═══════════════════════════════════════════════════════════════════════════
 
 
@@ -413,11 +414,13 @@ class SecState:
     error: str | None = None
 
     @property
-    def price(self) -> float:
+    def price(self) -> float | None:
+        """Last real price, or None when unknown (never a placeholder)."""
         try:
-            return float(self.security.market.price or 0.0)
+            p = float(self.security.market.price)
         except Exception:
-            return 0.0
+            return None
+        return p if p > 0 else None
 
     @property
     def name(self) -> str:
@@ -441,19 +444,29 @@ class SecState:
             return "—"
 
     @property
-    def upside(self) -> float:
+    def upside(self) -> float | None:
+        """Model upside, or None when the pipeline produced none."""
         try:
             v = self.pipeline_result.final_verdict
-            return float(v.blended_upside or self.pipeline_result.implied_move_pct or 0.0)
+            up = v.blended_upside
+            if up is None:
+                up = self.pipeline_result.implied_move_pct
+            return None if up is None else float(up)
         except Exception:
-            return 0.0
+            return None
 
     @property
-    def composite(self) -> float:
+    def composite(self) -> float | None:
+        """Composite factor score, or None when unscored."""
         try:
             return float(self.score_result.composite)
         except Exception:
-            return 0.0
+            return None
+
+    @property
+    def is_demo(self) -> bool:
+        """True when this state holds the random demo-build mock data."""
+        return isinstance(self.security, _MockSec)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -533,62 +546,19 @@ class _Panel:
     def _err(self, cv: Canvas, r0: int, c0: int, msg: str) -> None:
         cv.put(r0, c0 + 2, f"⚠  {msg}", C_RED)
 
+    def _demo_tag(self, cv: Canvas, r1: int, c0: int, sec: SecState | None) -> None:
+        """Flag randomly generated demo-build data on the panel's last row."""
+        if sec is not None and sec.is_demo:
+            cv.put(r1, c0 + 1, "DEMO DATA (random)", C_RED + BOLD)
 
-# ── Watchlist ─────────────────────────────────────────────────────────────
-
-
-class WatchlistPanel(_Panel):
-    title = "LIVE WATCHLIST"
-
-    def __init__(self, watchlist: list[str]) -> None:
-        self._wl = watchlist
-
-    def render(
-        self,
-        cv: Canvas,
-        r0: int,
-        r1: int,
-        c0: int,
-        c1: int,
-        sec: SecState | None,
-        system_state: SystemState | None = None,
-        ticks: int = 0,
-    ) -> None:
-        c1 - c0
-        cv.put(
-            r0, c0 + 1, f"{'TICKER':<6} {'PRICE':>10}  {'CHG':>7}  {'TREND':>5}  SPARKLINE", C_DIM
-        )
-        cv.hline(r0 + 1, c0, c1)
-
-        for idx, tkr in enumerate(self._wl):
-            r = r0 + 2 + idx
-            if r > r1 - 1:
-                break
-            is_active = sec and tkr == sec.ticker
-            active_style = C_GOLD + BOLD if is_active else C_WHITE
-
-            # Use real price if this is the active ticker, else simulate
-            if is_active and sec and not sec.loading and sec.price > 0:
-                price = sec.price
-                hist = sec.history
-            else:
-                price = random.uniform(50, 600)
-                hist = [price * random.uniform(0.97, 1.03) for _ in range(15)]
-
-            delta = random.uniform(-price * 0.025, price * 0.025)
-            pct = delta / price if price else 0
-            arrow = "▲" if delta >= 0 else "▼"
-            d_col = C_GREEN if delta >= 0 else C_RED
-            spark = _spark_line(hist, 14)
-            trend = _spark_trend(hist)
-            prefix = "▶ " if is_active else "  "
-
-            cv.put(r, c0, prefix, active_style)
-            cv.put(r, c0 + 2, f"{tkr:<5}", active_style)
-            cv.put(r, c0 + 8, f"${price:>9.2f}", C_WHITE)
-            cv.put(r, c0 + 19, f"{arrow} {pct:>+5.1%}", d_col)
-            cv.put(r, c0 + 28, f"{trend}", d_col)
-            cv.put(r, c0 + 32, spark, d_col)
+    def _load_failed(self, cv: Canvas, r0: int, r1: int, c0: int, c1: int, sec: SecState) -> bool:
+        """Show an explicit error state when a real load failed. True if drawn."""
+        if sec.pipeline_result is not None or not sec.error:
+            return False
+        msg = f"Could not load {sec.ticker}: {sec.error}"
+        cv.box(r0 + 1, r0 + 3, c0 + 1, c1 - 2, C_RED)
+        cv.put(r0 + 2, c0 + 3, msg[: max(0, c1 - c0 - 6)], C_RED + BOLD)
+        return True
 
 
 # ── Quick Recommendation ──────────────────────────────────────────────────
@@ -614,13 +584,18 @@ class QuickRecPanel(_Panel):
             self._loading(cv, r0, r1, c0, c1, sec.ticker, ticks)
             return
 
+        if self._load_failed(cv, r0, r1, c0, c1, sec):
+            return
+
         rating = sec.rating
         confidence = sec.confidence
         upside = sec.upside
         price = sec.price
-        fair = price * (1.0 + upside) if (price is not None and upside is not None) else 0
+        fair = price * (1.0 + upside) if (price is not None and upside is not None) else None
         rc = _rc(rating)
         up_col = C_GREEN if (upside is not None and upside > 0) else C_RED
+        price_text = f"${price:>9.2f}" if price is not None else "      n/a"
+        fair_text = f"${fair:>9.2f}" if fair is not None else "      n/a"
 
         # Main verdict box
         bw = min(c1 - c0 - 3, 52)
@@ -632,22 +607,22 @@ class QuickRecPanel(_Panel):
         cv.put(by + 1, bx + 11, f"{rating}", rc + BOLD)
         cv.put(by + 1, bx + 11 + len(rating) + 2, f"Confidence: {confidence}", C_WHITE)
 
-        cv.put(by + 3, bx + 3, f"Current:     ${price:>9.2f}", C_WHITE)
-        cv.put(by + 3, bx + 30, f"Fair Value: ${fair:>9.2f}", C_WHITE)
+        cv.put(by + 3, bx + 3, f"Current:     {price_text}", C_WHITE)
+        cv.put(by + 3, bx + 30, f"Fair Value: {fair_text}", C_WHITE)
 
-        up_text = f"{upside:>+.1%}" if upside is not None else "    N/A"
+        up_text = f"{upside:>+.1%}" if upside is not None else "    n/a"
         cv.put(by + 4, bx + 3, f"Implied Move: {up_text}", up_col + BOLD)
         cv.put(by + 5, bx + 3, f"Updated: {sec.last_updated:%H:%M:%S}", C_DIM)
 
         # Composite score meter
         comp = sec.composite
         comp_style = _vc(comp)
-        comp_100 = int((comp + 1.0) * 50.0) if comp is not None else 0
+        comp_text = f"{int((comp + 1.0) * 50.0)}/100" if comp is not None else "n/a"
         mtr = _meter(comp, -1, 1, 28)
         cv.put(r0 + 9, c0 + 1, "Factor Score:", C_DIM)
         cv.put(r0 + 9, c0 + 15, "[", C_DIM)
         cv.put(r0 + 9, c0 + 16, mtr, comp_style)
-        cv.put(r0 + 9, c0 + 44, f"] {comp_100}/100", C_WHITE)
+        cv.put(r0 + 9, c0 + 44, f"] {comp_text}", C_WHITE)
 
         # Interpretation
         cv.hline(r0 + 11, c0, c1)
@@ -661,8 +636,7 @@ class QuickRecPanel(_Panel):
             msg = "▶  Stock appears fairly valued within the model's consensus range."
             cv.put(r0 + 12, c0 + 2, msg, C_YELLOW)
 
-        if sec.error:
-            cv.put(r0 + 14, c0 + 2, "⚠ Live fetch failed — using mock data", C_RED + DIM)
+        self._demo_tag(cv, r1, c0, sec)
 
         # Stage 7 Law Checks
         pr = sec.pipeline_result
@@ -713,6 +687,10 @@ class DeepValPanel(_Panel):
             self._loading(cv, r0, r1, c0, c1, sec.ticker, ticks)
             return
 
+        if self._load_failed(cv, r0, r1, c0, c1, sec):
+            return
+
+        self._demo_tag(cv, r1, c0, sec)
         cv.put(r0, c0 + 1, "7-Stage Valuation Pipeline", C_ACCENT + BOLD)
         cv.hline(r0 + 1, c0, c1)
 
@@ -737,15 +715,13 @@ class DeepValPanel(_Panel):
 
             # Visual range bar using MiniChart if available
             price = sec.price
-            fair = price * (1.0 + cc) if (price is not None and cc is not None) else 0
-            bear = price * 0.72 if price is not None else 0
-            bull = price * 1.38 if price is not None else 0
-            if _IAM_SPARKLINES and price and cc is not None:
-                range_bar = MiniChart.range_bar(fair, bear, bull, width=18)
+            if _IAM_SPARKLINES and price is not None and cc is not None:
+                fair = price * (1.0 + cc)
+                range_bar = MiniChart.range_bar(fair, price * 0.72, price * 1.38, width=18)
             else:
                 range_bar = _meter(cc, -0.4, 0.4, 18)
 
-            cc_text = f"{cc:>+7.1%}" if cc is not None else "    N/A"
+            cc_text = f"{cc:>+7.1%}" if cc is not None else "    n/a"
             spr_text = (
                 f"{tr.spread:>7.1%}" if getattr(tr, "spread", None) is not None else "    N/A"
             )
@@ -792,14 +768,20 @@ class FactorPanel(_Panel):
             self._loading(cv, r0, r1, c0, c1, sec.ticker, ticks)
             return
 
+        if self._load_failed(cv, r0, r1, c0, c1, sec):
+            return
+
+        self._demo_tag(cv, r1, c0, sec)
         sr = sec.score_result
         comp = sec.composite
-        comp_100 = int((comp + 1.0) * 50.0) if comp is not None else 0
         cs = _vc(comp)
 
         # Composite header
-        cc_text = f"{comp:>+.4f}" if comp is not None else " N/A"
-        cv.put(r0, c0 + 1, f"Composite Score: {comp_100}/100  ({cc_text})", C_ACCENT + BOLD)
+        if comp is not None:
+            head = f"Composite Score: {int((comp + 1.0) * 50.0)}/100  ({comp:>+.4f})"
+        else:
+            head = "Composite Score: n/a"
+        cv.put(r0, c0 + 1, head, C_ACCENT + BOLD)
         mtr = _meter(comp, -1, 1, 30)
         cv.put(r0 + 1, c0 + 1, "[", C_DIM)
         cv.put(r0 + 1, c0 + 2, mtr, cs)
@@ -862,8 +844,18 @@ class ScenarioPanel(_Panel):
             self._loading(cv, r0, r1, c0, c1, sec.ticker, ticks)
             return
 
-        price = sec.price or 150.0
+        if self._load_failed(cv, r0, r1, c0, c1, sec):
+            return
+
+        self._demo_tag(cv, r1, c0, sec)
+        price = sec.price
         upside = sec.upside
+        if price is None or upside is None:
+            cv.put(r0, c0 + 1, "Bayesian Scenario Thesis Engine", C_ACCENT + BOLD)
+            cv.hline(r0 + 1, c0, c1)
+            what = "price" if price is None else "model upside"
+            cv.put(r0 + 2, c0 + 2, f"Scenario table: n/a (no {what} available)", C_DIM)
+            return
         bear = price * 0.72
         base = price * (1.0 + upside)
         bull = price * 1.38
@@ -1027,74 +1019,53 @@ class BacktestPanel(_Panel):
 
 class PortfolioPanel(_Panel):
     """
-    Displays a simulated portfolio overview.
-    When iam.portfolio is available, uses format_holdings_table and
-    format_factor_exposure_heatmap for real output.
+    Equal-weight MODEL portfolio built from the watchlist.
+
+    There is no holdings data source, so quantities, cost basis, P&L and market
+    value are deliberately not shown. Prices and ratings come from real loaded
+    securities / cached quotes; factor exposures are the weight-averaged factor
+    scores of the holdings that have been scored.
     """
 
     title = "PORTFOLIO OVERVIEW"
 
-    # Mock watchlist as simulated portfolio
-    _HOLDINGS = [
-        {
-            "ticker": "AAPL",
-            "weight": 0.22,
-            "market_value": 52400,
-            "pnl_pct": 18.2,
-            "conviction": "HIGH",
-        },
-        {
-            "ticker": "MSFT",
-            "weight": 0.18,
-            "market_value": 43200,
-            "pnl_pct": 11.4,
-            "conviction": "HIGH",
-        },
-        {
-            "ticker": "NVDA",
-            "weight": 0.15,
-            "market_value": 36000,
-            "pnl_pct": 72.1,
-            "conviction": "MEDIUM",
-        },
-        {
-            "ticker": "TSLA",
-            "weight": 0.12,
-            "market_value": 28800,
-            "pnl_pct": -8.3,
-            "conviction": "LOW",
-        },
-        {
-            "ticker": "AMD",
-            "weight": 0.10,
-            "market_value": 24000,
-            "pnl_pct": 5.6,
-            "conviction": "MEDIUM",
-        },
-        {
-            "ticker": "GOOG",
-            "weight": 0.13,
-            "market_value": 31200,
-            "pnl_pct": 14.7,
-            "conviction": "HIGH",
-        },
-        {
-            "ticker": "AMZN",
-            "weight": 0.10,
-            "market_value": 24000,
-            "pnl_pct": 9.3,
-            "conviction": "MEDIUM",
-        },
-    ]
+    def __init__(self, sec_lookup: Callable[[str], SecState | None] | None = None) -> None:
+        self._sec_lookup = sec_lookup or (lambda _t: None)
 
-    _EXPOSURES = {
-        "Quality": 0.82,
-        "Momentum": 0.61,
-        "Value": -0.24,
-        "Sentiment": 0.35,
-        "Macro Regime": 0.10,
-        "Crowding": -0.47,
-    }
+    @staticmethod
+    def _effective(contrib: Any) -> float | None:
+        """Confidence-weighted factor score of one contribution, or None."""
+        try:
+            return float(contrib.effective())
+        except Exception:
+            pass
+        try:
+            return float(contrib.value) * float(contrib.confidence)
+        except Exception:
+            return None
+
+    @classmethod
+    def factor_exposures(cls, holdings: list[tuple[float, SecState]]) -> dict[str, float]:
+        """Weighted average of each scored holding's effective factor scores.
+
+        ``holdings`` is a list of ``(weight, SecState)``. Holdings without a
+        score result are ignored; weights are renormalised per factor over the
+        holdings that actually have that factor. Empty dict when nothing is scored.
+        """
+        num: dict[str, float] = {}
+        den: dict[str, float] = {}
+        for weight, st in holdings:
+            sr = getattr(st, "score_result", None)
+            breakdown = getattr(sr, "factor_breakdown", None) if sr is not None else None
+            if not breakdown:
+                continue
+            for name, contrib in breakdown.items():
+                eff = cls._effective(contrib)
+                if eff is None:
+                    continue
+                num[name] = num.get(name, 0.0) + weight * eff
+                den[name] = den.get(name, 0.0) + weight
+        return {k: num[k] / den[k] for k in num if den[k] > 0}
 
     def render(
         self,
@@ -1107,7 +1078,7 @@ class PortfolioPanel(_Panel):
         system_state: SystemState | None = None,
         ticks: int = 0,
     ) -> None:
-        cv.put(r0, c0 + 1, "Institutional Portfolio Analytics", C_ACCENT + BOLD)
+        cv.put(r0, c0 + 1, "Equal-Weight Model Portfolio (watchlist)", C_ACCENT + BOLD)
         cv.hline(r0 + 1, c0, c1)
 
         if not system_state or system_state.loading or not system_state.portfolio:
@@ -1115,37 +1086,58 @@ class PortfolioPanel(_Panel):
             return
 
         portfolio = system_state.portfolio
-        # Holdings table header
+
+        def lookup(t: str) -> SecState | None:
+            st = self._sec_lookup(t)
+            if st is None and sec is not None and sec.ticker == t:
+                return sec
+            return st
+
         cv.put(
             r0 + 2,
             c0 + 1,
-            f"{'Ticker':<7} {'Weight':>7}  {'Mkt Value':>12}  {'P&L %':>7}  Conviction",
+            "Model only: equal weights, no holdings data (no quantity/cost/P&L/value).",
+            C_YELLOW,
+        )
+        cv.put(
+            r0 + 3,
+            c0 + 1,
+            f"{'Ticker':<7} {'Weight':>7}  {'Price':>10}  {'Rating':<8}  Conviction",
             C_DIM,
         )
-        cv.hline(r0 + 3, c0, c1)
+        cv.hline(r0 + 4, c0, c1)
 
-        total_val = portfolio.total_value
+        scored: list[tuple[float, SecState]] = []
+        any_demo = False
         for idx, p in enumerate(portfolio.positions):
-            r = r0 + 4 + idx
+            st = lookup(p.ticker)
+            if st is not None and st.score_result is not None:
+                scored.append((p.weight, st))
+            any_demo = any_demo or (st is not None and st.is_demo)
+            r = r0 + 5 + idx
             if r > r1 - 8:
-                break
-            pnl = p.pnl_pct
-            pnl_col = C_GREEN if pnl >= 0 else C_RED
-            conv_col = {"HIGH": C_GREEN, "MODERATE": C_YELLOW, "LOW": C_RED}.get(
-                getattr(p, "conviction", "MODERATE"), C_WHITE
-            )
+                continue
+            price = st.price if st is not None else None
+            if price is None and p.current_price > 0:
+                price = p.current_price
+            price_text = f"${price:.2f}" if price is not None else "n/a"
+            rating = st.rating if st is not None else "N/A"
+            rating_text = rating if rating not in ("N/A", "") else "—"
+            conv = getattr(p, "conviction", "UNRATED")
+            conv_col = {"HIGH": C_GREEN, "MODERATE": C_YELLOW, "LOW": C_RED}.get(conv, C_DIM)
             cv.put(r, c0 + 1, f"{p.ticker:<7}", C_WHITE)
             cv.put(r, c0 + 9, f"{p.weight:>6.1%}", C_WHITE)
-            cv.put(r, c0 + 17, f"  ${p.market_value:>10,.0f}", C_WHITE)
-            cv.put(r, c0 + 31, f"  {pnl:>+6.1f}%", pnl_col)
-            cv.put(r, c0 + 40, f"  {getattr(p, 'conviction', 'MODERATE'):<8}", conv_col)
+            cv.put(r, c0 + 17, f"{price_text:>10}", C_WHITE)
+            cv.put(r, c0 + 31, f"{rating_text:<8}", _rc(rating) if rating_text != "—" else C_DIM)
+            cv.put(r, c0 + 41, f"  {conv:<8}", conv_col)
 
-        sep = r0 + 4 + len(portfolio.positions) + 1
+        sep = r0 + 5 + len(portfolio.positions) + 1
         cv.hline(sep, c0, c1)
-        cv.put(sep + 1, c0 + 1, f"Total AUM:  ${total_val:>12,.0f}", C_WHITE + BOLD)
+        if any_demo:
+            cv.put(r1, c0 + 1, "DEMO DATA (random)", C_RED + BOLD)
 
-        # Factor exposure section (using portfolio's herfindahl as placeholder if exposure profile is missing)
-        exp_r = sep + 3
+        # Factor exposure section: real weighted average of scored holdings.
+        exp_r = sep + 2
         cv.put(exp_r, c0 + 1, "Portfolio Risk Decomposition", C_ACCENT + BOLD)
         cv.hline(exp_r + 1, c0, c1)
 
@@ -1158,26 +1150,37 @@ class PortfolioPanel(_Panel):
             C_TEAL,
         )
 
-        # Mock exposures for visual balance if real analyzer output is not yet attached to SystemState
-        for idx, (factor, exposure) in enumerate(self._EXPOSURES.items()):
-            r = exp_r + 5 + idx
+        exposures = self.factor_exposures(scored)
+        if not exposures:
+            cv.put(exp_r + 5, c0 + 1, "Factor exposures: n/a (no scored holdings)", C_DIM)
+        else:
+            cv.put(
+                exp_r + 5,
+                c0 + 1,
+                f"Factor exposures: weighted avg score of {len(scored)} scored holding(s), "
+                "scale -1..+1",
+                C_DIM,
+            )
+        for idx, (factor, exposure) in enumerate(exposures.items()):
+            r = exp_r + 6 + idx
             if r > r1 - 1:
                 break
             col = C_GREEN if exposure > 0 else C_RED
-            bar_w = min(20, c1 - c0 - 30)
-            bar_len = int(abs(exposure) * bar_w)
+            bar_w = max(0, min(20, c1 - c0 - 30))
+            bar_len = int(min(1.0, abs(exposure)) * bar_w)
             bar = FULL * min(bar_len, bar_w)
             arrow = "↑" if exposure > 0 else "↓"
-            cv.put(r, c0 + 1, f"{arrow} {factor:<16}", col)
+            label = factor.replace("_", " ").title()
+            cv.put(r, c0 + 1, f"{arrow} {label:<16.16}", col)
             cv.put(r, c0 + 19, f"{bar:<{bar_w}}", col)
-            cv.put(r, c0 + 19 + bar_w + 1, f"{exposure:>+5.2f}σ", col)
+            cv.put(r, c0 + 19 + bar_w + 1, f"{exposure:>+5.2f}", col)
 
         # Sector rotation signal — real sector weights from current holdings,
         # blended with the macro regime detected from the active security's
         # real MacroContext. Momentum defaults to empty (no live sector-level
         # return series is wired in yet) so the tilt shown is regime-only;
         # that limitation is stated in the panel rather than left implicit.
-        rot_r = exp_r + 5 + len(self._EXPOSURES) + 2
+        rot_r = exp_r + 6 + max(1, len(exposures)) + 2
         if rot_r < r1 - 2:
             cv.put(rot_r, c0 + 1, "Sector Rotation Signal", C_ACCENT + BOLD)
             cv.hline(rot_r + 1, c0, c1)
@@ -1647,6 +1650,8 @@ class TI89Panel(_Panel):
         system_state: SystemState | None = None,
         ticks: int = 0,
     ) -> None:
+        if sec and self._load_failed(cv, r0, r1, c0, c1, sec):
+            return
         if not sec or not sec.pipeline_result:
             self._loading(cv, r0, r1, c0, c1, sec.ticker if sec else "N/A", ticks)
             return
@@ -1784,7 +1789,7 @@ class AlphaTerminal:
             "Factor Scoring": FactorPanel(),
             "Scenario & Thesis": ScenarioPanel(),
             "Backtest Efficacy": BacktestPanel(),
-            "Portfolio Overview": PortfolioPanel(),
+            "Portfolio Overview": PortfolioPanel(sec_lookup=self._get_sec),
             "Learning & Glossary": LearningPanel(),
             "Matrix Digital Rain": MatrixPanel(),
             "TI-89 3D Projection": TI89Panel(),
@@ -1986,16 +1991,16 @@ class AlphaTerminal:
             from iam.engine.composite import DEFAULT_WEIGHTS
             from iam.portfolio import Portfolio, Position
 
-            # 1. Load/Generate Default Portfolio
-            # Using current watchlist as base for holdings
+            # 1. Equal-weight MODEL portfolio of the watchlist. There is no
+            # holdings data source, so quantity/cost basis are not modelled:
+            # quantity is 0 and entry == current price (no P&L, no value).
             with self._lock:
-                watchlist = list(self._watchlist)
+                watchlist = list(self._watchlist)[:8]
 
             positions = []
-            for tkr in watchlist[:8]:  # Limit to first 8 for the mock/default
-                # Reuse the real sector if this ticker has already been
-                # fetched elsewhere (e.g. the active security or watchlist
-                # panel) — cheap and honest, no extra fetch, no fabrication.
+            for tkr in watchlist:
+                # Reuse real data only if this ticker was already fetched
+                # (loaded SecState, else the cached market quote).
                 with self._lock:
                     loaded = self._secs.get(tkr)
                 real_sector = (
@@ -2003,16 +2008,31 @@ class AlphaTerminal:
                     if loaded and loaded.security and getattr(loaded.security, "sector", None)
                     else None
                 )
+                price = loaded.price if loaded else None
+                if price is None:
+                    q = MKT.get_quote(tkr, refresh=False)
+                    if q is not None and q.last is not None and not q.stale:
+                        price = float(q.last)
+                px = price if price is not None else 0.0  # 0.0 == unknown, shown as n/a
+                band = (loaded.confidence if loaded else "").upper()
+                if band == "HIGH":
+                    conviction = "HIGH"
+                elif band in ("MEDIUM", "MODERATE"):
+                    conviction = "MODERATE"
+                elif band == "LOW":
+                    conviction = "LOW"
+                else:
+                    conviction = "UNRATED"
                 positions.append(
                     Position(
                         ticker=tkr,
                         name=tkr,
-                        quantity=1000,
-                        entry_price=100.0,
-                        current_price=110.0,
-                        weight=1.0 / len(watchlist[:8]),
+                        quantity=0.0,
+                        entry_price=px,
+                        current_price=px,
+                        weight=1.0 / len(watchlist),
                         sector=real_sector,
-                        conviction=random.choice(["HIGH", "MODERATE", "LOW"]),
+                        conviction=conviction,
                     )
                 )
             portfolio = Portfolio(positions=positions)
@@ -2055,9 +2075,7 @@ class AlphaTerminal:
                 sec = _fetch_security(ticker)
                 sr = _score(sec)
                 pr = _Pipeline().run(sec)
-                p = float(sec.market.price or 150.0)
-                hist = [p * random.uniform(0.97, 1.03) for _ in range(25)]
-                hist.append(p)
+                hist = self._real_history(ticker, sec)
 
                 # Phase 2: Background Terrain Generation
                 cols, rows = shutil.get_terminal_size()
@@ -2090,7 +2108,36 @@ class AlphaTerminal:
             else:
                 self._mock_load(ticker)
         except Exception as e:
-            self._mock_load(ticker, error=str(e))
+            if _IAM_CORE:
+                # Real build: never substitute fake data. Leave the result
+                # fields empty and surface the error instead.
+                with self._lock:
+                    st = self._secs.get(ticker)
+                    if st is not None:
+                        st.security = None
+                        st.score_result = None
+                        st.pipeline_result = None
+                        st.history = []
+                        st.loading = False
+                        st.last_updated = datetime.now()
+                        st.error = str(e) or type(e).__name__
+            else:
+                self._mock_load(ticker, error=str(e))
+
+    @staticmethod
+    def _real_history(ticker: str, sec: Any) -> list[float]:
+        """Real intraday history; never synthesised. Blocking (worker thread)."""
+        try:
+            q = MKT._fetch_one(ticker, want_history=True)
+            if q is not None and not q.stale and q.history:
+                return [float(h) for h in q.history]
+        except Exception:
+            pass
+        try:
+            p = sec.market.price
+            return [float(p)] if p else []
+        except Exception:
+            return []
 
     def _mock_load(self, ticker: str, error: str | None = None) -> None:
         time.sleep(random.uniform(0.3, 0.9))
@@ -2113,21 +2160,23 @@ class AlphaTerminal:
         self._async_load(self._active)
 
     def _tick_prices(self) -> None:
-        """Simulate live price ticks for sparkline animation."""
+        """Refresh the active price from the real (cached) quote. Never simulates."""
         with self._lock:
             st = self._secs.get(self._active)
-            if st and not st.loading and st.security:
-                try:
-                    p = st.security.market.price or 150.0
-                    from iam.engine.simulations import simulate_price_tick
-
-                    new_price = simulate_price_tick(p)
+            if not st or st.loading or not st.security or st.is_demo:
+                return
+            try:
+                q = MKT.get_quote(self._active)
+                if q is None or q.stale or q.last is None:
+                    return
+                new_price = float(q.last)
+                if st.security.market.price != new_price:
                     st.security.market.price = new_price
                     st.history.append(new_price)
                     if len(st.history) > 50:
                         st.history = st.history[-50:]
-                except Exception:
-                    pass
+            except Exception:
+                pass
 
     # ── Interactive flows ─────────────────────────────────────────────────
 
