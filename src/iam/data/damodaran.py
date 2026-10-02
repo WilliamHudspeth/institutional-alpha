@@ -35,6 +35,8 @@ class MacroBaselines:
     risk_free_rate: float
     implied_erp: float
     mature_market_premium: float
+    rf_source: str
+    erp_source: str
 
 
 class DamodaranProvider:
@@ -195,9 +197,9 @@ class DamodaranProvider:
     }
 
     @classmethod
-    def get_risk_free_rate(cls) -> float:
+    def get_risk_free_rate_with_source(cls) -> tuple[float, str]:
         """
-        Returns the current 10-Year US Treasury yield.
+        Returns the current 10-Year US Treasury yield and its source.
 
         Uses a single cached live ^TNX quote. If no live value is available
         (offline, rate-limited) it returns the documented baseline
@@ -214,18 +216,35 @@ class DamodaranProvider:
                 # once and reject anything outside the historical range.
                 pct = float(q.last)
                 if 0.0 < pct <= cls.MAX_PLAUSIBLE_YIELD_PCT:
-                    return pct / 100.0
+                    return pct / 100.0, "live ^TNX"
         except Exception:
             pass
-        return cls.CURRENT_RISK_FREE_RATE
+        return (
+            cls.CURRENT_RISK_FREE_RATE,
+            f"baseline {cls.CURRENT_RISK_FREE_RATE*100:.2f}% (offline)",
+        )
+
+    @classmethod
+    def get_risk_free_rate(cls) -> float:
+        """
+        Returns the current 10-Year US Treasury yield.
+
+        Uses a single cached live ^TNX quote. If no live value is available
+        (offline, rate-limited) it returns the documented baseline
+        ``CURRENT_RISK_FREE_RATE`` — never mock/random market data.
+        """
+        return cls.get_risk_free_rate_with_source()[0]
 
     @classmethod
     def get_macro_state(cls) -> MacroBaselines:
         """Synthesizes the complete macro environment."""
+        rf_rate, rf_source = cls.get_risk_free_rate_with_source()
         return MacroBaselines(
-            risk_free_rate=cls.get_risk_free_rate(),
+            risk_free_rate=rf_rate,
             implied_erp=cls.CURRENT_IMPLIED_ERP,
             mature_market_premium=cls.CURRENT_IMPLIED_ERP,
+            rf_source=rf_source,
+            erp_source="Damodaran implied ERP baseline (CURRENT_IMPLIED_ERP)",
         )
 
     @classmethod
