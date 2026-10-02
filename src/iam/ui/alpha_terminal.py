@@ -91,6 +91,7 @@ else:
 
 
 # ── IAM package imports (optional — graceful mock fallback) ───────────────
+_IAM_IMPORT_ERROR: str | None = None
 try:
     from iam import score as _score
     from iam.data.providers.yfinance_adapter import fetch_security as _fetch_security
@@ -101,8 +102,9 @@ try:
     from iam.valuation.topology import compute_gradients as _compute_gradients
 
     _IAM_CORE = True
-except ImportError:
+except ImportError as _e:
     _IAM_CORE = False
+    _IAM_IMPORT_ERROR = f"ImportError: {_e}"
 
 try:
     from iam.ui.sparklines import MiniChart, ProgressBar, Sparkline
@@ -1847,7 +1849,8 @@ class AlphaTerminal:
 
     DEFAULT_WATCHLIST = ["TSLA", "MSFT", "AAPL", "NVDA", "META"]
 
-    def __init__(self) -> None:
+    def __init__(self, demo: bool = False) -> None:
+        self._demo = demo
         self._cfg = get_settings()
 
         # Apply display settings to the shared widget layer
@@ -2168,7 +2171,7 @@ class AlphaTerminal:
 
     def _worker(self, ticker: str) -> None:
         try:
-            if _IAM_CORE:
+            if _IAM_CORE and not self._demo:
                 import numpy as np
 
                 sec = _fetch_security(ticker)
@@ -2204,12 +2207,26 @@ class AlphaTerminal:
                     st.loading = False
                     st.last_updated = datetime.now()
                     st.error = None
-            else:
+            elif self._demo:
+                # Demo mode: fill with labelled random mock data (visible banner shown).
                 self._mock_load(ticker)
+            else:
+                # Core packages unavailable and demo not requested:
+                # surface the import error; never emit random data.
+                err_msg = _IAM_IMPORT_ERROR or "iam core packages unavailable"
+                with self._lock:
+                    st_err = self._secs.get(ticker)
+                    if st_err is not None:
+                        st_err.security = None
+                        st_err.score_result = None
+                        st_err.pipeline_result = None
+                        st_err.history = []
+                        st_err.loading = False
+                        st_err.last_updated = datetime.now()
+                        st_err.error = err_msg
         except Exception as e:
-            if _IAM_CORE:
-                # Real build: never substitute fake data. Leave the result
-                # fields empty and surface the error instead.
+            if _IAM_CORE or not self._demo:
+                # Real build or non-demo: never substitute fake data.
                 with self._lock:
                     st_err = self._secs.get(ticker)
                     if st_err is not None:
@@ -2412,6 +2429,11 @@ class AlphaTerminal:
         render_ribbon(cv, 1, w, self._ticks)
         cv.put(1, 0, V2, C_ACCENT)
         cv.put(1, w - 1, V2, C_ACCENT)
+        # Persistent DEMO banner — shown on every screen when demo mode is active.
+        if self._demo:
+            # Right-aligned on the ribbon row so it is visible on every screen.
+            banner = "[ DEMO MODE — RANDOM ]"
+            cv.put(1, w - 1 - len(banner) - 1, banner, C_RED + BOLD)
         # Separator
         cv.put(2, 0, MID_L + H2 * (w - 2) + MID_R, C_ACCENT)
 
@@ -2485,8 +2507,22 @@ class AlphaTerminal:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def main():
-    terminal = AlphaTerminal()
+def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Institutional Alpha TUI")
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        default=False,
+        help=(
+            "Run with labelled random mock data (visible banner on every screen). "
+            "Without this flag, missing core packages surface as an error state "
+            "instead of generating random data."
+        ),
+    )
+    args, _ = parser.parse_known_args()
+    terminal = AlphaTerminal(demo=args.demo)
     terminal.start()
 
 
