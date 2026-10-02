@@ -300,7 +300,7 @@ def run_thesis_engine(ticker: str) -> None:
                 fair_value_high=bull_high,
                 narrative="Optimistic scenario",
                 assumptions=[
-                    Assumption("bull_case", bull_high, source="user"),
+                    Assumption(name="bull_case", value=bull_high, source="user"),
                 ],
             ),
             Thesis(
@@ -309,7 +309,7 @@ def run_thesis_engine(ticker: str) -> None:
                 fair_value_high=bear_high,
                 narrative="Pessimistic scenario",
                 assumptions=[
-                    Assumption("bear_case", bear_low, source="user"),
+                    Assumption(name="bear_case", value=bear_low, source="user"),
                 ],
             ),
         ]

@@ -56,6 +56,17 @@ def _safe_div(num: float | None, den: float | None) -> float | None:
     return num / den
 
 
+def _ebit_ttm(f: Any) -> float | None:
+    """revenue_ttm * operating_margin, or None when either input is missing/zero."""
+    if not f:
+        return None
+    revenue = getattr(f, "revenue_ttm", None)
+    margin = getattr(f, "operating_margin", None)
+    if revenue and margin:
+        return float(revenue * margin)
+    return None
+
+
 METRIC_RESOLVERS: dict[str, MetricResolver] = {
     # --- BusinessReality-sourced (all in [0,1] or [-1,1], see that module) ---
     "roic_durability": lambda br, f: getattr(br, "roic_durability", None) if br else None,
@@ -89,11 +100,7 @@ METRIC_RESOLVERS: dict[str, MetricResolver] = {
     # reinvestment_rate = (capex + change_in_working_capital) / EBIT
     "reinvestment_rate": lambda br, f: _safe_div(
         getattr(f, "capex_ttm", None) if f else None,
-        (
-            getattr(f, "revenue_ttm", None) * getattr(f, "operating_margin", None)
-            if f and getattr(f, "revenue_ttm", None) and getattr(f, "operating_margin", None)
-            else None
-        ),
+        _ebit_ttm(f),
     ),
 }
 

@@ -42,7 +42,7 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol
 from unittest.mock import MagicMock
 
 from iam.config.settings import get_settings
@@ -519,6 +519,28 @@ def _valid_ticker(t: str) -> bool:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
+class _PanelLike(Protocol):
+    """Structural type for anything the terminal can draw as a panel.
+
+    Several panels live in other modules (market_panels, research_panels,
+    settings_panel) and do not subclass ``_Panel``.
+    """
+
+    title: str
+
+    def render(
+        self,
+        cv: Canvas,
+        r0: int,
+        r1: int,
+        c0: int,
+        c1: int,
+        sec: SecState | None,
+        system_state: SystemState | None = None,
+        ticks: int = 0,
+    ) -> None: ...
+
+
 class _Panel:
     title: str = "PANEL"
 
@@ -944,13 +966,13 @@ class ScenarioPanel(_Panel):
             n = name.lower()
             return C_RED if "bear" in n else (C_GREEN if "bull" in n else C_YELLOW)
 
-        for i, (name, prob, target, ret, thesis) in enumerate(scenarios):
+        for i, (name, prob, target, ret_str, thesis) in enumerate(scenarios):
             r = r0 + 4 + i
             col = _color(name)
             cv.put(r, c0 + 2, f"{name:<14}", col)
             cv.put(r, c0 + 17, f"{prob:<6}", C_WHITE)
             cv.put(r, c0 + 24, f"${target:>10.2f}", C_WHITE)
-            cv.put(r, c0 + 36, f"{ret:>8}", col)
+            cv.put(r, c0 + 36, f"{ret_str:>8}", col)
             cv.put(r, c0 + 46, thesis, C_DIM)
 
         cv.hline(r0 + 7 + len(scenarios) - 3, c0, c1)
@@ -1851,7 +1873,7 @@ class AlphaTerminal:
         self._canvas: Canvas | None = None
         self._ticks = 0
 
-        self._panels: dict[str, _Panel] = {
+        self._panels: dict[str, _PanelLike] = {
             "Watchlist": RealWatchlistPanel(self._watchlist, sec_lookup=self._get_sec),
             "Global Markets": GlobalMarketsPanel(),
             "Quick Recommendation": QuickRecPanel(),
@@ -2189,15 +2211,15 @@ class AlphaTerminal:
                 # Real build: never substitute fake data. Leave the result
                 # fields empty and surface the error instead.
                 with self._lock:
-                    st = self._secs.get(ticker)
-                    if st is not None:
-                        st.security = None
-                        st.score_result = None
-                        st.pipeline_result = None
-                        st.history = []
-                        st.loading = False
-                        st.last_updated = datetime.now()
-                        st.error = str(e) or type(e).__name__
+                    st_err = self._secs.get(ticker)
+                    if st_err is not None:
+                        st_err.security = None
+                        st_err.score_result = None
+                        st_err.pipeline_result = None
+                        st_err.history = []
+                        st_err.loading = False
+                        st_err.last_updated = datetime.now()
+                        st_err.error = str(e) or type(e).__name__
             else:
                 self._mock_load(ticker, error=str(e))
 

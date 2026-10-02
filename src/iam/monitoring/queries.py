@@ -323,8 +323,8 @@ class FactorAlphaQuery:
         factor = filter_.factor if filter_ else records[0].factor
 
         def excess_return(record: FactorAlphaRecord, horizon: str) -> float | None:
-            fwd = getattr(record, f"forward_return_{horizon}")
-            bench = getattr(record, f"benchmark_return_{horizon}")
+            fwd: float | None = getattr(record, f"forward_return_{horizon}")
+            bench: float | None = getattr(record, f"benchmark_return_{horizon}")
             if fwd is not None and bench is not None:
                 return fwd - bench
             return None

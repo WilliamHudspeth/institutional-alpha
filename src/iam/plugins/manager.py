@@ -4,10 +4,13 @@ import logging
 import os
 import threading
 from pathlib import Path
+from typing import TypeVar
 
 from .interfaces import IA_DataAdapter, IA_FactorPlugin, IA_LensPlugin
 
 logger = logging.getLogger(__name__)
+
+_P = TypeVar("_P")
 
 
 class PluginManager:
@@ -80,8 +83,8 @@ class PluginManager:
         return self._instantiate(self.factor_plugins)
 
     @staticmethod
-    def _instantiate(registry: dict[str, type]) -> dict[str, object]:
-        instances: dict[str, object] = {}
+    def _instantiate(registry: dict[str, type[_P]]) -> dict[str, _P]:
+        instances: dict[str, _P] = {}
         for name, cls in registry.items():
             try:
                 instances[name] = cls()

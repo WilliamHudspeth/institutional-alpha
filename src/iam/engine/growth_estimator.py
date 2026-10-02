@@ -399,7 +399,8 @@ class QuestionnaireGrowthEngine:
         }
         if any(v is not None for v in overrides.values()):
             for key, comp in components.items():
-                comp.weight = overrides[key] if overrides[key] is not None else DEFAULT_WEIGHTS[key]
+                override = overrides[key]
+                comp.weight = override if override is not None else DEFAULT_WEIGHTS[key]
 
         # Renormalize over components that actually produced a value.
         available = {k: c for k, c in components.items() if c.value is not None}
@@ -423,7 +424,10 @@ class QuestionnaireGrowthEngine:
                 c.weight = 1.0 / len(available)
             total_weight = 1.0
 
-        blended = sum(c.value * c.weight for c in available.values()) / total_weight  # type: ignore[operator]
+        blended = (
+            sum(c.value * c.weight for c in available.values() if c.value is not None)
+            / total_weight
+        )
         confidence = sum(c.confidence * c.weight for c in available.values()) / total_weight
 
         skipped = [k for k in components if k not in available]

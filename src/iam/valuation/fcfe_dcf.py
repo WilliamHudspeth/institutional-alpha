@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import TypedDict
 
 from iam.data.ground_truth import GroundTruthProvider
 from iam.data.security import Security
@@ -22,6 +23,16 @@ from iam.valuation.reverse_dcf import _present_value_two_stage
 from iam.valuation.types import Method, ValuationResult
 
 logger = logging.getLogger(__name__)
+
+
+class _Scenario(TypedDict):
+    """One row of the Bear/Base/Bull scenario matrix."""
+
+    name: str
+    prob: float
+    g: float
+    wacc: float
+    tv_g: float
 
 
 @dataclass
@@ -141,7 +152,7 @@ class FCFEDCF:
         # Bear (20%):  -40% growth, +150bps WACC, -20% Terminal Growth
         # Base (60%):  Anchor assumptions
         # Bull (20%):  +30% growth, -100bps WACC, +20% Terminal Growth
-        scenarios = [
+        scenarios: list[_Scenario] = [
             {
                 "name": "Bear Case",
                 "prob": 0.20,
@@ -166,17 +177,17 @@ class FCFEDCF:
         ]
 
         pwev_target = 0.0
-        matrix_results = {}
+        matrix_results: dict[str, dict[str, float]] = {}
 
         # Run the DCF math for each scenario
         for s in scenarios:
             try:
                 target = _present_value_two_stage(
                     base_ni=ni_per_share,
-                    g_high=s["g"],  # type: ignore
-                    g_terminal=s["tv_g"],  # type: ignore
+                    g_high=s["g"],
+                    g_terminal=s["tv_g"],
                     n=base_a.high_growth_years,
-                    r=s["wacc"],  # type: ignore
+                    r=s["wacc"],
                     roe=base_a.roe,
                 )
                 upside = (target / m.price) - 1 if m.price > 0 else 0
@@ -191,7 +202,7 @@ class FCFEDCF:
                 }
 
                 # Accumulate Probability-Weighted Expected Value
-                pwev_target += target * s["prob"]  # type: ignore
+                pwev_target += target * s["prob"]
             except Exception as e:
                 notes.append(f"Scenario '{s['name']}' calculation failed: {e}")
 
@@ -212,13 +223,13 @@ class FCFEDCF:
         verdict_lines = [
             f"Probability-Weighted Fair Value (PWEV): ${pwev_target:.2f} ({pwev_upside * 100:+.1f}%)",
             "  Scenario Matrix:",
-            f"    • Bear (20%): ${matrix_results['Bear Case']['target']:.2f} "  # type: ignore
+            f"    • Bear (20%): ${matrix_results['Bear Case']['target']:.2f} "
             f"| Growth: {matrix_results['Bear Case']['g'] * 100:.1f}% "
             f"| WACC: {matrix_results['Bear Case']['wacc'] * 100:.2f}%",
-            f"    • Base (60%): ${matrix_results['Base Case']['target']:.2f} "  # type: ignore
+            f"    • Base (60%): ${matrix_results['Base Case']['target']:.2f} "
             f"| Growth: {matrix_results['Base Case']['g'] * 100:.1f}% "
             f"| WACC: {matrix_results['Base Case']['wacc'] * 100:.2f}%",
-            f"    • Bull (20%): ${matrix_results['Bull Case']['target']:.2f} "  # type: ignore
+            f"    • Bull (20%): ${matrix_results['Bull Case']['target']:.2f} "
             f"| Growth: {matrix_results['Bull Case']['g'] * 100:.1f}% "
             f"| WACC: {matrix_results['Bull Case']['wacc'] * 100:.2f}%",
         ]
@@ -230,7 +241,7 @@ class FCFEDCF:
             confidence=confidence,
             components={
                 "pwev_target": pwev_target,
-                "scenarios": matrix_results,  # type: ignore
+                "scenarios": matrix_results,
                 "base_ni_per_share": ni_per_share,
             },
             assumptions={
