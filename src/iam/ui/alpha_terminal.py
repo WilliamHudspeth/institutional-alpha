@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import atexit
 import json
+import math
 import os
 import random
 import shutil
@@ -654,6 +655,47 @@ class QuickRecPanel(_Panel):
                     )
 
 
+def _num(v: object) -> float | None:
+    """Finite float or None (NaN/inf/non-numeric all mean 'no data')."""
+    if isinstance(v, bool):
+        return None
+    try:
+        f = float(v)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return f if math.isfinite(f) else None
+
+
+def _pct_or_na(v: object) -> str:
+    f = _num(v)
+    return f"{f:.1%}" if f is not None else "n/a"
+
+
+def _scenario_matrix(sec: SecState | None) -> list[tuple[str, dict]] | None:
+    """Real FCFE scenario matrix from the pipeline report, or None if absent.
+
+    Source: ``pipeline_result.intrinsic.components["scenarios"]`` (built in
+    ``FCFEDCF.compute``). Entries lacking a finite prob/target are dropped.
+    """
+    pr = getattr(sec, "pipeline_result", None)
+    intrinsic = getattr(pr, "intrinsic", None)
+    comps = getattr(intrinsic, "components", None)
+    if not isinstance(comps, dict):
+        return None
+    raw = comps.get("scenarios")
+    if not isinstance(raw, dict):
+        return None
+    out: list[tuple[str, dict]] = []
+    for name, d in raw.items():
+        if not isinstance(d, dict):
+            continue
+        prob, target = _num(d.get("prob")), _num(d.get("target"))
+        if prob is None or target is None:
+            continue
+        out.append((str(name), {**d, "prob": prob, "target": target}))
+    return out or None
+
+
 # ── Deep Valuation ────────────────────────────────────────────────────────
 
 
@@ -715,9 +757,20 @@ class DeepValPanel(_Panel):
 
             # Visual range bar using MiniChart if available
             price = sec.price
-            if _IAM_SPARKLINES and price is not None and cc is not None:
+            scen = _scenario_matrix(sec)
+            bear_t = bull_t = None
+            if scen:
+                bear_t = next((d["target"] for n, d in scen if "bear" in n.lower()), None)
+                bull_t = next((d["target"] for n, d in scen if "bull" in n.lower()), None)
+            if (
+                _IAM_SPARKLINES
+                and price is not None
+                and cc is not None
+                and bear_t is not None
+                and bull_t is not None
+            ):
                 fair = price * (1.0 + cc)
-                range_bar = MiniChart.range_bar(fair, price * 0.72, price * 1.38, width=18)
+                range_bar = MiniChart.range_bar(fair, bear_t, bull_t, width=18)
             else:
                 range_bar = _meter(cc, -0.4, 0.4, 18)
 
@@ -849,35 +902,50 @@ class ScenarioPanel(_Panel):
 
         self._demo_tag(cv, r1, c0, sec)
         price = sec.price
-        upside = sec.upside
-        if price is None or upside is None:
-            cv.put(r0, c0 + 1, "Bayesian Scenario Thesis Engine", C_ACCENT + BOLD)
-            cv.hline(r0 + 1, c0, c1)
-            what = "price" if price is None else "model upside"
-            cv.put(r0 + 2, c0 + 2, f"Scenario table: n/a (no {what} available)", C_DIM)
-            return
-        bear = price * 0.72
-        base = price * (1.0 + upside)
-        bull = price * 1.38
-        exp = (bear * 0.20) + (base * 0.60) + (bull * 0.20)
-        prem = (exp - price) / price if price else 0
-
         cv.put(r0, c0 + 1, "Bayesian Scenario Thesis Engine", C_ACCENT + BOLD)
         cv.hline(r0 + 1, c0, c1)
 
+        matrix = _scenario_matrix(sec)
+        if not matrix:
+            cv.put(
+                r0 + 2,
+                c0 + 2,
+                f"Scenario table: n/a (no FCFE scenario matrix for {sec.ticker})",
+                C_DIM,
+            )
+            return
+
+        def _ret(target: float) -> float | None:
+            return (target - price) / price if price else None
+
         # Scenario table (matches iam.ui.panels.ScenarioMatrixPanel format)
-        scenarios = [
-            ("Bear Case", "20%", bear, f"{(bear - price) / price:>+.1%}", "Stressed execution"),
-            ("Base Case", "60%", base, f"{(base - price) / price:>+.1%}", "Anchor assumptions"),
-            ("Bull Case", "20%", bull, f"{(bull - price) / price:>+.1%}", "Platform leverage"),
-        ]
-        hdrs = f"{'SCENARIO':<14} {'PROB':<6} {'TARGET':>12}  {'RETURN':>8}  THESIS"
+        scenarios = []
+        for name, d in matrix:
+            ret = _ret(d["target"])
+            thesis = (
+                f"g {_pct_or_na(d.get('g'))} · WACC {_pct_or_na(d.get('wacc'))}"
+                f" · g∞ {_pct_or_na(d.get('tv_g'))}"
+            )
+            scenarios.append(
+                (
+                    name,
+                    f"{d['prob']:.0%}",
+                    d["target"],
+                    f"{ret:>+.1%}" if ret is not None else "n/a",
+                    thesis,
+                )
+            )
+        hdrs = f"{'SCENARIO':<14} {'PROB':<6} {'TARGET':>12}  {'RETURN':>8}  ASSUMPTIONS"
         cv.put(r0 + 2, c0 + 2, hdrs, C_DIM)
         cv.hline(r0 + 3, c0, c1)
-        scenario_colors = [C_RED, C_YELLOW, C_GREEN]
+
+        def _color(name: str) -> str:
+            n = name.lower()
+            return C_RED if "bear" in n else (C_GREEN if "bull" in n else C_YELLOW)
+
         for i, (name, prob, target, ret, thesis) in enumerate(scenarios):
             r = r0 + 4 + i
-            col = scenario_colors[i]
+            col = _color(name)
             cv.put(r, c0 + 2, f"{name:<14}", col)
             cv.put(r, c0 + 17, f"{prob:<6}", C_WHITE)
             cv.put(r, c0 + 24, f"${target:>10.2f}", C_WHITE)
@@ -889,19 +957,29 @@ class ScenarioPanel(_Panel):
         # Visual bar chart
         bar_r = r0 + 8
         bw = c1 - c0 - 22
+        max_t = max(t for _, _, t, _, _ in scenarios)
         cv.put(bar_r, c0 + 1, "Visual Range:", C_DIM)
         for i, (name, _, target, _, _) in enumerate(scenarios):
-            bar_len = max(0, int((target / (bull * 1.05)) * bw))
-            col = scenario_colors[i]
+            bar_len = max(0, int((target / (max_t * 1.05)) * bw)) if max_t > 0 else 0
+            col = _color(name)
             label = name[:4]
             cv.put(bar_r + 1 + i, c0 + 1, f"{label} ", col)
             cv.put(bar_r + 1 + i, c0 + 6, FULL * min(bar_len, bw), col)
             cv.put(bar_r + 1 + i, c0 + 6 + min(bar_len, bw) + 1, f"${target:.0f}", C_DIM)
 
         cv.hline(bar_r + 4 + len(scenarios) - 3, c0, c1)
-        prem_col = C_GREEN if prem >= 0 else C_RED
-        cv.put(bar_r + 5, c0 + 2, f"Expected Value:  ${exp:.2f}", C_WHITE)
-        cv.put(bar_r + 5, c0 + 26, f"  vs Current: {prem:>+.1%}", prem_col + BOLD)
+        tot_p = sum(d["prob"] for _, d in matrix)
+        exp = sum(d["prob"] * d["target"] for _, d in matrix) / tot_p if tot_p > 0 else None
+        if exp is None:
+            cv.put(bar_r + 5, c0 + 2, "Expected Value:  n/a", C_WHITE)
+        else:
+            prem = _ret(exp)
+            cv.put(bar_r + 5, c0 + 2, f"Expected Value:  ${exp:.2f}", C_WHITE)
+            if prem is None:
+                cv.put(bar_r + 5, c0 + 26, "  vs Current: n/a", C_DIM)
+            else:
+                prem_col = C_GREEN if prem >= 0 else C_RED
+                cv.put(bar_r + 5, c0 + 26, f"  vs Current: {prem:>+.1%}", prem_col + BOLD)
         cv.put(
             bar_r + 6,
             c0 + 2,
@@ -915,19 +993,6 @@ class ScenarioPanel(_Panel):
 
 class BacktestPanel(_Panel):
     title = "BACKTEST & RESEARCH INTEGRITY"
-
-    ROWS = [
-        ("Quality", "+0.084", "0.012", "+5.2%", True),
-        ("Intrinsic Value", "+0.112", "0.005", "+6.8%", True),
-        ("Relative Value", "+0.091", "0.008", "+5.9%", True),
-        ("Sentiment", "+0.023", "0.254", "+1.4%", False),
-        ("Momentum", "+0.067", "0.031", "+4.3%", True),
-        ("Macro Regime", "+0.055", "0.044", "+3.8%", True),
-        ("Earnings Quality", "+0.078", "0.019", "+4.9%", True),
-        ("Expectations", "+0.041", "0.112", "+2.6%", False),
-        ("Runway", "+0.034", "0.178", "+2.1%", False),
-        ("Crowding", "-0.019", "0.310", "-1.2%", False),
-    ]
 
     def render(
         self,
@@ -944,8 +1009,17 @@ class BacktestPanel(_Panel):
         cv.put(r0 + 1, c0 + 1, "Spearman Rank IC / p-value / Quintile Spreads", C_DIM)
         cv.hline(r0 + 2, c0, c1)
 
-        if not system_state or system_state.loading or not system_state.backtest_metrics:
+        if system_state is None or system_state.loading:
             self._loading(cv, r0, r1, c0, c1, "Backtest", ticks)
+            return
+        if not system_state.backtest_metrics:
+            cv.put(
+                r0 + 3,
+                c0 + 2,
+                "Backtest metrics: n/a (run the IC backtest to produce "
+                "data/results/ic/ic_horizon_1m.csv)",
+                C_DIM,
+            )
             return
 
         metrics = system_state.backtest_metrics
@@ -959,16 +1033,16 @@ class BacktestPanel(_Panel):
             r = r0 + 5 + idx
             if r > r1 - 15:
                 break
-            ic = m.get("ic", 0.0)
-            pv = m.get("p_value", 1.0)
-            spr = m.get("spread", 0.0)
-            sig = pv < 0.05
+            ic = _num(m.get("ic"))
+            pv = _num(m.get("p_value"))
+            spr = _num(m.get("spread"))
+            sig = pv is not None and pv < 0.05
             col = C_GREEN if sig else C_RED
 
             cv.put(r, c0 + 1, f"{factor:<22}", C_WHITE)
-            cv.put(r, c0 + 24, f"{ic:>+6.3f}", col)
-            cv.put(r, c0 + 32, f"{pv:>6.3f}", C_WHITE)
-            cv.put(r, c0 + 40, f"{spr:>+6.1%}", col)
+            cv.put(r, c0 + 24, f"{ic:>+6.3f}" if ic is not None else f"{'n/a':>6}", col)
+            cv.put(r, c0 + 32, f"{pv:>6.3f}" if pv is not None else f"{'n/a':>6}", C_WHITE)
+            cv.put(r, c0 + 40, f"{spr:>+6.1%}" if spr is not None else f"{'n/a':>6}", col)
             cv.put(r, c0 + 49, "✓ sig" if sig else "—", C_GREEN if sig else C_DIM)
             idx += 1
 
@@ -982,26 +1056,29 @@ class BacktestPanel(_Panel):
             C_ACCENT + BOLD,
         )
 
-        pbo = getattr(metrics, "pbo", 0.0)
-        dsr = getattr(metrics, "dsr", 0.0)
-        psr = getattr(metrics, "psr", 0.0)
+        pbo = _num(getattr(metrics, "pbo", None))
+        dsr = _num(getattr(metrics, "dsr", None))
+        psr = _num(getattr(metrics, "psr", None))
+        pbo_t = f"{pbo:>6.1%}" if pbo is not None else f"{'n/a':>6}"
+        dsr_t = f"{dsr:>5.2f}" if dsr is not None else f"{'n/a':>5}"
+        psr_t = f"{psr:>6.1%}" if psr is not None else f"{'n/a':>6}"
 
         cv.put(
             mid_sep + 3,
             c0 + 2,
-            f"Backtest Overfitting (PBO): {pbo:>6.1%}  (Target: <5.0%)",
-            C_GREEN if pbo < 0.05 else C_RED,
+            f"Backtest Overfitting (PBO): {pbo_t}  (Target: <5.0%)",
+            C_GREEN if (pbo is not None and pbo < 0.05) else C_RED,
         )
         cv.put(
             mid_sep + 4,
             c0 + 2,
-            f"Deflated Sharpe Ratio (DSR): {dsr:>5.2f}  [Multiple Testing Corrected]",
-            C_GREEN if dsr > 1.0 else C_WHITE,
+            f"Deflated Sharpe Ratio (DSR): {dsr_t}  [Multiple Testing Corrected]",
+            C_GREEN if (dsr is not None and dsr > 1.0) else C_WHITE,
         )
         cv.put(
             mid_sep + 5,
             c0 + 2,
-            f"Probabilistic Sharpe (PSR): {psr:>6.1%}  (Confidence in SR > 0)",
+            f"Probabilistic Sharpe (PSR): {psr_t}  (Confidence in SR > 0)",
             C_TEAL,
         )
 
@@ -1384,27 +1461,26 @@ class SOTPTowerPanel(_Panel):
         from iam.ui.sotp_tower import render_sotp_tower
         from iam.valuation.sotp import SOTP
 
-        # Use real segments if available, else mock
-        segments = getattr(sec.security, "qualitative", {}).get("segments", [])
+        cv.put(r0, c0 + 1, "Segment Enterprise Value Composition", C_ACCENT + BOLD)
+        cv.hline(r0 + 1, c0, c1)
+
+        # Real segments only; no mock segments, no assumed leverage.
+        segments = (getattr(sec.security, "qualitative", None) or {}).get("segments", [])
         if not segments:
-            from iam.ui.visualization_lab import mock_blk_segments
+            cv.put(r0 + 2, c0 + 2, f"SOTP tower: n/a (no segment data for {sec.ticker})", C_DIM)
+            return
+        try:
+            d_e = _num(sec.security.balance_sheet.debt_to_equity)
+        except Exception:
+            d_e = None
+        if d_e is None:
+            cv.put(r0 + 2, c0 + 2, f"SOTP tower: n/a (no debt/equity for {sec.ticker})", C_DIM)
+            return
 
-            segments = mock_blk_segments()
-
-        # Compute SOTP data
         damodaran = DamodaranEngine()
-        d_e = 0.5
-        if hasattr(sec.security, "balance_sheet"):
-            try:
-                d_e = sec.security.balance_sheet.debt_to_equity
-            except Exception:
-                pass
 
         ke = damodaran.compute_cost_of_equity(segments, d_e)
         result = SOTP.compute(segments, ke)
-
-        cv.put(r0, c0 + 1, "Segment Enterprise Value Composition", C_ACCENT + BOLD)
-        cv.hline(r0 + 1, c0, c1)
 
         # Render ASCII tower
         tower = render_sotp_tower(result.segments)
