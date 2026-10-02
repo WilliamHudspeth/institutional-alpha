@@ -1,10 +1,9 @@
 import importlib.util
 import inspect
-import threading
 import logging
 import os
+import threading
 from pathlib import Path
-from typing import Dict, List, Type
 
 from .interfaces import IA_DataAdapter, IA_FactorPlugin, IA_LensPlugin
 
@@ -13,9 +12,9 @@ logger = logging.getLogger(__name__)
 
 class PluginManager:
     def __init__(self):
-        self.lens_plugins: Dict[str, Type[IA_LensPlugin]] = {}
-        self.factor_plugins: Dict[str, Type[IA_FactorPlugin]] = {}
-        self.data_adapters: Dict[str, Type[IA_DataAdapter]] = {}
+        self.lens_plugins: dict[str, type[IA_LensPlugin]] = {}
+        self.factor_plugins: dict[str, type[IA_FactorPlugin]] = {}
+        self.data_adapters: dict[str, type[IA_DataAdapter]] = {}
 
     def discover_plugins(self, plugin_dir: str):
         plugin_path = Path(plugin_dir).resolve()
@@ -24,7 +23,7 @@ class PluginManager:
 
         for root, _, files in os.walk(plugin_path):
             for file in files:
-                if file.endswith('.py') and not file.startswith('__'):
+                if file.endswith(".py") and not file.startswith("__"):
                     file_path = os.path.join(root, file)
                     module_name = os.path.splitext(os.path.basename(file))[0]
 
@@ -51,19 +50,19 @@ class PluginManager:
     # ------------------------------------------------------------------
     # Explicit registration (programmatic alternative to discover_plugins)
     # ------------------------------------------------------------------
-    def register_lens(self, plugin_cls: Type[IA_LensPlugin]) -> None:
+    def register_lens(self, plugin_cls: type[IA_LensPlugin]) -> None:
         """Register an IA_LensPlugin subclass by its class name."""
         if not (inspect.isclass(plugin_cls) and issubclass(plugin_cls, IA_LensPlugin)):
             raise TypeError(f"{plugin_cls!r} is not an IA_LensPlugin subclass")
         self.lens_plugins[plugin_cls.__name__] = plugin_cls
 
-    def register_factor(self, plugin_cls: Type[IA_FactorPlugin]) -> None:
+    def register_factor(self, plugin_cls: type[IA_FactorPlugin]) -> None:
         """Register an IA_FactorPlugin subclass by its class name."""
         if not (inspect.isclass(plugin_cls) and issubclass(plugin_cls, IA_FactorPlugin)):
             raise TypeError(f"{plugin_cls!r} is not an IA_FactorPlugin subclass")
         self.factor_plugins[plugin_cls.__name__] = plugin_cls
 
-    def register_adapter(self, plugin_cls: Type[IA_DataAdapter]) -> None:
+    def register_adapter(self, plugin_cls: type[IA_DataAdapter]) -> None:
         """Register an IA_DataAdapter subclass by its class name."""
         if not (inspect.isclass(plugin_cls) and issubclass(plugin_cls, IA_DataAdapter)):
             raise TypeError(f"{plugin_cls!r} is not an IA_DataAdapter subclass")
@@ -72,17 +71,17 @@ class PluginManager:
     # ------------------------------------------------------------------
     # Instantiation helpers (consumed by the valuation pipeline)
     # ------------------------------------------------------------------
-    def create_lens_instances(self) -> Dict[str, IA_LensPlugin]:
+    def create_lens_instances(self) -> dict[str, IA_LensPlugin]:
         """Instantiate every registered lens plugin; skip (and log) failures."""
         return self._instantiate(self.lens_plugins)
 
-    def create_factor_instances(self) -> Dict[str, IA_FactorPlugin]:
+    def create_factor_instances(self) -> dict[str, IA_FactorPlugin]:
         """Instantiate every registered factor plugin; skip (and log) failures."""
         return self._instantiate(self.factor_plugins)
 
     @staticmethod
-    def _instantiate(registry: Dict[str, type]) -> Dict[str, object]:
-        instances: Dict[str, object] = {}
+    def _instantiate(registry: dict[str, type]) -> dict[str, object]:
+        instances: dict[str, object] = {}
         for name, cls in registry.items():
             try:
                 instances[name] = cls()
@@ -90,11 +89,9 @@ class PluginManager:
                 logger.warning("Could not instantiate plugin %s: %s", name, e)
         return instances
 
-    def list_plugins(self) -> List[str]:
+    def list_plugins(self) -> list[str]:
         """Names of every registered plugin (lenses, factors, adapters)."""
-        return sorted(
-            set(self.lens_plugins) | set(self.factor_plugins) | set(self.data_adapters)
-        )
+        return sorted(set(self.lens_plugins) | set(self.factor_plugins) | set(self.data_adapters))
 
 
 # ----------------------------------------------------------------------

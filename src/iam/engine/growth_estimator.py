@@ -180,7 +180,9 @@ def _historical_component(q: GrowthQuestionnaire, security: Security) -> GrowthE
     notes: list[str] = []
     value: float | None = None
 
-    candidates = [g for g in (q.historical_revenue_growth, q.historical_eps_growth) if g is not None]
+    candidates = [
+        g for g in (q.historical_revenue_growth, q.historical_eps_growth) if g is not None
+    ]
     if candidates:
         value = sum(candidates) / len(candidates)
         if len(candidates) == 1:
@@ -207,8 +209,11 @@ def _historical_component(q: GrowthQuestionnaire, security: Security) -> GrowthE
         confidence = _clamp(confidence, 0.0, 1.0)
 
     return GrowthEstimateComponent(
-        label="historical", value=value, weight=DEFAULT_WEIGHTS["historical"],
-        confidence=confidence, notes=notes,
+        label="historical",
+        value=value,
+        weight=DEFAULT_WEIGHTS["historical"],
+        confidence=confidence,
+        notes=notes,
     )
 
 
@@ -217,8 +222,11 @@ def _analyst_component(q: GrowthQuestionnaire) -> GrowthEstimateComponent:
     value = q.analyst_consensus_growth
     if value is None:
         return GrowthEstimateComponent(
-            label="analyst", value=None, weight=DEFAULT_WEIGHTS["analyst"],
-            confidence=0.0, notes=["No analyst consensus supplied."],
+            label="analyst",
+            value=None,
+            weight=DEFAULT_WEIGHTS["analyst"],
+            confidence=0.0,
+            notes=["No analyst consensus supplied."],
         )
 
     debiased = value * ANALYST_DEBIAS_HAIRCUT
@@ -243,8 +251,11 @@ def _analyst_component(q: GrowthQuestionnaire) -> GrowthEstimateComponent:
 
     confidence = _clamp(confidence, 0.0, 1.0)
     return GrowthEstimateComponent(
-        label="analyst", value=debiased, weight=DEFAULT_WEIGHTS["analyst"],
-        confidence=confidence, notes=notes,
+        label="analyst",
+        value=debiased,
+        weight=DEFAULT_WEIGHTS["analyst"],
+        confidence=confidence,
+        notes=notes,
     )
 
 
@@ -260,7 +271,9 @@ def _qualitative_multiplier(q: GrowthQuestionnaire) -> tuple[float, list[str]]:
         if s is not None:
             scores.append(s)
             if s < 0:
-                notes.append("No moat — excess returns funding reinvestment growth may not persist.")
+                notes.append(
+                    "No moat — excess returns funding reinvestment growth may not persist."
+                )
     if q.industry_lifecycle_stage is not None:
         s = _LIFECYCLE_SCORE.get(q.industry_lifecycle_stage)
         if s is not None:
@@ -272,13 +285,17 @@ def _qualitative_multiplier(q: GrowthQuestionnaire) -> tuple[float, list[str]]:
         if s is not None:
             scores.append(s)
             if s < 0:
-                notes.append("Scarce reinvestment opportunity caps how much growth reinvestment can buy.")
+                notes.append(
+                    "Scarce reinvestment opportunity caps how much growth reinvestment can buy."
+                )
     if q.management_capital_discipline is not None:
         s = _DISCIPLINE_SCORE.get(q.management_capital_discipline)
         if s is not None:
             scores.append(s)
             if s < 0:
-                notes.append("Weak capital discipline — reinvestment may not earn its cost of capital.")
+                notes.append(
+                    "Weak capital discipline — reinvestment may not earn its cost of capital."
+                )
 
     if not scores:
         return 1.0, notes
@@ -301,7 +318,9 @@ def _fundamental_component(
         if q.return_on_equity < 0:
             notes.append("Negative ROE — equity growth from reinvestment is not meaningful.")
         if not 0.0 <= q.retention_ratio <= 1.5:
-            notes.append(f"Retention ratio {q.retention_ratio:.2f} outside plausible [0, 1.5] range.")
+            notes.append(
+                f"Retention ratio {q.retention_ratio:.2f} outside plausible [0, 1.5] range."
+            )
 
     operating_growth: float | None = None
     if q.reinvestment_rate is not None and q.return_on_capital is not None:
@@ -317,8 +336,10 @@ def _fundamental_component(
     if not parts:
         return (
             GrowthEstimateComponent(
-                label="fundamental (b x ROE / RR x ROIC)", value=None,
-                weight=DEFAULT_WEIGHTS["fundamental"], confidence=0.0,
+                label="fundamental (b x ROE / RR x ROIC)",
+                value=None,
+                weight=DEFAULT_WEIGHTS["fundamental"],
+                confidence=0.0,
                 notes=["No reinvestment-rate/return-on-capital inputs supplied."],
             ),
             None,
@@ -330,7 +351,9 @@ def _fundamental_component(
     value = raw_value * multiplier
     notes.extend(qual_notes)
     if multiplier != 1.0:
-        notes.append(f"Qualitative overlay applied: x{multiplier:.2f} ({raw_value:+.2%} -> {value:+.2%}).")
+        notes.append(
+            f"Qualitative overlay applied: x{multiplier:.2f} ({raw_value:+.2%} -> {value:+.2%})."
+        )
 
     confidence = 0.85 if len(parts) == 2 else 0.7
     if any("Negative" in n or "destroying" in n for n in notes):
@@ -339,8 +362,11 @@ def _fundamental_component(
 
     return (
         GrowthEstimateComponent(
-            label="fundamental (b x ROE / RR x ROIC)", value=value,
-            weight=DEFAULT_WEIGHTS["fundamental"], confidence=confidence, notes=notes,
+            label="fundamental (b x ROE / RR x ROIC)",
+            value=value,
+            weight=DEFAULT_WEIGHTS["fundamental"],
+            confidence=confidence,
+            notes=notes,
         ),
         equity_growth,
         operating_growth,

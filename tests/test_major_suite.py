@@ -290,9 +290,9 @@ class TestFactorOrthogonality:
 
     def test_at_least_five_factors_computed(self, factor_score_df):
         """The engine must produce at least 5 distinct factor scores."""
-        assert len(factor_score_df.columns) >= 5, (
-            f"Only {len(factor_score_df.columns)} factors computed"
-        )
+        assert (
+            len(factor_score_df.columns) >= 5
+        ), f"Only {len(factor_score_df.columns)} factors computed"
 
     def test_no_constant_factor(self, factor_score_df):
         """At least 7 of the registered factors must have nonzero variance.
@@ -311,9 +311,9 @@ class TestFactorOrthogonality:
             print(
                 f"\n[INFO] Zero-variance factors (no signal in synthetic data): {list(inactive.index)}"
             )
-        assert len(active) >= 7, (
-            f"Only {len(active)} factors have nonzero variance. Inactive: {list(inactive.index)}"
-        )
+        assert (
+            len(active) >= 7
+        ), f"Only {len(active)} factors have nonzero variance. Inactive: {list(inactive.index)}"
 
     def _active_factors(self, factor_score_df: pd.DataFrame) -> pd.DataFrame:
         """Return only columns with meaningful variance (std >= 1e-9)."""
@@ -789,9 +789,9 @@ class TestLargeScaleBacktest:
             bootstrap_irs.append(information_ratio(monthly_ics.iloc[idx]))
 
         pct_positive = np.mean(np.array(bootstrap_irs) > 0)
-        assert pct_positive > 0.70, (
-            f"Only {pct_positive:.1%} of bootstrap IRs are positive. Signal may not be robust."
-        )
+        assert (
+            pct_positive > 0.70
+        ), f"Only {pct_positive:.1%} of bootstrap IRs are positive. Signal may not be robust."
 
         del scores, returns
         gc.collect()
@@ -1048,9 +1048,9 @@ class TestValuationEngineConsistency:
         """200-security batch valuation must succeed for at least 70% of names."""
         universe = _make_universe(200, seed=2024)
         success = sum(1 for sec in universe if _try_value(orchestrator, sec))
-        assert success / len(universe) >= 0.70, (
-            f"Only {success / len(universe):.1%} of 200 securities valuated successfully"
-        )
+        assert (
+            success / len(universe) >= 0.70
+        ), f"Only {success / len(universe):.1%} of 200 securities valuated successfully"
 
 
 # ===========================================================================
@@ -1078,9 +1078,9 @@ class TestBayesianThesisConvergence:
         ]:
             posteriors = BayesianUpdater.update(posteriors, ev)
             total = sum(p.probability for p in posteriors)
-            assert total == pytest.approx(1.0, abs=1e-9), (
-                f"Probabilities don't sum to 1 after '{ev.type}': {total}"
-            )
+            assert total == pytest.approx(
+                1.0, abs=1e-9
+            ), f"Probabilities don't sum to 1 after '{ev.type}': {total}"
 
     def test_consistent_bullish_evidence_raises_bull(self):
         """10 bullish signals should increase Bull Case probability."""
@@ -1094,9 +1094,9 @@ class TestBayesianThesisConvergence:
         bull_prob = next(p.probability for p in posteriors if "Bull" in p.label)
         bear_prob = next(p.probability for p in posteriors if "Bear" in p.label)
 
-        assert bull_prob > original_bull, (
-            f"Bull Case probability did not increase: {bull_prob:.4f} <= {original_bull:.4f}"
-        )
+        assert (
+            bull_prob > original_bull
+        ), f"Bull Case probability did not increase: {bull_prob:.4f} <= {original_bull:.4f}"
         assert bear_prob < _make_priors()[2].probability
 
     def test_consistent_bearish_evidence_raises_bear(self):
@@ -1119,9 +1119,9 @@ class TestBayesianThesisConvergence:
             posteriors = BayesianUpdater.update(posteriors, ev)
 
         max_prob = max(p.probability for p in posteriors)
-        assert max_prob < 0.80, (
-            f"Posteriors collapsed despite balanced evidence: max={max_prob:.4f}"
-        )
+        assert (
+            max_prob < 0.80
+        ), f"Posteriors collapsed despite balanced evidence: max={max_prob:.4f}"
 
     def test_convergence_rate_diminishes(self):
         """Each successive update of the same type should cause a smaller shift."""
@@ -1136,9 +1136,9 @@ class TestBayesianThesisConvergence:
 
         early_avg = statistics.mean(deltas[:5])
         late_avg = statistics.mean(deltas[20:])
-        assert late_avg < early_avg, (
-            f"Updates not converging: early_avg={early_avg:.6f}, late_avg={late_avg:.6f}"
-        )
+        assert (
+            late_avg < early_avg
+        ), f"Updates not converging: early_avg={early_avg:.6f}, late_avg={late_avg:.6f}"
 
     def test_high_reliability_evidence_dominates(self):
         """A single high-reliability signal should cause a larger shift than many weak ones."""
@@ -1199,13 +1199,13 @@ class TestBayesianThesisConvergence:
             )
             posteriors = BayesianUpdater.update(posteriors, ev)
             total = sum(p.probability for p in posteriors)
-            assert total == pytest.approx(1.0, abs=1e-6), (
-                f"Probability sum diverged at iteration {i}: {total}"
-            )
+            assert total == pytest.approx(
+                1.0, abs=1e-6
+            ), f"Probability sum diverged at iteration {i}: {total}"
             for p in posteriors:
-                assert 0.0 <= p.probability <= 1.0, (
-                    f"Invalid probability for '{p.label}' at iteration {i}: {p.probability}"
-                )
+                assert (
+                    0.0 <= p.probability <= 1.0
+                ), f"Invalid probability for '{p.label}' at iteration {i}: {p.probability}"
 
     @pytest.mark.slow
     def test_converges_to_correct_scenario(self):
@@ -1318,9 +1318,9 @@ class TestDataPipelineRobustness:
         )
         normalized = sec.normalized_mix()
         total = sum(normalized.values())
-        assert total == pytest.approx(1.0, abs=1e-6), (
-            f"normalized_mix() should sum to 1.0 but got {total}"
-        )
+        assert total == pytest.approx(
+            1.0, abs=1e-6
+        ), f"normalized_mix() should sum to 1.0 but got {total}"
 
     def test_empty_revenue_mix(self):
         """Empty revenue_mix must not crash normalized_mix()."""
@@ -1426,9 +1426,9 @@ class TestMemoryAndPerformance:
         stats = snapshot_after.compare_to(snapshot_before, "lineno")
         total_growth_mb = sum(s.size_diff for s in stats) / (1024 * 1024)
 
-        assert total_growth_mb < 100, (
-            f"Memory grew by {total_growth_mb:.1f} MB over 200 valuations. Possible memory leak."
-        )
+        assert (
+            total_growth_mb < 100
+        ), f"Memory grew by {total_growth_mb:.1f} MB over 200 valuations. Possible memory leak."
 
     @pytest.mark.slow
     def test_20gb_score_matrix_computation(self):
@@ -1479,6 +1479,6 @@ class TestMemoryAndPerformance:
         elapsed = time.perf_counter() - start
 
         throughput = scored / elapsed
-        assert throughput >= 1.0, (
-            f"Throughput too low: {throughput:.2f} sec/security. Possible performance regression."
-        )
+        assert (
+            throughput >= 1.0
+        ), f"Throughput too low: {throughput:.2f} sec/security. Possible performance regression."

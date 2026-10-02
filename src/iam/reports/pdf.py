@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from iam.pipeline.orchestrator import PipelineReport
 
 
-def render_pdf_summary(report: "PipelineReport") -> bytes:
+def render_pdf_summary(report: PipelineReport) -> bytes:
     """Render a PDF summary of one PipelineReport.
 
     Raises:

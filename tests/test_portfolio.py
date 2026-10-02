@@ -423,7 +423,9 @@ def _make_elasticity(
 def _neutral_regime() -> MacroRegimeAssessment:
     return MacroRegimeAssessment(
         regime=MacroRegime.NEUTRAL,
-        shock=MacroShock(name="Neutral", rate_shock_bps=0.0, growth_shock_pct=0.0, inflation_shock_pct=0.0),
+        shock=MacroShock(
+            name="Neutral", rate_shock_bps=0.0, growth_shock_pct=0.0, inflation_shock_pct=0.0
+        ),
         wacc_premium=0.0,
         shock_multiplier=1.0,
     )
@@ -506,7 +508,9 @@ class TestMacroHedge:
         }
         easing_regime = MacroRegimeAssessment(
             regime=MacroRegime.EASING,
-            shock=MacroShock(name="Easing", rate_shock_bps=-50.0, growth_shock_pct=0.02, inflation_shock_pct=0.0),
+            shock=MacroShock(
+                name="Easing", rate_shock_bps=-50.0, growth_shock_pct=0.02, inflation_shock_pct=0.0
+            ),
             wacc_premium=-0.005,
             shock_multiplier=1.0,
         )

@@ -21,7 +21,7 @@ The plugin returns the dict shape the pipeline's plugin bridge understands
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 from iam.plugins.interfaces import IA_LensPlugin
 
@@ -36,7 +36,7 @@ class FcfYieldLens(IA_LensPlugin):
 
     name = "fcf_yield_plugin"
 
-    def analyze(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze(self, data: dict[str, Any]) -> dict[str, Any]:
         fundamentals = data.get("fundamentals")
         market = data.get("market")
 
