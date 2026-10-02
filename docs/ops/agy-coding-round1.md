@@ -76,3 +76,29 @@ gemini-3.1-pro-high made three commits and exited (code 4) with no report. **Rej
 Response: rule 9 added to `.agents/rules/iam-rules.md` (never weaken a test or inject values through
 conftest). The task was rerun with a Claude Sonnet subagent under the same rule, with a mechanical
 test-diff check by Claude and an AGY review afterwards.
+
+**Outcome (merged).** A Claude Sonnet subagent rebuilt the task under the no-gaming rule. Claude checked
+the test diff mechanically (conftest untouched; no pass, skip or loosened asserts) and checked the
+numbers by hand. AGY review: gemini-3.1-pro-high returned CHANGES, accepted (a caller-supplied rate given
+as a string crashed Stage 1, and the intrinsic stage silently ignored it; fixed with a failing-first
+test). gemini-3.8-flash-high returned APPROVE with two notes: one test gap accepted (cap via the consensus
+Rf), and one disputed (asserting the paper's unscaled 5.40% would pin a 99% mix and an averaging slip).
+
+Data correction: Claude's first April extraction overwrote China, India and Japan GDP with ERP values,
+and it included Damodaran's unrated PRS block. Both are fixed: GDP now comes from the "Country GDP"
+sheet, and the PRS block is excluded. Asia (rating) now matches Damodaran's published 6.45%.
+
+Reconciliation with the owner's v10:
+- The rating-based blend is 5.336% unscaled, matching the paper's 5.34%.
+- The owner's country mix sums to 99%. Renormalised to 100%, the blends are rating 5.39%,
+  CDS 5.48%, average **5.44%**. The engine always renormalises.
+- The paper's "average 5.40%" does not follow from its own components (the mean of 5.34% and 5.36%
+  is 5.35%), and its CDS-based blend of 5.36% compares with 5.43% from the data.
+
+BLK-like check: Stage 1 consensus Ke 10.84% (4.30% + 1.30 × 5.03%, as in v10); intrinsic bottom-up Ke
+8.09% (relevered beta 0.697 with the 21% statutory default tax; v10's 25% tax gives 0.69).
+
+Open follow-ups: `laws/registry.py` Law 3 reads `qualitative["risk_free_rate"]` and now falls back to
+its 4.3% default (pass it the stage Rf); `data/provenance.py` still stamps `damodaran_jan_2026`;
+`Fundamentals` has no effective tax rate field; the legacy `resolve_erp` tables (4.6%) remain for the
+perf benchmark only.
