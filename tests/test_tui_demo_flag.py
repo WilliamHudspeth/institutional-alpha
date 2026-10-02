@@ -15,17 +15,7 @@ from unittest.mock import patch
 
 from iam.ui import alpha_terminal as at
 from iam.ui.alpha_terminal import AlphaTerminal, Canvas, SecState
-
-
-def _text(cv: Canvas) -> str:
-    return "\n".join("".join(ch for ch, _ in row).rstrip() for row in cv._back)
-
-
-def _render(panel, sec, sys_state=None, rows=40, cols=110):
-    cv = Canvas(rows, cols)
-    panel.render(cv, 2, rows - 3, 2, cols - 2, sec, sys_state, ticks=1)
-    return _text(cv)
-
+from tests.test_tui_no_fabrication import _text
 
 # ---------------------------------------------------------------------------
 # (a) Without demo flag: _IAM_CORE=False must NOT call _mock_load;
@@ -60,7 +50,7 @@ def test_no_demo_core_missing_error_mentions_import(monkeypatch):
     term = AlphaTerminal(demo=False)
     term._secs["TSLA"] = SecState(ticker="TSLA", loading=True)
 
-    with patch.object(at, "_IAM_CORE", False):
+    with patch.object(at, "_IAM_CORE", False), patch.object(at, "_IAM_IMPORT_ERROR", None):
         term._worker("TSLA")
 
     st = term._secs["TSLA"]
@@ -86,7 +76,9 @@ def test_demo_flag_uses_demo_data_even_when_core_is_available():
     term._mock_load = lambda ticker, error=None: calls.append(ticker)  # type: ignore[method-assign]
     with (
         patch.object(at, "_IAM_CORE", True),
-        patch.object(at, "_fetch_security", side_effect=AssertionError("fetched real data")),
+        patch.object(
+            at, "_fetch_security", create=True, side_effect=AssertionError("fetched real data")
+        ),
     ):
         term._worker("TSLA")
     assert calls == ["TSLA"]
