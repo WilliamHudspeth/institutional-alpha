@@ -208,9 +208,9 @@ def run_visualization_lab(security):
             cam.reset()
 
 
-def render_dcf_surface(security, width: int = 80, height: int = 25) -> str:
+def render_dcf_surface(security, width: int = 80, height: int = 25, report=None) -> str:
     """Non-interactive render for the static report."""
-    dcf_surface = DCFValuationSurface(security)
+    dcf_surface = DCFValuationSurface(security, report=report)
     scene = Scene()
     scene.surfaces = [dcf_surface]
     scene.planes.extend(dcf_surface.get_planes())

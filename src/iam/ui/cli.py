@@ -272,7 +272,7 @@ def main() -> None:
     try:
         from iam.ui.visualization_lab import render_dcf_surface
 
-        print("\n" + render_dcf_surface(security, width=80, height=25))
+        print("\n" + render_dcf_surface(security, width=80, height=25, report=report))
     except Exception as e:
         print(f"\n[Visualization Lab unavailable: {e}]")
 

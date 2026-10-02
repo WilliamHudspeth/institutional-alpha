@@ -442,34 +442,22 @@ if run_button:
             col_vis, col_sys = st.columns([2, 1])
             with col_vis:
                 st.markdown(
-                    "<div class='terminal-header'>🧊 TI-89 3D Valuation Projection</div>",
+                    "<div class='terminal-header'>🧊 TI-89 Valuation Map</div>",
                     unsafe_allow_html=True,
                 )
                 try:
-                    from iam.ui.ti89_graph import generate_ti89_3d_wireframe
+                    from iam.ui.ti89_graph import ti89_figure
+                    from iam.valuation.value_grid import build_value_grid
 
-                    pr = report
-                    intrinsic = (
-                        getattr(pr.intrinsic, "fair_value_to_price", 0)
-                        if pr and pr.intrinsic
-                        else 0
-                    )
-                    relative = (
-                        getattr(pr.relative, "fair_value_to_price", 0) if pr and pr.relative else 0
-                    )
-                    expectations = 0
-                    if pr and pr.market_implied_engine and pr.market_implied_engine.implied:
-                        vs_max = pr.market_implied_engine.implied.growth_vs_history_max
-                        if vs_max and vs_max > 0:
-                            expectations = max(-0.9, min(2.0, (1.0 / vs_max) - 1.0))
-
-                    fig = generate_ti89_3d_wireframe(
-                        intrinsic or 0.0, relative or 0.0, expectations or 0.0, mode="gui"
-                    )
-                    if fig:
-                        st.plotly_chart(fig, use_container_width=True)
+                    grid = build_value_grid(report) if report else None
+                    if grid is None:
+                        st.info("n/a: the valuation map needs an FCFE build-up for this ticker.")
                     else:
-                        st.info("Plotly is required for 3D GUI visualization.")
+                        fig = ti89_figure(grid)
+                        if fig:
+                            st.plotly_chart(fig, use_container_width=True)
+                        else:
+                            st.info("Plotly is required for 3D GUI visualization.")
                 except Exception as e:
                     st.error(f"Failed to generate TI-89 3D plot: {e}")
 

@@ -1197,9 +1197,11 @@ class PortfolioPanel(_Panel):
                     )
                 else:
                     macro_ctx = sec.security.macro if sec and sec.security else None
-                    regime = MacroRegimeClassifier().classify(
-                        MacroConditions.from_context(macro_ctx)
-                    ).regime.value
+                    regime = (
+                        MacroRegimeClassifier()
+                        .classify(MacroConditions.from_context(macro_ctx))
+                        .regime.value
+                    )
                     tilts = SectorRotationEngine.recommend_sector_tilts(regime, {})
                     cv.put(
                         rot_r + 2,
@@ -1630,6 +1632,7 @@ class SwitchPanel(_Panel):
 #  TI-89 PROJECTION PANEL
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TI89Panel(_Panel):
     title = "TI-89 3D VALUATION PROJECTION"
 
@@ -1647,36 +1650,45 @@ class TI89Panel(_Panel):
         if not sec or not sec.pipeline_result:
             self._loading(cv, r0, r1, c0, c1, sec.ticker if sec else "N/A", ticks)
             return
-            
-        try:
-            from iam.ui.ti89_graph import generate_ti89_3d_wireframe
-        except ImportError:
-            cv.put(r0 + 2, c0 + 2, "Error: ti89_graph module not found", C_RED)
+
+        from iam.ui.ti89_graph import LEGEND, render_ti89_map
+        from iam.valuation.value_grid import build_value_grid
+
+        grid = build_value_grid(sec.pipeline_result)
+        cv.put(
+            r0 + 1,
+            c0 + 2,
+            "VALUATION MAP: value/share by growth (x) and discount rate (y)",
+            C_ACCENT + BOLD,
+        )
+        if grid is None:
+            cv.put(r0 + 3, c0 + 2, "n/a: needs an FCFE build-up (earnings, shares, price).", C_DIM)
             return
 
-        pr = sec.pipeline_result
-        intrinsic = getattr(pr.intrinsic, 'fair_value_to_price', 0) if pr.intrinsic else 0
-        relative = getattr(pr.relative, 'fair_value_to_price', 0) if pr.relative else 0
-        expectations = 0 # Default if reverse dcf to ratio fails
-        if pr.market_implied_engine and pr.market_implied_engine.implied:
-            vs_max = pr.market_implied_engine.implied.growth_vs_history_max
-            if vs_max and vs_max > 0:
-                expectations = max(-0.9, min(2.0, (1.0 / vs_max) - 1.0))
-                
-        art = generate_ti89_3d_wireframe(intrinsic or 0.0, relative or 0.0, expectations or 0.0, mode="tui")
-        
-        cv.put(r0 + 1, c0 + 2, "3D WIREFRAME PROJECTION", C_ACCENT + BOLD)
-        
-        lines = art.split("\n")
+        lines = render_ti89_map(grid)
         for i, line in enumerate(lines):
-            if r0 + 3 + i >= r1:
+            if r0 + 3 + i >= r1 - 3:
                 break
-            # Render in green (like old TI calculator)
-            cv.put(r0 + 3 + i, c0 + 5, line, "\x1b[38;2;0;0;139m\x1b[48;2;143;159;143m")
-            
+            # Dark blue on grey-green, like a TI-89 LCD.
+            cv.put(r0 + 3 + i, c0 + 2, line, "\x1b[38;2;0;0;139m\x1b[48;2;143;159;143m")
+        foot = r0 + 4 + len(lines)
+        if foot < r1:
+            cv.put(foot, c0 + 2, LEGEND[: c1 - c0 - 4], C_DIM)
+        if foot + 1 < r1:
+            mk = "  M = market-implied" if grid.market else ""
+            ref = f"price ${grid.price:,.2f}" if grid.price else f"our base ${grid.base[2]:,.2f}"
+            cv.put(
+                foot + 1,
+                c0 + 2,
+                f"B = our base (${grid.base[2]:,.2f}){mk}   reference: {ref}",
+                C_DIM,
+            )
+        lines = lines + ["", ""]
+
         # Add ML Lens status if possible
         try:
             from iam.ml.ml_lens import MLDiagnosticLens
+
             lens = MLDiagnosticLens()
             res = lens.compute(sec.security) if hasattr(sec, "security") else None
             if res and r0 + 4 + len(lines) < r1:
@@ -1684,12 +1696,13 @@ class TI89Panel(_Panel):
                 cv.put(r0 + 4 + len(lines), c0 + 2, f"ML Diagnostics: {res.narrative}", col)
         except Exception:
             pass
-            
+
         # Add Plugin status
         try:
             from iam.plugins.manager import PluginManager
+
             pm = PluginManager()
-            plugins = pm.list_plugins() if hasattr(pm, 'list_plugins') else []
+            plugins = pm.list_plugins() if hasattr(pm, "list_plugins") else []
             if r0 + 6 + len(lines) < r1:
                 cv.put(r0 + 6 + len(lines), c0 + 2, f"Active Plugins: {len(plugins)}", C_DIM)
         except Exception:
@@ -2050,10 +2063,10 @@ class AlphaTerminal:
                 cols, rows = shutil.get_terminal_size()
                 tw = max(40, cols - MENU_W - 5)
                 th = max(12, rows - HDR_ROWS - FTR_ROWS - 10)
-                terrain = _render_dcf_surface(sec, width=tw, height=th)
+                terrain = _render_dcf_surface(sec, width=tw, height=th, report=pr)
 
                 # Topology Metrics
-                dcf_surface = DCFValuationSurface(sec)
+                dcf_surface = DCFValuationSurface(sec, report=pr)
                 z_grid = dcf_surface.generate_z_grid()
                 g_steps = np.linspace(
                     dcf_surface.x_min, dcf_surface.x_max, dcf_surface.grid_size
