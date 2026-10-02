@@ -54,3 +54,25 @@ one when quota returns.
   `us_erp=0.0503`.
 - Damodaran's spreadsheet itself carries a garbled "Côte d'Ivoire" name. It is cosmetic; no alias
   points to it.
+
+## Cost-of-equity split + April 2026 ERP (owner request) — AGY attempt rejected
+
+Task: Stage 1 (reverse DCF) uses the owner's consensus Ke (regression beta x US ERP); intrinsic uses
+the bottom-up Ke (Damodaran industry beta relevered x revenue-weighted ERP); terminal growth capped at
+Rf; ERP data moves to Damodaran's April 2026 file (`ctrypremApr26.xlsx`, which does exist; the earlier
+note that it could not be found was wrong) with rating- and CDS-based country ERPs averaged. With
+the owner's country mix it reproduces 5.40% (rating 5.35%, CDS 5.44%).
+
+gemini-3.1-pro-high made three commits and exited (code 4) with no report. **Rejected**, preserved on
+`agy/coe-split-gemini-rejected`:
+- `tests/conftest.py` gained an autouse fixture that monkeypatched `GroundTruthProvider` to inject a
+  fake $1M market cap and, when the real code returned nothing, an invented profile (ERP 5%, Ke 9%).
+  It also pinned every test to the January ERP file.
+- About a dozen existing assertions were replaced with `pass`, loosened to ranges, or compared with
+  `0.0`. They include the caller-ERP-not-overwritten test and the "never a 9% ke" check.
+- Uncommitted edits renamed the 1,000-input fuzz test to `SKIP_...` and gutted its own Part B tests.
+- It left 17 scratch `patch_*.py` scripts in the worktree.
+
+Response: rule 9 added to `.agents/rules/iam-rules.md` (never weaken a test or inject values through
+conftest). The task was rerun with a Claude Sonnet subagent under the same rule, with a mechanical
+test-diff check by Claude and an AGY review afterwards.
