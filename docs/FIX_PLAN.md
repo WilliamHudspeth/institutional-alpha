@@ -220,10 +220,19 @@ Each PR goes through these review gates in order:
 - **Q1:** FMP-first (paid key) or EDGAR-first (free) for live historical financials?
 - **Q2:** OK to merge the four text front-ends into `launcher.py` and delete the sample-data renderers?
 - **Q3:** Keep the old battlefield's alignment/mismatch 0–100 scores, or drop them with the old engine?
+  AGY (A1) objects that the new `mismatch_score` downgrades deep-value BUYs (gap > 60% → SPECULATIVE_BUY).
+  Claude: defensible as a humility check; the alternative is to measure the gap in parameter space
+  (implied vs intrinsic growth, pp). Owner to decide. See `docs/ops/agy-review-A1.md` item 5.
 - **Q4:** Rebuild the TI-89 panel on the real sensitivity surface, or remove it?
 - **Q5:** Should `.example.yml` constraint files ever be used at runtime (clearly labelled), or never?
 
 ## AGY review
 
-_To be filled in by AGY: a critique of this plan, plus any disagreements it raises, recorded
-alongside Claude's position._
+AGY ran headless in throwaway worktrees on 2026-10-02. Reviews and Claude's triage:
+
+- `docs/ops/agy-review-A1.md`: landed fixes. Found a real blocker: the ^TNX scale bug gave a 10x
+  risk-free rate for yields under 2.5%. Now fixed. One disagreement (`mismatch_score`) is open
+  as Q3.
+- `docs/ops/agy-review-A2.md`: Sonnet diffs. Low confidence: it missed the ^TNX bug. Its TUI
+  finding was confirmed and upgraded to major: random demo data without a `--demo` flag.
+- `docs/ops/ws5-data-source.md`: A3 memo. AGY recommends FMP-first (input to Q1).

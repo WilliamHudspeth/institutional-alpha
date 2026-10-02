@@ -1,5 +1,9 @@
 # AGY task queue
 
+> Headless runs: `agy -p` cannot prompt for shell permission, so it needs
+> `--dangerously-skip-permissions`. Run it only in a throwaway `git worktree`. It wrote files
+> even under `--mode plan`.
+
 AGY runs on the owner's machine, not in the Claude cloud session. Paste one
 task at a time into AGY from the repo root on branch `claude/adoring-fermat-rvbidx`.
 
@@ -16,7 +20,7 @@ Rules for every task:
 
 ---
 
-## A1 — Review the landed fixes (read-only)
+## A1 — Review the landed fixes (read-only) — DONE 2026-10-02 (see output file)
 
 Review commits `25203d6`, `fabec4a`, `f6b420e` and `6b745ce`
 (`git log 26de61b..6b745ce`). For each one, check:
@@ -38,7 +42,7 @@ Write findings to `docs/ops/agy-review-A1.md` as a table:
 
 | Severity (blocker/major/minor) | File:line | Finding | Suggested fix |
 
-## A2 — Review the Sonnet diffs (read-only, when the owner says they're merged)
+## A2 — Review the Sonnet diffs (read-only, when the owner says they're merged) — DONE 2026-10-02 (see output file)
 
 Same format as A1, written to `docs/ops/agy-review-A2.md`. There are two diffs:
 
@@ -46,7 +50,7 @@ Same format as A1, written to `docs/ops/agy-review-A2.md`. There are two diffs:
   an honest model portfolio, and real factor exposures.
 - **WS4 defaults sweep:** check the classification table in `docs/FIX_PLAN.md` against the code.
 
-## A3 — WS5 data-source decision memo (docs only)
+## A3 — WS5 data-source decision memo (docs only) — DONE 2026-10-02 (see output file)
 
 The owner must choose FMP-first or EDGAR-first for historical financials (Q1 in
 `docs/FIX_PLAN.md`). Both clients already exist:
