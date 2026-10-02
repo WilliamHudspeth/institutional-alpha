@@ -11,7 +11,7 @@ from iam import Fundamentals, MarketData, Security, ValuationPipeline
 from iam.ui.ti89_graph import render_ti89_map, ti89_figure
 from iam.valuation.reverse_dcf import _present_value_two_stage
 from iam.valuation.sensitivity import DCFValuationSurface
-from iam.valuation.value_grid import build_value_grid
+from iam.valuation.value_grid import _pv, build_value_grid, fair_value_frontier
 
 
 def _security(**fund) -> Security:
@@ -86,7 +86,7 @@ def test_ti89_map_marks_base_and_market(report):
     lines = render_ti89_map(build_value_grid(report))
     text = "\n".join(lines)
     assert "[B]" in text and "[M]" in text
-    assert len(lines) == 1 + len(build_value_grid(report).rates)
+    assert len(lines) == 2 + len(build_value_grid(report).rates)
 
 
 def test_ti89_figure_uses_grid(report):
@@ -95,6 +95,15 @@ def test_ti89_figure_uses_grid(report):
     if fig is None:
         pytest.skip("plotly not installed")
     assert list(fig.data[0].z[0]) == grid.values[0]
+    names = [trace.name for trace in fig.data]
+    assert "V = price (fair-value frontier)" in names
+
+    grid_no_price = build_value_grid(report)
+    assert grid_no_price is not None
+    grid_no_price.price = None
+    fig_no_price = ti89_figure(grid_no_price)
+    assert fig_no_price is not None
+    assert "V = price (fair-value frontier)" not in [t.name for t in fig_no_price.data]
 
 
 def test_dcf_surface_uses_latest_revenue_and_real_margin():
@@ -124,3 +133,65 @@ def test_no_grid_without_high_growth_years():
     a = {"high_growth": 0.1, "discount_rate": 0.09, "terminal_growth": 0.025, "roe": 0.15}
     intrinsic = types.SimpleNamespace(components={"base_ni_per_share": 5.0}, assumptions=a)
     assert build_value_grid(types.SimpleNamespace(intrinsic=intrinsic)) is None
+
+
+def test_fair_value_frontier_points_match_price(report):
+    grid = build_value_grid(report)
+    assert grid is not None
+    frontier = fair_value_frontier(grid)
+    assert frontier is not None
+    assert len(frontier) > 0
+    a = report.intrinsic.assumptions
+    base_ni = float(report.intrinsic.components["base_ni_per_share"])
+    n = int(a["high_growth_years"])
+    gt = float(a["terminal_growth"])
+    roe = float(a["roe"])
+    for g, r in frontier:
+        v = _pv(base_ni, g, n, gt, r, roe)
+        assert v is not None
+        assert abs(v - grid.price) / grid.price < 0.001  # < 0.1%
+
+
+def test_fair_value_frontier_none_without_price(report):
+    grid = build_value_grid(report)
+    assert grid is not None
+    grid.price = None
+    assert fair_value_frontier(grid) is None
+
+
+def test_ti89_render_legend_entry_only_when_frontier_exists(report):
+    grid = build_value_grid(report)
+    assert grid is not None
+    lines_with = render_ti89_map(grid)
+    text_with = "\n".join(lines_with)
+    assert "V = price (fair-value frontier)" in text_with
+    assert any("~~~~~" in line for line in lines_with)
+
+    # Without price, no frontier exists: draw nothing and show no legend entry
+    grid_no_price = build_value_grid(report)
+    assert grid_no_price is not None
+    grid_no_price.price = None
+    lines_without = render_ti89_map(grid_no_price)
+    text_without = "\n".join(lines_without)
+    assert "V = price (fair-value frontier)" not in text_without
+    assert not any("~~~~~" in line for line in lines_without)
+
+
+def test_fair_value_frontier_edge_cases(report):
+    grid = build_value_grid(report)
+    assert grid is not None
+
+    # Price outside all grid values
+    grid.price = 100_000.0
+    assert fair_value_frontier(grid) is None
+
+    # Non-positive price
+    grid.price = -5.0
+    assert fair_value_frontier(grid) is None
+    grid.price = 0.0
+    assert fair_value_frontier(grid) is None
+
+    # Missing PV parameters
+    grid.price = 180.0
+    grid.base_ni = None
+    assert fair_value_frontier(grid) is None
