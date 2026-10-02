@@ -9,6 +9,7 @@ from iam.data import Security
 from iam.integration.orchestrator import Orchestrator
 from iam.pipeline.orchestrator import ValuationPipeline
 from iam.reasoning.business_reality import BusinessRealityEngine
+from iam.ui.menu import fmt_pct_or_na
 
 # Page Config
 st.set_page_config(
@@ -262,16 +263,19 @@ if run_button:
                 )
 
             with col3:
-                discount_rate = (
-                    report.intrinsic.assumptions.get("discount_rate", 0.09)
-                    if report and report.intrinsic
-                    else 0.09
+                # Real value from the intrinsic stage (FCFE discount rate, or the
+                # SOTP cost of equity); missing -> "n/a", never an invented 9%.
+                _assump = (
+                    (report.intrinsic.assumptions or {}) if report and report.intrinsic else {}
                 )
+                discount_rate = _assump.get("discount_rate")
+                if discount_rate is None:
+                    discount_rate = _assump.get("cost_of_equity")
                 st.markdown(
                     f"""
                     <div class="card">
                         <div class="metric-label">Discount Rate (WACC)</div>
-                        <div class="metric-value">{discount_rate * 100:.2f}%</div>
+                        <div class="metric-value">{fmt_pct_or_na(discount_rate)}</div>
                         <div style="color: #8b949e; margin-top: 0.5rem; font-size: 0.9rem;">
                             Baseline discount rate applied to cash flows
                         </div>
