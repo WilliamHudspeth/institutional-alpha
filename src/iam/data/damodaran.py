@@ -33,6 +33,20 @@ logger = logging.getLogger(__name__)
 COUNTRY_ERP_ENV = "IAM_COUNTRY_ERP_FILE"
 _REFERENCE_DIR = Path(__file__).resolve().parent / "reference"
 _COUNTRY_ERP_NAME = re.compile(r"^country_erp_(\d{4})-(\d{2})\.json$")
+# Damodaran statutory (marginal) corporate tax rates by country, same dated-file pattern.
+COUNTRY_TAX_ENV = "IAM_COUNTRY_TAX_FILE"
+_COUNTRY_TAX_NAME = re.compile(r"^country_tax_(\d{4})-(\d{2})\.json$")
+
+
+def _latest_dated_file(folder: Path, pattern: re.Pattern[str], label: str) -> Path:
+    dated = [
+        (int(m.group(1)), int(m.group(2)), f)
+        for f in folder.iterdir()
+        if (m := pattern.match(f.name))
+    ]
+    if not dated:
+        raise FileNotFoundError(f"no {label} file in {folder}")
+    return max(dated, key=lambda t: (t[0], t[1]))[2]
 
 
 def latest_country_erp_file(directory: str | os.PathLike[str] | None = None) -> Path:
@@ -44,14 +58,17 @@ def latest_country_erp_file(directory: str | os.PathLike[str] | None = None) -> 
         FileNotFoundError: no dated country ERP file exists in the directory.
     """
     folder = Path(directory) if directory is not None else _REFERENCE_DIR
-    dated = [
-        (int(m.group(1)), int(m.group(2)), f)
-        for f in folder.iterdir()
-        if (m := _COUNTRY_ERP_NAME.match(f.name))
-    ]
-    if not dated:
-        raise FileNotFoundError(f"no country_erp_YYYY-MM.json file in {folder}")
-    return max(dated, key=lambda t: (t[0], t[1]))[2]
+    return _latest_dated_file(folder, _COUNTRY_ERP_NAME, "country_erp_YYYY-MM.json")
+
+
+def latest_country_tax_file(directory: str | os.PathLike[str] | None = None) -> Path:
+    """The newest ``country_tax_YYYY-MM.json`` in ``directory`` (default: the packaged folder).
+
+    Raises:
+        FileNotFoundError: no dated country tax file exists in the directory.
+    """
+    folder = Path(directory) if directory is not None else _REFERENCE_DIR
+    return _latest_dated_file(folder, _COUNTRY_TAX_NAME, "country_tax_YYYY-MM.json")
 
 
 @lru_cache(maxsize=8)
@@ -64,6 +81,12 @@ def _read_cached(path: str) -> dict[str, Any]:
 def read_country_erp(path: str | os.PathLike[str] | None = None) -> dict[str, Any]:
     """Load the country ERP file: explicit path, env override, else the newest packaged file."""
     chosen = path or os.environ.get(COUNTRY_ERP_ENV) or latest_country_erp_file()
+    return _read_cached(str(Path(chosen).resolve()))
+
+
+def read_country_tax(path: str | os.PathLike[str] | None = None) -> dict[str, Any]:
+    """Load the country tax file: explicit path, env override, else the newest packaged file."""
+    chosen = path or os.environ.get(COUNTRY_TAX_ENV) or latest_country_tax_file()
     return _read_cached(str(Path(chosen).resolve()))
 
 

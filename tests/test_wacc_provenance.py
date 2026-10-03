@@ -81,19 +81,21 @@ def test_wacc_provenance_dynamic_wacc_defaults(mock_yfinance, mock_fetch):
         industry="Asset Management",
     )
     sec.fundamentals.total_debt = 0.0
-    # Default tax rate used when effective_tax_rate is None
+    # The MARGINAL rate (US 25%, Damodaran) is a sourced dataset value, not a default
     wacc_info = pipeline._calculate_dynamic_wacc(sec)
     assert wacc_info is not None
-    assert wacc_info["defaults_used"] == ["tax: US federal statutory 21% (no effective rate)"]
+    assert wacc_info["defaults_used"] == []
+    assert wacc_info["tax_rate"] == 0.25
+    assert "United States statutory tax 25.00%" in wacc_info["tax_source"]
 
-    # No defaults when effective_tax_rate is provided
+    # An effective_tax_rate does not change the marginal rate (Damodaran convention)
     from unittest.mock import MagicMock
 
     mock_fund = MagicMock()
     mock_fund.revenue_ttm = 100.0
     mock_fund.operating_margin = 0.1
     mock_fund.interest_expense_ttm = 5.0
-    mock_fund.effective_tax_rate = 0.25
+    mock_fund.effective_tax_rate = 0.18
     mock_fund.total_debt = 0.0
     mock_fund.ebitda_ttm = None
     sec.fundamentals = mock_fund
@@ -101,6 +103,7 @@ def test_wacc_provenance_dynamic_wacc_defaults(mock_yfinance, mock_fetch):
     wacc_info_explicit = pipeline._calculate_dynamic_wacc(sec)
     assert wacc_info_explicit is not None
     assert wacc_info_explicit["defaults_used"] == []
+    assert wacc_info_explicit["tax_rate"] == 0.25
 
 
 @patch("iam.data.markets.fetch_live_quote", return_value=None)
@@ -148,7 +151,8 @@ def test_wacc_provenance_run(mock_yfinance, mock_fetch):
     assert any("reference only" in note for note in intrinsic_notes)
     assert any("rating" in note and "rf:" in note for note in intrinsic_notes)
     assert any(
-        "tax: US federal statutory 21% (no effective rate)" in note for note in intrinsic_notes
+        "marginal tax 25.00%: United States statutory tax 25.00%" in note
+        for note in intrinsic_notes
     )
 
     # Qualitative dict checks:
@@ -156,9 +160,8 @@ def test_wacc_provenance_run(mock_yfinance, mock_fetch):
     assert sec.qualitative is not None
     assert "wacc_override" not in sec.qualitative
     assert "wacc_info" in sec.qualitative
-    assert sec.qualitative["wacc_info"]["defaults_used"] == [
-        "tax: US federal statutory 21% (no effective rate)"
-    ]
+    assert sec.qualitative["wacc_info"]["defaults_used"] == []
+    assert sec.qualitative["wacc_info"]["tax_rate"] == 0.25
 
 
 @patch("iam.data.markets.fetch_live_quote", return_value=None)
