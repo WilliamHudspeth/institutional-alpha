@@ -161,14 +161,15 @@ class ExpectationBattlefieldExplicit:
     expectation_mismatch_score: float
 
     # Expanded battlefield fields
-    market_terminal_growth: float = 0.025
-    intrinsic_terminal_growth: float = 0.025
-    market_beta: float = 1.0
-    intrinsic_beta: float = 1.0
-    market_erp: float = 0.05
-    intrinsic_erp: float = 0.05
-    market_tax_rate: float = 0.21
-    intrinsic_tax_rate: float = 0.21
+    # Not measured by this engine unless supplied; None means 'n/a', never a gap of 0.
+    market_terminal_growth: float | None = None
+    intrinsic_terminal_growth: float | None = None
+    market_beta: float | None = None
+    intrinsic_beta: float | None = None
+    market_erp: float | None = None
+    intrinsic_erp: float | None = None
+    market_tax_rate: float | None = None
+    intrinsic_tax_rate: float | None = None
     market_share_count: float = 0.0
     intrinsic_share_count: float = 0.0
     market_net_debt: float = 0.0
@@ -187,28 +188,48 @@ class ExpectationBattlefieldExplicit:
         return self.market_roic - self.intrinsic_roic
 
     @property
-    def terminal_growth_gap(self) -> float:
+    def terminal_growth_gap(self) -> float | None:
+        if self.market_terminal_growth is None or self.intrinsic_terminal_growth is None:
+            return None
         return self.market_terminal_growth - self.intrinsic_terminal_growth
 
     @property
-    def beta_gap(self) -> float:
+    def beta_gap(self) -> float | None:
+        if self.market_beta is None or self.intrinsic_beta is None:
+            return None
         return self.market_beta - self.intrinsic_beta
 
     @property
-    def erp_gap(self) -> float:
+    def erp_gap(self) -> float | None:
+        if self.market_erp is None or self.intrinsic_erp is None:
+            return None
         return self.market_erp - self.intrinsic_erp
+
+    @property
+    def tax_rate_gap(self) -> float | None:
+        if self.market_tax_rate is None or self.intrinsic_tax_rate is None:
+            return None
+        return self.market_tax_rate - self.intrinsic_tax_rate
+
+    @staticmethod
+    def format_tax_rate(rate: float | None) -> str:
+        if rate is None:
+            return "n/a"
+        return f"{rate * 100:.1f}%"
 
     @property
     def disagreement_ranking(self) -> list[tuple[str, float]]:
         """Ranks the factors by the absolute magnitude of their percentage gap."""
-        gaps = [
-            ("Growth", abs(self.growth_gap)),
-            ("Margin", abs(self.margin_gap)),
-            ("ROIC", abs(self.roic_gap)),
-            ("Terminal Growth", abs(self.terminal_growth_gap)),
-            ("Beta", abs(self.beta_gap)),
-            ("ERP", abs(self.erp_gap)),
+        candidates: list[tuple[str, float | None]] = [
+            ("Growth", self.growth_gap),
+            ("Margin", self.margin_gap),
+            ("ROIC", self.roic_gap),
+            ("Terminal Growth", self.terminal_growth_gap),
+            ("Beta", self.beta_gap),
+            ("ERP", self.erp_gap),
         ]
+        # Unmeasured factors are left out rather than ranked as a zero gap.
+        gaps = [(name, abs(g)) for name, g in candidates if g is not None]
         return sorted(gaps, key=lambda x: x[1], reverse=True)
 
     def summary(self) -> str:
@@ -231,6 +252,9 @@ class ExpectationBattlefieldExplicit:
             f"  Market:    {pct(self.market_roic)}\n"
             f"  Intrinsic: {pct(self.intrinsic_roic)}\n"
             f"  Gap:       {pct(self.roic_gap)}\n\n"
+            f"Tax Rate\n"
+            f"  Market:    {self.format_tax_rate(self.market_tax_rate)}\n"
+            f"  Intrinsic: {self.format_tax_rate(self.intrinsic_tax_rate)}\n\n"
             f"Growth Overlap:    {self.growth_overlap:.2f}\n"
             f"Alignment Score:   {self.alignment_score:.0f}/100\n"
             f"Primary Disagreement: {self.primary_disagreement}\n"

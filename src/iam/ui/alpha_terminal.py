@@ -1502,9 +1502,16 @@ class SOTPTowerPanel(_Panel):
             cv.put(r0 + 2, c0 + 2, f"SOTP tower: n/a (no debt/equity for {sec.ticker})", C_DIM)
             return
 
-        damodaran = DamodaranEngine()
+        from iam.valuation.country_tax import company_marginal_tax
 
-        ke = damodaran.compute_cost_of_equity(segments, d_e)
+        damodaran = DamodaranEngine()
+        q = getattr(sec.security, "qualitative", None) or {}
+        if q.get("tax_rate") is not None:
+            tax_rate = float(q["tax_rate"])
+        else:
+            tax_rate, _ = company_marginal_tax(sec.security)
+
+        ke = damodaran.compute_cost_of_equity(segments, d_e, tax_rate)
         result = SOTP.compute(segments, ke)
 
         # Render ASCII tower

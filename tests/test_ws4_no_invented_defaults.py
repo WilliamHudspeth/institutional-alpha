@@ -15,7 +15,7 @@ from iam.data.macro import MacroShock
 from iam.pipeline.battlefield import intrinsic_vector_from_assumptions
 from iam.pipeline.macro import MacroStressEngine
 from iam.ui.menu import fmt_pct_or_na, format_assumption_lines
-from iam.valuation.beta import DEFAULT_TAX_RATE, get_custom_beta_for_intrinsic
+from iam.valuation.beta import get_custom_beta_for_intrinsic
 from iam.valuation.fcfe_dcf import FCFEDCF
 from iam.valuation.profile_builder import _sector_margin_default, build_company_profile
 from iam.valuation.sotp import Segment
@@ -141,8 +141,7 @@ def test_sotp_does_not_invent_growth_or_roe(offline):
     assert "cost_of_equity" in a
     vec = intrinsic_vector_from_assumptions(a)
     assert vec.growth is None and vec.roe is None
-    assert any("model default" in n and "Tax rate" in n for n in report.intrinsic.notes)
-    assert DEFAULT_TAX_RATE == 0.21
+    assert any("Tax rate: 25.0%" in n and "United States" in n for n in report.intrinsic.notes)
 
 
 def test_sotp_uses_supplied_tax_rate(offline):
@@ -161,7 +160,7 @@ def test_beta_lists_default_assumptions():
     )
     get_custom_beta_for_intrinsic(sec)
     used = " | ".join(sec.qualitative["beta_assumptions"])
-    assert "tax_rate=21.0%" in used and "pre_tax_cost_debt=7.5%" in used
+    assert "tax_rate=25.0%" in used and "pre_tax_cost_debt=7.5%" in used
 
 
 def test_beta_without_market_cap_does_not_relever_on_invented_equity():

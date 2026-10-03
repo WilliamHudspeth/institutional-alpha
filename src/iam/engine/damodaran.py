@@ -30,7 +30,7 @@ class DamodaranEngine:
         self.erp = equity_risk_premium
 
     def compute_cost_of_equity(
-        self, segments: list[Segment], debt_to_equity: float, tax_rate: float = 0.21
+        self, segments: list[Segment], debt_to_equity: float, tax_rate: float
     ) -> float:
         # 1. Weighted average unlevered beta
         total_revenue = sum(s.revenue for s in segments)
@@ -50,6 +50,7 @@ class DamodaranEngine:
         m = security.market
         f = security.fundamentals
         q = security.qualitative
+        notes: list[str] = []
 
         if (
             m.price is None
@@ -92,10 +93,33 @@ class DamodaranEngine:
                 d_e = q["current_de_ratio"]
             else:
                 book_debt = float(f.total_debt or 0.0)
-                equity = float(m.market_cap or 1.0)
-                d_e = book_debt / equity if equity > 0 else 0.0
+                equity = m.market_cap
+                if equity is None or equity <= 0:
+                    if book_debt > 0:
+                        return LensResult(
+                            lens_name=self.name,
+                            fair_value_low=None,
+                            fair_value_high=None,
+                            implied_move_pct=None,
+                            confidence=0.0,
+                            narrative=(
+                                "Insufficient data: market cap unavailable, so D/E "
+                                "cannot be computed while the company carries debt."
+                            ),
+                        )
+                    d_e = 0.0
+                    notes.append("total debt missing or zero: D/E taken as 0")
+                else:
+                    d_e = book_debt / float(equity)
 
-            tax_rate = float(q.get("tax_rate", 0.21))
+            if q.get("tax_rate") is not None:
+                tax_rate = float(q["tax_rate"])
+                notes.append(f"Tax rate: {tax_rate:.1%} (supplied)")
+            else:
+                from iam.valuation.country_tax import company_marginal_tax
+
+                tax_rate, tax_source = company_marginal_tax(security)
+                notes.append(f"Tax rate: {tax_rate:.1%} ({tax_source})")
             wacc = self.compute_cost_of_equity(segments, d_e, tax_rate)
         else:
             wacc = DEFAULT_WACC
@@ -137,4 +161,5 @@ class DamodaranEngine:
                 "g_terminal": g_terminal,
                 "high_growth_years": float(HIGH_GROWTH_YEARS),
             },
+            notes=notes,
         )

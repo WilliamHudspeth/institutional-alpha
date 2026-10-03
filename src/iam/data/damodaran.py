@@ -449,7 +449,7 @@ class DamodaranProvider:
         return None
 
     @staticmethod
-    def relever_beta(unlevered_beta: float, debt_to_equity: float, tax_rate: float = 0.21) -> float:
+    def relever_beta(unlevered_beta: float, debt_to_equity: float, tax_rate: float) -> float:
         """
         Convert unlevered (asset) beta to levered (equity) beta.
 
@@ -468,7 +468,7 @@ class DamodaranProvider:
         Args:
             unlevered_beta: Industry unlevered beta
             debt_to_equity: Company's debt-to-market-cap ratio (D/E)
-            tax_rate: Corporate tax rate (default 21% for US)
+            tax_rate: Corporate tax rate
 
         Returns:
             Levered beta reflecting current capital structure
