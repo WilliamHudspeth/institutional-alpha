@@ -20,11 +20,11 @@ References: Damodaran, risk.xls and levbeta.xls workbooks.
 from __future__ import annotations
 
 from iam.data.security import Security
+from iam.valuation.country_tax import company_marginal_tax
 
 # Documented model assumptions (not data). Whenever one is used instead of a
 # value supplied on ``security.qualitative`` it is listed in
 # ``qualitative["beta_assumptions"]`` so the audit trail shows it.
-DEFAULT_TAX_RATE = 0.21  # US statutory federal corporate rate
 DEFAULT_PRE_TAX_COST_DEBT = 0.075  # model default; no market debt quote is fetched
 DEFAULT_DEBT_MATURITY_YEARS = 5.0  # model default weighted-average maturity
 DEFAULT_BETA = 1.0  # market-neutral beta when no regression beta is available
@@ -97,20 +97,18 @@ def get_custom_beta_for_intrinsic(security: Security) -> float:
 
     Qualitative keys consumed (all optional, with stated defaults):
       - ``avg_de_ratio``         — historical D/E during regression window (0.0)
-      - ``tax_rate``             — marginal tax rate (0.21)
+      - ``tax_rate``             — marginal tax rate (falls back to company_marginal_tax)
       - ``pre_tax_cost_debt``    — current pre-tax cost of debt (0.075)
       - ``debt_maturity``        — weighted average debt maturity in years (5.0)
       - ``lease_debt``           — capitalised operating lease liability (0.0)
     """
     q = security.qualitative
     assumed: list[str] = []
-    if "tax_rate" in q:
+    if "tax_rate" in q and q["tax_rate"] is not None:
         tax_rate = float(q["tax_rate"])
     else:
-        tax_rate = DEFAULT_TAX_RATE
-        assumed.append(
-            f"tax_rate={DEFAULT_TAX_RATE:.1%} (model default: US statutory federal rate)"
-        )
+        tax_rate, tax_source = company_marginal_tax(security)
+        assumed.append(f"tax_rate={tax_rate:.1%} ({tax_source})")
     avg_de = float(q.get("avg_de_ratio", 0.0))
 
     if security.market.beta is None and "beta" not in q:

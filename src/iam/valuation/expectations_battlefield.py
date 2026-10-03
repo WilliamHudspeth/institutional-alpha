@@ -167,8 +167,8 @@ class ExpectationBattlefieldExplicit:
     intrinsic_beta: float = 1.0
     market_erp: float = 0.05
     intrinsic_erp: float = 0.05
-    market_tax_rate: float = 0.21
-    intrinsic_tax_rate: float = 0.21
+    market_tax_rate: float | None = None
+    intrinsic_tax_rate: float | None = None
     market_share_count: float = 0.0
     intrinsic_share_count: float = 0.0
     market_net_debt: float = 0.0
@@ -199,6 +199,18 @@ class ExpectationBattlefieldExplicit:
         return self.market_erp - self.intrinsic_erp
 
     @property
+    def tax_rate_gap(self) -> float | None:
+        if self.market_tax_rate is None or self.intrinsic_tax_rate is None:
+            return None
+        return self.market_tax_rate - self.intrinsic_tax_rate
+
+    @staticmethod
+    def format_tax_rate(rate: float | None) -> str:
+        if rate is None:
+            return "n/a"
+        return f"{rate * 100:.1f}%"
+
+    @property
     def disagreement_ranking(self) -> list[tuple[str, float]]:
         """Ranks the factors by the absolute magnitude of their percentage gap."""
         gaps = [
@@ -214,6 +226,11 @@ class ExpectationBattlefieldExplicit:
     def summary(self) -> str:
         def pct(x):
             return f"{x * 100:+.1f}%"
+
+        def fmt_rate(r: float | None) -> str:
+            if r is None:
+                return "n/a"
+            return f"{r * 100:.1f}%"
 
         return (
             "====================\n"
@@ -231,6 +248,9 @@ class ExpectationBattlefieldExplicit:
             f"  Market:    {pct(self.market_roic)}\n"
             f"  Intrinsic: {pct(self.intrinsic_roic)}\n"
             f"  Gap:       {pct(self.roic_gap)}\n\n"
+            f"Tax Rate\n"
+            f"  Market:    {fmt_rate(self.market_tax_rate)}\n"
+            f"  Intrinsic: {fmt_rate(self.intrinsic_tax_rate)}\n\n"
             f"Growth Overlap:    {self.growth_overlap:.2f}\n"
             f"Alignment Score:   {self.alignment_score:.0f}/100\n"
             f"Primary Disagreement: {self.primary_disagreement}\n"

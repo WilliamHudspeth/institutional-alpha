@@ -591,7 +591,7 @@ class ValuationPipeline:
             and getattr(security.fundamentals, "segments", None)
         ):
             from iam.engine.damodaran import DamodaranEngine
-            from iam.valuation.beta import DEFAULT_TAX_RATE
+            from iam.valuation.country_tax import company_marginal_tax
             from iam.valuation.sotp import Segment
             from iam.valuation.types import Method
 
@@ -599,40 +599,61 @@ class ValuationPipeline:
             segments = [Segment(**s) if isinstance(s, dict) else s for s in segments_data]
 
             damodaran = DamodaranEngine()
-            total_debt = getattr(security.fundamentals, "total_debt", 0.0) or 0.0
-            market_cap = getattr(security.market, "market_cap", 1.0) or 1.0
-            debt_equity = total_debt / market_cap if market_cap > 0 else 0.0
+            total_debt = getattr(security.fundamentals, "total_debt", None)
+            debt_val = float(total_debt or 0.0)
+            market_cap = getattr(security.market, "market_cap", None)
+
+            extra_notes = []
+            if market_cap is not None and market_cap > 0:
+                debt_equity = debt_val / float(market_cap)
+            elif debt_val <= 0:
+                debt_equity = 0.0
+                extra_notes.append("total debt missing or zero: D/E taken as 0")
+            else:
+                debt_equity = None
+
             q = security.qualitative or {}
             if q.get("tax_rate") is not None:
                 tax_rate = float(q["tax_rate"])
                 tax_note = f"Tax rate: {tax_rate:.1%} (supplied)"
             else:
-                tax_rate = DEFAULT_TAX_RATE
-                tax_note = f"Tax rate: {tax_rate:.1%} (model default: US statutory federal rate)"
-            cost_of_equity = damodaran.compute_cost_of_equity(
-                segments, debt_to_equity=debt_equity, tax_rate=tax_rate
-            )
+                tax_rate, tax_source = company_marginal_tax(security)
+                tax_note = f"Tax rate: {tax_rate:.1%} ({tax_source})"
 
-            sotp_result = self.sotp.compute(segments, cost_of_equity)
-            shares = getattr(security.fundamentals, "shares_outstanding", 1.0) or 1.0
+            if debt_equity is None:
+                intrinsic_res = ValuationResult(
+                    method=Method.INTRINSIC,
+                    fair_value_per_share=None,
+                    confidence=0.0,
+                    notes=["insufficient data: market cap unavailable"],
+                    verdict_text="insufficient data: market cap unavailable",
+                )
+            else:
+                cost_of_equity = damodaran.compute_cost_of_equity(
+                    segments, debt_to_equity=debt_equity, tax_rate=tax_rate
+                )
 
-            intrinsic_res = ValuationResult(
-                method=Method.INTRINSIC,
-                fair_value_per_share=sotp_result.total_ev / shares,
-                notes=[
-                    f"Weighted unlevered beta: {sotp_result.weighted_unlevered_beta:.3f}",
-                    f"Cost of equity: {cost_of_equity:.2%}",
-                ]
-                + [f"{seg['name']}: ${seg['ev']:,.0f}" for seg in sotp_result.segments]
-                + [tax_note],
-                # Only what the SOTP valuation actually used. It has no
-                # growth/ROE inputs, so none are reported (downstream readers
-                # treat missing keys as "not applicable").
-                assumptions={
-                    "cost_of_equity": cost_of_equity,
-                    "debt_equity": debt_equity,
-                },
-            )
+                sotp_result = self.sotp.compute(segments, cost_of_equity)
+                shares = getattr(security.fundamentals, "shares_outstanding", 1.0) or 1.0
+
+                intrinsic_res = ValuationResult(
+                    method=Method.INTRINSIC,
+                    fair_value_per_share=sotp_result.total_ev / shares,
+                    notes=[
+                        f"Weighted unlevered beta: {sotp_result.weighted_unlevered_beta:.3f}",
+                        f"Cost of equity: {cost_of_equity:.2%}",
+                    ]
+                    + [f"{seg['name']}: ${seg['ev']:,.0f}" for seg in sotp_result.segments]
+                    + [tax_note]
+                    + extra_notes,
+                    # Only what the SOTP valuation actually used. It has no
+                    # growth/ROE inputs, so none are reported (downstream readers
+                    # treat missing keys as "not applicable").
+                    assumptions={
+                        "cost_of_equity": cost_of_equity,
+                        "debt_equity": debt_equity,
+                    },
+                )
         else:
             intrinsic_res = self.intrinsic_dcf.compute(security, fcfe_assumptions)
 
