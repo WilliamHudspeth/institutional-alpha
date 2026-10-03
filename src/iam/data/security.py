@@ -97,6 +97,11 @@ class Fundamentals(BaseModel):
     incremental_roic: float | None = None
     accruals_ratio: float | None = None  # Sloan accrual ratio
 
+    # Effective tax rate = tax provision / pretax income, latest fiscal year (None if
+    # unavailable). Used for operating cash flows and the multiples regression; beta
+    # relevering and the after-tax cost of debt use the MARGINAL rate instead.
+    effective_tax_rate: float | None = None
+
     # Stock-based compensation
     sbc_ttm: float | None = None
     change_in_working_capital: float | None = None
