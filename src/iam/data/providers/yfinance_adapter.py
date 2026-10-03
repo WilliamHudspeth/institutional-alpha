@@ -161,7 +161,7 @@ MAX_EFFECTIVE_TAX_RATE = 0.60  # a ratio above this is a one-off, not a tax rate
 
 
 def _latest_value(financials: Any, labels: tuple[str, ...]) -> float | None:
-    """Latest-fiscal-year value of the first present row in ``labels``; None if absent/NaN."""
+    """Latest-fiscal-year value of the first row in ``labels`` that has one; None otherwise."""
     for label in labels:
         if label not in financials.index:
             continue
@@ -173,7 +173,7 @@ def _latest_value(financials: Any, labels: tuple[str, ...]) -> float | None:
             value = row.iloc[0]
         if pd.notnull(value):
             return float(value)
-        return None
+        # NaN in this row's latest year: try the next candidate label.
     return None
 
 

@@ -207,3 +207,16 @@ def test_us_statutory_constants_are_gone():
 
 def test_tax_loader_does_not_disturb_the_erp_loader():
     assert cr.load_country_erp()["as_of"].startswith("2026-04-01")
+
+
+def test_unresolvable_revenue_mix_falls_back_to_home_country_before_us():
+    """AGY review (gemini-3.8-flash): zero coverage must try country_iso before the US rate."""
+    from iam.data.security import Security
+    from iam.valuation.country_tax import company_marginal_tax, load_country_tax
+
+    germany = load_country_tax()["countries"]["Germany"]
+    rate, source = company_marginal_tax(
+        Security(ticker="DEX", revenue_mix={"atlantis": 1.0}, country_iso="DE")
+    )
+    assert rate == pytest.approx(germany)
+    assert "Germany" in source and "atlantis" in source

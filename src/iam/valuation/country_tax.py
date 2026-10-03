@@ -223,14 +223,14 @@ def company_marginal_tax(security: Any) -> tuple[float, str]:
         reason = f"revenue mix unresolved, keys: {bad}"
     else:
         reason = "no revenue mix"
-        iso = str(getattr(security, "country_iso", "") or "")
-        home = _resolve(iso, tbl, erp) if iso else None
-        if home is not None and _cr._norm(iso) not in ("us", "usa", "unitedstates"):
-            return (
-                home.rate,
-                f"{home.name} statutory tax {home.rate:.2%} ({label}, as_of {as_of}; "
-                f"{reason}, country_iso {iso})",
-            )
+    iso = str(getattr(security, "country_iso", "") or "")
+    home = _resolve(iso, tbl, erp) if iso else None
+    if home is not None and _cr._norm(iso) not in ("us", "usa", "unitedstates"):
+        return (
+            home.rate,
+            f"{home.name} statutory tax {home.rate:.2%} ({label}, as_of {as_of}; "
+            f"{reason}, country_iso {iso})",
+        )
     us = _rate(tbl, _US)
     if us is None:
         raise KeyError("no United States tax rate in the country tax dataset")

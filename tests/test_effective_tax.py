@@ -159,3 +159,15 @@ def test_relevering_and_wacc_ignore_the_effective_rate():
     assert eff.levered_beta == pytest.approx(base.levered_beta)
     assert w_eff["tax_rate"] == pytest.approx(marginal)
     assert w_eff["wacc"] == pytest.approx(w_base["wacc"])
+
+
+def test_nan_tax_provision_falls_through_to_income_tax_expense():
+    """AGY review (gemini-3.8-flash): a NaN first label must not stop the search."""
+    latest, older = pd.Timestamp("2025-12-31"), pd.Timestamp("2024-12-31")
+    fin = pd.DataFrame(
+        {latest: [float("nan"), 2.5, 10.0], older: [1.0, 1.0, 5.0]},
+        index=["Tax Provision", "Income Tax Expense", "Pretax Income"],
+    )
+    rate, reason = ya.effective_tax_rate_from_statement(fin)
+    assert reason is None
+    assert rate == pytest.approx(0.25)

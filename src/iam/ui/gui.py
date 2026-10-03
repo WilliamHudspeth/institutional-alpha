@@ -12,7 +12,6 @@ except ImportError:  # pragma: no cover - optional GUI dependency
     st = None
 
 from iam.compliance.disclaimers import SHORT_DISCLAIMER
-from iam.data import Security
 from iam.integration.orchestrator import Orchestrator
 from iam.pipeline.orchestrator import ValuationPipeline
 from iam.reasoning.business_reality import BusinessRealityEngine
@@ -99,6 +98,20 @@ def _extract_cost_of_equity(orch_result: Any) -> float | None:
         return float(val)
     except (ValueError, TypeError):
         return None
+
+
+def _load_security(ticker: str) -> tuple[Any, str | None]:
+    """Fetch live data for ``ticker``: ``(security, None)`` or ``(None, reason)``.
+
+    A failed fetch returns no Security, so the caller stops instead of valuing an
+    empty one (which would put invented numbers on screen).
+    """
+    from iam.data.providers.yfinance_adapter import fetch_security
+
+    try:
+        return fetch_security(ticker), None
+    except Exception as e:  # noqa: BLE001 - shown to the user verbatim
+        return None, f"Could not fetch data for {ticker}; no valuation was run. ({e})"
 
 
 def main() -> None:
@@ -302,15 +315,11 @@ def main() -> None:
         with st.spinner(f"Initiating institutional pipeline for {ticker}..."):
             try:
                 # 1. Initialize data & orchestrator
-                from iam.data.providers.yfinance_adapter import fetch_security
-
-                try:
-                    security = fetch_security(ticker)
-                except Exception as e:
-                    st.warning(
-                        f"Failed to fetch data for {ticker}, using default generic output. ({e})"
-                    )
-                    security = Security(ticker=ticker)
+                security, fetch_error = _load_security(ticker)
+                if security is None:
+                    # Never value an empty Security: every number would be invented.
+                    st.error(fetch_error)
+                    st.stop()
 
                 if security.qualitative is None:
                     security.qualitative = {}
