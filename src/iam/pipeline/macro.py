@@ -25,7 +25,7 @@ from iam.data.macro import MacroConditions, MacroShock
 from iam.data.security import Security
 from iam.elasticity import DurabilityStressEngine, ElasticityScorer, StressScenario
 from iam.pipeline.macro_regimes import MacroRegimeClassifier
-from iam.valuation.fcfe_dcf import FCFEDCF, FCFEAssumptions
+from iam.valuation.fcfe_dcf import FCFEDCF
 from iam.valuation.types import ValuationResult
 
 if TYPE_CHECKING:
@@ -155,16 +155,35 @@ class MacroStressEngine:
     def run_stress_test(self, security: Security, shock: MacroShock) -> ValuationResult:
         qualitative = security.qualitative or {}
 
-        orig_wacc = qualitative.get("forecast_discount_rate", 0.09)
-        orig_growth = qualitative.get("forecast_growth", 0.08)
+        # Base case = the same resolution the unstressed DCF used: user inputs
+        # on ``security.qualitative``, else the FCFE engine's documented defaults.
+        base = self.dcf._resolve_assumptions(security)
+        defaulted = [
+            label
+            for key, label in (
+                ("forecast_discount_rate", "discount rate"),
+                ("forecast_growth", "growth"),
+                ("forecast_terminal_growth", "terminal growth"),
+            )
+            if key not in qualitative
+        ]
 
-        stressed_wacc = orig_wacc + (shock.rate_shock_bps / 10000.0)
-        stressed_growth = orig_growth + shock.growth_shock_pct
-
-        stressed_assumptions = FCFEAssumptions(
-            discount_rate=stressed_wacc,
-            high_growth=stressed_growth,
-            terminal_growth=qualitative.get("forecast_terminal_growth", 0.025),
+        stressed_assumptions = replace(
+            base,
+            discount_rate=base.discount_rate + shock.rate_shock_bps / 10000.0,
+            high_growth=base.high_growth + shock.growth_shock_pct,
         )
 
-        return self.dcf.compute(security, stressed_assumptions)
+        result = self.dcf.compute(security, stressed_assumptions)
+        if defaulted:
+            # Shocks were applied on top of model defaults, not on the
+            # company's own assumptions: say so and cut confidence, as the
+            # unstressed DCF does.
+            result.confidence *= 0.7
+            result.notes.append(
+                "Stress test shocked model-default "
+                + ", ".join(defaulted)
+                + f" (FCFEAssumptions defaults) for {security.ticker}; "
+                "supply forecast assumptions for a tailored stress."
+            )
+        return result

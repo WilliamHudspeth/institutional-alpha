@@ -17,8 +17,11 @@ thesis the rest of the pipeline tests.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from iam.data.security import Security
 from iam.valuation.beta import get_yahoo_beta
+from iam.valuation.reverse_dcf import as_rate, cap_terminal_growth
 from iam.valuation.types import ImpliedExpectations, Method, ValuationResult
 
 # Reasonable defaults; can be overridden via Security or call-site.
@@ -26,6 +29,20 @@ DEFAULT_DISCOUNT_RATE = 0.09  # generalist equity cost of capital
 DEFAULT_HIGH_GROWTH_YEARS = 10  # explicit forecast horizon
 DEFAULT_TERMINAL_GROWTH = 0.025  # GDP-ish steady state
 DEFAULT_ROE = 0.15  # Return on Equity for reinvestment constraint (g / ROE)
+
+
+@dataclass(frozen=True)
+class ConsensusInputs:
+    """Stage 1 consensus cost-of-equity inputs: Rf and the US-only (rating-based) ERP.
+
+    Passed to :meth:`MarketImpliedEngine.compute` for that call only; they are
+    never written to ``security.qualitative`` so no other stage can see them.
+    """
+
+    rf: float
+    erp: float
+    rf_source: str
+    erp_source: str
 
 
 def _present_value_two_stage(
@@ -120,7 +137,16 @@ class MarketImpliedEngine:
         self.g_terminal = terminal_growth
         self.roe = roe
 
-    def compute(self, security: Security) -> ValuationResult:
+    def compute(
+        self, security: Security, consensus: ConsensusInputs | None = None
+    ) -> ValuationResult:
+        """Solve for the growth the price implies.
+
+        Discount rate precedence: caller-supplied ``risk_free_rate`` /
+        ``equity_risk_premium`` (explicit custom CAPM; a missing half is filled
+        from ``consensus``), else the consensus Ke ``Rf + regression beta x US
+        ERP`` when ``consensus`` is given, else the flat constructor rate.
+        """
         m = security.market
         f = security.fundamentals
         qualitative = security.qualitative or {}
@@ -134,15 +160,34 @@ class MarketImpliedEngine:
         # are supplied, compute cost of equity from Yahoo beta.  Otherwise use
         # the flat rate passed at construction time.
         r = self.r
-        rfr = qualitative.get("risk_free_rate")
-        erp = qualitative.get("equity_risk_premium")
+        rfr = as_rate(qualitative.get("risk_free_rate"))
+        erp = as_rate(qualitative.get("equity_risk_premium"))
+        g_terminal = self.g_terminal
+        rf_used: float | None = None
+        if consensus is not None and (rfr is None) != (erp is None):
+            # Caller overrode only one half: the other half is the consensus input.
+            rfr = consensus.rf if rfr is None else rfr
+            erp = consensus.erp if erp is None else erp
         if rfr is not None and erp is not None:
             beta = get_yahoo_beta(security)
             r = float(rfr) + beta * float(erp)
+            rf_used = float(rfr)
             notes.append(
                 f"CAPM discount rate: {rfr:.3f} + {beta:.4f} × {erp:.3f} = {r:.4f} "
                 f"(Yahoo beta, Stage 1)"
             )
+        elif consensus is not None:
+            beta = get_yahoo_beta(security)
+            r = consensus.rf + beta * consensus.erp
+            rf_used = consensus.rf
+            notes.append(
+                f"consensus Ke (US ERP, regression beta): {consensus.rf:.2%} + {beta:.2f} × "
+                f"{consensus.erp:.2%} = {r:.2%} "
+                f"(rf: {consensus.rf_source}; ERP: {consensus.erp_source})"
+            )
+        g_terminal, cap_note = cap_terminal_growth(g_terminal, rf_used)
+        if cap_note:
+            notes.append(cap_note)
 
         if m.price is None or ni is None or f.shares_outstanding is None:
             return ValuationResult(
@@ -165,7 +210,7 @@ class MarketImpliedEngine:
             target_price=m.price,
             base_ni=ni_per_share,
             n=self.n,
-            g_terminal=self.g_terminal,
+            g_terminal=g_terminal,
             r=r,
             roe=roe,
         )
@@ -198,7 +243,7 @@ class MarketImpliedEngine:
 
         implied = ImpliedExpectations(
             implied_revenue_growth=implied_g,
-            implied_terminal_growth=self.g_terminal,
+            implied_terminal_growth=g_terminal,
             discount_rate_assumed=r,
             implied_reinvestment_rate=implied_rr,
             implied_roic=roe,  # ROE used as proxy for ROIC here
@@ -220,7 +265,7 @@ class MarketImpliedEngine:
             assumptions={
                 "discount_rate": r,
                 "high_growth_years": float(self.n),
-                "terminal_growth": self.g_terminal,
+                "terminal_growth": g_terminal,
                 "roe": roe,
                 "base_ni_per_share": ni_per_share,
             },

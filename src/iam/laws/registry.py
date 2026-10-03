@@ -52,9 +52,6 @@ from iam.valuation.types import ImpliedExpectations
 
 # --- Shared anchors ----------------------------------------------------------
 
-# Risk-free anchor when the caller supplies none; matches the rf used by the
-# orchestrator's dynamic-WACC build.
-DEFAULT_RISK_FREE = 0.043
 # Generalist equity cost of capital; matches MarketImpliedEngine / FCFEDCF.
 DEFAULT_WACC_BASELINE = 0.09
 
@@ -127,11 +124,20 @@ class DamodaranLawRegistry:
         security: Security,
         assumptions: Mapping[str, float],
         implied: ImpliedExpectations | None = None,
+        *,
+        risk_free_rate: float | None = None,
+        rf_source: str | None = None,
     ) -> LawReport:
+        """Run the five laws.
+
+        ``risk_free_rate`` / ``rf_source`` are the Rf the analysis used (Law 3). A
+        caller-supplied ``security.qualitative["risk_free_rate"]`` still wins. With
+        neither, Law 3 is NOT_EVALUATED: no Rf is ever assumed here.
+        """
         checks = [
             self._law1_narrative_matches_numbers(security, assumptions),
             self._law2_growth_requires_reinvestment(security, assumptions, implied),
-            self._law3_terminal_growth_ceiling(security, assumptions),
+            self._law3_terminal_growth_ceiling(security, assumptions, risk_free_rate, rf_source),
             self._law4_excess_returns_fade(security, assumptions, implied),
             self._law5_risk_not_double_counted(security, assumptions),
         ]
@@ -258,7 +264,11 @@ class DamodaranLawRegistry:
     # -- LAW 3 -----------------------------------------------------------------
 
     def _law3_terminal_growth_ceiling(
-        self, security: Security, assumptions: Mapping[str, float]
+        self,
+        security: Security,
+        assumptions: Mapping[str, float],
+        risk_free_rate: float | None = None,
+        rf_source: str | None = None,
     ) -> LawCheck:
         check = LawCheck(number=3, name="terminal_growth_ceiling", status=LawStatus.NOT_EVALUATED)
         terminal = assumptions.get("terminal_growth")
@@ -268,9 +278,21 @@ class DamodaranLawRegistry:
 
         qualitative = security.qualitative or {}
         rf_val = qualitative.get("risk_free_rate")
-        rf = float(rf_val) if rf_val is not None else DEFAULT_RISK_FREE
+        if rf_val is not None:  # a caller-supplied Rf always wins
+            rf = float(rf_val)
+            source = str(qualitative.get("rf_source") or "caller-supplied")
+        elif risk_free_rate is not None:
+            rf = float(risk_free_rate)
+            source = rf_source or "supplied by caller of evaluate()"
+        else:
+            check.narrative = (
+                "No risk-free rate supplied: terminal growth cannot be tested against "
+                "the Rf ceiling."
+            )
+            return check
         check.components["terminal_growth"] = terminal
         check.components["risk_free_rate"] = rf
+        check.components["rf_source"] = source
 
         if terminal > rf:
             check.status = LawStatus.VIOLATION

@@ -1,5 +1,3 @@
-import pytest
-
 def test_placeholder():
     """
     Placeholder for future regression tests.

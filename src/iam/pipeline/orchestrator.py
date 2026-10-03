@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from iam.data.macro import MacroConditions
 from iam.data.security import Security
@@ -11,14 +12,20 @@ from iam.engine.growth_estimator import (
     GrowthQuestionnaire,
     QuestionnaireGrowthEngine,
 )
-from iam.engine.market_implied import MarketImpliedEngine
+from iam.engine.market_implied import ConsensusInputs, MarketImpliedEngine
 from iam.laws import DamodaranLawRegistry
 from iam.laws.types import LawReport
 from iam.lenses.base import LensResult
 from iam.lenses.synthesis import synthesize_lenses
+from iam.pipeline.battlefield import (
+    BattlefieldAttribution,
+    build_battlefield,
+    fcfe_value_fn,
+    intrinsic_vector_from_assumptions,
+)
 from iam.pipeline.macro import MacroOverlay
-from iam.plugins.manager import PluginManager, get_plugin_manager
 from iam.pipeline.verdict import VerdictGenerator, VerdictResult
+from iam.plugins.manager import PluginManager, get_plugin_manager
 from iam.thesis.drift import DriftReport
 from iam.valuation import (
     FCFEDCF,
@@ -29,13 +36,12 @@ from iam.valuation import (
     Triangulator,
     ValuationResult,
 )
-from iam.valuation.expectations_battlefield import (
-    ExpectationBattlefieldExplicit,
-    ExpectationsBattlefieldEngine,
-    Scenario,
-    ScenarioDistribution,
-)
+from iam.valuation.country_risk import company_erp, us_consensus_erp
+from iam.valuation.country_tax import company_marginal_tax
 from iam.valuation.monte_carlo import MonteCarloDCF, MonteCarloDistribution
+
+if TYPE_CHECKING:
+    from iam.valuation.justified_premium import JustifiedPremiumResult
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +100,7 @@ class PipelineReport:
     synthesis_upside: float | None = None  # Multi-lens synthesis weighted implied move
     law_report: LawReport | None = None  # Damodaran-law consistency checks
     stress_response: StressResponse | None = None  # Elasticity-aware macro stress
-    battlefield: ExpectationBattlefieldExplicit | None = None
+    battlefield: BattlefieldAttribution | None = None
     drift_report: DriftReport | None = None
     monte_carlo: MonteCarloDistribution | None = None  # sampled fair-value distribution
     justified_premium: JustifiedPremiumResult | None = None  # Relative Reality gap
@@ -157,6 +163,8 @@ class PipelineReport:
 
             if self.drift_report:
                 lines.append("### Thesis Drift Detector — Registered Constraints")
+                if self.drift_report.source_banner:
+                    lines.append(f"> ⚠ {self.drift_report.source_banner}")
                 lines.append(f"> Breaches: {len(self.drift_report.breaches)}")
                 for note in self.drift_report.notes():
                     lines.append(f"> • {note}")
@@ -194,7 +202,9 @@ class PipelineReport:
         lines.append("")
 
         if self.growth_estimate:
-            lines.append("STAGE 1b — Questionnaire Growth Estimate (fundamental vs. market-implied)")
+            lines.append(
+                "STAGE 1b — Questionnaire Growth Estimate (fundamental vs. market-implied)"
+            )
             lines.append(f"  {self.growth_estimate.narrative}")
             if self.growth_estimate.gap_verdict:
                 lines.append(f"  {self.growth_estimate.gap_verdict}")
@@ -225,12 +235,17 @@ class PipelineReport:
 
         if self.battlefield:
             lines.append("STAGE 4b — VALUATION BATTLEFIELD")
-            lines.append(f"  Key Disagreement: {self.battlefield.primary_disagreement}")
-            lines.append(f"  Mismatch Score: {self.battlefield.expectation_mismatch_score:.0f}/100")
+            lines.append(f"  Key Disagreement: {self.battlefield.key_disagreement}")
+            if self.battlefield.value_gap_pct is not None:
+                lines.append(
+                    f"  Market-implied value vs ours: {self.battlefield.value_gap_pct * 100:+.1f}%"
+                )
             lines.append("")
 
         if self.drift_report:
             lines.append(f"THESIS DRIFT — {len(self.drift_report.breaches)} breaches detected")
+            if self.drift_report.source_banner:
+                lines.append(f"  ! {self.drift_report.source_banner}")
             for note in self.drift_report.notes():
                 lines.append(f"  • {note}")
             lines.append("")
@@ -357,9 +372,9 @@ class ValuationPipeline:
         }
 
         lens_results: list[LensResult] = []
-        for name, plugin in lens_instances.items():
+        for name, lens_plugin in lens_instances.items():
             try:
-                raw = plugin.analyze(data)
+                raw = lens_plugin.analyze(data)
                 lens_result = _plugin_output_to_lens_result(name, raw)
                 if lens_result is not None:
                     lens_results.append(lens_result)
@@ -368,9 +383,9 @@ class ValuationPipeline:
                 continue
 
         factor_results: dict[str, dict] = {}
-        for name, plugin in factor_instances.items():
+        for name, factor_plugin in factor_instances.items():
             try:
-                raw = plugin.calculate(data)
+                raw = factor_plugin.calculate(data)
             except Exception as e:
                 logger.warning("Factor plugin %s failed: %s", name, e)
                 continue
@@ -387,6 +402,16 @@ class ValuationPipeline:
 
     @staticmethod
     def _calculate_dynamic_wacc(security: Security) -> dict | None:
+        """Reference WACC built on the intrinsic (bottom-up) cost of equity.
+
+        Ke is the one the intrinsic stage uses: Rf + relevered industry beta x
+        revenue-weighted ERP. If the caller supplied ``risk_free_rate`` /
+        ``equity_risk_premium`` that explicit CAPM (regression beta) is used
+        instead, as in the intrinsic stage. Returns ``None`` when no cost of
+        equity can be built from real data.
+        """
+        from iam.data.damodaran import DamodaranProvider
+        from iam.data.ground_truth import GroundTruthProvider
         from iam.valuation.damodaran_defaults import build_wacc
 
         f = security.fundamentals
@@ -398,23 +423,86 @@ class ValuationPipeline:
         if getattr(f, "revenue_ttm", None) and getattr(f, "operating_margin", None):
             ebit = f.revenue_ttm * f.operating_margin  # type: ignore
         if ebit is None:
-            ebit = getattr(f, "ebitda_ttm", None) or 0.0
+            ebit = getattr(f, "ebitda_ttm", None)
 
-        interest = getattr(f, "interest_expense_ttm", None) or 0.0
+        if ebit is None:
+            return None
 
-        d_to_e = 0.0
-        total_debt = getattr(f, "total_debt", None) or 0.0
-        market_cap = getattr(m, "market_cap", None) or 0.0
-        if total_debt > 0 and market_cap > 0:
-            d_to_e = total_debt / market_cap
+        interest = getattr(f, "interest_expense_ttm", None)
+        if interest is None:
+            return None
 
-        ke = 0.09
-        rf = 0.043
-        tax_rate = 0.21
+        qual = security.qualitative or {}
+        caller_rf = qual.get("risk_free_rate")
+        caller_erp = qual.get("equity_risk_premium")
+        defaults_used: list[str] = []
 
-        return build_wacc(
-            ke=ke, ebit=ebit, interest_expense=interest, rf=rf, d_to_e=d_to_e, tax_rate=tax_rate
+        if caller_rf is not None or caller_erp is not None:
+            # Explicit custom CAPM: caller values with the regression beta.
+            beta = getattr(m, "beta", None)
+            if beta is None:
+                return None
+            macro = DamodaranProvider.get_macro_state()
+            if caller_rf is not None:
+                rf = float(caller_rf)
+                rf_source = str(qual.get("rf_source") or "caller-supplied")
+            else:
+                rf, rf_source = macro.risk_free_rate, macro.rf_source
+            if caller_erp is not None:
+                erp = float(caller_erp)
+                erp_source = str(qual.get("erp_source") or "caller-supplied")
+            else:
+                erp, erp_source = company_erp(security)
+            ke = rf + beta * erp
+            d_to_e = 0.0
+            total_debt = getattr(f, "total_debt", None) or 0.0
+            market_cap = getattr(m, "market_cap", None) or 0.0
+            if total_debt > 0 and market_cap > 0:
+                d_to_e = total_debt / market_cap
+            # MARGINAL rate for the after-tax cost of debt (Damodaran), not the effective one.
+            tax_rate, tax_source = company_marginal_tax(security)
+        else:
+            profile = GroundTruthProvider().get_equity_risk_profile(security)
+            if profile is None or profile.tax_rate is None or profile.debt_to_equity is None:
+                return None
+            rf, rf_source, erp_source = (
+                profile.risk_free_rate,
+                profile.rf_source,
+                profile.erp_source,
+            )
+            ke = profile.cost_of_equity
+            d_to_e = profile.debt_to_equity
+            tax_rate = profile.tax_rate
+            tax_source = profile.tax_source
+            defaults_used.extend(profile.defaults_used)
+
+        wacc_info = build_wacc(
+            ke=ke,
+            ebit=ebit,
+            interest_expense=interest,
+            rf=rf,
+            d_to_e=d_to_e,
+            tax_rate=tax_rate,
         )
+        wacc_info.setdefault("defaults_used", []).extend(defaults_used)
+        wacc_info["rf_source"] = rf_source
+        wacc_info["erp_source"] = erp_source
+        wacc_info["cost_of_equity"] = ke
+        wacc_info["tax_rate"] = tax_rate
+        wacc_info["tax_source"] = tax_source
+        return wacc_info
+
+    @staticmethod
+    def _stage_risk_free(security: Security) -> tuple[float, str]:
+        """The Rf (and its source) the valuation stages use: caller-supplied, else macro."""
+        from iam.data.damodaran import DamodaranProvider
+        from iam.valuation.reverse_dcf import as_rate
+
+        qual = security.qualitative or {}
+        caller = as_rate(qual.get("risk_free_rate"))
+        if caller is not None:
+            return caller, str(qual.get("rf_source") or "caller-supplied")
+        return DamodaranProvider.get_risk_free_rate_with_source()
 
     def run(
         self,
@@ -426,25 +514,54 @@ class ValuationPipeline:
     ) -> PipelineReport:
         wacc_info = self._calculate_dynamic_wacc(security)
         wacc_note = ""
-        original_r = self.market_implied_engine.r
 
         if wacc_info:
             dynamic_wacc = wacc_info["wacc"]
             rating = wacc_info["rating"]
 
-            self.market_implied_engine.r = dynamic_wacc
-
             if security.qualitative is None:
                 security.qualitative = {}
-            security.qualitative["wacc_override"] = dynamic_wacc
             security.qualitative["wacc_info"] = wacc_info
-            wacc_note = f"Dynamic WACC applied: {dynamic_wacc:.2%} (Rating: {rating})"
+            details: list[str] = [f"rating {rating}"]
+            if "rf_source" in wacc_info and wacc_info["rf_source"]:
+                details.append(f"rf: {wacc_info['rf_source']}")
+            if wacc_info.get("tax_source"):
+                details.append(
+                    f"marginal tax {wacc_info['tax_rate']:.2%}: {wacc_info['tax_source']}"
+                )
+            if wacc_info.get("defaults_used"):
+                details.extend(wacc_info["defaults_used"])
+            details_str = f" ({', '.join(details)})" if details else ""
+            wacc_note = (
+                f"WACC (reference only; FCFE stages discount at cost of equity): "
+                f"{dynamic_wacc:.2%}{details_str}"
+            )
 
-        # Stage 1: Reverse DCF
-        market_implied_engine_res = self.market_implied_engine.compute(security)
+        # Caller overrides keep their meaning: this method never writes
+        # risk_free_rate / equity_risk_premium. It only labels their source.
+        if security.qualitative is None:
+            security.qualitative = {}
+        if "risk_free_rate" in security.qualitative:
+            security.qualitative.setdefault("rf_source", "caller-supplied")
+        if "equity_risk_premium" in security.qualitative:
+            security.qualitative.setdefault("erp_source", "caller-supplied")
 
-        if wacc_info:
-            self.market_implied_engine.r = original_r
+        # Stage 1: Reverse DCF ("what does the price imply?"). Consensus Ke =
+        # Rf + regression beta x US-only ERP, handed to Stage 1 for this call
+        # only so it cannot steer any other stage.
+        consensus: ConsensusInputs | None = None
+        if security.market and getattr(security.market, "beta", None) is not None:
+            from iam.data.damodaran import DamodaranProvider
+
+            rf, rf_source = DamodaranProvider.get_risk_free_rate_with_source()
+            us_erp, us_erp_source = us_consensus_erp()
+            consensus = ConsensusInputs(
+                rf=rf, erp=us_erp, rf_source=rf_source, erp_source=us_erp_source
+            )
+        market_implied_engine_res = self.market_implied_engine.compute(security, consensus)
+
+        if consensus is None:
+            market_implied_engine_res.notes.append("CAPM skipped for lack of beta.")
 
         # Stage 1b: Questionnaire-based fundamental growth, contrasted against
         # Stage 1's market-implied growth (opt-in — only runs when the caller
@@ -474,6 +591,7 @@ class ValuationPipeline:
             and getattr(security.fundamentals, "segments", None)
         ):
             from iam.engine.damodaran import DamodaranEngine
+            from iam.valuation.country_tax import company_marginal_tax
             from iam.valuation.sotp import Segment
             from iam.valuation.types import Method
 
@@ -481,32 +599,66 @@ class ValuationPipeline:
             segments = [Segment(**s) if isinstance(s, dict) else s for s in segments_data]
 
             damodaran = DamodaranEngine()
-            total_debt = getattr(security.fundamentals, "total_debt", 0.0) or 0.0
-            market_cap = getattr(security.market, "market_cap", 1.0) or 1.0
-            debt_equity = total_debt / market_cap if market_cap > 0 else 0.0
-            tax_rate = 0.21  # default corporate tax rate
-            cost_of_equity = damodaran.compute_cost_of_equity(
-                segments, debt_to_equity=debt_equity, tax_rate=tax_rate
-            )
+            total_debt = getattr(security.fundamentals, "total_debt", None)
+            debt_val = float(total_debt or 0.0)
+            market_cap = getattr(security.market, "market_cap", None)
 
-            sotp_result = self.sotp.compute(segments, cost_of_equity)
-            shares = getattr(security.fundamentals, "shares_outstanding", 1.0) or 1.0
+            extra_notes = []
+            if market_cap is not None and market_cap > 0:
+                debt_equity = debt_val / float(market_cap)
+            elif debt_val <= 0:
+                debt_equity = 0.0
+                extra_notes.append("total debt missing or zero: D/E taken as 0")
+            else:
+                debt_equity = None
 
-            intrinsic_res = ValuationResult(
-                method=Method.INTRINSIC,
-                fair_value_per_share=sotp_result.total_ev / shares,
-                notes=[
-                    f"Weighted unlevered beta: {sotp_result.weighted_unlevered_beta:.3f}",
-                    f"Cost of equity: {cost_of_equity:.2%}",
-                ]
-                + [f"{seg['name']}: ${seg['ev']:,.0f}" for seg in sotp_result.segments],
-                assumptions={
-                    "high_growth": 0.08,
-                    "roe": 0.15,
-                    "cost_of_equity": cost_of_equity,
-                    "debt_equity": debt_equity,
-                },
-            )
+            q = security.qualitative or {}
+            if q.get("tax_rate") is not None:
+                tax_rate = float(q["tax_rate"])
+                tax_note = f"Tax rate: {tax_rate:.1%} (supplied)"
+            else:
+                tax_rate, tax_source = company_marginal_tax(security)
+                tax_note = f"Tax rate: {tax_rate:.1%} ({tax_source})"
+
+            shares = getattr(security.fundamentals, "shares_outstanding", None)
+            if debt_equity is None or shares is None or shares <= 0:
+                missing = (
+                    "market cap unavailable"
+                    if debt_equity is None
+                    else "shares outstanding unavailable"
+                )
+                intrinsic_res = ValuationResult(
+                    method=Method.INTRINSIC,
+                    fair_value_per_share=None,
+                    confidence=0.0,
+                    notes=[f"insufficient data: {missing}"],
+                    verdict_text=f"insufficient data: {missing}",
+                )
+            else:
+                cost_of_equity = damodaran.compute_cost_of_equity(
+                    segments, debt_to_equity=debt_equity, tax_rate=tax_rate
+                )
+
+                sotp_result = self.sotp.compute(segments, cost_of_equity)
+
+                intrinsic_res = ValuationResult(
+                    method=Method.INTRINSIC,
+                    fair_value_per_share=sotp_result.total_ev / shares,
+                    notes=[
+                        f"Weighted unlevered beta: {sotp_result.weighted_unlevered_beta:.3f}",
+                        f"Cost of equity: {cost_of_equity:.2%}",
+                    ]
+                    + [f"{seg['name']}: ${seg['ev']:,.0f}" for seg in sotp_result.segments]
+                    + [tax_note]
+                    + extra_notes,
+                    # Only what the SOTP valuation actually used. It has no
+                    # growth/ROE inputs, so none are reported (downstream readers
+                    # treat missing keys as "not applicable").
+                    assumptions={
+                        "cost_of_equity": cost_of_equity,
+                        "debt_equity": debt_equity,
+                    },
+                )
         else:
             intrinsic_res = self.intrinsic_dcf.compute(security, fcfe_assumptions)
 
@@ -520,6 +672,7 @@ class ValuationPipeline:
         # ML Lens Anomaly Detection for Triangulation Weighting
         try:
             from iam.ml.ml_lens import MLDiagnosticLens
+
             ml_res = MLDiagnosticLens().compute(security)
             if ml_res.confidence < 1.0:
                 # If fundamentals are anomalous, relative valuation (comps) is less reliable
@@ -552,52 +705,34 @@ class ValuationPipeline:
         for plugin_name, factor_values in plugin_factor_results.items():
             plugin_notes.append(f"[PLUGIN FACTOR {plugin_name}]: {factor_values}")
 
-        # Stage 4b: Valuation Battlefield
+        # Stage 4b: Valuation Battlefield — which single assumption explains
+        # the gap between the market-implied and intrinsic lenses. Uses the
+        # real FCFE maths on the two real parameter vectors; nothing invented.
         battlefield_res = None
-        if market_implied_engine_res.implied is not None and intrinsic_res.assumptions:
+        base_ni = (intrinsic_res.components or {}).get("base_ni_per_share")
+        if market_implied_engine_res.implied is not None and intrinsic_res.assumptions and base_ni:
             try:
-                # Build Intrinsic Scenarios
-                int_g = intrinsic_res.assumptions.get("high_growth", 0.08)
-                int_r = intrinsic_res.assumptions.get("roe", 0.15)
-                int_m = getattr(security.fundamentals, "operating_margin", None) or 0.20
-
-                intrinsic_dist = ScenarioDistribution(
-                    [
-                        Scenario(0.20, growth=int_g * 0.60, margin=int_m * 0.90, roic=int_r * 0.80),
-                        Scenario(0.60, growth=int_g, margin=int_m, roic=int_r),
-                        Scenario(0.20, growth=int_g * 1.30, margin=int_m * 1.10, roic=int_r * 1.20),
-                    ]
+                value_fn = fcfe_value_fn(
+                    float(base_ni),
+                    int(intrinsic_res.assumptions.get("high_growth_years", 10)),
+                    intrinsic_vector_from_assumptions(intrinsic_res.assumptions),
                 )
-
-                # Build Market Scenarios
-                mkt_g = market_implied_engine_res.implied.implied_revenue_growth
-                mkt_r = getattr(market_implied_engine_res.implied, "implied_roic", int_r)
-                mkt_m = int_m  # Assume market margin is base margin if not solved
-
-                market_dist = ScenarioDistribution(
-                    [
-                        Scenario(0.20, growth=mkt_g * 0.80, margin=mkt_m * 0.95, roic=mkt_r * 0.90),  # type: ignore
-                        Scenario(0.50, growth=mkt_g, margin=mkt_m, roic=mkt_r),  # type: ignore
-                        Scenario(0.30, growth=mkt_g * 1.20, margin=mkt_m * 1.05, roic=mkt_r * 1.10),  # type: ignore
-                    ]
+                battlefield_res = build_battlefield(
+                    market_implied=market_implied_engine_res,
+                    intrinsic=intrinsic_res,
+                    value_fn=value_fn,
+                    triangulation=triangulation_res,
                 )
-
-                battle_engine = ExpectationsBattlefieldEngine(intrinsic_dist, market_dist)
-                battlefield_res = battle_engine.compute()
             except Exception as e:
                 logger.warning(f"Failed to build valuation battlefield for {security.ticker}: {e}")
 
         # Stage 4c: Thesis Drift Detection
-        from pathlib import Path
-
-        from iam.thesis.drift import DriftDetector, load_constraints
+        from iam.thesis.drift import DriftDetector, find_constraints, load_constraints
 
         drift_report = None
-        constraints_path = Path("data/constraints") / f"{security.ticker}.yml"
-        if not constraints_path.exists():
-            constraints_path = Path("data/constraints") / f"{security.ticker}.example.yml"
-
-        if constraints_path.exists():
+        found = find_constraints(security.ticker)
+        if found is not None:
+            constraints_path, source = found
             try:
                 _, constraints = load_constraints(constraints_path)
                 detector = DriftDetector()
@@ -610,6 +745,8 @@ class ValuationPipeline:
                     business_reality=br,
                     fundamentals=security.fundamentals,
                 )
+                drift_report.source = source
+                drift_report.constraints_path = str(constraints_path)
             except Exception as e:
                 logger.warning(f"Failed to evaluate thesis drift for {security.ticker}: {e}")
 
@@ -637,10 +774,15 @@ class ValuationPipeline:
 
         # Damodaran Laws: test the assumptions Stage 3 actually used for
         # internal consistency. Violations/flags degrade the Stage 7 verdict.
+        # Law 3 judges terminal growth against the Rf this run used (caller-supplied
+        # Rf if any, else the macro Rf), not a constant.
+        law_rf, law_rf_source = self._stage_risk_free(security)
         report.law_report = DamodaranLawRegistry().evaluate(
             security,
             intrinsic_res.assumptions or {},
             implied=market_implied_engine_res.implied,
+            risk_free_rate=law_rf,
+            rf_source=law_rf_source,
         )
         report.summary += f"\n[DAMODARAN LAWS]: {report.law_report.narrative}"
 
@@ -698,9 +840,7 @@ class ValuationPipeline:
             stress_response=report.stress_response,
             drift_report=report.drift_report,
             justified_premium=report.justified_premium,
-            mismatch_score=report.battlefield.expectation_mismatch_score
-            if report.battlefield
-            else None,
+            mismatch_score=report.battlefield.mismatch_score if report.battlefield else None,
         )
 
         return report

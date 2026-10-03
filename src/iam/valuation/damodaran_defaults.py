@@ -188,8 +188,8 @@ class CompanyProfile:
     sector: str  # exact Damodaran sector name, Jan 2026
     revenue_mix: dict[str, float]  # region -> weight, e.g. {"Americas":0.642, "EMEA":0.302}
     d_to_e: float = 0.0  # market D/E for Hamada
-    tax_rate: float = 0.21
-    rf: float = 0.0430  # analysis-date risk-free rate
+    tax_rate: float | None = None
+    rf: float | None = None  # analysis-date risk-free rate
 
     def normalized_mix(self) -> dict[str, float]:
         total = sum(self.revenue_mix.values())
@@ -294,6 +294,10 @@ def build_wacc(
 
 
 def build_ke_for_company(profile: CompanyProfile, uni: DamodaranUniverse) -> dict:
+    if profile.tax_rate is None:
+        raise ValueError(f"CompanyProfile for {profile.ticker} missing tax_rate")
+    if profile.rf is None:
+        raise ValueError(f"CompanyProfile for {profile.ticker} missing rf")
     erp = build_geographic_erp(profile, uni)
     beta_u = get_unlevered_beta(profile, uni)
     beta_l = lever_beta(beta_u, profile.d_to_e, profile.tax_rate)
@@ -324,6 +328,8 @@ if __name__ == "__main__":
         sector="Investments & Asset Management",
         revenue_mix={"Americas": 0.642, "EMEA": 0.302, "APAC": 0.056},
         d_to_e=0.15,
+        tax_rate=0.21,
+        rf=0.0430,
     )
 
     nvda = CompanyProfile(
@@ -331,6 +337,8 @@ if __name__ == "__main__":
         sector="Semiconductors",
         revenue_mix={"Americas": 0.44, "EMEA": 0.18, "APAC": 0.38},
         d_to_e=0.05,
+        tax_rate=0.21,
+        rf=0.0430,
     )
 
     print(build_ke_for_company(blk, uni))

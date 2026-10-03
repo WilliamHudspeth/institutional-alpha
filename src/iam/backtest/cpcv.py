@@ -39,7 +39,7 @@ def get_cpcv_splits(
     Returns:
         A list of (train_indices, test_indices) tuples.
     """
-    if not isinstance(dates, (pd.DatetimeIndex, list)):
+    if not isinstance(dates, pd.DatetimeIndex | list):
         dates = pd.DatetimeIndex(dates)
     elif isinstance(dates, list):
         dates = pd.to_datetime(dates)

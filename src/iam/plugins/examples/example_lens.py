@@ -5,11 +5,11 @@ this directory — it returns the dict shape the valuation pipeline's plugin
 bridge converts into a LensResult.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from iam.plugins.interfaces import IA_LensPlugin
 
 
 class ExampleLens(IA_LensPlugin):
-    def analyze(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze(self, data: dict[str, Any]) -> dict[str, Any]:
         return {"status": "analyzed", "input": data}

@@ -15,7 +15,6 @@ from iam.ui.alpha_terminal import (
     ScenarioPanel,
     SecState,
     SysInfoPanel,
-    WatchlistPanel,
 )
 
 
@@ -33,7 +32,6 @@ class TestTUIElements(unittest.TestCase):
 
     def test_panels_render_without_error(self):
         panels = [
-            WatchlistPanel(["AAPL", "MSFT"]),
             QuickRecPanel(),
             DeepValPanel(),
             FactorPanel(),

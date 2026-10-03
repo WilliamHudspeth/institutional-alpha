@@ -7,10 +7,13 @@ trajectory adjustments to catch compression/expansion cases.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+
 import numpy as np
 
 from iam.data.security import Security
 from iam.valuation.adaptive import CompanyProfile
+from iam.valuation.fcfe_dcf import FCFEAssumptions
 from iam.valuation.growth_triangulator import (
     TriangulatedGrowth,
     detect_margin_trajectory,
@@ -21,6 +24,23 @@ from iam.valuation.growth_triangulator import (
     estimate_sustainable_growth,
     triangulate_growth,
 )
+
+# The FCFE engine's documented defaults; the reverse-DCF growth estimator below
+# must use the same discount / terminal rates rather than its own literals.
+_FCFE_DEFAULTS = FCFEAssumptions(high_growth=0.0)
+
+
+@dataclass
+class BuiltCompanyProfile(CompanyProfile):
+    """``CompanyProfile`` plus an audit list of inputs that were unavailable.
+
+    ``roe`` / ``roic`` are ``None`` when the company reports neither a ROIC
+    history nor an incremental ROIC (the adaptive engine does not read them).
+    ``op_margin`` must be a number for the engine, so when it is missing the
+    sector baseline stands in and the substitution is listed here.
+    """
+
+    missing_inputs: list[str] = field(default_factory=list)
 
 
 def _safe_get_history_avg(history: list[float], years: int = 5) -> float | None:
@@ -137,21 +157,40 @@ def build_company_profile(
         adjacent_growth = min(0.20, sector_growth + 0.02)
 
     # --- Operating margins ---
-    op_margin = fundamentals.operating_margin or 0.10
-    op_margin_history = fundamentals.operating_margin_history or []
-
+    missing: list[str] = []
     # Sector margin baseline by sector
     sector_margin = _sector_margin_default(sector)
+    op_margin_history = fundamentals.operating_margin_history or []
+    if fundamentals.operating_margin is not None:
+        op_margin = fundamentals.operating_margin
+    else:
+        # Not reported: do not invent a company margin. The engine needs a
+        # number, so the sector median stands in and is flagged as such.
+        op_margin = sector_margin
+        missing.append(
+            f"op_margin unavailable; sector baseline {sector_margin:.1%} used as stand-in"
+        )
 
-    # --- ROE/ROIC ---
+    # --- ROE/ROIC (None when unavailable; never invented) ---
     roic_history = fundamentals.roic_history or []
-    roe = _safe_get_history_avg(roic_history, years=3) or fundamentals.incremental_roic or 0.12
-    roic = _safe_get_history_avg(roic_history, years=5) or fundamentals.incremental_roic or 0.10
+    roe = _safe_get_history_avg(roic_history, years=3)
+    if roe is None:
+        roe = fundamentals.incremental_roic
+    roic = _safe_get_history_avg(roic_history, years=5)
+    if roic is None:
+        roic = fundamentals.incremental_roic
+    if roe is None:
+        missing.append("roe unavailable (no ROIC history or incremental ROIC)")
+    if roic is None:
+        missing.append("roic unavailable (no ROIC history or incremental ROIC)")
 
     # --- Mid-cycle margin for cyclicals ---
-    mid_cycle_margin = _safe_get_history_avg(op_margin_history, years=10) or (op_margin * 0.9)
+    mid_cycle_margin = _safe_get_history_avg(op_margin_history, years=10)
+    if mid_cycle_margin is None:
+        mid_cycle_margin = op_margin * 0.9
+        missing.append("mid_cycle_margin: no margin history; 90% of current margin used")
 
-    return CompanyProfile(
+    return BuiltCompanyProfile(
         ticker=security.ticker,
         implied_growth=implied_growth,
         hist_eps_growth=hist_eps_growth,
@@ -160,9 +199,10 @@ def build_company_profile(
         adjacent_growth=adjacent_growth,
         op_margin=op_margin,
         sector_margin=sector_margin,
-        roe=roe,
-        roic=roic,
+        roe=roe,  # type: ignore[arg-type]
+        roic=roic,  # type: ignore[arg-type]
         mid_cycle_margin=mid_cycle_margin,
+        missing_inputs=missing,
     )
 
 
@@ -189,8 +229,8 @@ def triangulate_growth_for_security(
         price=price,
         fcf_ttm=fundamentals.fcf_ttm,
         shares_outstanding=fundamentals.shares_outstanding,
-        wacc=0.09,
-        terminal_growth=0.025,
+        wacc=_FCFE_DEFAULTS.discount_rate,
+        terminal_growth=_FCFE_DEFAULTS.terminal_growth,
     )
 
     # --- Estimator 2: Historical CAGR ---

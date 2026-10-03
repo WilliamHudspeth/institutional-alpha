@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from iam.data.security import Fundamentals, Security
 from iam.laws import DamodaranLawRegistry, excess_return_fade_path, fade_adjusted_growth
-from iam.laws import registry as reg
 from iam.laws.fade import DEFAULT_FADE_YEARS, TERMINAL_EXCESS_RETENTION
 from iam.laws.types import (
     FLAG_PENALTY,
@@ -23,6 +22,9 @@ from iam.laws.types import (
     LawStatus,
 )
 from iam.valuation.types import ImpliedExpectations
+
+# The registry has no default risk-free rate: callers pass the Rf they used.
+RF = 0.043
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -204,20 +206,24 @@ class TestLaw2GrowthRequiresReinvestment:
 
 class TestLaw3TerminalGrowthCeiling:
     def test_safe_terminal_growth_passes(self):
-        report = DamodaranLawRegistry().evaluate(_security(), _assumptions(terminal_growth=0.025))
+        report = DamodaranLawRegistry().evaluate(
+            _security(), _assumptions(terminal_growth=0.025), risk_free_rate=RF
+        )
         assert _check(report, 3).status is LawStatus.PASS
 
     def test_terminal_growth_above_rf_violates(self):
-        report = DamodaranLawRegistry().evaluate(_security(), _assumptions(terminal_growth=0.05))
+        report = DamodaranLawRegistry().evaluate(
+            _security(), _assumptions(terminal_growth=0.05), risk_free_rate=RF
+        )
         check = _check(report, 3)
         assert check.status is LawStatus.VIOLATION
-        assert check.components["risk_free_rate"] == reg.DEFAULT_RISK_FREE
+        assert check.components["risk_free_rate"] == RF
 
     def test_terminal_growth_at_ceiling_flags(self):
         """Within the ceiling band below rf: legal but with zero headroom."""
-        rf = reg.DEFAULT_RISK_FREE
+        rf = RF
         report = DamodaranLawRegistry().evaluate(
-            _security(), _assumptions(terminal_growth=rf - 0.001)
+            _security(), _assumptions(terminal_growth=rf - 0.001), risk_free_rate=RF
         )
         assert _check(report, 3).status is LawStatus.FLAG
 
@@ -342,13 +348,15 @@ class TestLawReport:
 
     def test_conviction_multiplier_matches_documented_penalties(self):
         """Aggressive analysis: Law 2 violated, Laws 3 (ceiling) + 4 flagged."""
-        rf = reg.DEFAULT_RISK_FREE
+        rf = RF
         sec = _security(
             roic_history=[0.18, 0.18, 0.18],
             qualitative={"reinvestment_rate": 0.5},
         )
         report = DamodaranLawRegistry().evaluate(
-            sec, _assumptions(high_growth=0.20, terminal_growth=rf - 0.001)
+            sec,
+            _assumptions(high_growth=0.20, terminal_growth=rf - 0.001),
+            risk_free_rate=RF,
         )
         assert len(report.violations) == 1  # Law 2: 20% vs 9% sustainable
         assert len(report.flags) == 2  # Law 3 ceiling, Law 4 no-fade

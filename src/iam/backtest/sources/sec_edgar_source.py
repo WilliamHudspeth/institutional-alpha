@@ -25,6 +25,8 @@ from collections.abc import Callable
 
 import pandas as pd
 
+from iam.data.http import safe_urlopen
+
 from .base import DataSource, DataSourceError
 from .tiers import Capability, DataTier
 
@@ -44,7 +46,7 @@ HttpGet = Callable[[str], object]
 
 def _default_http_get(url: str, user_agent: str, timeout: float = 15.0) -> object:
     req = urllib.request.Request(url, headers={"User-Agent": user_agent})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 — fixed SEC hosts
+    with safe_urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
 

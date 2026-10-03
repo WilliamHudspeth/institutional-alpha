@@ -5,6 +5,13 @@ import pytest
 from tests.fixtures.mock_api import MockStooq, MockYFinance
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    """Register custom pytest markers."""
+    config.addinivalue_line(
+        "markers", "allow_network: mark test to allow network access via urllib"
+    )
+
+
 @pytest.fixture(autouse=True)
 def mock_yf_global():
     """Globally mocks yfinance for all tests.
@@ -22,11 +29,12 @@ def mock_yf_global():
 
 
 @pytest.fixture(autouse=True)
-def mock_stooq_global():
+def mock_stooq_global(request: pytest.FixtureRequest):
     """Globally mocks Stooq for all tests.
 
     This ensures no live network calls escape to Stooq during the test suite.
     """
+    import urllib.error
     import urllib.request
 
     stooq_mock = MockStooq()
@@ -41,8 +49,6 @@ def mock_stooq_global():
 
         if "stooq.com" in url_str:
             if stooq_mock.fail_all:
-                import urllib.error
-
                 raise urllib.error.URLError("Mock network failure")
 
             import numpy as np
@@ -74,7 +80,10 @@ def mock_stooq_global():
 
             return MockResponse()
 
-        return original_urlopen(url, *args, **kwargs)
+        if request.node.get_closest_marker("allow_network") is not None:
+            return original_urlopen(url, *args, **kwargs)
+
+        raise RuntimeError(f"Network access blocked in tests: {url_str}")
 
     with patch.object(urllib.request, "urlopen", side_effect=mock_urlopen):
         yield stooq_mock

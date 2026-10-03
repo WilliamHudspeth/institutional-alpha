@@ -196,7 +196,9 @@ class AssumptionForecastRecord(BaseModel):
     realized_date: datetime
     forecast_value: float = Field(..., description="The assumption value used in valuation")
     realized_value: float = Field(..., description="What actually occurred")
-    forecast_horizon_days: int = Field(..., gt=0, description="Days between valuation and realization")
+    forecast_horizon_days: int = Field(
+        ..., gt=0, description="Days between valuation and realization"
+    )
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @property

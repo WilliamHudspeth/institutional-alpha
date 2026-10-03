@@ -381,15 +381,12 @@ class PositionSizer:
         n_obs = min(len(position_returns.get(t, [])) for t in tickers)
         if n_obs < 2:
             logger.warning(
-                "Fewer than 2 observations available; "
-                "falling back to inverse-vol sizing."
+                "Fewer than 2 observations available; " "falling back to inverse-vol sizing."
             )
             vols = {t: 0.20 for t in tickers}
             return PositionSizer.size_by_risk(tickers, vols, constraints=constraints)
 
-        X = np.column_stack(
-            [position_returns[t][:n_obs] for t in tickers]
-        )
+        X = np.column_stack([position_returns[t][:n_obs] for t in tickers])
         cov = ledoit_wolf_shrinkage(X)
 
         # Objective: minimise squared deviation of risk contributions

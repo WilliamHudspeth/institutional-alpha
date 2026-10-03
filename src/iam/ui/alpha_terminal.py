@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import atexit
 import json
+import math
 import os
 import random
 import shutil
@@ -37,14 +38,16 @@ import threading
 import time
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol
 from unittest.mock import MagicMock
 
 from iam.config.settings import get_settings
 from iam.data import markets as MKT
+from iam.data.http import safe_urlopen
 from iam.ui import widgets as W
 from iam.ui.market_panels import GlobalMarketsPanel, RealWatchlistPanel, render_ribbon
 from iam.ui.research_panels import (
@@ -88,6 +91,7 @@ else:
 
 
 # ── IAM package imports (optional — graceful mock fallback) ───────────────
+_IAM_IMPORT_ERROR: str | None = None
 try:
     from iam import score as _score
     from iam.data.providers.yfinance_adapter import fetch_security as _fetch_security
@@ -98,8 +102,9 @@ try:
     from iam.valuation.topology import compute_gradients as _compute_gradients
 
     _IAM_CORE = True
-except ImportError:
+except ImportError as _e:
     _IAM_CORE = False
+    _IAM_IMPORT_ERROR = f"ImportError: {_e}"
 
 try:
     from iam.ui.sparklines import MiniChart, ProgressBar, Sparkline
@@ -327,7 +332,7 @@ class Canvas:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  MOCK DATA  (used when IAM packages unavailable or fetch fails)
+#  MOCK DATA  (demo build only: used when IAM packages are unavailable)
 # ═══════════════════════════════════════════════════════════════════════════
 
 
@@ -413,11 +418,13 @@ class SecState:
     error: str | None = None
 
     @property
-    def price(self) -> float:
+    def price(self) -> float | None:
+        """Last real price, or None when unknown (never a placeholder)."""
         try:
-            return float(self.security.market.price or 0.0)
+            p = float(self.security.market.price)
         except Exception:
-            return 0.0
+            return None
+        return p if p > 0 else None
 
     @property
     def name(self) -> str:
@@ -441,19 +448,29 @@ class SecState:
             return "—"
 
     @property
-    def upside(self) -> float:
+    def upside(self) -> float | None:
+        """Model upside, or None when the pipeline produced none."""
         try:
             v = self.pipeline_result.final_verdict
-            return float(v.blended_upside or self.pipeline_result.implied_move_pct or 0.0)
+            up = v.blended_upside
+            if up is None:
+                up = self.pipeline_result.implied_move_pct
+            return None if up is None else float(up)
         except Exception:
-            return 0.0
+            return None
 
     @property
-    def composite(self) -> float:
+    def composite(self) -> float | None:
+        """Composite factor score, or None when unscored."""
         try:
             return float(self.score_result.composite)
         except Exception:
-            return 0.0
+            return None
+
+    @property
+    def is_demo(self) -> bool:
+        """True when this state holds the random demo-build mock data."""
+        return isinstance(self.security, _MockSec)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -479,7 +496,7 @@ def _resolve_ticker(query: str) -> tuple[str, str | None]:
             f"?q={urllib.parse.quote(query)}&quotesCount=1&newsCount=0"
         )
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with safe_urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read().decode())
             quotes = data.get("quotes", [])
             if quotes and "symbol" in quotes[0]:
@@ -502,6 +519,28 @@ def _valid_ticker(t: str) -> bool:
 # ═══════════════════════════════════════════════════════════════════════════
 #  PANEL RENDERERS
 # ═══════════════════════════════════════════════════════════════════════════
+
+
+class _PanelLike(Protocol):
+    """Structural type for anything the terminal can draw as a panel.
+
+    Several panels live in other modules (market_panels, research_panels,
+    settings_panel) and do not subclass ``_Panel``.
+    """
+
+    title: str
+
+    def render(
+        self,
+        cv: Canvas,
+        r0: int,
+        r1: int,
+        c0: int,
+        c1: int,
+        sec: SecState | None,
+        system_state: SystemState | None = None,
+        ticks: int = 0,
+    ) -> None: ...
 
 
 class _Panel:
@@ -533,62 +572,19 @@ class _Panel:
     def _err(self, cv: Canvas, r0: int, c0: int, msg: str) -> None:
         cv.put(r0, c0 + 2, f"⚠  {msg}", C_RED)
 
+    def _demo_tag(self, cv: Canvas, r1: int, c0: int, sec: SecState | None) -> None:
+        """Flag randomly generated demo-build data on the panel's last row."""
+        if sec is not None and sec.is_demo:
+            cv.put(r1, c0 + 1, "DEMO DATA (random)", C_RED + BOLD)
 
-# ── Watchlist ─────────────────────────────────────────────────────────────
-
-
-class WatchlistPanel(_Panel):
-    title = "LIVE WATCHLIST"
-
-    def __init__(self, watchlist: list[str]) -> None:
-        self._wl = watchlist
-
-    def render(
-        self,
-        cv: Canvas,
-        r0: int,
-        r1: int,
-        c0: int,
-        c1: int,
-        sec: SecState | None,
-        system_state: SystemState | None = None,
-        ticks: int = 0,
-    ) -> None:
-        c1 - c0
-        cv.put(
-            r0, c0 + 1, f"{'TICKER':<6} {'PRICE':>10}  {'CHG':>7}  {'TREND':>5}  SPARKLINE", C_DIM
-        )
-        cv.hline(r0 + 1, c0, c1)
-
-        for idx, tkr in enumerate(self._wl):
-            r = r0 + 2 + idx
-            if r > r1 - 1:
-                break
-            is_active = sec and tkr == sec.ticker
-            active_style = C_GOLD + BOLD if is_active else C_WHITE
-
-            # Use real price if this is the active ticker, else simulate
-            if is_active and sec and not sec.loading and sec.price > 0:
-                price = sec.price
-                hist = sec.history
-            else:
-                price = random.uniform(50, 600)
-                hist = [price * random.uniform(0.97, 1.03) for _ in range(15)]
-
-            delta = random.uniform(-price * 0.025, price * 0.025)
-            pct = delta / price if price else 0
-            arrow = "▲" if delta >= 0 else "▼"
-            d_col = C_GREEN if delta >= 0 else C_RED
-            spark = _spark_line(hist, 14)
-            trend = _spark_trend(hist)
-            prefix = "▶ " if is_active else "  "
-
-            cv.put(r, c0, prefix, active_style)
-            cv.put(r, c0 + 2, f"{tkr:<5}", active_style)
-            cv.put(r, c0 + 8, f"${price:>9.2f}", C_WHITE)
-            cv.put(r, c0 + 19, f"{arrow} {pct:>+5.1%}", d_col)
-            cv.put(r, c0 + 28, f"{trend}", d_col)
-            cv.put(r, c0 + 32, spark, d_col)
+    def _load_failed(self, cv: Canvas, r0: int, r1: int, c0: int, c1: int, sec: SecState) -> bool:
+        """Show an explicit error state when a real load failed. True if drawn."""
+        if sec.pipeline_result is not None or not sec.error:
+            return False
+        msg = f"Could not load {sec.ticker}: {sec.error}"
+        cv.box(r0 + 1, r0 + 3, c0 + 1, c1 - 2, C_RED)
+        cv.put(r0 + 2, c0 + 3, msg[: max(0, c1 - c0 - 6)], C_RED + BOLD)
+        return True
 
 
 # ── Quick Recommendation ──────────────────────────────────────────────────
@@ -614,13 +610,18 @@ class QuickRecPanel(_Panel):
             self._loading(cv, r0, r1, c0, c1, sec.ticker, ticks)
             return
 
+        if self._load_failed(cv, r0, r1, c0, c1, sec):
+            return
+
         rating = sec.rating
         confidence = sec.confidence
         upside = sec.upside
         price = sec.price
-        fair = price * (1.0 + upside) if (price is not None and upside is not None) else 0
+        fair = price * (1.0 + upside) if (price is not None and upside is not None) else None
         rc = _rc(rating)
         up_col = C_GREEN if (upside is not None and upside > 0) else C_RED
+        price_text = f"${price:>9.2f}" if price is not None else "      n/a"
+        fair_text = f"${fair:>9.2f}" if fair is not None else "      n/a"
 
         # Main verdict box
         bw = min(c1 - c0 - 3, 52)
@@ -632,22 +633,22 @@ class QuickRecPanel(_Panel):
         cv.put(by + 1, bx + 11, f"{rating}", rc + BOLD)
         cv.put(by + 1, bx + 11 + len(rating) + 2, f"Confidence: {confidence}", C_WHITE)
 
-        cv.put(by + 3, bx + 3, f"Current:     ${price:>9.2f}", C_WHITE)
-        cv.put(by + 3, bx + 30, f"Fair Value: ${fair:>9.2f}", C_WHITE)
+        cv.put(by + 3, bx + 3, f"Current:     {price_text}", C_WHITE)
+        cv.put(by + 3, bx + 30, f"Fair Value: {fair_text}", C_WHITE)
 
-        up_text = f"{upside:>+.1%}" if upside is not None else "    N/A"
+        up_text = f"{upside:>+.1%}" if upside is not None else "    n/a"
         cv.put(by + 4, bx + 3, f"Implied Move: {up_text}", up_col + BOLD)
         cv.put(by + 5, bx + 3, f"Updated: {sec.last_updated:%H:%M:%S}", C_DIM)
 
         # Composite score meter
         comp = sec.composite
         comp_style = _vc(comp)
-        comp_100 = int((comp + 1.0) * 50.0) if comp is not None else 0
+        comp_text = f"{int((comp + 1.0) * 50.0)}/100" if comp is not None else "n/a"
         mtr = _meter(comp, -1, 1, 28)
         cv.put(r0 + 9, c0 + 1, "Factor Score:", C_DIM)
         cv.put(r0 + 9, c0 + 15, "[", C_DIM)
         cv.put(r0 + 9, c0 + 16, mtr, comp_style)
-        cv.put(r0 + 9, c0 + 44, f"] {comp_100}/100", C_WHITE)
+        cv.put(r0 + 9, c0 + 44, f"] {comp_text}", C_WHITE)
 
         # Interpretation
         cv.hline(r0 + 11, c0, c1)
@@ -661,8 +662,7 @@ class QuickRecPanel(_Panel):
             msg = "▶  Stock appears fairly valued within the model's consensus range."
             cv.put(r0 + 12, c0 + 2, msg, C_YELLOW)
 
-        if sec.error:
-            cv.put(r0 + 14, c0 + 2, "⚠ Live fetch failed — using mock data", C_RED + DIM)
+        self._demo_tag(cv, r1, c0, sec)
 
         # Stage 7 Law Checks
         pr = sec.pipeline_result
@@ -678,6 +678,47 @@ class QuickRecPanel(_Panel):
                     cv.put(
                         r1 - 2 + i, c0 + 2, f"• LAW {check.number}: {check.narrative[:50]}...", col
                     )
+
+
+def _num(v: object) -> float | None:
+    """Finite float or None (NaN/inf/non-numeric all mean 'no data')."""
+    if isinstance(v, bool):
+        return None
+    try:
+        f = float(v)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return f if math.isfinite(f) else None
+
+
+def _pct_or_na(v: object) -> str:
+    f = _num(v)
+    return f"{f:.1%}" if f is not None else "n/a"
+
+
+def _scenario_matrix(sec: SecState | None) -> list[tuple[str, dict]] | None:
+    """Real FCFE scenario matrix from the pipeline report, or None if absent.
+
+    Source: ``pipeline_result.intrinsic.components["scenarios"]`` (built in
+    ``FCFEDCF.compute``). Entries lacking a finite prob/target are dropped.
+    """
+    pr = getattr(sec, "pipeline_result", None)
+    intrinsic = getattr(pr, "intrinsic", None)
+    comps = getattr(intrinsic, "components", None)
+    if not isinstance(comps, dict):
+        return None
+    raw = comps.get("scenarios")
+    if not isinstance(raw, dict):
+        return None
+    out: list[tuple[str, dict]] = []
+    for name, d in raw.items():
+        if not isinstance(d, dict):
+            continue
+        prob, target = _num(d.get("prob")), _num(d.get("target"))
+        if prob is None or target is None:
+            continue
+        out.append((str(name), {**d, "prob": prob, "target": target}))
+    return out or None
 
 
 # ── Deep Valuation ────────────────────────────────────────────────────────
@@ -713,6 +754,10 @@ class DeepValPanel(_Panel):
             self._loading(cv, r0, r1, c0, c1, sec.ticker, ticks)
             return
 
+        if self._load_failed(cv, r0, r1, c0, c1, sec):
+            return
+
+        self._demo_tag(cv, r1, c0, sec)
         cv.put(r0, c0 + 1, "7-Stage Valuation Pipeline", C_ACCENT + BOLD)
         cv.hline(r0 + 1, c0, c1)
 
@@ -737,15 +782,24 @@ class DeepValPanel(_Panel):
 
             # Visual range bar using MiniChart if available
             price = sec.price
-            fair = price * (1.0 + cc) if (price is not None and cc is not None) else 0
-            bear = price * 0.72 if price is not None else 0
-            bull = price * 1.38 if price is not None else 0
-            if _IAM_SPARKLINES and price and cc is not None:
-                range_bar = MiniChart.range_bar(fair, bear, bull, width=18)
+            scen = _scenario_matrix(sec)
+            bear_t = bull_t = None
+            if scen:
+                bear_t = next((d["target"] for n, d in scen if "bear" in n.lower()), None)
+                bull_t = next((d["target"] for n, d in scen if "bull" in n.lower()), None)
+            if (
+                _IAM_SPARKLINES
+                and price is not None
+                and cc is not None
+                and bear_t is not None
+                and bull_t is not None
+            ):
+                fair = price * (1.0 + cc)
+                range_bar = MiniChart.range_bar(fair, bear_t, bull_t, width=18)
             else:
                 range_bar = _meter(cc, -0.4, 0.4, 18)
 
-            cc_text = f"{cc:>+7.1%}" if cc is not None else "    N/A"
+            cc_text = f"{cc:>+7.1%}" if cc is not None else "    n/a"
             spr_text = (
                 f"{tr.spread:>7.1%}" if getattr(tr, "spread", None) is not None else "    N/A"
             )
@@ -792,14 +846,20 @@ class FactorPanel(_Panel):
             self._loading(cv, r0, r1, c0, c1, sec.ticker, ticks)
             return
 
+        if self._load_failed(cv, r0, r1, c0, c1, sec):
+            return
+
+        self._demo_tag(cv, r1, c0, sec)
         sr = sec.score_result
         comp = sec.composite
-        comp_100 = int((comp + 1.0) * 50.0) if comp is not None else 0
         cs = _vc(comp)
 
         # Composite header
-        cc_text = f"{comp:>+.4f}" if comp is not None else " N/A"
-        cv.put(r0, c0 + 1, f"Composite Score: {comp_100}/100  ({cc_text})", C_ACCENT + BOLD)
+        if comp is not None:
+            head = f"Composite Score: {int((comp + 1.0) * 50.0)}/100  ({comp:>+.4f})"
+        else:
+            head = "Composite Score: n/a"
+        cv.put(r0, c0 + 1, head, C_ACCENT + BOLD)
         mtr = _meter(comp, -1, 1, 30)
         cv.put(r0 + 1, c0 + 1, "[", C_DIM)
         cv.put(r0 + 1, c0 + 2, mtr, cs)
@@ -862,34 +922,59 @@ class ScenarioPanel(_Panel):
             self._loading(cv, r0, r1, c0, c1, sec.ticker, ticks)
             return
 
-        price = sec.price or 150.0
-        upside = sec.upside
-        bear = price * 0.72
-        base = price * (1.0 + upside)
-        bull = price * 1.38
-        exp = (bear * 0.20) + (base * 0.60) + (bull * 0.20)
-        prem = (exp - price) / price if price else 0
+        if self._load_failed(cv, r0, r1, c0, c1, sec):
+            return
 
+        self._demo_tag(cv, r1, c0, sec)
+        price = sec.price
         cv.put(r0, c0 + 1, "Bayesian Scenario Thesis Engine", C_ACCENT + BOLD)
         cv.hline(r0 + 1, c0, c1)
 
+        matrix = _scenario_matrix(sec)
+        if not matrix:
+            cv.put(
+                r0 + 2,
+                c0 + 2,
+                f"Scenario table: n/a (no FCFE scenario matrix for {sec.ticker})",
+                C_DIM,
+            )
+            return
+
+        def _ret(target: float) -> float | None:
+            return (target - price) / price if price else None
+
         # Scenario table (matches iam.ui.panels.ScenarioMatrixPanel format)
-        scenarios = [
-            ("Bear Case", "20%", bear, f"{(bear - price) / price:>+.1%}", "Stressed execution"),
-            ("Base Case", "60%", base, f"{(base - price) / price:>+.1%}", "Anchor assumptions"),
-            ("Bull Case", "20%", bull, f"{(bull - price) / price:>+.1%}", "Platform leverage"),
-        ]
-        hdrs = f"{'SCENARIO':<14} {'PROB':<6} {'TARGET':>12}  {'RETURN':>8}  THESIS"
+        scenarios = []
+        for name, d in matrix:
+            ret = _ret(d["target"])
+            thesis = (
+                f"g {_pct_or_na(d.get('g'))} · WACC {_pct_or_na(d.get('wacc'))}"
+                f" · g∞ {_pct_or_na(d.get('tv_g'))}"
+            )
+            scenarios.append(
+                (
+                    name,
+                    f"{d['prob']:.0%}",
+                    d["target"],
+                    f"{ret:>+.1%}" if ret is not None else "n/a",
+                    thesis,
+                )
+            )
+        hdrs = f"{'SCENARIO':<14} {'PROB':<6} {'TARGET':>12}  {'RETURN':>8}  ASSUMPTIONS"
         cv.put(r0 + 2, c0 + 2, hdrs, C_DIM)
         cv.hline(r0 + 3, c0, c1)
-        scenario_colors = [C_RED, C_YELLOW, C_GREEN]
-        for i, (name, prob, target, ret, thesis) in enumerate(scenarios):
+
+        def _color(name: str) -> str:
+            n = name.lower()
+            return C_RED if "bear" in n else (C_GREEN if "bull" in n else C_YELLOW)
+
+        for i, (name, prob, target, ret_str, thesis) in enumerate(scenarios):
             r = r0 + 4 + i
-            col = scenario_colors[i]
+            col = _color(name)
             cv.put(r, c0 + 2, f"{name:<14}", col)
             cv.put(r, c0 + 17, f"{prob:<6}", C_WHITE)
             cv.put(r, c0 + 24, f"${target:>10.2f}", C_WHITE)
-            cv.put(r, c0 + 36, f"{ret:>8}", col)
+            cv.put(r, c0 + 36, f"{ret_str:>8}", col)
             cv.put(r, c0 + 46, thesis, C_DIM)
 
         cv.hline(r0 + 7 + len(scenarios) - 3, c0, c1)
@@ -897,19 +982,29 @@ class ScenarioPanel(_Panel):
         # Visual bar chart
         bar_r = r0 + 8
         bw = c1 - c0 - 22
+        max_t = max(t for _, _, t, _, _ in scenarios)
         cv.put(bar_r, c0 + 1, "Visual Range:", C_DIM)
         for i, (name, _, target, _, _) in enumerate(scenarios):
-            bar_len = max(0, int((target / (bull * 1.05)) * bw))
-            col = scenario_colors[i]
+            bar_len = max(0, int((target / (max_t * 1.05)) * bw)) if max_t > 0 else 0
+            col = _color(name)
             label = name[:4]
             cv.put(bar_r + 1 + i, c0 + 1, f"{label} ", col)
             cv.put(bar_r + 1 + i, c0 + 6, FULL * min(bar_len, bw), col)
             cv.put(bar_r + 1 + i, c0 + 6 + min(bar_len, bw) + 1, f"${target:.0f}", C_DIM)
 
         cv.hline(bar_r + 4 + len(scenarios) - 3, c0, c1)
-        prem_col = C_GREEN if prem >= 0 else C_RED
-        cv.put(bar_r + 5, c0 + 2, f"Expected Value:  ${exp:.2f}", C_WHITE)
-        cv.put(bar_r + 5, c0 + 26, f"  vs Current: {prem:>+.1%}", prem_col + BOLD)
+        tot_p = sum(d["prob"] for _, d in matrix)
+        exp = sum(d["prob"] * d["target"] for _, d in matrix) / tot_p if tot_p > 0 else None
+        if exp is None:
+            cv.put(bar_r + 5, c0 + 2, "Expected Value:  n/a", C_WHITE)
+        else:
+            prem = _ret(exp)
+            cv.put(bar_r + 5, c0 + 2, f"Expected Value:  ${exp:.2f}", C_WHITE)
+            if prem is None:
+                cv.put(bar_r + 5, c0 + 26, "  vs Current: n/a", C_DIM)
+            else:
+                prem_col = C_GREEN if prem >= 0 else C_RED
+                cv.put(bar_r + 5, c0 + 26, f"  vs Current: {prem:>+.1%}", prem_col + BOLD)
         cv.put(
             bar_r + 6,
             c0 + 2,
@@ -923,19 +1018,6 @@ class ScenarioPanel(_Panel):
 
 class BacktestPanel(_Panel):
     title = "BACKTEST & RESEARCH INTEGRITY"
-
-    ROWS = [
-        ("Quality", "+0.084", "0.012", "+5.2%", True),
-        ("Intrinsic Value", "+0.112", "0.005", "+6.8%", True),
-        ("Relative Value", "+0.091", "0.008", "+5.9%", True),
-        ("Sentiment", "+0.023", "0.254", "+1.4%", False),
-        ("Momentum", "+0.067", "0.031", "+4.3%", True),
-        ("Macro Regime", "+0.055", "0.044", "+3.8%", True),
-        ("Earnings Quality", "+0.078", "0.019", "+4.9%", True),
-        ("Expectations", "+0.041", "0.112", "+2.6%", False),
-        ("Runway", "+0.034", "0.178", "+2.1%", False),
-        ("Crowding", "-0.019", "0.310", "-1.2%", False),
-    ]
 
     def render(
         self,
@@ -952,8 +1034,17 @@ class BacktestPanel(_Panel):
         cv.put(r0 + 1, c0 + 1, "Spearman Rank IC / p-value / Quintile Spreads", C_DIM)
         cv.hline(r0 + 2, c0, c1)
 
-        if not system_state or system_state.loading or not system_state.backtest_metrics:
+        if system_state is None or system_state.loading:
             self._loading(cv, r0, r1, c0, c1, "Backtest", ticks)
+            return
+        if not system_state.backtest_metrics:
+            cv.put(
+                r0 + 3,
+                c0 + 2,
+                "Backtest metrics: n/a (run the IC backtest to produce "
+                "data/results/ic/ic_horizon_1m.csv)",
+                C_DIM,
+            )
             return
 
         metrics = system_state.backtest_metrics
@@ -967,16 +1058,16 @@ class BacktestPanel(_Panel):
             r = r0 + 5 + idx
             if r > r1 - 15:
                 break
-            ic = m.get("ic", 0.0)
-            pv = m.get("p_value", 1.0)
-            spr = m.get("spread", 0.0)
-            sig = pv < 0.05
+            ic = _num(m.get("ic"))
+            pv = _num(m.get("p_value"))
+            spr = _num(m.get("spread"))
+            sig = pv is not None and pv < 0.05
             col = C_GREEN if sig else C_RED
 
             cv.put(r, c0 + 1, f"{factor:<22}", C_WHITE)
-            cv.put(r, c0 + 24, f"{ic:>+6.3f}", col)
-            cv.put(r, c0 + 32, f"{pv:>6.3f}", C_WHITE)
-            cv.put(r, c0 + 40, f"{spr:>+6.1%}", col)
+            cv.put(r, c0 + 24, f"{ic:>+6.3f}" if ic is not None else f"{'n/a':>6}", col)
+            cv.put(r, c0 + 32, f"{pv:>6.3f}" if pv is not None else f"{'n/a':>6}", C_WHITE)
+            cv.put(r, c0 + 40, f"{spr:>+6.1%}" if spr is not None else f"{'n/a':>6}", col)
             cv.put(r, c0 + 49, "✓ sig" if sig else "—", C_GREEN if sig else C_DIM)
             idx += 1
 
@@ -990,26 +1081,29 @@ class BacktestPanel(_Panel):
             C_ACCENT + BOLD,
         )
 
-        pbo = getattr(metrics, "pbo", 0.0)
-        dsr = getattr(metrics, "dsr", 0.0)
-        psr = getattr(metrics, "psr", 0.0)
+        pbo = _num(getattr(metrics, "pbo", None))
+        dsr = _num(getattr(metrics, "dsr", None))
+        psr = _num(getattr(metrics, "psr", None))
+        pbo_t = f"{pbo:>6.1%}" if pbo is not None else f"{'n/a':>6}"
+        dsr_t = f"{dsr:>5.2f}" if dsr is not None else f"{'n/a':>5}"
+        psr_t = f"{psr:>6.1%}" if psr is not None else f"{'n/a':>6}"
 
         cv.put(
             mid_sep + 3,
             c0 + 2,
-            f"Backtest Overfitting (PBO): {pbo:>6.1%}  (Target: <5.0%)",
-            C_GREEN if pbo < 0.05 else C_RED,
+            f"Backtest Overfitting (PBO): {pbo_t}  (Target: <5.0%)",
+            C_GREEN if (pbo is not None and pbo < 0.05) else C_RED,
         )
         cv.put(
             mid_sep + 4,
             c0 + 2,
-            f"Deflated Sharpe Ratio (DSR): {dsr:>5.2f}  [Multiple Testing Corrected]",
-            C_GREEN if dsr > 1.0 else C_WHITE,
+            f"Deflated Sharpe Ratio (DSR): {dsr_t}  [Multiple Testing Corrected]",
+            C_GREEN if (dsr is not None and dsr > 1.0) else C_WHITE,
         )
         cv.put(
             mid_sep + 5,
             c0 + 2,
-            f"Probabilistic Sharpe (PSR): {psr:>6.1%}  (Confidence in SR > 0)",
+            f"Probabilistic Sharpe (PSR): {psr_t}  (Confidence in SR > 0)",
             C_TEAL,
         )
 
@@ -1027,74 +1121,53 @@ class BacktestPanel(_Panel):
 
 class PortfolioPanel(_Panel):
     """
-    Displays a simulated portfolio overview.
-    When iam.portfolio is available, uses format_holdings_table and
-    format_factor_exposure_heatmap for real output.
+    Equal-weight MODEL portfolio built from the watchlist.
+
+    There is no holdings data source, so quantities, cost basis, P&L and market
+    value are deliberately not shown. Prices and ratings come from real loaded
+    securities / cached quotes; factor exposures are the weight-averaged factor
+    scores of the holdings that have been scored.
     """
 
     title = "PORTFOLIO OVERVIEW"
 
-    # Mock watchlist as simulated portfolio
-    _HOLDINGS = [
-        {
-            "ticker": "AAPL",
-            "weight": 0.22,
-            "market_value": 52400,
-            "pnl_pct": 18.2,
-            "conviction": "HIGH",
-        },
-        {
-            "ticker": "MSFT",
-            "weight": 0.18,
-            "market_value": 43200,
-            "pnl_pct": 11.4,
-            "conviction": "HIGH",
-        },
-        {
-            "ticker": "NVDA",
-            "weight": 0.15,
-            "market_value": 36000,
-            "pnl_pct": 72.1,
-            "conviction": "MEDIUM",
-        },
-        {
-            "ticker": "TSLA",
-            "weight": 0.12,
-            "market_value": 28800,
-            "pnl_pct": -8.3,
-            "conviction": "LOW",
-        },
-        {
-            "ticker": "AMD",
-            "weight": 0.10,
-            "market_value": 24000,
-            "pnl_pct": 5.6,
-            "conviction": "MEDIUM",
-        },
-        {
-            "ticker": "GOOG",
-            "weight": 0.13,
-            "market_value": 31200,
-            "pnl_pct": 14.7,
-            "conviction": "HIGH",
-        },
-        {
-            "ticker": "AMZN",
-            "weight": 0.10,
-            "market_value": 24000,
-            "pnl_pct": 9.3,
-            "conviction": "MEDIUM",
-        },
-    ]
+    def __init__(self, sec_lookup: Callable[[str], SecState | None] | None = None) -> None:
+        self._sec_lookup = sec_lookup or (lambda _t: None)
 
-    _EXPOSURES = {
-        "Quality": 0.82,
-        "Momentum": 0.61,
-        "Value": -0.24,
-        "Sentiment": 0.35,
-        "Macro Regime": 0.10,
-        "Crowding": -0.47,
-    }
+    @staticmethod
+    def _effective(contrib: Any) -> float | None:
+        """Confidence-weighted factor score of one contribution, or None."""
+        try:
+            return float(contrib.effective())
+        except Exception:
+            pass
+        try:
+            return float(contrib.value) * float(contrib.confidence)
+        except Exception:
+            return None
+
+    @classmethod
+    def factor_exposures(cls, holdings: list[tuple[float, SecState]]) -> dict[str, float]:
+        """Weighted average of each scored holding's effective factor scores.
+
+        ``holdings`` is a list of ``(weight, SecState)``. Holdings without a
+        score result are ignored; weights are renormalised per factor over the
+        holdings that actually have that factor. Empty dict when nothing is scored.
+        """
+        num: dict[str, float] = {}
+        den: dict[str, float] = {}
+        for weight, st in holdings:
+            sr = getattr(st, "score_result", None)
+            breakdown = getattr(sr, "factor_breakdown", None) if sr is not None else None
+            if not breakdown:
+                continue
+            for name, contrib in breakdown.items():
+                eff = cls._effective(contrib)
+                if eff is None:
+                    continue
+                num[name] = num.get(name, 0.0) + weight * eff
+                den[name] = den.get(name, 0.0) + weight
+        return {k: num[k] / den[k] for k in num if den[k] > 0}
 
     def render(
         self,
@@ -1107,7 +1180,7 @@ class PortfolioPanel(_Panel):
         system_state: SystemState | None = None,
         ticks: int = 0,
     ) -> None:
-        cv.put(r0, c0 + 1, "Institutional Portfolio Analytics", C_ACCENT + BOLD)
+        cv.put(r0, c0 + 1, "Equal-Weight Model Portfolio (watchlist)", C_ACCENT + BOLD)
         cv.hline(r0 + 1, c0, c1)
 
         if not system_state or system_state.loading or not system_state.portfolio:
@@ -1115,37 +1188,58 @@ class PortfolioPanel(_Panel):
             return
 
         portfolio = system_state.portfolio
-        # Holdings table header
+
+        def lookup(t: str) -> SecState | None:
+            st = self._sec_lookup(t)
+            if st is None and sec is not None and sec.ticker == t:
+                return sec
+            return st
+
         cv.put(
             r0 + 2,
             c0 + 1,
-            f"{'Ticker':<7} {'Weight':>7}  {'Mkt Value':>12}  {'P&L %':>7}  Conviction",
+            "Model only: equal weights, no holdings data (no quantity/cost/P&L/value).",
+            C_YELLOW,
+        )
+        cv.put(
+            r0 + 3,
+            c0 + 1,
+            f"{'Ticker':<7} {'Weight':>7}  {'Price':>10}  {'Rating':<8}  Conviction",
             C_DIM,
         )
-        cv.hline(r0 + 3, c0, c1)
+        cv.hline(r0 + 4, c0, c1)
 
-        total_val = portfolio.total_value
+        scored: list[tuple[float, SecState]] = []
+        any_demo = False
         for idx, p in enumerate(portfolio.positions):
-            r = r0 + 4 + idx
+            st = lookup(p.ticker)
+            if st is not None and st.score_result is not None:
+                scored.append((p.weight, st))
+            any_demo = any_demo or (st is not None and st.is_demo)
+            r = r0 + 5 + idx
             if r > r1 - 8:
-                break
-            pnl = p.pnl_pct
-            pnl_col = C_GREEN if pnl >= 0 else C_RED
-            conv_col = {"HIGH": C_GREEN, "MODERATE": C_YELLOW, "LOW": C_RED}.get(
-                getattr(p, "conviction", "MODERATE"), C_WHITE
-            )
+                continue
+            price = st.price if st is not None else None
+            if price is None and p.current_price > 0:
+                price = p.current_price
+            price_text = f"${price:.2f}" if price is not None else "n/a"
+            rating = st.rating if st is not None else "N/A"
+            rating_text = rating if rating not in ("N/A", "") else "—"
+            conv = getattr(p, "conviction", "UNRATED")
+            conv_col = {"HIGH": C_GREEN, "MODERATE": C_YELLOW, "LOW": C_RED}.get(conv, C_DIM)
             cv.put(r, c0 + 1, f"{p.ticker:<7}", C_WHITE)
             cv.put(r, c0 + 9, f"{p.weight:>6.1%}", C_WHITE)
-            cv.put(r, c0 + 17, f"  ${p.market_value:>10,.0f}", C_WHITE)
-            cv.put(r, c0 + 31, f"  {pnl:>+6.1f}%", pnl_col)
-            cv.put(r, c0 + 40, f"  {getattr(p, 'conviction', 'MODERATE'):<8}", conv_col)
+            cv.put(r, c0 + 17, f"{price_text:>10}", C_WHITE)
+            cv.put(r, c0 + 31, f"{rating_text:<8}", _rc(rating) if rating_text != "—" else C_DIM)
+            cv.put(r, c0 + 41, f"  {conv:<8}", conv_col)
 
-        sep = r0 + 4 + len(portfolio.positions) + 1
+        sep = r0 + 5 + len(portfolio.positions) + 1
         cv.hline(sep, c0, c1)
-        cv.put(sep + 1, c0 + 1, f"Total AUM:  ${total_val:>12,.0f}", C_WHITE + BOLD)
+        if any_demo:
+            cv.put(r1, c0 + 1, "DEMO DATA (random)", C_RED + BOLD)
 
-        # Factor exposure section (using portfolio's herfindahl as placeholder if exposure profile is missing)
-        exp_r = sep + 3
+        # Factor exposure section: real weighted average of scored holdings.
+        exp_r = sep + 2
         cv.put(exp_r, c0 + 1, "Portfolio Risk Decomposition", C_ACCENT + BOLD)
         cv.hline(exp_r + 1, c0, c1)
 
@@ -1158,26 +1252,37 @@ class PortfolioPanel(_Panel):
             C_TEAL,
         )
 
-        # Mock exposures for visual balance if real analyzer output is not yet attached to SystemState
-        for idx, (factor, exposure) in enumerate(self._EXPOSURES.items()):
-            r = exp_r + 5 + idx
+        exposures = self.factor_exposures(scored)
+        if not exposures:
+            cv.put(exp_r + 5, c0 + 1, "Factor exposures: n/a (no scored holdings)", C_DIM)
+        else:
+            cv.put(
+                exp_r + 5,
+                c0 + 1,
+                f"Factor exposures: weighted avg score of {len(scored)} scored holding(s), "
+                "scale -1..+1",
+                C_DIM,
+            )
+        for idx, (factor, exposure) in enumerate(exposures.items()):
+            r = exp_r + 6 + idx
             if r > r1 - 1:
                 break
             col = C_GREEN if exposure > 0 else C_RED
-            bar_w = min(20, c1 - c0 - 30)
-            bar_len = int(abs(exposure) * bar_w)
+            bar_w = max(0, min(20, c1 - c0 - 30))
+            bar_len = int(min(1.0, abs(exposure)) * bar_w)
             bar = FULL * min(bar_len, bar_w)
             arrow = "↑" if exposure > 0 else "↓"
-            cv.put(r, c0 + 1, f"{arrow} {factor:<16}", col)
+            label = factor.replace("_", " ").title()
+            cv.put(r, c0 + 1, f"{arrow} {label:<16.16}", col)
             cv.put(r, c0 + 19, f"{bar:<{bar_w}}", col)
-            cv.put(r, c0 + 19 + bar_w + 1, f"{exposure:>+5.2f}σ", col)
+            cv.put(r, c0 + 19 + bar_w + 1, f"{exposure:>+5.2f}", col)
 
         # Sector rotation signal — real sector weights from current holdings,
         # blended with the macro regime detected from the active security's
         # real MacroContext. Momentum defaults to empty (no live sector-level
         # return series is wired in yet) so the tilt shown is regime-only;
         # that limitation is stated in the panel rather than left implicit.
-        rot_r = exp_r + 5 + len(self._EXPOSURES) + 2
+        rot_r = exp_r + 6 + max(1, len(exposures)) + 2
         if rot_r < r1 - 2:
             cv.put(rot_r, c0 + 1, "Sector Rotation Signal", C_ACCENT + BOLD)
             cv.hline(rot_r + 1, c0, c1)
@@ -1197,9 +1302,11 @@ class PortfolioPanel(_Panel):
                     )
                 else:
                     macro_ctx = sec.security.macro if sec and sec.security else None
-                    regime = MacroRegimeClassifier().classify(
-                        MacroConditions.from_context(macro_ctx)
-                    ).regime.value
+                    regime = (
+                        MacroRegimeClassifier()
+                        .classify(MacroConditions.from_context(macro_ctx))
+                        .regime.value
+                    )
                     tilts = SectorRotationEngine.recommend_sector_tilts(regime, {})
                     cv.put(
                         rot_r + 2,
@@ -1379,27 +1486,33 @@ class SOTPTowerPanel(_Panel):
         from iam.ui.sotp_tower import render_sotp_tower
         from iam.valuation.sotp import SOTP
 
-        # Use real segments if available, else mock
-        segments = getattr(sec.security, "qualitative", {}).get("segments", [])
-        if not segments:
-            from iam.ui.visualization_lab import mock_blk_segments
-
-            segments = mock_blk_segments()
-
-        # Compute SOTP data
-        damodaran = DamodaranEngine()
-        d_e = 0.5
-        if hasattr(sec.security, "balance_sheet"):
-            try:
-                d_e = sec.security.balance_sheet.debt_to_equity
-            except Exception:
-                pass
-
-        ke = damodaran.compute_cost_of_equity(segments, d_e)
-        result = SOTP.compute(segments, ke)
-
         cv.put(r0, c0 + 1, "Segment Enterprise Value Composition", C_ACCENT + BOLD)
         cv.hline(r0 + 1, c0, c1)
+
+        # Real segments only; no mock segments, no assumed leverage.
+        segments = (getattr(sec.security, "qualitative", None) or {}).get("segments", [])
+        if not segments:
+            cv.put(r0 + 2, c0 + 2, f"SOTP tower: n/a (no segment data for {sec.ticker})", C_DIM)
+            return
+        try:
+            d_e = _num(sec.security.balance_sheet.debt_to_equity)
+        except Exception:
+            d_e = None
+        if d_e is None:
+            cv.put(r0 + 2, c0 + 2, f"SOTP tower: n/a (no debt/equity for {sec.ticker})", C_DIM)
+            return
+
+        from iam.valuation.country_tax import company_marginal_tax
+
+        damodaran = DamodaranEngine()
+        q = getattr(sec.security, "qualitative", None) or {}
+        if q.get("tax_rate") is not None:
+            tax_rate = float(q["tax_rate"])
+        else:
+            tax_rate, _ = company_marginal_tax(sec.security)
+
+        ke = damodaran.compute_cost_of_equity(segments, d_e, tax_rate)
+        result = SOTP.compute(segments, ke)
 
         # Render ASCII tower
         tower = render_sotp_tower(result.segments)
@@ -1630,6 +1743,7 @@ class SwitchPanel(_Panel):
 #  TI-89 PROJECTION PANEL
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TI89Panel(_Panel):
     title = "TI-89 3D VALUATION PROJECTION"
 
@@ -1644,39 +1758,50 @@ class TI89Panel(_Panel):
         system_state: SystemState | None = None,
         ticks: int = 0,
     ) -> None:
+        if sec and self._load_failed(cv, r0, r1, c0, c1, sec):
+            return
         if not sec or not sec.pipeline_result:
             self._loading(cv, r0, r1, c0, c1, sec.ticker if sec else "N/A", ticks)
             return
-            
-        try:
-            from iam.ui.ti89_graph import generate_ti89_3d_wireframe
-        except ImportError:
-            cv.put(r0 + 2, c0 + 2, "Error: ti89_graph module not found", C_RED)
+
+        from iam.ui.ti89_graph import LEGEND, render_ti89_map
+        from iam.valuation.value_grid import build_value_grid
+
+        grid = build_value_grid(sec.pipeline_result)
+        cv.put(
+            r0 + 1,
+            c0 + 2,
+            "VALUATION MAP: value/share by growth (x) and discount rate (y)",
+            C_ACCENT + BOLD,
+        )
+        if grid is None:
+            cv.put(r0 + 3, c0 + 2, "n/a: needs an FCFE build-up (earnings, shares, price).", C_DIM)
             return
 
-        pr = sec.pipeline_result
-        intrinsic = getattr(pr.intrinsic, 'fair_value_to_price', 0) if pr.intrinsic else 0
-        relative = getattr(pr.relative, 'fair_value_to_price', 0) if pr.relative else 0
-        expectations = 0 # Default if reverse dcf to ratio fails
-        if pr.market_implied_engine and pr.market_implied_engine.implied:
-            vs_max = pr.market_implied_engine.implied.growth_vs_history_max
-            if vs_max and vs_max > 0:
-                expectations = max(-0.9, min(2.0, (1.0 / vs_max) - 1.0))
-                
-        art = generate_ti89_3d_wireframe(intrinsic or 0.0, relative or 0.0, expectations or 0.0, mode="tui")
-        
-        cv.put(r0 + 1, c0 + 2, "3D WIREFRAME PROJECTION", C_ACCENT + BOLD)
-        
-        lines = art.split("\n")
+        lines = render_ti89_map(grid)
         for i, line in enumerate(lines):
-            if r0 + 3 + i >= r1:
+            if r0 + 3 + i >= r1 - 3:
                 break
-            # Render in green (like old TI calculator)
-            cv.put(r0 + 3 + i, c0 + 5, line, "\x1b[38;2;0;0;139m\x1b[48;2;143;159;143m")
-            
+            # Dark blue on grey-green, like a TI-89 LCD.
+            cv.put(r0 + 3 + i, c0 + 2, line, "\x1b[38;2;0;0;139m\x1b[48;2;143;159;143m")
+        foot = r0 + 4 + len(lines)
+        if foot < r1:
+            cv.put(foot, c0 + 2, LEGEND[: c1 - c0 - 4], C_DIM)
+        if foot + 1 < r1:
+            mk = "  M = market-implied" if grid.market else ""
+            ref = f"price ${grid.price:,.2f}" if grid.price else f"our base ${grid.base[2]:,.2f}"
+            cv.put(
+                foot + 1,
+                c0 + 2,
+                f"B = our base (${grid.base[2]:,.2f}){mk}   reference: {ref}",
+                C_DIM,
+            )
+        lines = lines + ["", ""]
+
         # Add ML Lens status if possible
         try:
             from iam.ml.ml_lens import MLDiagnosticLens
+
             lens = MLDiagnosticLens()
             res = lens.compute(sec.security) if hasattr(sec, "security") else None
             if res and r0 + 4 + len(lines) < r1:
@@ -1684,12 +1809,13 @@ class TI89Panel(_Panel):
                 cv.put(r0 + 4 + len(lines), c0 + 2, f"ML Diagnostics: {res.narrative}", col)
         except Exception:
             pass
-            
+
         # Add Plugin status
         try:
             from iam.plugins.manager import PluginManager
+
             pm = PluginManager()
-            plugins = pm.list_plugins() if hasattr(pm, 'list_plugins') else []
+            plugins = pm.list_plugins() if hasattr(pm, "list_plugins") else []
             if r0 + 6 + len(lines) < r1:
                 cv.put(r0 + 6 + len(lines), c0 + 2, f"Active Plugins: {len(plugins)}", C_DIM)
         except Exception:
@@ -1730,7 +1856,8 @@ class AlphaTerminal:
 
     DEFAULT_WATCHLIST = ["TSLA", "MSFT", "AAPL", "NVDA", "META"]
 
-    def __init__(self) -> None:
+    def __init__(self, demo: bool = False) -> None:
+        self._demo = demo
         self._cfg = get_settings()
 
         # Apply display settings to the shared widget layer
@@ -1756,7 +1883,7 @@ class AlphaTerminal:
         self._canvas: Canvas | None = None
         self._ticks = 0
 
-        self._panels: dict[str, _Panel] = {
+        self._panels: dict[str, _PanelLike] = {
             "Watchlist": RealWatchlistPanel(self._watchlist, sec_lookup=self._get_sec),
             "Global Markets": GlobalMarketsPanel(),
             "Quick Recommendation": QuickRecPanel(),
@@ -1771,7 +1898,7 @@ class AlphaTerminal:
             "Factor Scoring": FactorPanel(),
             "Scenario & Thesis": ScenarioPanel(),
             "Backtest Efficacy": BacktestPanel(),
-            "Portfolio Overview": PortfolioPanel(),
+            "Portfolio Overview": PortfolioPanel(sec_lookup=self._get_sec),
             "Learning & Glossary": LearningPanel(),
             "Matrix Digital Rain": MatrixPanel(),
             "TI-89 3D Projection": TI89Panel(),
@@ -1973,16 +2100,16 @@ class AlphaTerminal:
             from iam.engine.composite import DEFAULT_WEIGHTS
             from iam.portfolio import Portfolio, Position
 
-            # 1. Load/Generate Default Portfolio
-            # Using current watchlist as base for holdings
+            # 1. Equal-weight MODEL portfolio of the watchlist. There is no
+            # holdings data source, so quantity/cost basis are not modelled:
+            # quantity is 0 and entry == current price (no P&L, no value).
             with self._lock:
-                watchlist = list(self._watchlist)
+                watchlist = list(self._watchlist)[:8]
 
             positions = []
-            for tkr in watchlist[:8]:  # Limit to first 8 for the mock/default
-                # Reuse the real sector if this ticker has already been
-                # fetched elsewhere (e.g. the active security or watchlist
-                # panel) — cheap and honest, no extra fetch, no fabrication.
+            for tkr in watchlist:
+                # Reuse real data only if this ticker was already fetched
+                # (loaded SecState, else the cached market quote).
                 with self._lock:
                     loaded = self._secs.get(tkr)
                 real_sector = (
@@ -1990,16 +2117,31 @@ class AlphaTerminal:
                     if loaded and loaded.security and getattr(loaded.security, "sector", None)
                     else None
                 )
+                price = loaded.price if loaded else None
+                if price is None:
+                    q = MKT.get_quote(tkr, refresh=False)
+                    if q is not None and q.last is not None and not q.stale:
+                        price = float(q.last)
+                px = price if price is not None else 0.0  # 0.0 == unknown, shown as n/a
+                band = (loaded.confidence if loaded else "").upper()
+                if band == "HIGH":
+                    conviction = "HIGH"
+                elif band in ("MEDIUM", "MODERATE"):
+                    conviction = "MODERATE"
+                elif band == "LOW":
+                    conviction = "LOW"
+                else:
+                    conviction = "UNRATED"
                 positions.append(
                     Position(
                         ticker=tkr,
                         name=tkr,
-                        quantity=1000,
-                        entry_price=100.0,
-                        current_price=110.0,
-                        weight=1.0 / len(watchlist[:8]),
+                        quantity=0.0,
+                        entry_price=px,
+                        current_price=px,
+                        weight=1.0 / len(watchlist),
                         sector=real_sector,
-                        conviction=random.choice(["HIGH", "MODERATE", "LOW"]),
+                        conviction=conviction,
                     )
                 )
             portfolio = Portfolio(positions=positions)
@@ -2036,24 +2178,22 @@ class AlphaTerminal:
 
     def _worker(self, ticker: str) -> None:
         try:
-            if _IAM_CORE:
+            if _IAM_CORE and not self._demo:
                 import numpy as np
 
                 sec = _fetch_security(ticker)
                 sr = _score(sec)
                 pr = _Pipeline().run(sec)
-                p = float(sec.market.price or 150.0)
-                hist = [p * random.uniform(0.97, 1.03) for _ in range(25)]
-                hist.append(p)
+                hist = self._real_history(ticker, sec)
 
                 # Phase 2: Background Terrain Generation
                 cols, rows = shutil.get_terminal_size()
                 tw = max(40, cols - MENU_W - 5)
                 th = max(12, rows - HDR_ROWS - FTR_ROWS - 10)
-                terrain = _render_dcf_surface(sec, width=tw, height=th)
+                terrain = _render_dcf_surface(sec, width=tw, height=th, report=pr)
 
                 # Topology Metrics
-                dcf_surface = DCFValuationSurface(sec)
+                dcf_surface = DCFValuationSurface(sec, report=pr)
                 z_grid = dcf_surface.generate_z_grid()
                 g_steps = np.linspace(
                     dcf_surface.x_min, dcf_surface.x_max, dcf_surface.grid_size
@@ -2074,10 +2214,53 @@ class AlphaTerminal:
                     st.loading = False
                     st.last_updated = datetime.now()
                     st.error = None
-            else:
+            elif self._demo:
+                # Demo mode: fill with labelled random mock data (visible banner shown).
                 self._mock_load(ticker)
+            else:
+                # Core packages unavailable and demo not requested:
+                # surface the import error; never emit random data.
+                err_msg = _IAM_IMPORT_ERROR or "iam core packages unavailable"
+                with self._lock:
+                    st_err = self._secs.get(ticker)
+                    if st_err is not None:
+                        st_err.security = None
+                        st_err.score_result = None
+                        st_err.pipeline_result = None
+                        st_err.history = []
+                        st_err.loading = False
+                        st_err.last_updated = datetime.now()
+                        st_err.error = err_msg
         except Exception as e:
-            self._mock_load(ticker, error=str(e))
+            if _IAM_CORE or not self._demo:
+                # Real build or non-demo: never substitute fake data.
+                with self._lock:
+                    st_err = self._secs.get(ticker)
+                    if st_err is not None:
+                        st_err.security = None
+                        st_err.score_result = None
+                        st_err.pipeline_result = None
+                        st_err.history = []
+                        st_err.loading = False
+                        st_err.last_updated = datetime.now()
+                        st_err.error = str(e) or type(e).__name__
+            else:
+                self._mock_load(ticker, error=str(e))
+
+    @staticmethod
+    def _real_history(ticker: str, sec: Any) -> list[float]:
+        """Real intraday history; never synthesised. Blocking (worker thread)."""
+        try:
+            q = MKT._fetch_one(ticker, want_history=True)
+            if q is not None and not q.stale and q.history:
+                return [float(h) for h in q.history]
+        except Exception:
+            pass
+        try:
+            p = sec.market.price
+            return [float(p)] if p else []
+        except Exception:
+            return []
 
     def _mock_load(self, ticker: str, error: str | None = None) -> None:
         time.sleep(random.uniform(0.3, 0.9))
@@ -2100,21 +2283,23 @@ class AlphaTerminal:
         self._async_load(self._active)
 
     def _tick_prices(self) -> None:
-        """Simulate live price ticks for sparkline animation."""
+        """Refresh the active price from the real (cached) quote. Never simulates."""
         with self._lock:
             st = self._secs.get(self._active)
-            if st and not st.loading and st.security:
-                try:
-                    p = st.security.market.price or 150.0
-                    from iam.engine.simulations import simulate_price_tick
-
-                    new_price = simulate_price_tick(p)
+            if not st or st.loading or not st.security or st.is_demo:
+                return
+            try:
+                q = MKT.get_quote(self._active)
+                if q is None or q.stale or q.last is None:
+                    return
+                new_price = float(q.last)
+                if st.security.market.price != new_price:
                     st.security.market.price = new_price
                     st.history.append(new_price)
                     if len(st.history) > 50:
                         st.history = st.history[-50:]
-                except Exception:
-                    pass
+            except Exception:
+                pass
 
     # ── Interactive flows ─────────────────────────────────────────────────
 
@@ -2251,6 +2436,11 @@ class AlphaTerminal:
         render_ribbon(cv, 1, w, self._ticks)
         cv.put(1, 0, V2, C_ACCENT)
         cv.put(1, w - 1, V2, C_ACCENT)
+        # Persistent DEMO banner — shown on every screen when demo mode is active.
+        if self._demo:
+            # Right-aligned on the ribbon row so it is visible on every screen.
+            banner = "[ DEMO MODE — RANDOM ]"
+            cv.put(1, w - 1 - len(banner) - 1, banner, C_RED + BOLD)
         # Separator
         cv.put(2, 0, MID_L + H2 * (w - 2) + MID_R, C_ACCENT)
 
@@ -2324,8 +2514,22 @@ class AlphaTerminal:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def main():
-    terminal = AlphaTerminal()
+def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Institutional Alpha TUI")
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        default=False,
+        help=(
+            "Run with labelled random mock data (visible banner on every screen). "
+            "Without this flag, missing core packages surface as an error state "
+            "instead of generating random data."
+        ),
+    )
+    args, _ = parser.parse_known_args()
+    terminal = AlphaTerminal(demo=args.demo)
     terminal.start()
 
 

@@ -15,11 +15,79 @@ your DCF valuations become immune to short-term market noise.
 
 from __future__ import annotations
 
+import json
 import logging
+import os
+import re
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Damodaran country/regional ERP datasets (ctryprem.xlsx) shipped as dated JSON files
+# ``reference/country_erp_YYYY-MM.json``. The newest dated file is the default;
+# older files stay so earlier dates remain reproducible. Re-exported as
+# iam.valuation.country_risk.load_country_erp.
+COUNTRY_ERP_ENV = "IAM_COUNTRY_ERP_FILE"
+_REFERENCE_DIR = Path(__file__).resolve().parent / "reference"
+_COUNTRY_ERP_NAME = re.compile(r"^country_erp_(\d{4})-(\d{2})\.json$")
+# Damodaran statutory (marginal) corporate tax rates by country, same dated-file pattern.
+COUNTRY_TAX_ENV = "IAM_COUNTRY_TAX_FILE"
+_COUNTRY_TAX_NAME = re.compile(r"^country_tax_(\d{4})-(\d{2})\.json$")
+
+
+def _latest_dated_file(folder: Path, pattern: re.Pattern[str], label: str) -> Path:
+    dated = [
+        (int(m.group(1)), int(m.group(2)), f)
+        for f in folder.iterdir()
+        if (m := pattern.match(f.name))
+    ]
+    if not dated:
+        raise FileNotFoundError(f"no {label} file in {folder}")
+    return max(dated, key=lambda t: (t[0], t[1]))[2]
+
+
+def latest_country_erp_file(directory: str | os.PathLike[str] | None = None) -> Path:
+    """The newest ``country_erp_YYYY-MM.json`` in ``directory`` (default: the packaged folder).
+
+    Names that do not match the dated pattern are ignored.
+
+    Raises:
+        FileNotFoundError: no dated country ERP file exists in the directory.
+    """
+    folder = Path(directory) if directory is not None else _REFERENCE_DIR
+    return _latest_dated_file(folder, _COUNTRY_ERP_NAME, "country_erp_YYYY-MM.json")
+
+
+def latest_country_tax_file(directory: str | os.PathLike[str] | None = None) -> Path:
+    """The newest ``country_tax_YYYY-MM.json`` in ``directory`` (default: the packaged folder).
+
+    Raises:
+        FileNotFoundError: no dated country tax file exists in the directory.
+    """
+    folder = Path(directory) if directory is not None else _REFERENCE_DIR
+    return _latest_dated_file(folder, _COUNTRY_TAX_NAME, "country_tax_YYYY-MM.json")
+
+
+@lru_cache(maxsize=8)
+def _read_cached(path: str) -> dict[str, Any]:
+    with open(path, encoding="utf-8") as fh:
+        data: dict[str, Any] = json.load(fh)
+    return data
+
+
+def read_country_erp(path: str | os.PathLike[str] | None = None) -> dict[str, Any]:
+    """Load the country ERP file: explicit path, env override, else the newest packaged file."""
+    chosen = path or os.environ.get(COUNTRY_ERP_ENV) or latest_country_erp_file()
+    return _read_cached(str(Path(chosen).resolve()))
+
+
+def read_country_tax(path: str | os.PathLike[str] | None = None) -> dict[str, Any]:
+    """Load the country tax file: explicit path, env override, else the newest packaged file."""
+    chosen = path or os.environ.get(COUNTRY_TAX_ENV) or latest_country_tax_file()
+    return _read_cached(str(Path(chosen).resolve()))
 
 
 class DamodaranProviderError(Exception):
@@ -35,6 +103,8 @@ class MacroBaselines:
     risk_free_rate: float
     implied_erp: float
     mature_market_premium: float
+    rf_source: str
+    erp_source: str
 
 
 class DamodaranProvider:
@@ -101,14 +171,17 @@ class DamodaranProvider:
         "latam": "latin_america",
     }
 
-    # Damodaran's Implied Equity Risk Premium (Updated Jan 2026)
-    # This is the forward-looking market risk premium derived from current S&P 500 valuation
-    # Unlike historical ERP (5.5-6%), Implied ERP reacts to market dislocations
-    CURRENT_IMPLIED_ERP = 0.046  # 4.6%
+    # US equity risk premium (rating-based) from the newest shipped country-ERP file.
+    # Single source of truth: iam/data/reference/country_erp_YYYY-MM.json "us_erp"
+    # (mature-market ERP plus the US default spread; distinct from the Aaa mature ERP).
+    CURRENT_IMPLIED_ERP = float(read_country_erp()["us_erp"])
 
     # Risk-Free Rate (10-Year US Treasury)
     # This should be updated monthly from FRED API or Treasury website
     CURRENT_RISK_FREE_RATE = 0.0425  # 4.25%
+    # Highest 10-year Treasury yield on record is ~15.8% (Sep 1981). A quote above
+    # 20% is a scale error (e.g. the old x10 convention, 42.5), not a real yield.
+    MAX_PLAUSIBLE_YIELD_PCT = 20.0
 
     # Unlevered Industry Betas (Damodaran Jan 2026)
     # This is the pure business risk of each industry, stripped of debt effects
@@ -192,32 +265,54 @@ class DamodaranProvider:
     }
 
     @classmethod
+    def get_risk_free_rate_with_source(cls) -> tuple[float, str]:
+        """
+        Returns the current 10-Year US Treasury yield and its source.
+
+        Uses a single cached live ^TNX quote. If no live value is available
+        (offline, rate-limited) it returns the documented baseline
+        ``CURRENT_RISK_FREE_RATE`` — never mock/random market data.
+        """
+        try:
+            from iam.data.markets import fetch_live_quote
+
+            q = fetch_live_quote("^TNX")
+            if q is not None and q.last is not None:
+                # The market layer passes Yahoo's ^TNX through in percent
+                # (5.24 means 5.24%). Guessing the scale from the magnitude
+                # misread every yield under 2.5% as 10x too high, so convert
+                # once and reject anything outside the historical range.
+                pct = float(q.last)
+                if 0.0 < pct <= cls.MAX_PLAUSIBLE_YIELD_PCT:
+                    return pct / 100.0, "live ^TNX"
+        except Exception:
+            pass
+        return (
+            cls.CURRENT_RISK_FREE_RATE,
+            f"baseline {cls.CURRENT_RISK_FREE_RATE*100:.2f}% (offline)",
+        )
+
+    @classmethod
     def get_risk_free_rate(cls) -> float:
         """
         Returns the current 10-Year US Treasury yield.
 
-        Fetches live data from the markets data layer.
+        Uses a single cached live ^TNX quote. If no live value is available
+        (offline, rate-limited) it returns the documented baseline
+        ``CURRENT_RISK_FREE_RATE`` — never mock/random market data.
         """
-        try:
-            from iam.data.markets import fetch_market_snapshot
-
-            snapshot = fetch_market_snapshot()
-            q = snapshot.get("^TNX")
-            if q and q.last is not None:
-                # rates might be provided as whole numbers (e.g. 4.2 for 4.2%)
-                return float(q.last) / 100.0 if q.last > 1.0 else float(q.last)
-            return cls.CURRENT_RISK_FREE_RATE
-        except Exception:
-            # Fallback to hardcoded value if live fetch fails
-            return cls.CURRENT_RISK_FREE_RATE
+        return cls.get_risk_free_rate_with_source()[0]
 
     @classmethod
     def get_macro_state(cls) -> MacroBaselines:
         """Synthesizes the complete macro environment."""
+        rf_rate, rf_source = cls.get_risk_free_rate_with_source()
         return MacroBaselines(
-            risk_free_rate=cls.get_risk_free_rate(),
+            risk_free_rate=rf_rate,
             implied_erp=cls.CURRENT_IMPLIED_ERP,
             mature_market_premium=cls.CURRENT_IMPLIED_ERP,
+            rf_source=rf_source,
+            erp_source="Damodaran implied ERP baseline (CURRENT_IMPLIED_ERP)",
         )
 
     @classmethod
@@ -313,6 +408,24 @@ class DamodaranProvider:
             >>> # u_beta is 0.59 (very low pure business risk)
             >>> # But a leveraged firm's levered beta might be 1.1 due to debt
         """
+        found = cls.find_industry_unlevered_beta(sector, industry)
+        if found is not None:
+            return found
+
+        # Default: Global average unlevered beta
+        logger.warning(
+            f"Could not find unlevered beta for {sector} / {industry}; using global default (0.85)"
+        )
+        return 0.85
+
+    @classmethod
+    def find_industry_unlevered_beta(cls, sector: str | None, industry: str | None) -> float | None:
+        """Look up the industry unlevered beta; ``None`` when the industry is not in the table.
+
+        Unlike :meth:`get_industry_unlevered_beta` this never substitutes a global
+        default, so callers that must not invent a beta (the bottom-up cost of
+        equity) can report "insufficient data" instead.
+        """
         sector_clean = sector.lower().strip() if sector else ""
         industry_clean = industry.lower().strip() if industry else ""
 
@@ -333,15 +446,10 @@ class DamodaranProvider:
                     if key in term or term in key:
                         logger.debug(f"[BETA] Found substring match for '{term}': {beta}")
                         return beta
-
-        # Default: Global average unlevered beta
-        logger.warning(
-            f"Could not find unlevered beta for {sector} / {industry}; using global default (0.85)"
-        )
-        return 0.85
+        return None
 
     @staticmethod
-    def relever_beta(unlevered_beta: float, debt_to_equity: float, tax_rate: float = 0.21) -> float:
+    def relever_beta(unlevered_beta: float, debt_to_equity: float, tax_rate: float) -> float:
         """
         Convert unlevered (asset) beta to levered (equity) beta.
 
@@ -360,7 +468,7 @@ class DamodaranProvider:
         Args:
             unlevered_beta: Industry unlevered beta
             debt_to_equity: Company's debt-to-market-cap ratio (D/E)
-            tax_rate: Corporate tax rate (default 21% for US)
+            tax_rate: Corporate tax rate
 
         Returns:
             Levered beta reflecting current capital structure

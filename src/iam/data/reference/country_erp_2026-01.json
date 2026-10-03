@@ -1,0 +1,1000 @@
+{
+ "source": "Damodaran, Country Default Spreads and Risk Premiums (ctryprem.xlsx), https://pages.stern.nyu.edu/~adamodar/pc/datasets/ctryprem.xlsx",
+ "as_of": "2026-01-01 (sovereign ratings updated 2026-02-16)",
+ "downloaded": "2026-10-02",
+ "method": "Country ERP = mature market ERP + rating-based default spread x relative equity volatility. Regional values are GDP-weighted (2024 GDP).",
+ "mature_market_erp": 0.0423,
+ "us_erp": 0.0446,
+ "relative_equity_volatility": 1.523378,
+ "regions": {
+  "Africa": {
+   "erp": 0.119493,
+   "crp": 0.077193,
+   "gdp_musd_2024": 2340875
+  },
+  "Asia": {
+   "erp": 0.057223,
+   "crp": 0.014923,
+   "gdp_musd_2024": 34731689
+  },
+  "Australia & New Zealand": {
+   "erp": 0.042341,
+   "crp": 4.1e-05,
+   "gdp_musd_2024": 2018609
+  },
+  "Caribbean": {
+   "erp": 0.117177,
+   "crp": 0.074877,
+   "gdp_musd_2024": 347814
+  },
+  "Central and South America": {
+   "erp": 0.084628,
+   "crp": 0.042328,
+   "gdp_musd_2024": 6538487
+  },
+  "Eastern Europe": {
+   "erp": 0.075777,
+   "crp": 0.033477,
+   "gdp_musd_2024": 3491477
+  },
+  "Middle East": {
+   "erp": 0.062367,
+   "crp": 0.020067,
+   "gdp_musd_2024": 3565018
+  },
+  "North America": {
+   "erp": 0.044465,
+   "crp": 0.002165,
+   "gdp_musd_2024": 30994593
+  },
+  "Western Europe": {
+   "erp": 0.052665,
+   "crp": 0.010365,
+   "gdp_musd_2024": 23561726
+  }
+ },
+ "countries": {
+  "Abu Dhabi": {
+   "region": "Middle East",
+   "moodys": "Aa2",
+   "erp": 0.048691,
+   "crp": 0.006391
+  },
+  "Albania": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "Ba3",
+   "erp": 0.08886,
+   "crp": 0.04656
+  },
+  "Andorra (Principality of)": {
+   "region": "Western Europe",
+   "moodys": "Baa1",
+   "erp": 0.062994,
+   "crp": 0.020694
+  },
+  "Angola": {
+   "region": "Africa",
+   "moodys": "B3",
+   "erp": 0.126443,
+   "crp": 0.084143
+  },
+  "Argentina": {
+   "region": "Central and South America",
+   "moodys": "Caa1",
+   "erp": 0.139377,
+   "crp": 0.097077
+  },
+  "Armenia": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "Ba3",
+   "erp": 0.08886,
+   "crp": 0.04656
+  },
+  "Aruba": {
+   "region": "Caribbean",
+   "moodys": "Baa3",
+   "erp": 0.070754,
+   "crp": 0.028454
+  },
+  "Australia": {
+   "region": "Australia & New Zealand",
+   "moodys": "Aaa",
+   "erp": 0.0423,
+   "crp": 0
+  },
+  "Austria": {
+   "region": "Western Europe",
+   "moodys": "Aa1",
+   "erp": 0.045855,
+   "crp": 0.003555
+  },
+  "Azerbaijan": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "Baa3",
+   "erp": 0.070754,
+   "crp": 0.028454
+  },
+  "Bahamas": {
+   "region": "Caribbean",
+   "moodys": "B1",
+   "erp": 0.100577,
+   "crp": 0.058277
+  },
+  "Bahrain": {
+   "region": "Middle East",
+   "moodys": "B2",
+   "erp": 0.11351,
+   "crp": 0.07121
+  },
+  "Bangladesh": {
+   "region": "Asia",
+   "moodys": "B2",
+   "erp": 0.11351,
+   "crp": 0.07121
+  },
+  "Barbados": {
+   "region": "Caribbean",
+   "moodys": "B2",
+   "erp": 0.11351,
+   "crp": 0.07121
+  },
+  "Belarus": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "C",
+   "erp": 0.308891,
+   "crp": 0.266591
+  },
+  "Belgium": {
+   "region": "Western Europe",
+   "moodys": "Aa3",
+   "erp": 0.05006,
+   "crp": 0.00776
+  },
+  "Belize": {
+   "region": "Central and South America",
+   "moodys": "Caa1",
+   "erp": 0.139377,
+   "crp": 0.097077
+  },
+  "Benin": {
+   "region": "Africa",
+   "moodys": "B1",
+   "erp": 0.100577,
+   "crp": 0.058277
+  },
+  "Bermuda": {
+   "region": "Caribbean",
+   "moodys": "A2",
+   "erp": 0.053255,
+   "crp": 0.010955
+  },
+  "Bolivia": {
+   "region": "Central and South America",
+   "moodys": "Ca",
+   "erp": 0.197654,
+   "crp": 0.155354
+  },
+  "Bosnia and Herzegovina": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "B3",
+   "erp": 0.126443,
+   "crp": 0.084143
+  },
+  "Botswana": {
+   "region": "Africa",
+   "moodys": "Baa1",
+   "erp": 0.062994,
+   "crp": 0.020694
+  },
+  "Brazil": {
+   "region": "Central and South America",
+   "moodys": "Ba1",
+   "erp": 0.07471,
+   "crp": 0.03241
+  },
+  "Bulgaria": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "Baa1",
+   "erp": 0.062994,
+   "crp": 0.020694
+  },
+  "Burkina Faso": {
+   "region": "Africa",
+   "moodys": "Caa1",
+   "erp": 0.139377,
+   "crp": 0.097077
+  },
+  "Cambodia": {
+   "region": "Asia",
+   "moodys": "B2",
+   "erp": 0.11351,
+   "crp": 0.07121
+  },
+  "Cameroon": {
+   "region": "Africa",
+   "moodys": "Caa1",
+   "erp": 0.139377,
+   "crp": 0.097077
+  },
+  "Canada": {
+   "region": "North America",
+   "moodys": "Aaa",
+   "erp": 0.0423,
+   "crp": 0
+  },
+  "Cape Verde": {
+   "region": "Africa",
+   "moodys": "B2",
+   "erp": 0.11351,
+   "crp": 0.07121
+  },
+  "Cayman Islands": {
+   "region": "Caribbean",
+   "moodys": "Aa3",
+   "erp": 0.05006,
+   "crp": 0.00776
+  },
+  "Chile": {
+   "region": "Central and South America",
+   "moodys": "A2",
+   "erp": 0.053255,
+   "crp": 0.010955
+  },
+  "China": {
+   "region": "Asia",
+   "moodys": "A1",
+   "erp": 0.051429,
+   "crp": 0.009129
+  },
+  "Colombia": {
+   "region": "Central and South America",
+   "moodys": "Baa3",
+   "erp": 0.070754,
+   "crp": 0.028454
+  },
+  "Congo (Democratic Republic of)": {
+   "region": "Africa",
+   "moodys": "B3",
+   "erp": 0.126443,
+   "crp": 0.084143
+  },
+  "Congo (Republic of)": {
+   "region": "Africa",
+   "moodys": "Caa2",
+   "erp": 0.158853,
+   "crp": 0.116553
+  },
+  "Cook Islands": {
+   "region": "Australia & New Zealand",
+   "moodys": "B1",
+   "erp": 0.100577,
+   "crp": 0.058277
+  },
+  "Costa Rica": {
+   "region": "Central and South America",
+   "moodys": "Ba2",
+   "erp": 0.081253,
+   "crp": 0.038953
+  },
+  "C\u00f4te d'Ivoire": {
+   "region": "Africa",
+   "moodys": "Ba2",
+   "erp": 0.081253,
+   "crp": 0.038953
+  },
+  "Croatia": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "A3",
+   "erp": 0.05782,
+   "crp": 0.01552
+  },
+  "Cuba": {
+   "region": "Caribbean",
+   "moodys": "Ca",
+   "erp": 0.197654,
+   "crp": 0.155354
+  },
+  "Curacao": {
+   "region": "Caribbean",
+   "moodys": "Baa3",
+   "erp": 0.070754,
+   "crp": 0.028454
+  },
+  "Cyprus": {
+   "region": "Western Europe",
+   "moodys": "A3",
+   "erp": 0.05782,
+   "crp": 0.01552
+  },
+  "Czech Republic": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "Aa3",
+   "erp": 0.05006,
+   "crp": 0.00776
+  },
+  "Denmark": {
+   "region": "Western Europe",
+   "moodys": "Aaa",
+   "erp": 0.0423,
+   "crp": 0
+  },
+  "Dominican Republic": {
+   "region": "Caribbean",
+   "moodys": "Ba2",
+   "erp": 0.081253,
+   "crp": 0.038953
+  },
+  "Ecuador": {
+   "region": "Central and South America",
+   "moodys": "Caa3",
+   "erp": 0.171787,
+   "crp": 0.129487
+  },
+  "Egypt": {
+   "region": "Africa",
+   "moodys": "Caa1",
+   "erp": 0.139377,
+   "crp": 0.097077
+  },
+  "El Salvador": {
+   "region": "Central and South America",
+   "moodys": "B3",
+   "erp": 0.126443,
+   "crp": 0.084143
+  },
+  "Estonia": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "A1",
+   "erp": 0.051429,
+   "crp": 0.009129
+  },
+  "Ethiopia": {
+   "region": "Africa",
+   "moodys": "Caa2",
+   "erp": 0.158853,
+   "crp": 0.116553
+  },
+  "Fiji": {
+   "region": "Asia",
+   "moodys": "B1",
+   "erp": 0.100577,
+   "crp": 0.058277
+  },
+  "Finland": {
+   "region": "Western Europe",
+   "moodys": "Aa1",
+   "erp": 0.045855,
+   "crp": 0.003555
+  },
+  "France": {
+   "region": "Western Europe",
+   "moodys": "Aa3",
+   "erp": 0.05006,
+   "crp": 0.00776
+  },
+  "Gabon": {
+   "region": "Africa",
+   "moodys": "Caa2",
+   "erp": 0.158853,
+   "crp": 0.116553
+  },
+  "Georgia": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "Ba2",
+   "erp": 0.081253,
+   "crp": 0.038953
+  },
+  "Germany": {
+   "region": "Western Europe",
+   "moodys": "Aaa",
+   "erp": 0.0423,
+   "crp": 0
+  },
+  "Ghana": {
+   "region": "Africa",
+   "moodys": "Caa1",
+   "erp": 0.139377,
+   "crp": 0.097077
+  },
+  "Greece": {
+   "region": "Western Europe",
+   "moodys": "Baa3",
+   "erp": 0.070754,
+   "crp": 0.028454
+  },
+  "Guatemala": {
+   "region": "Central and South America",
+   "moodys": "Ba1",
+   "erp": 0.07471,
+   "crp": 0.03241
+  },
+  "Guernsey (States of)": {
+   "region": "Western Europe",
+   "moodys": "A1",
+   "erp": 0.051429,
+   "crp": 0.009129
+  },
+  "Honduras": {
+   "region": "Central and South America",
+   "moodys": "B1",
+   "erp": 0.100577,
+   "crp": 0.058277
+  },
+  "Hong Kong": {
+   "region": "Asia",
+   "moodys": "Aa3",
+   "erp": 0.05006,
+   "crp": 0.00776
+  },
+  "Hungary": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "Baa2",
+   "erp": 0.06695,
+   "crp": 0.02465
+  },
+  "Iceland": {
+   "region": "Western Europe",
+   "moodys": "A1",
+   "erp": 0.051429,
+   "crp": 0.009129
+  },
+  "India": {
+   "region": "Asia",
+   "moodys": "Baa3",
+   "erp": 0.070754,
+   "crp": 0.028454
+  },
+  "Indonesia": {
+   "region": "Asia",
+   "moodys": "Baa2",
+   "erp": 0.06695,
+   "crp": 0.02465
+  },
+  "Iraq": {
+   "region": "Middle East",
+   "moodys": "Caa1",
+   "erp": 0.139377,
+   "crp": 0.097077
+  },
+  "Ireland": {
+   "region": "Western Europe",
+   "moodys": "Aa3",
+   "erp": 0.05006,
+   "crp": 0.00776
+  },
+  "Isle of Man": {
+   "region": "Western Europe",
+   "moodys": "Aa3",
+   "erp": 0.05006,
+   "crp": 0.00776
+  },
+  "Israel": {
+   "region": "Middle East",
+   "moodys": "Baa1",
+   "erp": 0.062994,
+   "crp": 0.020694
+  },
+  "Italy": {
+   "region": "Western Europe",
+   "moodys": "Baa2",
+   "erp": 0.06695,
+   "crp": 0.02465
+  },
+  "Jamaica": {
+   "region": "Caribbean",
+   "moodys": "Ba3",
+   "erp": 0.08886,
+   "crp": 0.04656
+  },
+  "Japan": {
+   "region": "Asia",
+   "moodys": "A1",
+   "erp": 0.051429,
+   "crp": 0.009129
+  },
+  "Jersey (States of)": {
+   "region": "Western Europe",
+   "moodys": "Aa3",
+   "erp": 0.05006,
+   "crp": 0.00776
+  },
+  "Jordan": {
+   "region": "Middle East",
+   "moodys": "Ba3",
+   "erp": 0.08886,
+   "crp": 0.04656
+  },
+  "Kazakhstan": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "Baa1",
+   "erp": 0.062994,
+   "crp": 0.020694
+  },
+  "Kenya": {
+   "region": "Africa",
+   "moodys": "B3",
+   "erp": 0.126443,
+   "crp": 0.084143
+  },
+  "Korea": {
+   "region": "Asia",
+   "moodys": "Aa2",
+   "erp": 0.048691,
+   "crp": 0.006391
+  },
+  "Kuwait": {
+   "region": "Middle East",
+   "moodys": "A1",
+   "erp": 0.051429,
+   "crp": 0.009129
+  },
+  "Kyrgyzstan": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "B3",
+   "erp": 0.126443,
+   "crp": 0.084143
+  },
+  "Laos": {
+   "region": "Asia",
+   "moodys": "Caa2",
+   "erp": 0.158853,
+   "crp": 0.116553
+  },
+  "Latvia": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "A3",
+   "erp": 0.05782,
+   "crp": 0.01552
+  },
+  "Lebanon": {
+   "region": "Middle East",
+   "moodys": "C",
+   "erp": 0.308891,
+   "crp": 0.266591
+  },
+  "Liechtenstein": {
+   "region": "Western Europe",
+   "moodys": "Aaa",
+   "erp": 0.0423,
+   "crp": 0
+  },
+  "Lithuania": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "A2",
+   "erp": 0.053255,
+   "crp": 0.010955
+  },
+  "Luxembourg": {
+   "region": "Western Europe",
+   "moodys": "Aaa",
+   "erp": 0.0423,
+   "crp": 0
+  },
+  "Macao": {
+   "region": "Asia",
+   "moodys": "Aa3",
+   "erp": 0.05006,
+   "crp": 0.00776
+  },
+  "Macedonia": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "Ba3",
+   "erp": 0.08886,
+   "crp": 0.04656
+  },
+  "Malaysia": {
+   "region": "Asia",
+   "moodys": "A3",
+   "erp": 0.05782,
+   "crp": 0.01552
+  },
+  "Maldives": {
+   "region": "Asia",
+   "moodys": "Caa2",
+   "erp": 0.158853,
+   "crp": 0.116553
+  },
+  "Mali": {
+   "region": "Africa",
+   "moodys": "Caa2",
+   "erp": 0.158853,
+   "crp": 0.116553
+  },
+  "Malta": {
+   "region": "Western Europe",
+   "moodys": "A2",
+   "erp": 0.053255,
+   "crp": 0.010955
+  },
+  "Mauritius": {
+   "region": "Africa",
+   "moodys": "Baa3",
+   "erp": 0.070754,
+   "crp": 0.028454
+  },
+  "Mexico": {
+   "region": "Central and South America",
+   "moodys": "Baa2",
+   "erp": 0.06695,
+   "crp": 0.02465
+  },
+  "Moldova": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "B3",
+   "erp": 0.126443,
+   "crp": 0.084143
+  },
+  "Mongolia": {
+   "region": "Asia",
+   "moodys": "B1",
+   "erp": 0.100577,
+   "crp": 0.058277
+  },
+  "Montenegro": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "B1",
+   "erp": 0.100577,
+   "crp": 0.058277
+  },
+  "Montserrat": {
+   "region": "Caribbean",
+   "moodys": "Baa3",
+   "erp": 0.070754,
+   "crp": 0.028454
+  },
+  "Morocco": {
+   "region": "Africa",
+   "moodys": "Ba1",
+   "erp": 0.07471,
+   "crp": 0.03241
+  },
+  "Mozambique": {
+   "region": "Africa",
+   "moodys": "Caa3",
+   "erp": 0.171787,
+   "crp": 0.129487
+  },
+  "Namibia": {
+   "region": "Africa",
+   "moodys": "B1",
+   "erp": 0.100577,
+   "crp": 0.058277
+  },
+  "Nepal": {
+   "region": "Asia",
+   "moodys": "Ba3",
+   "erp": 0.08886,
+   "crp": 0.04656
+  },
+  "Netherlands": {
+   "region": "Western Europe",
+   "moodys": "Aaa",
+   "erp": 0.0423,
+   "crp": 0
+  },
+  "New Zealand": {
+   "region": "Australia & New Zealand",
+   "moodys": "Aaa",
+   "erp": 0.0423,
+   "crp": 0
+  },
+  "Nicaragua": {
+   "region": "Central and South America",
+   "moodys": "B2",
+   "erp": 0.11351,
+   "crp": 0.07121
+  },
+  "Niger": {
+   "region": "Africa",
+   "moodys": "Caa3",
+   "erp": 0.171787,
+   "crp": 0.129487
+  },
+  "Nigeria": {
+   "region": "Africa",
+   "moodys": "B3",
+   "erp": 0.126443,
+   "crp": 0.084143
+  },
+  "Norway": {
+   "region": "Western Europe",
+   "moodys": "Aaa",
+   "erp": 0.0423,
+   "crp": 0
+  },
+  "Oman": {
+   "region": "Middle East",
+   "moodys": "Baa3",
+   "erp": 0.070754,
+   "crp": 0.028454
+  },
+  "Pakistan": {
+   "region": "Asia",
+   "moodys": "Caa1",
+   "erp": 0.139377,
+   "crp": 0.097077
+  },
+  "Panama": {
+   "region": "Central and South America",
+   "moodys": "Baa3",
+   "erp": 0.070754,
+   "crp": 0.028454
+  },
+  "Papua New Guinea": {
+   "region": "Asia",
+   "moodys": "B2",
+   "erp": 0.11351,
+   "crp": 0.07121
+  },
+  "Paraguay": {
+   "region": "Central and South America",
+   "moodys": "Baa3",
+   "erp": 0.070754,
+   "crp": 0.028454
+  },
+  "Peru": {
+   "region": "Central and South America",
+   "moodys": "Baa1",
+   "erp": 0.062994,
+   "crp": 0.020694
+  },
+  "Philippines": {
+   "region": "Asia",
+   "moodys": "Baa2",
+   "erp": 0.06695,
+   "crp": 0.02465
+  },
+  "Poland": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "A2",
+   "erp": 0.053255,
+   "crp": 0.010955
+  },
+  "Portugal": {
+   "region": "Western Europe",
+   "moodys": "A3",
+   "erp": 0.05782,
+   "crp": 0.01552
+  },
+  "Qatar": {
+   "region": "Middle East",
+   "moodys": "Aa2",
+   "erp": 0.048691,
+   "crp": 0.006391
+  },
+  "Ras Al Khaimah (Emirate of)": {
+   "region": "Middle East",
+   "moodys": "A3",
+   "erp": 0.05782,
+   "crp": 0.01552
+  },
+  "Romania": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "Baa3",
+   "erp": 0.070754,
+   "crp": 0.028454
+  },
+  "Rwanda": {
+   "region": "Africa",
+   "moodys": "B2",
+   "erp": 0.11351,
+   "crp": 0.07121
+  },
+  "Saudi Arabia": {
+   "region": "Middle East",
+   "moodys": "Aa3",
+   "erp": 0.05006,
+   "crp": 0.00776
+  },
+  "Senegal": {
+   "region": "Africa",
+   "moodys": "Caa1",
+   "erp": 0.139377,
+   "crp": 0.097077
+  },
+  "Serbia": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "Ba2",
+   "erp": 0.081253,
+   "crp": 0.038953
+  },
+  "Sharjah": {
+   "region": "Middle East",
+   "moodys": "Ba1",
+   "erp": 0.07471,
+   "crp": 0.03241
+  },
+  "Singapore": {
+   "region": "Asia",
+   "moodys": "Aaa",
+   "erp": 0.0423,
+   "crp": 0
+  },
+  "Slovakia": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "A3",
+   "erp": 0.05782,
+   "crp": 0.01552
+  },
+  "Slovenia": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "A3",
+   "erp": 0.05782,
+   "crp": 0.01552
+  },
+  "Solomon Islands": {
+   "region": "Asia",
+   "moodys": "Caa1",
+   "erp": 0.139377,
+   "crp": 0.097077
+  },
+  "South Africa": {
+   "region": "Africa",
+   "moodys": "Ba2",
+   "erp": 0.081253,
+   "crp": 0.038953
+  },
+  "Spain": {
+   "region": "Western Europe",
+   "moodys": "A3",
+   "erp": 0.05782,
+   "crp": 0.01552
+  },
+  "Sri Lanka": {
+   "region": "Asia",
+   "moodys": "Ca",
+   "erp": 0.197654,
+   "crp": 0.155354
+  },
+  "St. Maarten": {
+   "region": "Caribbean",
+   "moodys": "Ba2",
+   "erp": 0.081253,
+   "crp": 0.038953
+  },
+  "St. Vincent & the Grenadines": {
+   "region": "Caribbean",
+   "moodys": "B3",
+   "erp": 0.126443,
+   "crp": 0.084143
+  },
+  "Suriname": {
+   "region": "Central and South America",
+   "moodys": "Caa1",
+   "erp": 0.139377,
+   "crp": 0.097077
+  },
+  "Swaziland": {
+   "region": "Africa",
+   "moodys": "B2",
+   "erp": 0.11351,
+   "crp": 0.07121
+  },
+  "Sweden": {
+   "region": "Western Europe",
+   "moodys": "Aaa",
+   "erp": 0.0423,
+   "crp": 0
+  },
+  "Switzerland": {
+   "region": "Western Europe",
+   "moodys": "Aaa",
+   "erp": 0.0423,
+   "crp": 0
+  },
+  "Taiwan": {
+   "region": "Asia",
+   "moodys": "Aa3",
+   "erp": 0.05006,
+   "crp": 0.00776
+  },
+  "Tajikistan": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "B3",
+   "erp": 0.126443,
+   "crp": 0.084143
+  },
+  "Tanzania": {
+   "region": "Africa",
+   "moodys": "B1",
+   "erp": 0.100577,
+   "crp": 0.058277
+  },
+  "Thailand": {
+   "region": "Asia",
+   "moodys": "Baa1",
+   "erp": 0.062994,
+   "crp": 0.020694
+  },
+  "Togo": {
+   "region": "Africa",
+   "moodys": "B3",
+   "erp": 0.126443,
+   "crp": 0.084143
+  },
+  "Trinidad and Tobago": {
+   "region": "Caribbean",
+   "moodys": "Ba2",
+   "erp": 0.081253,
+   "crp": 0.038953
+  },
+  "Tunisia": {
+   "region": "Africa",
+   "moodys": "Caa1",
+   "erp": 0.139377,
+   "crp": 0.097077
+  },
+  "Turkey": {
+   "region": "Western Europe",
+   "moodys": "Ba3",
+   "erp": 0.08886,
+   "crp": 0.04656
+  },
+  "Turks and Caicos Islands": {
+   "region": "Caribbean",
+   "moodys": "Baa1",
+   "erp": 0.062994,
+   "crp": 0.020694
+  },
+  "Uganda": {
+   "region": "Africa",
+   "moodys": "B3",
+   "erp": 0.126443,
+   "crp": 0.084143
+  },
+  "Ukraine": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "Ca",
+   "erp": 0.197654,
+   "crp": 0.155354
+  },
+  "United Arab Emirates": {
+   "region": "Middle East",
+   "moodys": "Aa2",
+   "erp": 0.048691,
+   "crp": 0.006391
+  },
+  "United Kingdom": {
+   "region": "Western Europe",
+   "moodys": "Aa3",
+   "erp": 0.05006,
+   "crp": 0.00776
+  },
+  "United States": {
+   "region": "North America",
+   "moodys": "Aa1",
+   "erp": 0.0446,
+   "crp": 0.002334
+  },
+  "Uruguay": {
+   "region": "Central and South America",
+   "moodys": "Baa1",
+   "erp": 0.062994,
+   "crp": 0.020694
+  },
+  "Uzbekistan": {
+   "region": "Eastern Europe & Russia",
+   "moodys": "Ba3",
+   "erp": 0.08886,
+   "crp": 0.04656
+  },
+  "Venezuela": {
+   "region": "Central and South America",
+   "moodys": "C",
+   "erp": 0.308891,
+   "crp": 0.266591
+  },
+  "Vietnam": {
+   "region": "Asia",
+   "moodys": "Ba2",
+   "erp": 0.081253,
+   "crp": 0.038953
+  },
+  "Zambia": {
+   "region": "Africa",
+   "moodys": "Caa2",
+   "erp": 0.158853,
+   "crp": 0.116553
+  }
+ }
+}
