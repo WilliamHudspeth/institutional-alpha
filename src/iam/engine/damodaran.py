@@ -102,7 +102,10 @@ class DamodaranEngine:
                             fair_value_high=None,
                             implied_move_pct=None,
                             confidence=0.0,
-                            narrative="Missing required pricing or cash flow data.",
+                            narrative=(
+                                "Insufficient data: market cap unavailable, so D/E "
+                                "cannot be computed while the company carries debt."
+                            ),
                         )
                     d_e = 0.0
                     notes.append("total debt missing or zero: D/E taken as 0")

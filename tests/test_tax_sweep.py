@@ -228,3 +228,105 @@ def test_site6_expectations_battlefield_na_for_unknown_tax_rate():
     assert "Tax Rate" in summary_text
     assert "Market:    n/a" in summary_text
     assert "Intrinsic: n/a" in summary_text
+
+
+# --- Claude review follow-ups -------------------------------------------------
+
+
+def _sotp_security(shares):
+    return Security(
+        ticker="SAPX",
+        revenue_mix={"Germany": 1.0},
+        fundamentals=Fundamentals(
+            fcf_ttm=100,
+            net_income_ttm=100,
+            shares_outstanding=shares,
+            total_debt=100,
+            segments=[
+                Segment(
+                    name="Enterprise",
+                    revenue=1000,
+                    ebit=200,
+                    unlevered_beta=1.0,
+                    tax_rate=0.2993,
+                    growth_rate=0.04,
+                    fcfe=150,
+                )
+            ],
+        ),
+        market=MarketData(price=20.0, market_cap=1000.0),
+    )
+
+
+def test_sotp_without_share_count_reports_insufficient_data_not_ev_over_one(offline):
+    """`shares_outstanding or 1.0` turned the whole SOTP value into a per-share price."""
+    report = ValuationPipeline().run(_sotp_security(shares=None))
+    assert report.intrinsic.fair_value_per_share is None
+    assert any("shares outstanding unavailable" in n for n in report.intrinsic.notes)
+
+
+def test_sotp_with_share_count_still_divides_by_it(offline):
+    with_shares = ValuationPipeline().run(_sotp_security(shares=10)).intrinsic
+    assert with_shares.fair_value_per_share is not None
+    assert with_shares.fair_value_per_share > 0
+
+
+def test_engine_missing_market_cap_names_the_reason():
+    sec = Security(
+        ticker="ENGX",
+        fundamentals=Fundamentals(fcf_ttm=100, shares_outstanding=10, total_debt=100),
+        market=MarketData(price=20.0, market_cap=None),
+        # DamodaranEngine reads segments from qualitative, not fundamentals.
+        qualitative={
+            "segments": [
+                Segment(
+                    name="A",
+                    revenue=1000,
+                    ebit=200,
+                    unlevered_beta=1.0,
+                    tax_rate=0.25,
+                    growth_rate=0.04,
+                    fcfe=150,
+                )
+            ]
+        },
+    )
+    res = DamodaranEngine().compute(sec)
+    assert res.confidence == 0.0
+    assert "market cap unavailable" in res.narrative
+
+
+def test_battlefield_unmeasured_beta_erp_terminal_are_na_and_not_ranked():
+    """The engine never measures these; a zero gap must not read as 'no disagreement'."""
+    bf = ExpectationBattlefieldExplicit(
+        market_growth=0.10,
+        intrinsic_growth=0.05,
+        market_margin=0.30,
+        intrinsic_margin=0.25,
+        market_roic=0.20,
+        intrinsic_roic=0.15,
+        growth_overlap=0.5,
+        alignment_score=50.0,
+        primary_disagreement="Growth",
+        expectation_mismatch_score=40.0,
+    )
+    assert bf.beta_gap is None and bf.erp_gap is None and bf.terminal_growth_gap is None
+    ranked = [name for name, _ in bf.disagreement_ranking]
+    assert set(ranked) == {"Growth", "Margin", "ROIC"}
+    assert "Beta" not in ranked and "ERP" not in ranked and "Terminal Growth" not in ranked
+    measured = ExpectationBattlefieldExplicit(
+        market_growth=0.10,
+        intrinsic_growth=0.05,
+        market_margin=0.30,
+        intrinsic_margin=0.25,
+        market_roic=0.20,
+        intrinsic_roic=0.15,
+        growth_overlap=0.5,
+        alignment_score=50.0,
+        primary_disagreement="Growth",
+        expectation_mismatch_score=40.0,
+        market_beta=1.3,
+        intrinsic_beta=1.0,
+    )
+    assert measured.beta_gap == pytest.approx(0.3)
+    assert "Beta" in [name for name, _ in measured.disagreement_ranking]

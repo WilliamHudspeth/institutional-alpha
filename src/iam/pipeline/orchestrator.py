@@ -620,13 +620,19 @@ class ValuationPipeline:
                 tax_rate, tax_source = company_marginal_tax(security)
                 tax_note = f"Tax rate: {tax_rate:.1%} ({tax_source})"
 
-            if debt_equity is None:
+            shares = getattr(security.fundamentals, "shares_outstanding", None)
+            if debt_equity is None or shares is None or shares <= 0:
+                missing = (
+                    "market cap unavailable"
+                    if debt_equity is None
+                    else "shares outstanding unavailable"
+                )
                 intrinsic_res = ValuationResult(
                     method=Method.INTRINSIC,
                     fair_value_per_share=None,
                     confidence=0.0,
-                    notes=["insufficient data: market cap unavailable"],
-                    verdict_text="insufficient data: market cap unavailable",
+                    notes=[f"insufficient data: {missing}"],
+                    verdict_text=f"insufficient data: {missing}",
                 )
             else:
                 cost_of_equity = damodaran.compute_cost_of_equity(
@@ -634,7 +640,6 @@ class ValuationPipeline:
                 )
 
                 sotp_result = self.sotp.compute(segments, cost_of_equity)
-                shares = getattr(security.fundamentals, "shares_outstanding", 1.0) or 1.0
 
                 intrinsic_res = ValuationResult(
                     method=Method.INTRINSIC,
