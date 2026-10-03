@@ -492,6 +492,18 @@ class ValuationPipeline:
         wacc_info["tax_source"] = tax_source
         return wacc_info
 
+    @staticmethod
+    def _stage_risk_free(security: Security) -> tuple[float, str]:
+        """The Rf (and its source) the valuation stages use: caller-supplied, else macro."""
+        from iam.data.damodaran import DamodaranProvider
+        from iam.valuation.reverse_dcf import as_rate
+
+        qual = security.qualitative or {}
+        caller = as_rate(qual.get("risk_free_rate"))
+        if caller is not None:
+            return caller, str(qual.get("rf_source") or "caller-supplied")
+        return DamodaranProvider.get_risk_free_rate_with_source()
+
     def run(
         self,
         security: Security,
@@ -736,10 +748,15 @@ class ValuationPipeline:
 
         # Damodaran Laws: test the assumptions Stage 3 actually used for
         # internal consistency. Violations/flags degrade the Stage 7 verdict.
+        # Law 3 judges terminal growth against the Rf this run used (caller-supplied
+        # Rf if any, else the macro Rf), not a constant.
+        law_rf, law_rf_source = self._stage_risk_free(security)
         report.law_report = DamodaranLawRegistry().evaluate(
             security,
             intrinsic_res.assumptions or {},
             implied=market_implied_engine_res.implied,
+            risk_free_rate=law_rf,
+            rf_source=law_rf_source,
         )
         report.summary += f"\n[DAMODARAN LAWS]: {report.law_report.narrative}"
 

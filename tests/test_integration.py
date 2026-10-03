@@ -149,7 +149,7 @@ class TestOrchestrator:
 
         assert "_provenance" in profile
         assert "version" in profile["_provenance"]
-        assert profile["_provenance"]["version"] == "damodaran_jan_2026"
+        assert profile["_provenance"]["version"] == "damodaran_2026-04"
 
 
 class TestPublicAPI:
@@ -196,5 +196,5 @@ class TestMultiRegionBlending:
         )
 
         assert profile["erp"] == pytest.approx(expected_erp, abs=1e-4)
-        assert profile["_provenance"]["version"] == "damodaran_jan_2026"
+        assert profile["_provenance"]["version"] == "damodaran_2026-04"
         assert profile["_provenance"]["stale"] is False
