@@ -17,6 +17,10 @@ from iam.integration.orchestrator import Orchestrator
 from iam.pipeline.orchestrator import ValuationPipeline
 from iam.reasoning.business_reality import BusinessRealityEngine
 
+# What the card number is: integration.Orchestrator applies no arbitration adjustment to
+# the value (the reliability weight is carried separately), so it is the bottom-up Ke.
+COST_OF_EQUITY_CAPTION = "Cost of equity (bottom-up, no arbitration adjustment)"
+
 
 def _fmt_money(value: float | None, digits: int = 2) -> str:
     """Format a monetary float value as $X.XX or 'n/a' when missing."""
@@ -82,7 +86,7 @@ def _extract_discount_rate(report: Any) -> float | None:
 
 
 def _extract_cost_of_equity(orch_result: Any) -> float | None:
-    """Extract arbitrated cost of equity from orchestrator result dict."""
+    """Extract the cost of equity (bottom-up, unadjusted) from the orchestrator result dict."""
     if not isinstance(orch_result, dict):
         return None
     mr = orch_result.get("model_result")
@@ -342,7 +346,7 @@ def main() -> None:
                             <div class="metric-label">Institutional Verdict</div>
                             <div class="metric-value">{verdict_rec}</div>
                             <div style="color: #8b949e; margin-top: 0.5rem; font-size: 0.9rem;">
-                                Arbitrated Cost of Equity: <b>{_fmt_pct(coe, 2)}</b>
+                                {COST_OF_EQUITY_CAPTION}: <b>{_fmt_pct(coe, 2)}</b>
                             </div>
                         </div>
                         """,
