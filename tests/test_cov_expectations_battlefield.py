@@ -119,6 +119,10 @@ class TestExplicitModel:
             market_terminal_growth=0.03,
             market_beta=1.3,
             market_erp=0.06,
+            # Supplied explicitly: unmeasured sides are now None ('n/a'), not defaults.
+            intrinsic_terminal_growth=0.025,
+            intrinsic_beta=1.0,
+            intrinsic_erp=0.05,
         )
 
     def test_gaps_and_ranking(self):
