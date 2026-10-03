@@ -154,7 +154,49 @@ def _deserialize_security(data: dict[str, Any]) -> Security:
     )
 
 
-US_FEDERAL_TAX_RATE = 0.21
+# Income-statement row labels yfinance uses for the effective tax rate.
+_TAX_ROWS = ("Tax Provision", "Income Tax Expense")
+_PRETAX_ROWS = ("Pretax Income",)
+MAX_EFFECTIVE_TAX_RATE = 0.60  # a ratio above this is a one-off, not a tax rate
+
+
+def _latest_value(financials: Any, labels: tuple[str, ...]) -> float | None:
+    """Latest-fiscal-year value of the first row in ``labels`` that has one; None otherwise."""
+    for label in labels:
+        if label not in financials.index:
+            continue
+        row = financials.loc[label]
+        try:  # columns are period-end dates, normally newest first; do not rely on it
+            col = max(row.index)
+            value = row[col]
+        except (TypeError, ValueError):
+            value = row.iloc[0]
+        if pd.notnull(value):
+            return float(value)
+        # NaN in this row's latest year: try the next candidate label.
+    return None
+
+
+def effective_tax_rate_from_statement(financials: Any) -> tuple[float | None, str | None]:
+    """Effective tax rate (tax provision / pretax income, latest fiscal year) and why not.
+
+    Returns ``(rate, None)`` or ``(None, reason)``. None when either input is missing,
+    pretax income is not positive, or the ratio is outside [0, 0.6]. Never invented.
+    """
+    if financials is None or getattr(financials, "empty", True):
+        return None, "no income statement"
+    tax = _latest_value(financials, _TAX_ROWS)
+    if tax is None:
+        return None, "no tax provision in the latest fiscal year"
+    pretax = _latest_value(financials, _PRETAX_ROWS)
+    if pretax is None:
+        return None, "no pretax income in the latest fiscal year"
+    if pretax <= 0:
+        return None, f"pretax income {pretax:g} <= 0"
+    rate = tax / pretax
+    if not 0.0 <= rate <= MAX_EFFECTIVE_TAX_RATE:
+        return None, f"ratio {rate:.1%} outside [0%, {MAX_EFFECTIVE_TAX_RATE:.0%}]"
+    return rate, None
 
 
 class YFinanceAdapter:
@@ -313,12 +355,11 @@ class YFinanceAdapter:
             "roic": None,
         }
 
-        tax_rate = self._get_numeric(info, "effectiveTaxRate")
-        if tax_rate is None:
-            qualitative["tax_rate"] = US_FEDERAL_TAX_RATE
-            qualitative["defaulted_inputs"] = ["tax_rate"]
-        else:
-            qualitative["tax_rate"] = tax_rate
+        effective, why_not = effective_tax_rate_from_statement(financials)
+        f.effective_tax_rate = effective
+        qualitative["defaulted_inputs"] = (
+            [] if effective is not None else [f"effective_tax_rate: {why_not}"]
+        )
 
         security = Security(
             ticker=ticker.upper(),
@@ -329,6 +370,14 @@ class YFinanceAdapter:
             market=m,
             qualitative=qualitative,
         )
+        # MARGINAL rate (Damodaran statutory, revenue-weighted once a mix is known): the
+        # rate beta relevering (valuation.beta) and the cost of debt read. The effective
+        # rate above never replaces it there.
+        from iam.valuation.country_tax import company_marginal_tax
+
+        marginal, marginal_source = company_marginal_tax(security)
+        security.qualitative["tax_rate"] = marginal
+        security.qualitative["tax_rate_source"] = marginal_source
 
         # Cache the result
         try:
@@ -359,9 +408,8 @@ class YFinanceAdapter:
             payout = security.qualitative.get("payout")
             roe = security.qualitative.get("roe")
             roic = security.qualitative.get("roic")
-            tax_rate = security.qualitative.get("tax_rate")
-            if "tax_rate" in security.qualitative.get("defaulted_inputs", []):
-                defaulted.append("tax_rate")
+            tax_rate = security.fundamentals.effective_tax_rate
+            tax_security = security
         except Exception:
             # Fallback if fetch fails
             yt = yf.Ticker(ticker)
@@ -373,10 +421,18 @@ class YFinanceAdapter:
             payout = self._get_numeric(info, "payoutRatio")
             roe = self._get_numeric(info, "returnOnEquity")
             roic = None
-            tax_rate = self._get_numeric(info, "effectiveTaxRate")
-            if tax_rate is None:
-                tax_rate = US_FEDERAL_TAX_RATE
-                defaulted.append("tax_rate")
+            try:
+                tax_rate = effective_tax_rate_from_statement(yt.financials)[0]
+            except Exception:
+                tax_rate = None
+            tax_security = Security(ticker=ticker.upper())
+
+        if tax_rate is None:
+            # No effective rate: fall back to the MARGINAL rate, labelled with its source.
+            from iam.valuation.country_tax import company_marginal_tax
+
+            tax_rate, tax_source = company_marginal_tax(tax_security)
+            defaulted.append(f"tax_rate: marginal rate {tax_rate:.2%} ({tax_source})")
 
         if market_cap is not None and total_debt is not None and (total_debt + market_cap) > 0:
             dfr = total_debt / (total_debt + market_cap)

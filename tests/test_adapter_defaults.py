@@ -49,8 +49,10 @@ def test_yfinance_adapter_empty_payload(monkeypatch):
     assert security.qualitative.get("roe") is None
     assert security.qualitative.get("roa") is None
     assert security.qualitative.get("roic") is None
-    assert security.qualitative.get("tax_rate") == 0.21
-    assert security.qualitative.get("defaulted_inputs") == ["tax_rate"]
+    assert security.qualitative.get("tax_rate") == 0.25  # marginal US rate (was the 21% constant)
+    assert security.qualitative.get("defaulted_inputs") == [
+        "effective_tax_rate: no income statement"
+    ]
 
     reg_inputs = adapter.build_regression_inputs("DUMMY")
     assert reg_inputs.beta is None

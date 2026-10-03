@@ -51,7 +51,13 @@ def from_ground_truth(
     erps = [v.get("erp", 0) for v in erp_breakdown.values()]
 
     if weights and erps:
-        blended_erp = sum(w * e for w, e in zip(weights, erps))
+        # Dispersion is measured around the profile's own blended ERP (company_erp), not
+        # a recomputed blend: breakdown weights are rounded and renormalised.
+        profile_erp = profile.get("erp")
+        if isinstance(profile_erp, int | float) and not isinstance(profile_erp, bool):
+            blended_erp = float(profile_erp)
+        else:
+            blended_erp = sum(w * e for w, e in zip(weights, erps))
         variance = sum(w * (e - blended_erp) ** 2 for w, e in zip(weights, erps))
         erp_std = math.sqrt(variance)
     else:

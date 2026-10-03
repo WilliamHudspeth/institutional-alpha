@@ -37,14 +37,13 @@ from iam.valuation import (
     ValuationResult,
 )
 from iam.valuation.country_risk import company_erp, us_consensus_erp
+from iam.valuation.country_tax import company_marginal_tax
 from iam.valuation.monte_carlo import MonteCarloDCF, MonteCarloDistribution
 
 if TYPE_CHECKING:
     from iam.valuation.justified_premium import JustifiedPremiumResult
 
 logger = logging.getLogger(__name__)
-
-US_FEDERAL_STATUTORY_TAX = 0.21
 
 
 def format_assumption_table(
@@ -460,11 +459,8 @@ class ValuationPipeline:
             market_cap = getattr(m, "market_cap", None) or 0.0
             if total_debt > 0 and market_cap > 0:
                 d_to_e = total_debt / market_cap
-            if getattr(f, "effective_tax_rate", None) is not None:
-                tax_rate = float(getattr(f, "effective_tax_rate"))
-            else:
-                tax_rate = US_FEDERAL_STATUTORY_TAX
-                defaults_used.append("tax: US federal statutory 21% (no effective rate)")
+            # MARGINAL rate for the after-tax cost of debt (Damodaran), not the effective one.
+            tax_rate, tax_source = company_marginal_tax(security)
         else:
             profile = GroundTruthProvider().get_equity_risk_profile(security)
             if profile is None or profile.tax_rate is None or profile.debt_to_equity is None:
@@ -477,6 +473,7 @@ class ValuationPipeline:
             ke = profile.cost_of_equity
             d_to_e = profile.debt_to_equity
             tax_rate = profile.tax_rate
+            tax_source = profile.tax_source
             defaults_used.extend(profile.defaults_used)
 
         wacc_info = build_wacc(
@@ -491,7 +488,21 @@ class ValuationPipeline:
         wacc_info["rf_source"] = rf_source
         wacc_info["erp_source"] = erp_source
         wacc_info["cost_of_equity"] = ke
+        wacc_info["tax_rate"] = tax_rate
+        wacc_info["tax_source"] = tax_source
         return wacc_info
+
+    @staticmethod
+    def _stage_risk_free(security: Security) -> tuple[float, str]:
+        """The Rf (and its source) the valuation stages use: caller-supplied, else macro."""
+        from iam.data.damodaran import DamodaranProvider
+        from iam.valuation.reverse_dcf import as_rate
+
+        qual = security.qualitative or {}
+        caller = as_rate(qual.get("risk_free_rate"))
+        if caller is not None:
+            return caller, str(qual.get("rf_source") or "caller-supplied")
+        return DamodaranProvider.get_risk_free_rate_with_source()
 
     def run(
         self,
@@ -514,6 +525,10 @@ class ValuationPipeline:
             details: list[str] = [f"rating {rating}"]
             if "rf_source" in wacc_info and wacc_info["rf_source"]:
                 details.append(f"rf: {wacc_info['rf_source']}")
+            if wacc_info.get("tax_source"):
+                details.append(
+                    f"marginal tax {wacc_info['tax_rate']:.2%}: {wacc_info['tax_source']}"
+                )
             if wacc_info.get("defaults_used"):
                 details.extend(wacc_info["defaults_used"])
             details_str = f" ({', '.join(details)})" if details else ""
@@ -733,10 +748,15 @@ class ValuationPipeline:
 
         # Damodaran Laws: test the assumptions Stage 3 actually used for
         # internal consistency. Violations/flags degrade the Stage 7 verdict.
+        # Law 3 judges terminal growth against the Rf this run used (caller-supplied
+        # Rf if any, else the macro Rf), not a constant.
+        law_rf, law_rf_source = self._stage_risk_free(security)
         report.law_report = DamodaranLawRegistry().evaluate(
             security,
             intrinsic_res.assumptions or {},
             implied=market_implied_engine_res.implied,
+            risk_free_rate=law_rf,
+            rf_source=law_rf_source,
         )
         report.summary += f"\n[DAMODARAN LAWS]: {report.law_report.narrative}"
 

@@ -332,7 +332,7 @@ class TestProvenanceTracking:
 
         assert "_provenance" in profile
         assert "version" in profile["_provenance"]
-        assert profile["_provenance"]["version"] == "damodaran_jan_2026"
+        assert profile["_provenance"]["version"] == "damodaran_2026-04"
 
     def test_provenance_includes_source(self):
         """_provenance includes source attribution."""

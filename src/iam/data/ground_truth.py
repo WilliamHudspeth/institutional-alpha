@@ -24,11 +24,6 @@ if TYPE_CHECKING:
     from iam.data.security import Security
 
 
-# Named model default (not data): used only when the security carries no effective
-# tax rate, and always recorded in ``EquityRiskProfile.defaults_used``.
-US_FEDERAL_STATUTORY_TAX = 0.21
-
-
 class GroundTruthProviderError(ValueError):
     """Raised when a ground-truth profile cannot be built from real data.
 
@@ -67,6 +62,7 @@ class EquityRiskProfile:
     rf_source: str = ""
     erp_source: str = ""
     tax_rate: float | None = None
+    tax_source: str = ""
     debt_to_equity: float | None = None
     defaults_used: list[str] = field(default_factory=list)
 
@@ -141,7 +137,7 @@ class GroundTruthProvider:
         2. ERP = ``country_risk.company_erp`` (revenue-weighted, US fallback), with source.
         3. Industry unlevered beta from the Damodaran table.
         4. Relever at the company's CURRENT market D/E (total debt / market cap)
-           with the effective tax rate, or the named statutory default.
+           with the MARGINAL tax rate (``country_tax.company_marginal_tax``).
         5. Ke = Rf + relevered beta x ERP.
 
         Returns:
@@ -149,6 +145,7 @@ class GroundTruthProvider:
             market cap or the industry beta is missing: neither is invented.
         """
         from iam.valuation.country_risk import company_erp, revenue_erp_breakdown
+        from iam.valuation.country_tax import company_marginal_tax
 
         market_cap = security.market.market_cap if security.market else None
         if market_cap is None or not math.isfinite(market_cap) or market_cap <= 0:
@@ -172,14 +169,9 @@ class GroundTruthProvider:
             defaults_used.append("total debt unavailable: D/E taken as 0")
         de_ratio = total_debt / market_cap
 
-        effective_tax = getattr(security.fundamentals, "effective_tax_rate", None)
-        if effective_tax is not None:
-            tax_rate = float(effective_tax)
-        else:
-            tax_rate = US_FEDERAL_STATUTORY_TAX
-            defaults_used.append(
-                f"tax: US federal statutory {US_FEDERAL_STATUTORY_TAX:.0%} (no effective rate)"
-            )
+        # Damodaran's convention: relever beta with the MARGINAL (statutory, revenue-
+        # weighted) rate, never the effective rate, even when the company has one.
+        tax_rate, tax_source = company_marginal_tax(security)
 
         levered_beta = self.damodaran.relever_beta(u_beta, de_ratio, tax_rate)
         cost_of_equity = macro.risk_free_rate + levered_beta * blended_erp
@@ -195,6 +187,7 @@ class GroundTruthProvider:
                 rf_source=macro.rf_source,
                 erp_source=erp_source,
                 tax_rate=tax_rate,
+                tax_source=tax_source,
                 debt_to_equity=de_ratio,
                 defaults_used=defaults_used,
             ),
@@ -244,7 +237,7 @@ class GroundTruthProvider:
         Where:
         - E/V = Equity weight = Market Cap / Enterprise Value
         - D/V = Debt weight = Total Debt / Enterprise Value
-        - Tc = Corporate tax rate (profile's effective rate, else US statutory 21%)
+        - Tc = Marginal corporate tax rate (revenue-weighted statutory, Damodaran)
         - CoE = Bottom-up cost of equity (from ground truth)
         - CoD = Cost of debt (or default 4%)
 

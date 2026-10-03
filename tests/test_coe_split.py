@@ -25,6 +25,7 @@ from iam.engine.market_implied import MarketImpliedEngine
 from iam.pipeline.orchestrator import ValuationPipeline
 from iam.valuation import country_risk as cr
 from iam.valuation.beta import get_custom_beta_for_intrinsic
+from iam.valuation.country_tax import company_marginal_tax
 from iam.valuation.fcfe_dcf import FCFEDCF, FCFEAssumptions
 from iam.valuation.reverse_dcf import ReverseDCF
 
@@ -77,7 +78,8 @@ def _run(sec: Security):
 
 def _bottom_up_ke(sec: Security) -> tuple[float, float]:
     erp, _ = cr.company_erp(sec)
-    beta_l = UNLEVERED_ASSET_MGMT * (1 + (1 - 0.21) * DE)
+    tax, _ = company_marginal_tax(sec)  # revenue-weighted statutory rate (was 21%)
+    beta_l = UNLEVERED_ASSET_MGMT * (1 + (1 - tax) * DE)
     return RF + beta_l * erp, beta_l
 
 
@@ -175,8 +177,10 @@ def test_profile_records_sources_and_statutory_tax_default():
     assert profile.industry_unlevered_beta == UNLEVERED_ASSET_MGMT
     assert "live ^TNX" in profile.rf_source
     assert cr.load_country_erp()["as_of"] in profile.erp_source
-    assert profile.tax_rate == 0.21
-    assert any("tax" in d for d in profile.defaults_used)
+    assert profile.tax_rate == pytest.approx(company_marginal_tax(sec)[0])
+    assert profile.tax_rate != 0.21
+    assert "Damodaran Apr 2026" in profile.tax_source
+    assert profile.defaults_used == []
     assert DamodaranProvider.CURRENT_RISK_FREE_RATE != RF  # rf really came from the quote
 
 
