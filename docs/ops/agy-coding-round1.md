@@ -102,3 +102,28 @@ Open follow-ups: `laws/registry.py` Law 3 reads `qualitative["risk_free_rate"]` 
 its 4.3% default (pass it the stage Rf); `data/provenance.py` still stamps `damodaran_jan_2026`;
 `Fundamentals` has no effective tax rate field; the legacy `resolve_erp` tables (4.6%) remain for the
 perf benchmark only.
+
+## Tax data and follow-ups (owner request) — merged
+
+Built by a Claude Sonnet subagent (valuation-critical, so not AGY) and reviewed by AGY: gemini-3.1-pro-high
+APPROVE; gemini-3.8-flash-high APPROVE with two findings, both fixed with failing-first tests (a NaN tax
+row now falls through to the next label; a revenue mix that resolves to nothing now tries `country_iso`
+before the US rate). Claude's mechanical test scan was clean (conftest untouched; 124 assertions added,
+10 replaced).
+
+- Marginal tax: Damodaran Apr 2026 country statutory rates (`country_tax_2026-04.json`), weighted by
+  revenue mix like the ERP. It is used to relever beta and for the after-tax cost of debt. BLK: 25.57%,
+  giving a relevered beta of 0.691 (paper 0.69) and an intrinsic Ke of 8.06%. The US is 25% (federal
+  plus state), replacing the hardcoded 21%.
+- Effective tax: new `Fundamentals.effective_tax_rate` (tax provision / pretax income, latest fiscal
+  year; None with a reason when missing or implausible). It feeds the multiples regression's TaxRate.
+- Law 3 is judged against the Rf the pipeline used; with no Rf it is NOT_EVALUATED (no 4.3% default).
+- Provenance stamps the dataset version (`damodaran_2026-04`, plus the tax version).
+- GUI card: equals the bottom-up Ke exactly. The arbitration layer only attaches reliability and
+  dispersion, so the card is now captioned "Cost of equity (bottom-up, no arbitration adjustment)".
+- GUI: a failed fetch now shows an error and stops instead of valuing an empty `Security`. This fixes
+  the CLAUDE.md "GUI values an empty Security" defect.
+
+Remaining 21% tax defaults are outside the valuation path: `valuation/beta.py` (fallback only),
+`engine/damodaran.py`, `valuation/damodaran_defaults.py`, `valuation/expectations_battlefield.py` and
+`ui/visualization_lab.py`.
