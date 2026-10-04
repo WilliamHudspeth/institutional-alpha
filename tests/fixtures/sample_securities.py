@@ -10,6 +10,7 @@ Usage::
 from __future__ import annotations
 
 from iam.data.security import Fundamentals, Security
+from iam.valuation.sotp import Segment
 
 
 def make_security(
@@ -48,3 +49,27 @@ def make_security(
         **extra_fundamentals,
     )
     return Security(ticker=ticker, sector=sector, fundamentals=fund)
+
+
+def sample_segments() -> list[Segment]:
+    """Two illustrative test-only segments for SOTP tests (not real company data)."""
+    return [
+        Segment(
+            "SegmentA",
+            revenue=600.0,
+            ebit=200.0,
+            unlevered_beta=0.8,
+            tax_rate=0.21,
+            growth_rate=0.03,
+            fcfe=150.0,
+        ),
+        Segment(
+            "SegmentB",
+            revenue=400.0,
+            ebit=100.0,
+            unlevered_beta=1.2,
+            tax_rate=0.21,
+            growth_rate=0.02,
+            fcfe=80.0,
+        ),
+    ]
