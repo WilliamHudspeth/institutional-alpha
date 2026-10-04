@@ -1,9 +1,10 @@
 {
   "_meta": {
     "version": "v0.4.0-rc1",
-    "data_source": "empirical",
+    "data_source": "insufficient_data",
     "timestamp": "2026-05-28T20:56:59.137318",
-    "git_sha": "c6df58762ee1154971e4dbef8ac3ff8ebe808efb"
+    "git_sha": "c6df58762ee1154971e4dbef8ac3ff8ebe808efb",
+    "reason": "empirical IC mean/std is not finite (NaN or inf): nothing was measured"
   },
   "source": "Real S&P 100 price data via yfinance \u2192 Stooq fallback",
   "universe": "S&P 100 (static 2024-12-31)",
@@ -11,15 +12,15 @@
   "horizon_days": 63,
   "signal": "composite",
   "empirical_ic": {
-    "mean": NaN,
-    "std": NaN,
+    "mean": null,
+    "std": null,
     "n_obs": 59
   },
   "bayesian_calibration": {
     "prior_ic": 0.02,
-    "posterior_ic": NaN,
-    "posterior_std": NaN,
+    "posterior_ic": null,
+    "posterior_std": null,
     "shrinkage_factor": 0.6210526315789474,
-    "reliability": 0.95
+    "reliability": null
   }
 }
