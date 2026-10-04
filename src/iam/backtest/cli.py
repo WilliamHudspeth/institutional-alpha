@@ -351,5 +351,23 @@ def learn(
         typer.echo("Goodbye!")
 
 
+@app.command("dashboard")
+def dashboard_cmd(
+    port: int = typer.Option(8080, "--port", "-p", help="Port to run the dashboard server on"),
+    no_browser: bool = typer.Option(
+        False, "--no-browser", help="Do not automatically launch the browser"
+    ),
+):
+    """Serve the backtest results dashboard on 127.0.0.1 (read-only)."""
+    from iam.backtest.dashboard import start_dashboard_server
+
+    typer.echo("Starting backtest dashboard server...")
+    try:
+        start_dashboard_server(port=port, launch_browser=not no_browser)
+    except Exception as e:
+        typer.echo(f"✗ Failed to start dashboard server: {e}", err=True)
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()
