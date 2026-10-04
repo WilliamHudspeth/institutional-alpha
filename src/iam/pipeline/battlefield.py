@@ -34,6 +34,7 @@ TriangulationResult.verdict == "agree".
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 
@@ -50,6 +51,14 @@ from iam.valuation.types import ImpliedExpectations, TriangulationResult, Valuat
 # parameter the model does not have. ImpliedExpectations.implied_operating_margin
 # is surfaced in the notes for the analyst but is not a swap axis.
 _PARAMS = ("growth", "terminal_growth", "discount_rate", "roe")
+
+# Short display names for the shared parameters.
+PARAM_LABELS = {
+    "growth": "Growth",
+    "terminal_growth": "Terminal growth",
+    "discount_rate": "Discount rate",
+    "roe": "ROE (reinvestment)",
+}
 
 # Human-readable disagreement labels keyed by the dominant parameter.
 _LABELS = {
@@ -97,6 +106,57 @@ class BattlefieldAttribution:
     total_gap: float  # target - base (signed)
     contributions: list[DriverContribution] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+
+    @property
+    def value_gap_pct(self) -> float | None:
+        """Market-implied value vs intrinsic value, as a fraction of intrinsic.
+
+        +0.40 means the assumptions the market is pricing in are worth 40%
+        more than ours. None when the intrinsic value is unusable.
+        """
+        if not math.isfinite(self.base_value) or self.base_value <= 0:
+            return None
+        if not math.isfinite(self.target_value):
+            return None
+        return self.total_gap / self.base_value
+
+    @property
+    def mismatch_score(self) -> float | None:
+        """0-100 size of the assumption gap: |value_gap_pct| as percent, capped.
+
+        Derived only from the two real parameter vectors; no weights or
+        scenario shapes are invented. None when no gap can be measured.
+        """
+        if self.key_parameter is None and self.total_gap == 0.0:
+            return 0.0 if self.key_disagreement.startswith("NONE") else None
+        gap = self.value_gap_pct
+        if gap is None:
+            return None
+        return min(100.0, abs(gap) * 100.0)
+
+    def contribution(self, parameter: str) -> DriverContribution | None:
+        for c in self.contributions:
+            if c.parameter == parameter:
+                return c
+        return None
+
+    def summary(self) -> str:
+        """Multi-line plain-text summary used by the CLI/menu/explain()."""
+        lines = [f"VALUATION BATTLEFIELD — key disagreement: {self.key_disagreement}"]
+        for c in self.contributions:
+            lines.append(
+                f"  • {PARAM_LABELS.get(c.parameter, c.parameter):<18} "
+                f"ours {c.value_intrinsic * 100:6.2f}%  market {c.value_market * 100:6.2f}%  "
+                f"value impact {c.delta_value:+.2f}/sh  (~{c.share:.0%})"
+            )
+        if self.value_gap_pct is not None:
+            lines.append(
+                f"  Market-implied value vs ours: {self.value_gap_pct * 100:+.1f}% "
+                f"(${self.target_value:.2f} vs ${self.base_value:.2f}/sh)"
+            )
+        for note in self.notes:
+            lines.append(f"  - {note}")
+        return "\n".join(lines)
 
 
 # --------------------------------------------------------------------------- #
@@ -175,6 +235,15 @@ def attribute_disagreement(
 
     base_value = value_fn(intrinsic)
     target_value = value_fn(market)
+    if not (math.isfinite(base_value) and math.isfinite(target_value)):
+        return BattlefieldAttribution(
+            key_disagreement="UNDETERMINED — valuation did not converge",
+            key_parameter=None,
+            base_value=base_value,
+            target_value=target_value,
+            total_gap=0.0,
+            notes=["Intrinsic or market-implied value is not finite (r <= terminal g?)."],
+        )
     total_gap = target_value - base_value
 
     contributions: list[DriverContribution] = []
@@ -188,6 +257,9 @@ def attribute_disagreement(
             continue
         swapped = replace(intrinsic, **{name: mv})
         v_swapped = value_fn(swapped)
+        if not math.isfinite(v_swapped):
+            notes.append(f"Skipped '{name}': swapping it gives a non-convergent value.")
+            continue
         contributions.append(
             DriverContribution(
                 parameter=name,
@@ -265,6 +337,35 @@ def build_battlefield(
     market_vec = market_vector_from_implied(market_implied.implied)
     intrinsic_vec = intrinsic_vector_from_assumptions(intrinsic.assumptions)
     return attribute_disagreement(intrinsic_vec, market_vec, value_fn, triangulation=triangulation)
+
+
+def fcfe_value_fn(
+    base_ni_per_share: float,
+    high_growth_years: int,
+    defaults: ParamVector,
+) -> Callable[[ParamVector], float]:
+    """Production value function: the same two-stage FCFE maths as FCFEDCF.
+
+    ``defaults`` is the intrinsic vector. Any parameter a lens left as None is
+    taken from it, so a missing market parameter means "no disagreement on
+    that axis" rather than an invented number. Returns NaN when the model
+    does not converge (r <= terminal growth).
+    """
+    from iam.valuation.reverse_dcf import _present_value_two_stage
+
+    def value(p: ParamVector) -> float:
+        g = p.growth if p.growth is not None else defaults.growth
+        gt = p.terminal_growth if p.terminal_growth is not None else defaults.terminal_growth
+        r = p.discount_rate if p.discount_rate is not None else defaults.discount_rate
+        roe = p.roe if p.roe is not None else defaults.roe
+        if g is None or gt is None or r is None or roe is None:
+            return float("nan")
+        v = _present_value_two_stage(
+            base_ni=base_ni_per_share, g_high=g, n=high_growth_years, g_terminal=gt, r=r, roe=roe
+        )
+        return v if math.isfinite(v) else float("nan")
+
+    return value
 
 
 # --------------------------------------------------------------------------- #

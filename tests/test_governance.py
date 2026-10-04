@@ -11,15 +11,25 @@ def isolated_governance_storage(tmp_path, monkeypatch):
     """Redirect governance + audit JSONL storage to a tmp dir so tests never
     touch the real ~/.iam/ directory."""
     monkeypatch.setattr(governance_service_module, "_GOVERNANCE_DIR", tmp_path)
-    monkeypatch.setattr(governance_service_module, "_HYPOTHESIS_FILE", tmp_path / "hypotheses.jsonl")
-    monkeypatch.setattr(governance_service_module, "_FACTOR_AUDIT_FILE", tmp_path / "factor_audit.jsonl")
-    monkeypatch.setattr(governance_service_module, "_MODEL_CHANGE_FILE", tmp_path / "model_changes.jsonl")
     monkeypatch.setattr(
-        governance_service_module, "_ASSUMPTION_OVERRIDE_FILE", tmp_path / "assumption_overrides.jsonl"
+        governance_service_module, "_HYPOTHESIS_FILE", tmp_path / "hypotheses.jsonl"
+    )
+    monkeypatch.setattr(
+        governance_service_module, "_FACTOR_AUDIT_FILE", tmp_path / "factor_audit.jsonl"
+    )
+    monkeypatch.setattr(
+        governance_service_module, "_MODEL_CHANGE_FILE", tmp_path / "model_changes.jsonl"
+    )
+    monkeypatch.setattr(
+        governance_service_module,
+        "_ASSUMPTION_OVERRIDE_FILE",
+        tmp_path / "assumption_overrides.jsonl",
     )
     original_init = audit_module.AuditLogger.__init__
+
     def new_init(self, log_path="audit_log.jsonl"):
         original_init(self, str(tmp_path / "audit_log.jsonl"))
+
     monkeypatch.setattr(audit_module.AuditLogger, "__init__", new_init)
     yield
 

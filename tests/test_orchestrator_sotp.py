@@ -49,6 +49,7 @@ def test_sotp_integration():
     mock_sec.market = MagicMock()
     mock_sec.market.market_cap = 1000.0
     mock_sec.market.price = 10.0
+    mock_sec.market.beta = 1.0
 
     mock_sec.qualitative = {}
     mock_sec.sector = "Financials"

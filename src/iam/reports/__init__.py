@@ -10,8 +10,8 @@ All exports consume the PipelineReport dataclass from iam.pipeline.orchestrator
 and expose institutional risk metrics already computed in the pipeline.
 """
 
-from iam.reports.html import render_html_report
 from iam.reports.csv import render_csv_export
+from iam.reports.html import render_html_report
 from iam.reports.pdf import render_pdf_summary
 
 __all__ = [

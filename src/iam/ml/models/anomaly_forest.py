@@ -1,14 +1,17 @@
 import logging
+
 import numpy as np
 
 logger = logging.getLogger(__name__)
 
 try:
     from sklearn.ensemble import IsolationForest
+
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
     logger.warning("scikit-learn is not installed. AnomalyDetector will run in pass-through mode.")
+
 
 class AnomalyDetector:
     def __init__(self, contamination="auto", random_state=42):
@@ -16,11 +19,10 @@ class AnomalyDetector:
         self.random_state = random_state
         self.model = None
         self.is_fitted = False
-        
+
         if SKLEARN_AVAILABLE:
             self.model = IsolationForest(
-                contamination=self.contamination, 
-                random_state=self.random_state
+                contamination=self.contamination, random_state=self.random_state
             )
 
     def fit(self, X):
@@ -38,7 +40,7 @@ class AnomalyDetector:
         except Exception as e:
             logger.error(f"Failed to fit IsolationForest: {e}")
             self.is_fitted = False
-            
+
         return self
 
     def predict(self, X):
@@ -47,8 +49,8 @@ class AnomalyDetector:
         Returns 1 for normal, -1 for anomaly.
         If sklearn is not available or model is not fitted, returns 1 (normal) for all.
         """
-        n_samples = np.array(X).shape[0] if hasattr(X, '__len__') else 1
-        
+        n_samples = np.array(X).shape[0] if hasattr(X, "__len__") else 1
+
         if not SKLEARN_AVAILABLE or not self.is_fitted:
             return np.ones(n_samples, dtype=int)
 

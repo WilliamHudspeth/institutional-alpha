@@ -1,4 +1,3 @@
-
 import pytest
 
 from iam.data.security import Security
@@ -242,7 +241,7 @@ def test_damodaran_engine_beta_u_single_segment():
     engine = DamodaranEngine()
     segs = [Segment("A", 1000, 100, 1.2, 0.21, 0.05, 50)]
     # D/E = 0.0 -> Beta_L = Beta_U = 1.2
-    ke = engine.compute_cost_of_equity(segs, debt_to_equity=0.0)
+    ke = engine.compute_cost_of_equity(segs, debt_to_equity=0.0, tax_rate=0.21)
     expected_ke = 0.04 + 1.2 * 0.05
     assert abs(ke - expected_ke) < 1e-7
 
@@ -256,7 +255,7 @@ def test_damodaran_engine_beta_u_multi_segments():
     # Weighted Beta_U = (4000*0.8 + 6000*1.3) / 10000 = (3200 + 7800) / 10000 = 1.1
     # D/E = 0.0 -> Beta_L = 1.1
     # Ke = 0.04 + 1.1 * 0.05 = 0.095
-    ke = engine.compute_cost_of_equity(segs, debt_to_equity=0.0)
+    ke = engine.compute_cost_of_equity(segs, debt_to_equity=0.0, tax_rate=0.21)
     assert abs(ke - 0.095) < 1e-7
 
 
@@ -264,7 +263,7 @@ def test_damodaran_engine_beta_u_zero_revenue_fallback():
     engine = DamodaranEngine()
     segs = [Segment("A", 0, 100, 1.2, 0.21, 0.05, 50)]
     # Weighted Beta_U fallback is 1.0 when total revenue is 0
-    ke = engine.compute_cost_of_equity(segs, debt_to_equity=0.0)
+    ke = engine.compute_cost_of_equity(segs, debt_to_equity=0.0, tax_rate=0.21)
     0.04 + 1.0 * 0.05
     assert abs(ke - 0.09) < 1e-7
 
@@ -272,7 +271,7 @@ def test_damodaran_engine_beta_u_zero_revenue_fallback():
 def test_damodaran_engine_beta_l_zero_debt():
     engine = DamodaranEngine()
     segs = [Segment("A", 100, 10, 1.0, 0.21, 0.02, 10)]
-    ke = engine.compute_cost_of_equity(segs, debt_to_equity=0.0)
+    ke = engine.compute_cost_of_equity(segs, debt_to_equity=0.0, tax_rate=0.21)
     # beta_l = 1.0 * (1 + 0.79 * 0.0) = 1.0
     # ke = 0.04 + 1.0 * 0.05 = 0.09
     assert abs(ke - 0.09) < 1e-7
@@ -281,7 +280,7 @@ def test_damodaran_engine_beta_l_zero_debt():
 def test_damodaran_engine_beta_l_positive_debt():
     engine = DamodaranEngine()
     segs = [Segment("A", 100, 10, 1.0, 0.21, 0.02, 10)]
-    ke = engine.compute_cost_of_equity(segs, debt_to_equity=0.5)
+    ke = engine.compute_cost_of_equity(segs, debt_to_equity=0.5, tax_rate=0.21)
     # beta_l = 1.0 * (1 + 0.79 * 0.5) = 1.395
     # ke = 0.04 + 1.395 * 0.05 = 0.10975
     assert abs(ke - 0.10975) < 1e-7
@@ -299,7 +298,7 @@ def test_damodaran_engine_beta_l_custom_tax_rate():
 def test_damodaran_engine_beta_l_negative_debt_to_equity():
     engine = DamodaranEngine()
     segs = [Segment("A", 100, 10, 1.0, 0.21, 0.02, 10)]
-    ke = engine.compute_cost_of_equity(segs, debt_to_equity=-0.2)
+    ke = engine.compute_cost_of_equity(segs, debt_to_equity=-0.2, tax_rate=0.21)
     # beta_l = 1.0 * (1 + 0.79 * -0.2) = 1.0 * (1 - 0.158) = 0.842
     # ke = 0.04 + 0.842 * 0.05 = 0.0821
     assert abs(ke - 0.0821) < 1e-7
@@ -325,7 +324,7 @@ def test_damodaran_engine_beta_l_full_tax_shield():
 def test_damodaran_engine_negative_unlevered_beta():
     engine = DamodaranEngine()
     segs = [Segment("A", 100, 10, -0.5, 0.20, 0.02, 10)]
-    ke = engine.compute_cost_of_equity(segs, debt_to_equity=0.0)
+    ke = engine.compute_cost_of_equity(segs, debt_to_equity=0.0, tax_rate=0.20)
     # ke = 0.04 - 0.5 * 0.05 = 0.015
     assert abs(ke - 0.015) < 1e-7
 
@@ -333,7 +332,7 @@ def test_damodaran_engine_negative_unlevered_beta():
 def test_damodaran_engine_negative_rf():
     engine = DamodaranEngine(risk_free_rate=-0.01)
     segs = [Segment("A", 100, 10, 1.0, 0.20, 0.02, 10)]
-    ke = engine.compute_cost_of_equity(segs, debt_to_equity=0.0)
+    ke = engine.compute_cost_of_equity(segs, debt_to_equity=0.0, tax_rate=0.20)
     # ke = -0.01 + 1.0 * 0.05 = 0.04
     assert abs(ke - 0.04) < 1e-7
 
@@ -341,7 +340,7 @@ def test_damodaran_engine_negative_rf():
 def test_damodaran_engine_zero_erp():
     engine = DamodaranEngine(equity_risk_premium=0.0)
     segs = [Segment("A", 100, 10, 1.5, 0.20, 0.02, 10)]
-    ke = engine.compute_cost_of_equity(segs, debt_to_equity=1.0)
+    ke = engine.compute_cost_of_equity(segs, debt_to_equity=1.0, tax_rate=0.20)
     # ke = 0.04 + beta_l * 0.0 = 0.04
     assert ke == 0.04
 
@@ -349,7 +348,7 @@ def test_damodaran_engine_zero_erp():
 def test_damodaran_engine_large_segment_count():
     engine = DamodaranEngine()
     segs = [Segment(f"S{i}", 100, 10, 1.0, 0.21, 0.02, 5) for i in range(100)]
-    ke = engine.compute_cost_of_equity(segs, debt_to_equity=0.0)
+    ke = engine.compute_cost_of_equity(segs, debt_to_equity=0.0, tax_rate=0.21)
     assert abs(ke - 0.09) < 1e-7
 
 
@@ -418,12 +417,13 @@ def test_damodaran_engine_compute_with_segments_uses_ke():
     sec.fundamentals.total_debt = 50.0
     sec.market.market_cap = 100.0
     # D/E ratio = 50 / 100 = 0.5
-    # Segment weighted beta = 1.0 -> beta_l = 1.0 * (1 + 0.79 * 0.5) = 1.395
-    # ke = 0.04 + 1.395 * 0.05 = 0.10975
+    # Marginal tax rate (US fallback) = 25.0%
+    # Segment weighted beta = 1.0 -> beta_l = 1.0 * (1 + 0.75 * 0.5) = 1.375
+    # ke = 0.04 + 1.375 * 0.05 = 0.10875
     sec.qualitative["segments"] = [Segment("Core", 1000, 100, 1.0, 0.21, 0.02, 50)]
     engine = DamodaranEngine()
     res = engine.compute(sec)
-    assert abs(res.assumptions["wacc"] - 0.10975) < 1e-5
+    assert abs(res.assumptions["wacc"] - 0.10875) < 1e-5
 
 
 def test_damodaran_engine_compute_with_qualitative_de_ratio():
@@ -435,9 +435,9 @@ def test_damodaran_engine_compute_with_qualitative_de_ratio():
     sec.qualitative["segments"] = [Segment("Core", 1000, 100, 1.0, 0.21, 0.02, 50)]
     engine = DamodaranEngine()
     res = engine.compute(sec)
-    # beta_l = 1.0 * (1 + 0.79 * 0.8) = 1.632
-    # ke = 0.04 + 1.632 * 0.05 = 0.1216
-    assert abs(res.assumptions["wacc"] - 0.1216) < 1e-5
+    # beta_l = 1.0 * (1 + 0.75 * 0.8) = 1.60
+    # ke = 0.04 + 1.60 * 0.05 = 0.1200
+    assert abs(res.assumptions["wacc"] - 0.1200) < 1e-5
 
 
 def test_damodaran_engine_compute_with_balance_sheet_mock():
@@ -451,9 +451,9 @@ def test_damodaran_engine_compute_with_balance_sheet_mock():
     sec.qualitative["segments"] = [Segment("Core", 1000, 100, 1.0, 0.21, 0.02, 50)]
     engine = DamodaranEngine()
     res = engine.compute(sec)
-    # beta_l = 1.0 * (1 + 0.79 * 0.4) = 1.316
-    # ke = 0.04 + 1.316 * 0.05 = 0.1058
-    assert abs(res.assumptions["wacc"] - 0.1058) < 1e-5
+    # beta_l = 1.0 * (1 + 0.75 * 0.4) = 1.30
+    # ke = 0.04 + 1.30 * 0.05 = 0.1050
+    assert abs(res.assumptions["wacc"] - 0.1050) < 1e-5
 
 
 def test_damodaran_engine_compute_discount_rate_limit_low_pv():
@@ -690,7 +690,9 @@ def test_integration_sotp_valuation_with_dynamic_ke():
         ),
     ]
     engine = DamodaranEngine()
-    ke = engine.compute_cost_of_equity(sec.qualitative["segments"], debt_to_equity=0.2)
+    ke = engine.compute_cost_of_equity(
+        sec.qualitative["segments"], debt_to_equity=0.2, tax_rate=0.21
+    )
     sotp_res = SOTP.compute(sec.qualitative["segments"], cost_of_equity=ke)
     assert sotp_res.total_ev > 0
     assert len(sotp_res.segments) == 2
@@ -711,8 +713,8 @@ def test_integration_relevered_beta_comparison():
     engine = DamodaranEngine()
     segs = [Segment("A", 1000, 100, 1.0, 0.21, 0.02, 50)]
     # High leverage vs Low leverage
-    ke_high = engine.compute_cost_of_equity(segs, debt_to_equity=1.5)
-    ke_low = engine.compute_cost_of_equity(segs, debt_to_equity=0.2)
+    ke_high = engine.compute_cost_of_equity(segs, debt_to_equity=1.5, tax_rate=0.21)
+    ke_low = engine.compute_cost_of_equity(segs, debt_to_equity=0.2, tax_rate=0.21)
     assert ke_high > ke_low
 
 
@@ -778,5 +780,7 @@ def test_integration_damodaran_engine_with_none_market_cap():
     sec.qualitative["segments"] = [Segment("Core", 1000, 100, 1.0, 0.21, 0.02, 50)]
     engine = DamodaranEngine()
     res = engine.compute(sec)
-    # market_cap=None behaves as market_cap=1.0, giving D/E = 50 / 1.0 = 50.0
-    assert res.assumptions["wacc"] > 0.5
+    # market_cap=None with debt present returns insufficient-data result (confidence 0.0, None bounds)
+    assert res.confidence == 0.0
+    assert res.fair_value_low is None
+    assert res.fair_value_high is None

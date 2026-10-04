@@ -28,6 +28,26 @@ DEFAULT_TERMINAL_GROWTH = 0.025  # GDP-ish steady state
 DEFAULT_ROE = 0.15  # Return on Equity for reinvestment constraint (g / ROE)
 
 
+def as_rate(value: object) -> float | None:
+    """Caller-supplied rates may arrive as strings (e.g. parsed from JSON); coerce once."""
+    return None if value is None else float(value)  # type: ignore[arg-type]
+
+
+def cap_terminal_growth(g_terminal: float, rf: float | None) -> tuple[float, str | None]:
+    """Cap terminal growth at the risk-free rate (Damodaran 2012).
+
+    No firm outgrows the economy in perpetuity and nominal growth is bounded by
+    Rf. This is a cap, never a floor: a lower configured rate is returned as is.
+    ``rf=None`` (no Rf in play for the stage) leaves the rate untouched.
+
+    Returns:
+        ``(terminal_growth, note)``; ``note`` is ``None`` unless the cap bound.
+    """
+    if rf is not None and g_terminal > rf:
+        return rf, f"terminal growth capped at Rf {rf:.2%}"
+    return g_terminal, None
+
+
 def _present_value_two_stage(
     base_ni: float,
     g_high: float,
@@ -134,8 +154,9 @@ class ReverseDCF:
         # are supplied, compute cost of equity from Yahoo beta.  Otherwise use
         # the flat rate passed at construction time.
         r = self.r
-        rfr = qualitative.get("risk_free_rate")
-        erp = qualitative.get("equity_risk_premium")
+        rfr = as_rate(qualitative.get("risk_free_rate"))
+        erp = as_rate(qualitative.get("equity_risk_premium"))
+        g_terminal = self.g_terminal
         if rfr is not None and erp is not None:
             beta = get_yahoo_beta(security)
             r = float(rfr) + beta * float(erp)
@@ -143,6 +164,9 @@ class ReverseDCF:
                 f"CAPM discount rate: {rfr:.3f} + {beta:.4f} × {erp:.3f} = {r:.4f} "
                 f"(Yahoo beta, Stage 1)"
             )
+            g_terminal, cap_note = cap_terminal_growth(g_terminal, float(rfr))
+            if cap_note:
+                notes.append(cap_note)
 
         if m.price is None or ni is None or f.shares_outstanding is None:
             return ValuationResult(
@@ -165,7 +189,7 @@ class ReverseDCF:
             target_price=m.price,
             base_ni=ni_per_share,
             n=self.n,
-            g_terminal=self.g_terminal,
+            g_terminal=g_terminal,
             r=r,
             roe=roe,
         )
@@ -196,7 +220,7 @@ class ReverseDCF:
 
         implied = ImpliedExpectations(
             implied_revenue_growth=implied_g,
-            implied_terminal_growth=self.g_terminal,
+            implied_terminal_growth=g_terminal,
             discount_rate_assumed=r,
             growth_vs_history_max=growth_vs_max,
         )
@@ -216,7 +240,7 @@ class ReverseDCF:
             assumptions={
                 "discount_rate": r,
                 "high_growth_years": float(self.n),
-                "terminal_growth": self.g_terminal,
+                "terminal_growth": g_terminal,
                 "roe": roe,
                 "base_ni_per_share": ni_per_share,
             },

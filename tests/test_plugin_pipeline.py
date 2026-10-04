@@ -92,9 +92,7 @@ def test_factor_plugin_results_attached_to_report():
 def test_discovered_example_plugin_flows_through_pipeline():
     """File-based discovery -> instantiation -> pipeline influence, end to end."""
     manager = PluginManager()
-    examples_dir = (
-        Path(__file__).resolve().parent.parent / "src" / "iam" / "plugins" / "examples"
-    )
+    examples_dir = Path(__file__).resolve().parent.parent / "src" / "iam" / "plugins" / "examples"
     manager.discover_plugins(str(examples_dir))
 
     # Discovery picks up both the realistic lens and the trivial stub.

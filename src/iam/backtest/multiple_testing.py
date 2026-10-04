@@ -354,9 +354,10 @@ def compute_validation_metrics(df: pd.DataFrame, factor_names: list[str]) -> Val
                 # t-test for p-value (approximate)
                 t_stat, p_val = stats.ttest_1samp(s_f, 0)
 
-                # Spread calculation (simplified if not in df)
+                # Quintile spread only when the backtest actually measured it;
+                # never derived from IC (that would be an invented number).
                 spread_col = f"spread_{f}"
-                spread = df[spread_col].mean() if spread_col in df.columns else (avg_ic * 5.0)
+                spread = df[spread_col].mean() if spread_col in df.columns else float("nan")
 
                 factor_metrics[f] = {
                     "ic": avg_ic,

@@ -20,6 +20,14 @@ References: Damodaran, risk.xls and levbeta.xls workbooks.
 from __future__ import annotations
 
 from iam.data.security import Security
+from iam.valuation.country_tax import company_marginal_tax
+
+# Documented model assumptions (not data). Whenever one is used instead of a
+# value supplied on ``security.qualitative`` it is listed in
+# ``qualitative["beta_assumptions"]`` so the audit trail shows it.
+DEFAULT_PRE_TAX_COST_DEBT = 0.075  # model default; no market debt quote is fetched
+DEFAULT_DEBT_MATURITY_YEARS = 5.0  # model default weighted-average maturity
+DEFAULT_BETA = 1.0  # market-neutral beta when no regression beta is available
 
 
 def unlever_beta(levered_beta: float, debt_to_equity: float, tax_rate: float) -> float:
@@ -67,7 +75,7 @@ def get_yahoo_beta(security: Security) -> float:
     """
     if security.market.beta is not None:
         return float(security.market.beta)
-    return float(security.qualitative.get("beta", 1.0))
+    return float(security.qualitative.get("beta", DEFAULT_BETA))
 
 
 def get_custom_beta_for_intrinsic(security: Security) -> float:
@@ -89,34 +97,59 @@ def get_custom_beta_for_intrinsic(security: Security) -> float:
 
     Qualitative keys consumed (all optional, with stated defaults):
       - ``avg_de_ratio``         — historical D/E during regression window (0.0)
-      - ``tax_rate``             — marginal tax rate (0.21)
+      - ``tax_rate``             — marginal tax rate (falls back to company_marginal_tax)
       - ``pre_tax_cost_debt``    — current pre-tax cost of debt (0.075)
       - ``debt_maturity``        — weighted average debt maturity in years (5.0)
       - ``lease_debt``           — capitalised operating lease liability (0.0)
     """
     q = security.qualitative
-    tax_rate = float(q.get("tax_rate", 0.21))
+    assumed: list[str] = []
+    if "tax_rate" in q and q["tax_rate"] is not None:
+        tax_rate = float(q["tax_rate"])
+    else:
+        tax_rate, tax_source = company_marginal_tax(security)
+        assumed.append(f"tax_rate={tax_rate:.1%} ({tax_source})")
     avg_de = float(q.get("avg_de_ratio", 0.0))
 
+    if security.market.beta is None and "beta" not in q:
+        assumed.append(f"beta={DEFAULT_BETA} (model default: no regression beta available)")
     yahoo_b = get_yahoo_beta(security)
     beta_unlev = unlever_beta(yahoo_b, avg_de, tax_rate)
 
     # Current market-value debt
     book_debt = float(security.fundamentals.total_debt or 0.0)
     interest = float(security.fundamentals.interest_expense_ttm or 0.0)
-    market_rate = float(q.get("pre_tax_cost_debt", 0.075))
-    maturity = float(q.get("debt_maturity", 5.0))
+    if "pre_tax_cost_debt" in q:
+        market_rate = float(q["pre_tax_cost_debt"])
+    else:
+        market_rate = DEFAULT_PRE_TAX_COST_DEBT
+        assumed.append(f"pre_tax_cost_debt={DEFAULT_PRE_TAX_COST_DEBT:.1%} (model default)")
+    if "debt_maturity" in q:
+        maturity = float(q["debt_maturity"])
+    else:
+        maturity = DEFAULT_DEBT_MATURITY_YEARS
+        assumed.append(f"debt_maturity={DEFAULT_DEBT_MATURITY_YEARS:g}y (model default)")
 
     debt_mv = market_value_of_debt(book_debt, interest, market_rate, maturity)
     lease_debt = float(q.get("lease_debt", 0.0))
     total_debt = debt_mv + lease_debt
 
-    equity = float(security.market.market_cap or 1.0)
-    current_de = total_debt / equity if equity > 0 else 0.0
+    equity = security.market.market_cap
+    if equity is None or equity <= 0:
+        # No market cap -> current D/E is unknowable. Do not invent one: keep
+        # the regression beta as-is and say so.
+        q["beta_assumptions"] = [
+            *assumed,
+            "market cap unavailable: current D/E unknown, beta not relevered",
+        ]
+        q.pop("current_de_ratio", None)
+        return yahoo_b
+    current_de = total_debt / float(equity)
 
     beta_custom = relever_beta(beta_unlev, current_de, tax_rate)
 
     # Audit trail
+    q["beta_assumptions"] = assumed
     q["beta_unlevered"] = round(beta_unlev, 6)
     q["beta_stage3"] = round(beta_custom, 6)
     q["debt_market_value"] = round(debt_mv, 2)

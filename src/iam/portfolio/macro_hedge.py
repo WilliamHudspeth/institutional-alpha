@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from iam.elasticity.types import ElasticityProfile
-from iam.pipeline.macro_regimes import MacroRegimeAssessment, MacroRegime
+from iam.pipeline.macro_regimes import MacroRegime, MacroRegimeAssessment
 from iam.portfolio.types import Portfolio
 
 # ── Elasticity thresholds ──────────────────────────────────────────────────
@@ -125,9 +125,7 @@ class MacroHedgeEngine:
                 )
             else:
                 regime_note = (
-                    " Current tightening regime amplifies duration risk."
-                    if is_tightening
-                    else ""
+                    " Current tightening regime amplifies duration risk." if is_tightening else ""
                 )
                 rationale = (
                     f"Portfolio rate elasticity {agg_rate_el:.1f}/{HIGH_RATE_ELASTICITY_THRESHOLD:.0f}+ "

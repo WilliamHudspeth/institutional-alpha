@@ -39,7 +39,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("DataFetcher")
 
 
-def _open(path: str, timeout: float = 15.0) -> sqlite3.Connection:
+def _open(path: str | Path, timeout: float = 15.0) -> sqlite3.Connection:
     conn = sqlite3.connect(path, timeout=timeout)
     conn.execute("PRAGMA journal_mode=WAL")  # readers don't block the writer
     conn.execute("PRAGMA busy_timeout=15000")  # ms; pairs with timeout=

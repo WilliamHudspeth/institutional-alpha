@@ -7,8 +7,10 @@ Data Layer → Adapter → Orchestrator → Result
 import pytest
 
 from iam.api import Security, value_security
-from iam.data import GroundTruthProvider, apply_scenario
+from iam.data import GroundTruthProvider, MarketData, apply_scenario
 from iam.integration import ModelResult, Orchestrator, from_ground_truth
+from tests.erp_helpers import country_avg as _country_erp
+from tests.erp_helpers import region_erp as _region_erp
 
 
 class TestApplyScenario:
@@ -93,6 +95,7 @@ class TestOrchestrator:
             ticker="NVDA",
             sector="Semiconductors",
             industry="Semiconductors",
+            market=MarketData(market_cap=1000.0),
             revenue_mix={"US": 0.44, "CN": 0.25, "TW": 0.13, "DE": 0.18},
         )
 
@@ -113,6 +116,7 @@ class TestOrchestrator:
         nvda = Security(
             ticker="NVDA",
             sector="Semiconductors",
+            market=MarketData(market_cap=1000.0),
             revenue_mix={"US": 0.44, "CN": 0.25, "TW": 0.13, "DE": 0.18},
         )
 
@@ -120,9 +124,14 @@ class TestOrchestrator:
         result = orchestrator.value_security(nvda)
         profile = result["risk_profile"]
 
-        # US: 4.6%, CN: 7.5%, TW: 4.8%, DE: 5.2%
-        # Blended: 0.44*0.046 + 0.25*0.075 + 0.13*0.048 + 0.18*0.052
-        expected_erp = 0.44 * 0.046 + 0.25 * 0.075 + 0.13 * 0.048 + 0.18 * 0.052
+        # Country ERPs (rating/CDS averaged) from the April 2026 Damodaran dataset
+        # (was the stale 4.6/7.5/4.8/5.2% table).
+        expected_erp = (
+            0.44 * _country_erp("United States")
+            + 0.25 * _country_erp("China")
+            + 0.13 * _country_erp("Taiwan")
+            + 0.18 * _country_erp("Germany")
+        )
         assert profile["erp"] == pytest.approx(expected_erp, abs=1e-4)
 
     def test_provenance_attached(self):
@@ -131,6 +140,7 @@ class TestOrchestrator:
             ticker="BLK",
             sector="Investments & Asset Management",
             industry="Asset Management",
+            market=MarketData(market_cap=1000.0),
         )
 
         orchestrator = Orchestrator()
@@ -139,7 +149,7 @@ class TestOrchestrator:
 
         assert "_provenance" in profile
         assert "version" in profile["_provenance"]
-        assert profile["_provenance"]["version"] == "damodaran_jan_2026"
+        assert profile["_provenance"]["version"] == "damodaran_2026-04"
 
 
 class TestPublicAPI:
@@ -151,6 +161,7 @@ class TestPublicAPI:
             ticker="TEST",
             sector="Technology",
             industry="Software",
+            market=MarketData(market_cap=1000.0),
         )
 
         result = value_security(sec)
@@ -169,16 +180,21 @@ class TestMultiRegionBlending:
             ticker="BLK",
             sector="Investments & Asset Management",
             industry="Asset Management",
+            market=MarketData(market_cap=1000.0),
             revenue_mix={"NA": 0.64, "EMEA": 0.30, "APAC": 0.06},
         )
 
         gt = GroundTruthProvider()
         profile = gt.get_risk_profile(blk)
 
-        # Expected ERP blending: 64% NA (4.6%) + 30% EU (5.2%) + 6% APAC (4.8%)
-        # = 0.64*0.046 + 0.30*0.052 + 0.06*0.048 = 0.04792
-        expected_erp = 0.64 * 0.046 + 0.30 * 0.052 + 0.06 * 0.048
+        # Expected ERP blending from the GDP-weighted regional ERPs (April 2026 dataset):
+        # 64% North America + 30% Western Europe (EMEA) + 6% Asia (APAC)
+        expected_erp = (
+            0.64 * _region_erp("North America")
+            + 0.30 * _region_erp("Western Europe")
+            + 0.06 * _region_erp("Asia")
+        )
 
         assert profile["erp"] == pytest.approx(expected_erp, abs=1e-4)
-        assert profile["_provenance"]["version"] == "damodaran_jan_2026"
+        assert profile["_provenance"]["version"] == "damodaran_2026-04"
         assert profile["_provenance"]["stale"] is False

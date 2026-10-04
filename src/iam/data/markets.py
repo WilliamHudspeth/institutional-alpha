@@ -78,7 +78,8 @@ MARKET_GROUPS: dict[str, list[tuple[str, str]]] = {
     ],
 }
 
-# Symbols quoted as yield x10 by Yahoo (^TNX = 42.8 means 4.28%).
+# Treasury yield symbols. Yahoo quotes them in percent (^TNX = 5.24 means 5.24%),
+# including history (mid-2020 reads 0.68), so no rescaling is applied.
 _RATE_SYMBOLS = {"^IRX", "^FVX", "^TNX", "^TYX"}
 
 # Tenor in years for the curve sparkline ordering.
@@ -207,13 +208,6 @@ def _fetch_one(symbol: str, want_history: bool = True) -> Quote:
     if last is None:
         raise RuntimeError(f"no price for {symbol}")
 
-    if is_rate:
-        # Yahoo reports yields x10.
-        last = last / 10.0
-        if prev is not None:
-            prev = prev / 10.0
-        history = [h / 10.0 for h in history]
-
     label = _label_for(symbol)
     return Quote(
         symbol=symbol,
@@ -339,6 +333,40 @@ def _refresh_snapshot_worker(key: str) -> None:
     finally:
         with _lock:
             _inflight.discard(key)
+
+
+# ── Blocking, cached single-symbol fetch (for engines, not the UI) ───────────
+_live_cache: dict[str, tuple[Quote, float]] = {}
+_live_fail_ts: dict[str, float] = {}
+
+
+def fetch_live_quote(symbol: str, *, max_age: float | None = None) -> Quote | None:
+    """Fetch one real quote, cached for ``max_age`` seconds (default macro TTL).
+
+    Unlike :func:`fetch_market_snapshot` this never substitutes mock data:
+    it returns ``None`` when no live value is available, so callers can fall
+    back to a documented baseline instead of a random number. Failures are
+    also cached for the same window so a dead network costs one timeout, not
+    one per pipeline run.
+    """
+    ttl = _MACRO_TTL if max_age is None else max_age
+    now = time.time()
+    with _lock:
+        hit = _live_cache.get(symbol)
+        if hit is not None and now - hit[1] < ttl:
+            return hit[0]
+        if now - _live_fail_ts.get(symbol, -ttl) < ttl:
+            return None
+    try:
+        q = _fetch_one(symbol, want_history=False)
+    except Exception:  # noqa: BLE001
+        q = None
+    with _lock:
+        if q is None or q.stale or q.last is None:
+            _live_fail_ts[symbol] = now
+            return None
+        _live_cache[symbol] = (q, now)
+    return q
 
 
 # ── Blocking builders (call from a worker thread) ────────────────────────────

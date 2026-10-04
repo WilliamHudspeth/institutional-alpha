@@ -26,7 +26,6 @@ from iam.governance.models import (
     ModelChangeType,
 )
 
-
 _GOVERNANCE_DIR = Path(os.environ.get("IAM_GOVERNANCE_DIR", "~/.iam/governance")).expanduser()
 _HYPOTHESIS_FILE = _GOVERNANCE_DIR / "hypotheses.jsonl"
 _FACTOR_AUDIT_FILE = _GOVERNANCE_DIR / "factor_audit.jsonl"
@@ -194,7 +193,7 @@ class GovernanceService:
                 "user": user,
                 "hypothesis_title": hypothesis.title,
                 "hypothesis_status": hypothesis.status.value,
-            }
+            },
         )
 
     # --- Factor Audit Trail ---
@@ -242,7 +241,7 @@ class GovernanceService:
                 "new_value": new_value,
                 "rationale": rationale,
                 "ticket_ref": ticket_ref,
-            }
+            },
         )
         return entry
 
@@ -321,7 +320,7 @@ class GovernanceService:
                 "config_changes": config_changes,
                 "rationale": rationale,
                 "ticket_ref": ticket_ref,
-            }
+            },
         )
         return entry
 
@@ -413,7 +412,9 @@ class GovernanceService:
                 break
         return results
 
-    def expire_override(self, override_id: str, expired_by: str = "system") -> AssumptionOverride | None:
+    def expire_override(
+        self, override_id: str, expired_by: str = "system"
+    ) -> AssumptionOverride | None:
         """Expire an active assumption override."""
         records = _read_jsonl(_ASSUMPTION_OVERRIDE_FILE)
         for record in records:
@@ -429,7 +430,7 @@ class GovernanceService:
                     details={
                         "user": expired_by,
                         "assumption_name": override.assumption_name,
-                    }
+                    },
                 )
                 return override
         return None

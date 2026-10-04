@@ -14,14 +14,25 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import TypedDict
 
 from iam.data.ground_truth import GroundTruthProvider
 from iam.data.security import Security
 from iam.valuation.beta import get_custom_beta_for_intrinsic
-from iam.valuation.reverse_dcf import _present_value_two_stage
+from iam.valuation.reverse_dcf import _present_value_two_stage, as_rate, cap_terminal_growth
 from iam.valuation.types import Method, ValuationResult
 
 logger = logging.getLogger(__name__)
+
+
+class _Scenario(TypedDict):
+    """One row of the Bear/Base/Bull scenario matrix."""
+
+    name: str
+    prob: float
+    g: float
+    wacc: float
+    tv_g: float
 
 
 @dataclass
@@ -81,19 +92,30 @@ class FCFEDCF:
             confidence *= 0.7
             notes.append("Using model defaults — supply assumptions for a tailored estimate.")
 
-        # Cost of Equity Hierarchy:
-        # 1. Explicit risk_free_rate + equity_risk_premium (custom CAPM)
-        # 2. Institutional Damodaran baselines (GroundTruthProvider)
-        # 3. Forecast discount rate from qualitative
+        # Cost of Equity Hierarchy ("what is it worth?"):
+        # 1. Caller-supplied risk_free_rate / equity_risk_premium (explicit custom CAPM;
+        #    a missing half is filled from the macro Rf / revenue-weighted ERP).
+        # 2. Bottom-up Ke: Rf + industry unlevered beta relevered at current market D/E
+        #    x revenue-weighted ERP (GroundTruthProvider).
+        # 3. Forecast discount rate from qualitative / model default, stated in the notes.
         q = security.qualitative
-        rfr = q.get("risk_free_rate")
-        erp = q.get("equity_risk_premium")
+        rfr = as_rate(q.get("risk_free_rate"))
+        erp = as_rate(q.get("equity_risk_premium"))
+        rf_used: float | None = None
 
-        if rfr is not None and erp is not None:
-            # Custom CAPM with explicit rates
+        if rfr is not None or erp is not None:
             try:
+                if rfr is None or erp is None:
+                    from iam.data.damodaran import DamodaranProvider
+                    from iam.valuation.country_risk import company_erp
+
+                    if rfr is None:
+                        rfr = DamodaranProvider.get_risk_free_rate()
+                    if erp is None:
+                        erp = company_erp(security)[0]
                 beta = get_custom_beta_for_intrinsic(security)
                 base_a.discount_rate = float(rfr) + beta * float(erp)
+                rf_used = float(rfr)
                 notes.append(
                     f"CAPM discount rate: {rfr:.3f} + {beta:.4f} × {erp:.3f} = {base_a.discount_rate:.4f} "
                     f"(custom CAPM, Stage 3)"
@@ -101,19 +123,34 @@ class FCFEDCF:
             except Exception:
                 pass
         else:
-            # Institutional baseline: Damodaran unlevered beta + Implied ERP
+            gt = GroundTruthProvider()
             try:
-                gt = GroundTruthProvider()
-                profile = gt.get_equity_risk_profile(security)
-                base_a.discount_rate = profile.cost_of_equity
-                notes.append(
-                    f"Cost of Equity: {profile.risk_free_rate * 100:.2f}% + {profile.industry_unlevered_beta:.2f} "
-                    f"(relevered) × {profile.erp * 100:.2f}% = {profile.cost_of_equity * 100:.2f}% "
-                    f"(Damodaran institutional baseline)"
-                )
+                profile, reason = gt.get_equity_risk_profile_with_reason(security)
             except Exception as e:
                 logger.debug(f"GroundTruthProvider failed: {e}; using forecast discount rate")
-                pass
+                profile, reason = None, f"bottom-up cost of equity failed: {e}"
+            if profile is not None:
+                base_a.discount_rate = profile.cost_of_equity
+                rf_used = profile.risk_free_rate
+                notes.append(
+                    f"bottom-up Ke (industry beta relevered, revenue-weighted ERP): "
+                    f"{profile.risk_free_rate:.2%} + {profile.levered_beta:.2f} × "
+                    f"{profile.erp:.2%} = {profile.cost_of_equity:.2%} "
+                    f"(unlevered beta {profile.industry_unlevered_beta:.2f}, "
+                    f"D/E {profile.debt_to_equity:.2f}, tax {profile.tax_rate:.0%}; "
+                    f"rf: {profile.rf_source}; ERP: {profile.erp_source})"
+                )
+                notes.extend(f"default used: {d}" for d in profile.defaults_used)
+            else:
+                notes.append(
+                    f"{reason}; using forecast/default discount rate "
+                    f"{base_a.discount_rate:.2%} (not a computed cost of equity)"
+                )
+
+        # Terminal growth never exceeds the risk-free rate used by this stage.
+        terminal_growth, cap_note = cap_terminal_growth(base_a.terminal_growth, rf_used)
+        if cap_note:
+            notes.append(cap_note)
 
         # Base cash flow: use Net Income if available, else FCF TTM
         ni = f.net_income_ttm if f.net_income_ttm and f.net_income_ttm > 0 else f.fcf_ttm
@@ -127,7 +164,7 @@ class FCFEDCF:
 
         ni_per_share = ni / f.shares_outstanding
 
-        if base_a.discount_rate <= base_a.terminal_growth:
+        if base_a.discount_rate <= terminal_growth:
             return ValuationResult(
                 method=Method.INTRINSIC,
                 confidence=0.0,
@@ -138,45 +175,46 @@ class FCFEDCF:
         # ====================================================================
         # Probabilistic Scenario Matrix
         # ====================================================================
+        # (Scenario terminal growth = capped base x factor, re-capped at Rf.)
         # Bear (20%):  -40% growth, +150bps WACC, -20% Terminal Growth
         # Base (60%):  Anchor assumptions
         # Bull (20%):  +30% growth, -100bps WACC, +20% Terminal Growth
-        scenarios = [
+        scenarios: list[_Scenario] = [
             {
                 "name": "Bear Case",
                 "prob": 0.20,
                 "g": base_a.high_growth * 0.60,
                 "wacc": base_a.discount_rate + 0.015,
-                "tv_g": base_a.terminal_growth * 0.80,
+                "tv_g": cap_terminal_growth(terminal_growth * 0.80, rf_used)[0],
             },
             {
                 "name": "Base Case",
                 "prob": 0.60,
                 "g": base_a.high_growth,
                 "wacc": base_a.discount_rate,
-                "tv_g": base_a.terminal_growth,
+                "tv_g": terminal_growth,
             },
             {
                 "name": "Bull Case",
                 "prob": 0.20,
                 "g": base_a.high_growth * 1.30,
                 "wacc": base_a.discount_rate - 0.010,
-                "tv_g": base_a.terminal_growth * 1.20,
+                "tv_g": cap_terminal_growth(terminal_growth * 1.20, rf_used)[0],
             },
         ]
 
         pwev_target = 0.0
-        matrix_results = {}
+        matrix_results: dict[str, dict[str, float]] = {}
 
         # Run the DCF math for each scenario
         for s in scenarios:
             try:
                 target = _present_value_two_stage(
                     base_ni=ni_per_share,
-                    g_high=s["g"],  # type: ignore
-                    g_terminal=s["tv_g"],  # type: ignore
+                    g_high=s["g"],
+                    g_terminal=s["tv_g"],
                     n=base_a.high_growth_years,
-                    r=s["wacc"],  # type: ignore
+                    r=s["wacc"],
                     roe=base_a.roe,
                 )
                 upside = (target / m.price) - 1 if m.price > 0 else 0
@@ -191,7 +229,7 @@ class FCFEDCF:
                 }
 
                 # Accumulate Probability-Weighted Expected Value
-                pwev_target += target * s["prob"]  # type: ignore
+                pwev_target += target * s["prob"]
             except Exception as e:
                 notes.append(f"Scenario '{s['name']}' calculation failed: {e}")
 
@@ -212,13 +250,13 @@ class FCFEDCF:
         verdict_lines = [
             f"Probability-Weighted Fair Value (PWEV): ${pwev_target:.2f} ({pwev_upside * 100:+.1f}%)",
             "  Scenario Matrix:",
-            f"    • Bear (20%): ${matrix_results['Bear Case']['target']:.2f} "  # type: ignore
+            f"    • Bear (20%): ${matrix_results['Bear Case']['target']:.2f} "
             f"| Growth: {matrix_results['Bear Case']['g'] * 100:.1f}% "
             f"| WACC: {matrix_results['Bear Case']['wacc'] * 100:.2f}%",
-            f"    • Base (60%): ${matrix_results['Base Case']['target']:.2f} "  # type: ignore
+            f"    • Base (60%): ${matrix_results['Base Case']['target']:.2f} "
             f"| Growth: {matrix_results['Base Case']['g'] * 100:.1f}% "
             f"| WACC: {matrix_results['Base Case']['wacc'] * 100:.2f}%",
-            f"    • Bull (20%): ${matrix_results['Bull Case']['target']:.2f} "  # type: ignore
+            f"    • Bull (20%): ${matrix_results['Bull Case']['target']:.2f} "
             f"| Growth: {matrix_results['Bull Case']['g'] * 100:.1f}% "
             f"| WACC: {matrix_results['Bull Case']['wacc'] * 100:.2f}%",
         ]
@@ -230,12 +268,12 @@ class FCFEDCF:
             confidence=confidence,
             components={
                 "pwev_target": pwev_target,
-                "scenarios": matrix_results,  # type: ignore
+                "scenarios": matrix_results,
                 "base_ni_per_share": ni_per_share,
             },
             assumptions={
                 "high_growth": base_a.high_growth,
-                "terminal_growth": base_a.terminal_growth,
+                "terminal_growth": terminal_growth,
                 "high_growth_years": float(base_a.high_growth_years),
                 "discount_rate": base_a.discount_rate,
                 "roe": base_a.roe,

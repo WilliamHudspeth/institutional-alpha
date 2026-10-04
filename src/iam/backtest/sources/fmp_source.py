@@ -19,6 +19,8 @@ from collections.abc import Callable
 
 import pandas as pd
 
+from iam.data.http import safe_urlopen
+
 from .base import DataSource, DataSourceError
 from .tiers import Capability, DataTier
 
@@ -28,7 +30,7 @@ HttpGet = Callable[[str], object]  # url -> parsed JSON (list/dict)
 
 
 def _default_http_get(url: str, timeout: float = 15.0) -> object:
-    with urllib.request.urlopen(url, timeout=timeout) as resp:  # noqa: S310 — fixed host
+    with safe_urlopen(url, timeout=timeout) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
 

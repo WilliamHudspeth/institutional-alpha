@@ -13,6 +13,7 @@ from iam.valuation.beta import (
     relever_beta,
     unlever_beta,
 )
+from iam.valuation.country_risk import country_erp
 from iam.valuation.fcfe_dcf import FCFEDCF
 
 # ---------------------------------------------------------------------------
@@ -264,22 +265,29 @@ class TestStage3CAPMWiring:
         assert any("CAPM" in n for n in result.notes)
 
     def test_without_capm_keys_uses_default_rate(self):
+        # Bottom-up Ke needs a market cap (current D/E) and a known industry beta.
         sec = Security(
             ticker="TEST",
+            sector="Technology",
+            industry="Software",
             fundamentals=Fundamentals(
                 net_income_ttm=5_000.0,
                 fcf_ttm=4_000.0,
                 shares_outstanding=1_000.0,
+                total_debt=0.0,
             ),
-            market=MarketData(price=100.0),
+            market=MarketData(price=100.0, market_cap=100_000.0),
         )
         with unittest.mock.patch(
-            "iam.data.damodaran.DamodaranProvider.get_risk_free_rate", return_value=0.0425
+            "iam.data.damodaran.DamodaranProvider.get_risk_free_rate_with_source",
+            return_value=(0.0425, "test rf"),
         ):
             result = FCFEDCF().compute(sec)
-            # Now uses Damodaran institutional baseline (not generic 9%)
-            # For unknown sector/industry with no debt: 4.25% + 0.85 * 4.6% = 8.16%
-            assert result.assumptions["discount_rate"] == pytest.approx(0.0816, abs=0.001)
+            # Bottom-up Ke, no debt, no revenue mix (US per-country ERP, rating/CDS averaged):
+            # 4.25% + software unlevered beta 1.15 * US ERP from the shipped dataset
+            assert result.assumptions["discount_rate"] == pytest.approx(
+                0.0425 + 1.15 * country_erp("United States"), abs=1e-9
+            )
             assert any("Damodaran" in n for n in result.notes)
 
     def test_audit_trail_written_after_capm_run(self):
