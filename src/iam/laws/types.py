@@ -49,7 +49,7 @@ class LawCheck:
     name: str  # short snake_case identifier, e.g. "growth_requires_reinvestment"
     status: LawStatus
     narrative: str = ""
-    components: dict[str, float] = field(default_factory=dict)
+    components: dict[str, float | str] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
 
 

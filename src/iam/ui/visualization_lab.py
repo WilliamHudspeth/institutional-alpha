@@ -1,3 +1,4 @@
+import math
 import os
 import sys
 
@@ -6,7 +7,7 @@ import numpy as np
 from iam.engine.damodaran import DamodaranEngine
 from iam.valuation.expectations_surface import ExpectationSurface
 from iam.valuation.sensitivity import DCFValuationSurface
-from iam.valuation.sotp import SOTP, Segment
+from iam.valuation.sotp import SOTP
 from iam.valuation.topology import compute_gradients
 
 from .renderer import render_scene
@@ -14,45 +15,75 @@ from .scene import Scene
 from .sotp_tower import render_sotp_tower
 
 
-def mock_blk_segments():
-    return [
-        Segment(
-            "iShares",
-            revenue=5000,
-            ebit=2000,
-            unlevered_beta=0.60,
-            tax_rate=0.21,
-            growth_rate=0.04,
-            fcfe=1500,
-        ),
-        Segment(
-            "Aladdin",
-            revenue=3000,
-            ebit=1500,
-            unlevered_beta=1.14,
-            tax_rate=0.21,
-            growth_rate=0.05,
-            fcfe=1100,
-        ),
-        Segment(
-            "GIP",
-            revenue=2000,
-            ebit=900,
-            unlevered_beta=0.95,
-            tax_rate=0.21,
-            growth_rate=0.03,
-            fcfe=700,
-        ),
-        Segment(
-            "HPS",
-            revenue=1000,
-            ebit=400,
-            unlevered_beta=1.05,
-            tax_rate=0.21,
-            growth_rate=0.04,
-            fcfe=300,
-        ),
-    ]
+def _finite(v: object) -> float | None:
+    """Finite float or None (NaN/inf/non-numeric all mean 'no data')."""
+    if v is None or isinstance(v, bool):
+        return None
+    try:
+        f = float(v)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return f if math.isfinite(f) else None
+
+
+def _debt_to_equity(security) -> float | None:
+    """Real D/E from the security, or None. Never assumes leverage."""
+    balance_sheet = getattr(security, "balance_sheet", None)
+    d_e = _finite(getattr(balance_sheet, "debt_to_equity", None))
+    if d_e is not None:
+        return d_e
+    d_e = _finite((security.qualitative or {}).get("current_de_ratio"))
+    if d_e is not None:
+        return d_e
+    debt = _finite(security.fundamentals.total_debt)
+    equity = _finite(security.market.market_cap)
+    if debt is None or equity is None or equity <= 0:
+        return None
+    return debt / equity
+
+
+def sotp_tower_report(security) -> str:
+    """Text for the SOTP tower (mode 6), or an explicit insufficient-data message.
+
+    Uses only segments supplied in ``security.qualitative["segments"]`` and a
+    real debt/equity ratio; nothing is substituted when either is missing.
+    """
+    rule = "=" * 100
+    header = [rule, " SUM OF THE PARTS (SOTP) TOWER ", rule]
+
+    segments = (security.qualitative or {}).get("segments", [])
+    if not segments:
+        return "\n".join(
+            header
+            + [f"SOTP tower: n/a (insufficient data: no segment data for {security.ticker})", rule]
+        )
+    d_e = _debt_to_equity(security)
+    if d_e is None:
+        return "\n".join(
+            header
+            + [f"SOTP tower: n/a (insufficient data: no debt/equity for {security.ticker})", rule]
+        )
+
+    q = security.qualitative or {}
+    if q.get("tax_rate") is not None:
+        tax_rate, tax_source = float(q["tax_rate"]), "supplied"
+    else:
+        from iam.valuation.country_tax import company_marginal_tax
+
+        tax_rate, tax_source = company_marginal_tax(security)
+    ke = DamodaranEngine().compute_cost_of_equity(segments, d_e, tax_rate)
+    result = SOTP.compute(segments, ke)
+    return "\n".join(
+        header
+        + [
+            render_sotp_tower(result.segments),
+            rule,
+            f"\nWeighted Unlevered Beta: {result.weighted_unlevered_beta:.2f}",
+            f"Cost of Equity: {ke:.2%}",
+            f"Marginal tax rate: {tax_rate:.2%} ({tax_source})",
+            rule,
+        ]
+    )
 
 
 def _getch():
@@ -158,39 +189,8 @@ def run_visualization_lab(security):
         elif ch in ("1", "2", "3"):
             current_mode = ch
         elif ch == "6":
-            # Use mocked BLK segments (from security.qualitative['segments'])
-            segments = security.qualitative.get("segments", [])
-            if not segments:
-                segments = mock_blk_segments()  # fallback for testing
-            # Compute cost of equity via Damodaran engine
-            damodaran = DamodaranEngine()
-
-            # Get D/E ratio
-            if hasattr(security, "balance_sheet") and hasattr(
-                security.balance_sheet, "debt_to_equity"
-            ):
-                d_e = security.balance_sheet.debt_to_equity
-            elif "current_de_ratio" in security.qualitative:
-                d_e = security.qualitative["current_de_ratio"]
-            else:
-                book_debt = float(security.fundamentals.total_debt or 0.0)
-                equity = float(security.market.market_cap or 1.0)
-                d_e = book_debt / equity if equity > 0 else 0.5
-
-            ke = damodaran.compute_cost_of_equity(segments, d_e)
-            # Compute SOTP
-            result = SOTP.compute(segments, ke)
-            # Render tower
             os.system("cls" if os.name == "nt" else "clear")  # nosec
-            tower = render_sotp_tower(result.segments)
-            print("=" * 100)
-            print(" SUM OF THE PARTS (SOTP) TOWER ")
-            print("=" * 100)
-            print(tower)
-            print("=" * 100)
-            print(f"\nWeighted Unlevered Beta: {result.weighted_unlevered_beta:.2f}")
-            print(f"Cost of Equity: {ke:.2%}")
-            print("=" * 100)
+            print(sotp_tower_report(security))
             input("Press Enter to continue...")  # pause until keypress
         elif ch == "UP":
             cam.pitch = min(90, cam.pitch + 10)
@@ -208,9 +208,9 @@ def run_visualization_lab(security):
             cam.reset()
 
 
-def render_dcf_surface(security, width: int = 80, height: int = 25) -> str:
+def render_dcf_surface(security, width: int = 80, height: int = 25, report=None) -> str:
     """Non-interactive render for the static report."""
-    dcf_surface = DCFValuationSurface(security)
+    dcf_surface = DCFValuationSurface(security, report=report)
     scene = Scene()
     scene.surfaces = [dcf_surface]
     scene.planes.extend(dcf_surface.get_planes())

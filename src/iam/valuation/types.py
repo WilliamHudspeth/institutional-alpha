@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 
 class Method(str, Enum):
@@ -57,7 +58,8 @@ class ValuationResult:
     confidence: float = 1.0  # in [0, 1]
 
     # Sub-results that the method computed along the way — useful for audit.
-    components: dict[str, float] = field(default_factory=dict)
+    # Mostly floats, but FCFE DCF also stores its nested scenario matrix here.
+    components: dict[str, Any] = field(default_factory=dict)
     assumptions: dict[str, float] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
 

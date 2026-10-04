@@ -22,7 +22,7 @@ from iam.data.retry import retry_call
 from iam.data.security import Fundamentals, MarketData, Security
 
 if TYPE_CHECKING:
-    from iam.valuation.multiples_regression import Region, RegressionInputs
+    from iam.valuation.multiples_regression import RegressionInputs
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +152,51 @@ def _deserialize_security(data: dict[str, Any]) -> Security:
         market=MarketData(**market_data),
         qualitative=data.get("qualitative", {}),
     )
+
+
+# Income-statement row labels yfinance uses for the effective tax rate.
+_TAX_ROWS = ("Tax Provision", "Income Tax Expense")
+_PRETAX_ROWS = ("Pretax Income",)
+MAX_EFFECTIVE_TAX_RATE = 0.60  # a ratio above this is a one-off, not a tax rate
+
+
+def _latest_value(financials: Any, labels: tuple[str, ...]) -> float | None:
+    """Latest-fiscal-year value of the first row in ``labels`` that has one; None otherwise."""
+    for label in labels:
+        if label not in financials.index:
+            continue
+        row = financials.loc[label]
+        try:  # columns are period-end dates, normally newest first; do not rely on it
+            col = max(row.index)
+            value = row[col]
+        except (TypeError, ValueError):
+            value = row.iloc[0]
+        if pd.notnull(value):
+            return float(value)
+        # NaN in this row's latest year: try the next candidate label.
+    return None
+
+
+def effective_tax_rate_from_statement(financials: Any) -> tuple[float | None, str | None]:
+    """Effective tax rate (tax provision / pretax income, latest fiscal year) and why not.
+
+    Returns ``(rate, None)`` or ``(None, reason)``. None when either input is missing,
+    pretax income is not positive, or the ratio is outside [0, 0.6]. Never invented.
+    """
+    if financials is None or getattr(financials, "empty", True):
+        return None, "no income statement"
+    tax = _latest_value(financials, _TAX_ROWS)
+    if tax is None:
+        return None, "no tax provision in the latest fiscal year"
+    pretax = _latest_value(financials, _PRETAX_ROWS)
+    if pretax is None:
+        return None, "no pretax income in the latest fiscal year"
+    if pretax <= 0:
+        return None, f"pretax income {pretax:g} <= 0"
+    rate = tax / pretax
+    if not 0.0 <= rate <= MAX_EFFECTIVE_TAX_RATE:
+        return None, f"ratio {rate:.1%} outside [0%, {MAX_EFFECTIVE_TAX_RATE:.0%}]"
+    return rate, None
 
 
 class YFinanceAdapter:
@@ -303,6 +348,19 @@ class YFinanceAdapter:
         if f.fcf_ttm is not None and m.market_cap is not None and m.market_cap > 0:
             m.fcf_yield = f.fcf_ttm / m.market_cap
 
+        qualitative: dict[str, Any] = {
+            "payout": self._get_numeric(info, "payoutRatio"),
+            "roe": self._get_numeric(info, "returnOnEquity"),
+            "roa": self._get_numeric(info, "returnOnAssets"),
+            "roic": None,
+        }
+
+        effective, why_not = effective_tax_rate_from_statement(financials)
+        f.effective_tax_rate = effective
+        qualitative["defaulted_inputs"] = (
+            [] if effective is not None else [f"effective_tax_rate: {why_not}"]
+        )
+
         security = Security(
             ticker=ticker.upper(),
             name=info.get("longName") or info.get("shortName") or ticker.upper(),
@@ -310,8 +368,16 @@ class YFinanceAdapter:
             industry=info.get("industryDisp") or info.get("industry"),
             fundamentals=f,
             market=m,
-            qualitative={},
+            qualitative=qualitative,
         )
+        # MARGINAL rate (Damodaran statutory, revenue-weighted once a mix is known): the
+        # rate beta relevering (valuation.beta) and the cost of debt read. The effective
+        # rate above never replaces it there.
+        from iam.valuation.country_tax import company_marginal_tax
+
+        marginal, marginal_source = company_marginal_tax(security)
+        security.qualitative["tax_rate"] = marginal
+        security.qualitative["tax_rate_source"] = marginal_source
 
         # Cache the result
         try:
@@ -329,52 +395,65 @@ class YFinanceAdapter:
         g: float | None = None,
     ) -> RegressionInputs:
         """Build Damodaran regression inputs from Yahoo Finance data."""
-        from iam.valuation.multiples_regression import RegressionInputs
+        from iam.valuation.multiples_regression import Region, RegressionInputs
 
         # Try to use caching via fetch
+        defaulted: list[str] = []
         try:
             security = self.fetch(ticker)
-            market_cap = security.market.market_cap or 1.0
-            total_debt = security.fundamentals.total_debt or 0.0
-            beta = security.market.beta or 1.0
-            oper_margin = security.fundamentals.operating_margin or 0.15
-            # Fallbacks for regression
-            payout = 0.0
-            roe = 0.12
-            roic = 0.10
-            tax_rate = 0.21
+            market_cap = security.market.market_cap
+            total_debt = security.fundamentals.total_debt
+            beta = security.market.beta
+            oper_margin = security.fundamentals.operating_margin
+            payout = security.qualitative.get("payout")
+            roe = security.qualitative.get("roe")
+            roic = security.qualitative.get("roic")
+            tax_rate = security.fundamentals.effective_tax_rate
+            tax_security = security
         except Exception:
             # Fallback if fetch fails
             yt = yf.Ticker(ticker)
             info = yt.info or {}
-            self._get_numeric(info, "currentPrice", "regularMarketPrice") or 1.0
-            market_cap = self._get_numeric(info, "marketCap") or 1.0
-            total_debt = self._get_numeric(info, "totalDebt") or 0.0
-            beta = self._get_numeric(info, "beta") or 1.0
-            oper_margin = self._get_numeric(info, "operatingMargins") or 0.15
-            payout = self._get_numeric(info, "payoutRatio") or 0.0
-            roe = self._get_numeric(info, "returnOnEquity") or 0.12
-            roic = self._get_numeric(info, "returnOnAssets") or 0.10
-            tax_rate = self._get_numeric(info, "effectiveTaxRate") or 0.21
+            market_cap = self._get_numeric(info, "marketCap")
+            total_debt = self._get_numeric(info, "totalDebt")
+            beta = self._get_numeric(info, "beta")
+            oper_margin = self._get_numeric(info, "operatingMargins")
+            payout = self._get_numeric(info, "payoutRatio")
+            roe = self._get_numeric(info, "returnOnEquity")
+            roic = None
+            try:
+                tax_rate = effective_tax_rate_from_statement(yt.financials)[0]
+            except Exception:
+                tax_rate = None
+            tax_security = Security(ticker=ticker.upper())
 
-        dfr = total_debt / (total_debt + market_cap)
+        if tax_rate is None:
+            # No effective rate: fall back to the MARGINAL rate, labelled with its source.
+            from iam.valuation.country_tax import company_marginal_tax
 
-        if g_eps is None:
-            g_eps = 0.10
-        if g is None:
+            tax_rate, tax_source = company_marginal_tax(tax_security)
+            defaulted.append(f"tax_rate: marginal rate {tax_rate:.2%} ({tax_source})")
+
+        if market_cap is not None and total_debt is not None and (total_debt + market_cap) > 0:
+            dfr = total_debt / (total_debt + market_cap)
+        else:
+            dfr = None
+
+        if g is None and g_eps is not None:
             g = g_eps
 
         return RegressionInputs(
             region=cast(Region, region),
-            beta=float(beta),
-            g_eps=float(g_eps),
-            payout=float(payout),
-            roe=float(roe),
-            g=float(g),
-            roic=float(roic),
-            dfr=float(dfr),
-            oper_margin=float(oper_margin),
-            tax_rate=float(tax_rate),
+            beta=float(beta) if beta is not None else None,
+            g_eps=float(g_eps) if g_eps is not None else None,
+            payout=float(payout) if payout is not None else None,
+            roe=float(roe) if roe is not None else None,
+            g=float(g) if g is not None else None,
+            roic=float(roic) if roic is not None else None,
+            dfr=float(dfr) if dfr is not None else None,
+            oper_margin=float(oper_margin) if oper_margin is not None else None,
+            tax_rate=float(tax_rate) if tax_rate is not None else None,
+            defaulted_inputs=defaulted,
         )
 
     def _get_numeric(self, info: dict, *keys: str) -> float | None:

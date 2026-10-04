@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from iam.pipeline.orchestrator import PipelineReport
 
 
-def render_csv_export(report: "PipelineReport") -> str:
+def render_csv_export(report: PipelineReport) -> str:
     """Render a single-row-per-lens CSV summary of one PipelineReport."""
     buf = io.StringIO()
     writer = csv.writer(buf)

@@ -15,6 +15,9 @@ from iam.data import (
     apply_scenario,
 )
 from iam.integration import ModelResult, Orchestrator, from_ground_truth
+from iam.valuation.country_risk import company_erp
+from tests.erp_helpers import country_avg as _country_erp
+from tests.erp_helpers import region_erp as _region_erp
 
 
 class TestSecurityImmutability:
@@ -130,9 +133,13 @@ class TestMultiRegionBlendingEdgeCases:
 
         blended_erp, breakdown = gt.get_blended_erp(sec)
 
-        # US: 4.6%, CN: 7.5%, EU: 5.2%
-        # Blended: 0.50*0.046 + 0.30*0.075 + 0.20*0.052
-        expected = 0.50 * 0.046 + 0.30 * 0.075 + 0.20 * 0.052
+        # US and CN country ERPs and the Western Europe regional ERP (EU alias)
+        # from the shipped Damodaran dataset (was the stale 4.6/7.5/5.2% table).
+        expected = (
+            0.50 * _country_erp("United States")
+            + 0.30 * _country_erp("China")
+            + 0.20 * _region_erp("Western Europe")
+        )
         assert blended_erp == pytest.approx(expected, abs=1e-5)
 
         # Check breakdown structure
@@ -237,7 +244,9 @@ class TestOrchestratorScenarios:
         """Security with no revenue_mix uses country_iso."""
         sec = Security(
             ticker="TEST",
-            sector="Tech",
+            sector="Technology",
+            industry="Software",
+            market=MarketData(market_cap=1000.0),
             country_iso="CN",
         )
 
@@ -245,14 +254,16 @@ class TestOrchestratorScenarios:
         result = orchestrator.value_security(sec)
         profile = result["risk_profile"]
 
-        # Should use CN ERP (7.5%)
-        assert profile["erp"] == pytest.approx(0.075, abs=1e-4)
+        # Should use the dataset's China ERP (was 7.5% in the stale table)
+        assert profile["erp"] == pytest.approx(_country_erp("China"), abs=1e-4)
 
     def test_orchestrator_us_default(self):
         """Default country_iso is US."""
         sec = Security(
             ticker="TEST",
-            sector="Tech",
+            sector="Technology",
+            industry="Software",
+            market=MarketData(market_cap=1000.0),
             # country_iso defaults to "US"
         )
 
@@ -260,8 +271,8 @@ class TestOrchestratorScenarios:
         result = orchestrator.value_security(sec)
         profile = result["risk_profile"]
 
-        # Should use US ERP (4.6%)
-        assert profile["erp"] == pytest.approx(0.046, abs=1e-4)
+        # Should use the dataset's US per-country ERP, rating/CDS averaged (was 4.6%)
+        assert profile["erp"] == pytest.approx(_country_erp("United States"), abs=1e-4)
 
     def test_orchestrator_asset_manager_blk(self):
         """BLK (asset manager) gets correct unlevered beta."""
@@ -310,18 +321,28 @@ class TestProvenanceTracking:
     def test_provenance_includes_version(self):
         """_provenance always includes version."""
         gt = GroundTruthProvider()
-        sec = Security(ticker="TEST", sector="Tech")
+        sec = Security(
+            ticker="TEST",
+            sector="Technology",
+            industry="Software",
+            market=MarketData(market_cap=1000.0),
+        )
 
         profile = gt.get_risk_profile(sec)
 
         assert "_provenance" in profile
         assert "version" in profile["_provenance"]
-        assert profile["_provenance"]["version"] == "damodaran_jan_2026"
+        assert profile["_provenance"]["version"] == "damodaran_2026-04"
 
     def test_provenance_includes_source(self):
         """_provenance includes source attribution."""
         gt = GroundTruthProvider()
-        sec = Security(ticker="TEST", sector="Tech")
+        sec = Security(
+            ticker="TEST",
+            sector="Technology",
+            industry="Software",
+            market=MarketData(market_cap=1000.0),
+        )
 
         profile = gt.get_risk_profile(sec)
 
@@ -331,7 +352,12 @@ class TestProvenanceTracking:
     def test_provenance_includes_reference_url(self):
         """_provenance includes reference to original data."""
         gt = GroundTruthProvider()
-        sec = Security(ticker="TEST", sector="Tech")
+        sec = Security(
+            ticker="TEST",
+            sector="Technology",
+            industry="Software",
+            market=MarketData(market_cap=1000.0),
+        )
 
         profile = gt.get_risk_profile(sec)
 
@@ -341,7 +367,12 @@ class TestProvenanceTracking:
     def test_provenance_stale_flag(self):
         """_provenance includes stale flag."""
         gt = GroundTruthProvider()
-        sec = Security(ticker="TEST", sector="Tech")
+        sec = Security(
+            ticker="TEST",
+            sector="Technology",
+            industry="Software",
+            market=MarketData(market_cap=1000.0),
+        )
 
         profile = gt.get_risk_profile(sec)
 
@@ -378,6 +409,7 @@ class TestPublicAPIIntegration:
             ticker="TEST",
             sector="Technology",
             industry="Software",
+            market=MarketData(market_cap=1000.0),
         )
 
         result = value_security(sec)
@@ -393,6 +425,8 @@ class TestPublicAPIIntegration:
         sec = Security(
             ticker="TEST",
             sector="Technology",
+            industry="Software",
+            market=MarketData(market_cap=1000.0),
         )
 
         result = value_security(sec)
@@ -413,6 +447,7 @@ class TestPublicAPIIntegration:
             ticker="TEST",
             sector="Utilities",
             industry="Utilities",
+            market=MarketData(market_cap=1000.0),
         )
 
         result = value_security(sec)
@@ -453,12 +488,13 @@ class TestDependencyInjection:
             def resolve_erp(self, key):
                 return 0.05  # Fixed 5% ERP for testing
 
-            def get_industry_unlevered_beta(self, sector, industry=None):
+            def find_industry_unlevered_beta(self, sector, industry=None):
                 return 1.0
 
             def get_macro_state(self):
                 class Macro:
                     risk_free_rate = 0.04
+                    rf_source = "mock rf"
                     implied_erp = 0.05
 
                 return Macro()
@@ -469,11 +505,15 @@ class TestDependencyInjection:
         mock = MockDamodaran()
         gt = GroundTruthProvider(damodaran=mock)
 
-        sec = Security(ticker="TEST", sector="Tech")
+        sec = Security(ticker="TEST", sector="Tech", market=MarketData(market_cap=1000.0))
         profile = gt.get_equity_risk_profile(sec)
 
-        # Should use mock's 5% ERP
-        assert profile.erp == pytest.approx(0.05)
+        # Rf and the industry beta come from the injected provider; the ERP is the
+        # revenue-weighted company ERP from the dataset, no longer the provider's table.
+        assert profile.risk_free_rate == pytest.approx(0.04)
+        assert profile.rf_source == "mock rf"
+        assert profile.industry_unlevered_beta == pytest.approx(1.0)
+        assert profile.erp == pytest.approx(company_erp(sec)[0])
 
     def test_orchestrator_accepts_custom_damodaran(self):
         """Orchestrator passes Damodaran to GroundTruthProvider."""
@@ -482,12 +522,13 @@ class TestDependencyInjection:
             def resolve_erp(self, key):
                 return 0.06
 
-            def get_industry_unlevered_beta(self, sector, industry=None):
+            def find_industry_unlevered_beta(self, sector, industry=None):
                 return 0.8
 
             def get_macro_state(self):
                 class Macro:
                     risk_free_rate = 0.035
+                    rf_source = "mock rf"
                     implied_erp = 0.06
 
                 return Macro()
@@ -498,10 +539,13 @@ class TestDependencyInjection:
         mock = MockDamodaran()
         orchestrator = Orchestrator(damodaran_provider=mock)
 
-        sec = Security(ticker="TEST", sector="Tech")
+        sec = Security(ticker="TEST", sector="Tech", market=MarketData(market_cap=1000.0))
         result = orchestrator.value_security(sec)
 
-        assert result["risk_profile"]["erp"] == pytest.approx(0.06)
+        # Rf and beta come from the injected provider; the ERP is the dataset's company ERP.
+        assert result["risk_profile"]["risk_free_rate"] == pytest.approx(0.035)
+        assert result["risk_profile"]["industry_unlevered_beta"] == pytest.approx(0.8)
+        assert result["risk_profile"]["erp"] == pytest.approx(company_erp(sec)[0])
 
 
 class TestErrorHandling:

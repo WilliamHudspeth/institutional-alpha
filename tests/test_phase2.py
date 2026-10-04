@@ -237,7 +237,9 @@ def test_law_registry_evaluates_all_five_laws():
 def test_law3_flags_terminal_growth_above_risk_free():
     sec = _rich_security()
     report = DamodaranLawRegistry().evaluate(
-        sec, {"high_growth": 0.08, "terminal_growth": 0.05, "discount_rate": 0.09}
+        sec,
+        {"high_growth": 0.08, "terminal_growth": 0.05, "discount_rate": 0.09},
+        risk_free_rate=0.043,  # no default Rf in the registry: the caller passes it
     )
     law3 = next(c for c in report.checks if c.number == 3)
     assert law3.status is LawStatus.VIOLATION

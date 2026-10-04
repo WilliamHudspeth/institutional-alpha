@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import MagicMock
 
 from iam.backtest.multiple_testing import ValidationMetrics
+from iam.pipeline.battlefield import BattlefieldAttribution, DriverContribution
 from iam.ui.alpha_terminal import AlphaTerminal, Canvas, SecState, SystemState
 
 
@@ -83,19 +84,17 @@ class TestTerminalSimulation(unittest.TestCase):
         self.sec.pipeline_result.triangulation.spread = 0.05
         self.sec.pipeline_result.triangulation.verdict = "BUY"
 
-        self.sec.pipeline_result.battlefield = MagicMock()
-        self.sec.pipeline_result.battlefield.market_growth = 0.12
-        self.sec.pipeline_result.battlefield.intrinsic_growth = 0.08
-        self.sec.pipeline_result.battlefield.market_margin = 0.25
-        self.sec.pipeline_result.battlefield.intrinsic_margin = 0.20
-        self.sec.pipeline_result.battlefield.market_roic = 0.15
-        self.sec.pipeline_result.battlefield.intrinsic_roic = 0.18
-        self.sec.pipeline_result.battlefield.growth_gap = -0.04
-        self.sec.pipeline_result.battlefield.margin_gap = -0.05
-        self.sec.pipeline_result.battlefield.roic_gap = 0.03
-        self.sec.pipeline_result.battlefield.alignment_score = 0.45  # float for comparisons
-        self.sec.pipeline_result.battlefield.expectation_mismatch_score = 65.0
-        self.sec.pipeline_result.battlefield.growth_overlap = 0.40  # float for comparisons
+        self.sec.pipeline_result.battlefield = BattlefieldAttribution(
+            key_disagreement="GROWTH expectations",
+            key_parameter="growth",
+            base_value=100.0,
+            target_value=112.0,
+            total_gap=12.0,
+            contributions=[
+                DriverContribution("growth", 0.08, 0.12, 118.0, 18.0, 0.75),
+                DriverContribution("discount_rate", 0.085, 0.09, 94.0, -6.0, 0.25),
+            ],
+        )
 
         self.sec.pipeline_result.law_report = MagicMock()
         self.sec.pipeline_result.law_report.violations = []
@@ -104,7 +103,7 @@ class TestTerminalSimulation(unittest.TestCase):
         self.sec.pipeline_result.market_implied_engine = MagicMock()
         self.sec.pipeline_result.market_implied_engine.implied = MagicMock()
         self.sec.pipeline_result.market_implied_engine.implied.growth_vs_history_max = 1.5
-        
+
         self.sec.pipeline_result.intrinsic = None
         self.sec.pipeline_result.relative = None
 
@@ -134,19 +133,13 @@ class TestTerminalSimulation(unittest.TestCase):
         self.sec.pipeline_result.triangulation.spread = None
         self.sec.pipeline_result.triangulation.verdict = None
 
-        self.sec.pipeline_result.battlefield = MagicMock()
-        self.sec.pipeline_result.battlefield.market_growth = None
-        self.sec.pipeline_result.battlefield.intrinsic_growth = None
-        self.sec.pipeline_result.battlefield.market_margin = None
-        self.sec.pipeline_result.battlefield.intrinsic_margin = None
-        self.sec.pipeline_result.battlefield.market_roic = None
-        self.sec.pipeline_result.battlefield.intrinsic_roic = None
-        self.sec.pipeline_result.battlefield.growth_gap = None
-        self.sec.pipeline_result.battlefield.margin_gap = None
-        self.sec.pipeline_result.battlefield.roic_gap = None
-        self.sec.pipeline_result.battlefield.alignment_score = None
-        self.sec.pipeline_result.battlefield.expectation_mismatch_score = None
-        self.sec.pipeline_result.battlefield.growth_overlap = None
+        self.sec.pipeline_result.battlefield = BattlefieldAttribution(
+            key_disagreement="UNDETERMINED — no shared parameters",
+            key_parameter=None,
+            base_value=float("nan"),
+            target_value=float("nan"),
+            total_gap=0.0,
+        )
 
         self.sec.pipeline_result.market_implied_engine = MagicMock()
         self.sec.pipeline_result.market_implied_engine.implied = MagicMock()
@@ -192,9 +185,7 @@ class TestTerminalSimulation(unittest.TestCase):
         canvas = Canvas(60, 100)
         PortfolioPanel().render(canvas, 0, 55, 0, 90, sec_state, sys_state, ticks=1)
 
-        rendered = "\n".join(
-            "".join(ch for ch, _ in row).rstrip() for row in canvas._back
-        )
+        rendered = "\n".join("".join(ch for ch, _ in row).rstrip() for row in canvas._back)
         self.assertIn("Sector Rotation Signal", rendered)
         self.assertIn("stagflation", rendered)
         # Stagflation favors Energy per REGIME_SECTOR_PREFERENCES -> overweight tilt.
@@ -208,8 +199,12 @@ class TestTerminalSimulation(unittest.TestCase):
 
         positions = [
             Position(
-                ticker="AAPL", name="Apple", quantity=100, entry_price=100,
-                current_price=110, weight=1.0,
+                ticker="AAPL",
+                name="Apple",
+                quantity=100,
+                entry_price=100,
+                current_price=110,
+                weight=1.0,
             )
         ]
         sys_state = SystemState(portfolio=Portfolio(positions=positions), loading=False)
@@ -217,9 +212,7 @@ class TestTerminalSimulation(unittest.TestCase):
         canvas = Canvas(60, 100)
         PortfolioPanel().render(canvas, 0, 55, 0, 90, None, sys_state, ticks=1)
 
-        rendered = "\n".join(
-            "".join(ch for ch, _ in row).rstrip() for row in canvas._back
-        )
+        rendered = "\n".join("".join(ch for ch, _ in row).rstrip() for row in canvas._back)
         self.assertIn("signal unavailable", rendered)
 
 

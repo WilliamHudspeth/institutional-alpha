@@ -10,8 +10,6 @@ import logging
 from dataclasses import dataclass, field
 
 from iam.data.security import Security
-
-logger = logging.getLogger(__name__)
 from iam.factors import (
     CrowdingFactor,
     EarningsQualityFactor,
@@ -29,6 +27,8 @@ from iam.factors import (
     RunwayFactor,
     SentimentFactor,
 )
+
+logger = logging.getLogger(__name__)
 
 # Default weights derived from the framework writeup (docs/framework.md).
 # Override these by passing a custom dict to ``score(...)``.

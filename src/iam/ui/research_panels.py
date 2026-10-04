@@ -4,10 +4,10 @@ These surface engine outputs that previously only appeared in verbose console
 logs.  Each binds to fields already produced by the pipeline / topology layers
 and degrades gracefully when a given block is missing.
 
-* :class:`ExpectationsBattlefieldPanel` — market vs model assumptions + the
-  attribution bars (which variable explains the mispricing).   [report.battlefield]
-* :class:`ReverseDCFDistributionPanel` — market-implied vs intrinsic growth as
-  overlaid bands with an alignment score.                       [report.battlefield]
+* :class:`ExpectationsBattlefieldPanel` — our vs market-implied assumptions and
+  how much each one moves value (which input explains the gap). [report.battlefield]
+* :class:`ReverseDCFDistributionPanel` — market-implied growth placed against our
+  bear/base/bull scenario growth.     [report.market_implied_engine, report.intrinsic]
 * :class:`FragilityMapPanel` — sensitivity / stability read from the valuation
   topology, with a SAFE↔DANGEROUS position bar.                 [sec.topology_metrics]
 * :class:`ArbitrationVisualizerPanel` — per-lens fair values and their influence
@@ -18,6 +18,7 @@ and degrades gracefully when a given block is missing.
 
 from __future__ import annotations
 
+from iam.pipeline.battlefield import PARAM_LABELS
 from iam.ui import widgets as w
 
 
@@ -37,78 +38,58 @@ class ExpectationsBattlefieldPanel:
         rpt = _report(sec)
         bf = getattr(rpt, "battlefield", None) if rpt else None
         if bf is None:
-            _need_data(cv, r0, c0)
+            _need_data(cv, r0, c0, "Battlefield needs a reverse DCF and an FCFE build-up.")
             return
         width = c1 - c0
+        lx = c0 + 1
 
-        col_w = max(26, width // 2 - 2)
-        lx, rx = c0 + 1, c0 + col_w + 3
-
-        cv.put(r0, lx, "MARKET EXPECTATIONS", w.C_RED() + w.BOLD)
-        cv.put(r0, rx, "MODEL EXPECTATIONS", w.C_GREEN() + w.BOLD)
+        cv.put(r0, lx, "KEY DISAGREEMENT: ", w.C_DIM())
+        cv.put(r0, lx + 18, str(getattr(bf, "key_disagreement", "") or "—"), w.C_GOLD() + w.BOLD)
         cv.hline(r0 + 1, c0, c1, style=w.C_DIM())
 
-        rows = [
-            ("Revenue / FCFE Growth", bf.market_growth, bf.intrinsic_growth),
-            ("Operating Margin", bf.market_margin, bf.intrinsic_margin),
-            ("ROIC", bf.market_roic, bf.intrinsic_roic),
-        ]
-        for i, (lbl, mkt_v, mod_v) in enumerate(rows):
-            r = r0 + 2 + i
-            cv.put(r, lx, f"{lbl:<22}", w.C_WHITE())
-            cv.put(r, lx + 22, w.fmt_pct(mkt_v), w.C_WHITE())
-            cv.put(r, rx, f"{lbl:<22}", w.C_WHITE())
-            cv.put(r, rx + 22, w.fmt_pct(mod_v), w.C_WHITE())
+        contributions = list(getattr(bf, "contributions", None) or [])
+        if not contributions:
+            notes = list(getattr(bf, "notes", None) or [])
+            cv.put(
+                r0 + 2,
+                lx,
+                (notes[0] if notes else "No shared parameters to compare.")[: width - 2],
+                w.C_DIM(),
+            )
+            return
 
-        # Gap analysis line
-        gap_row = r0 + 6
-        cv.hline(gap_row, c0, c1, style=w.C_DIM())
-        cv.put(gap_row + 1, lx, "GAP ANALYSIS", w.C_ACCENT() + w.BOLD)
-        gaps = [
-            ("Growth", bf.growth_gap),
-            ("Margin", bf.margin_gap),
-            ("ROIC", bf.roic_gap),
-        ]
-        gx = lx
-        for name, g in gaps:
-            col = w.value_color(g)
-            seg = f"{name} {w.fmt_pct(g)}"
-            cv.put(gap_row + 2, gx, seg, col)
-            gx += len(seg) + 4
+        cv.put(
+            r0 + 2,
+            lx,
+            f"{'ASSUMPTION':<19}{'OURS':>8}{'MARKET':>9}{'VALUE Δ/sh':>12}",
+            w.C_ACCENT() + w.BOLD,
+        )
+        bar_x = lx + 50
+        bar_w = max(6, c1 - bar_x - 6)
+        for i, c in enumerate(contributions):
+            r = r0 + 3 + i
+            if r >= r1 - 2:
+                break
+            label = PARAM_LABELS.get(c.parameter, c.parameter)
+            cv.put(r, lx, f"{label:<19}", w.C_WHITE())
+            cv.put(r, lx + 19, f"{w.fmt_pct(c.value_intrinsic, 2, signed=False):>8}", w.C_GREEN())
+            cv.put(r, lx + 27, f"{w.fmt_pct(c.value_market, 2, signed=False):>9}", w.C_RED())
+            cv.put(r, lx + 36, f"{c.delta_value:>+12.2f}", w.value_color(c.delta_value))
+            if bar_x + bar_w < c1:
+                cv.put(r, bar_x, w.hbar(c.share, bar_w), w.C_TEAL())
+                cv.put(r, bar_x + bar_w + 1, f"{c.share * 100:3.0f}%", w.C_DIM())
 
-        # Battlefield attribution bars
-        bar_row = gap_row + 4
-        cv.put(bar_row, lx, "PRICE EXPLAINED BY", w.C_ACCENT() + w.BOLD)
-        # Weight each driver by the magnitude of its gap.
-        drivers = {
-            "Growth": abs(bf.growth_gap or 0.0),
-            "Margin": abs(bf.margin_gap or 0.0),
-            "Capital Eff. (ROIC)": abs(bf.roic_gap or 0.0),
-        }
-        total = sum(drivers.values()) or 1.0
-        bar_w = max(10, width - 30)
-        for i, (name, mag) in enumerate(
-            sorted(drivers.items(), key=lambda kv: kv[1], reverse=True)
-        ):
-            r = bar_row + 1 + i
-            frac = mag / total
-            bar = w.hbar(frac, bar_w)
-            cv.put(r, lx, f"{name:<20}", w.C_WHITE())
-            cv.put(r, lx + 20, bar, w.C_TEAL())
-            cv.put(r, lx + 20 + bar_w + 1, f"{frac * 100:4.0f}%", w.C_DIM())
-
-        # Footer: primary disagreement + alignment / mismatch scores
-        if r1 - 2 > bar_row + 4:
-            cv.hline(r1 - 3, c0, c1, style=w.C_DIM())
-            prim = (getattr(bf, "primary_disagreement", "") or "").upper()
-            cv.put(r1 - 2, lx, "PRIMARY DRIVER: ", w.C_DIM())
-            cv.put(r1 - 2, lx + 16, prim or "—", w.C_GOLD() + w.BOLD)
-            align = getattr(bf, "alignment_score", None)
-            mismatch = getattr(bf, "expectation_mismatch_score", None)
-            if align is not None:
-                cv.put(r1 - 1, lx, f"Alignment {align:.0f}/100", w.C_GREEN())
-            if mismatch is not None:
-                cv.put(r1 - 1, lx + 22, f"Mismatch {mismatch:.0f}/100", w.C_RED())
+        gap = getattr(bf, "value_gap_pct", None)
+        if gap is not None and r1 - 1 > r0 + 3 + len(contributions):
+            cv.hline(r1 - 2, c0, c1, style=w.C_DIM())
+            cv.put(r1 - 1, lx, "Market-implied value vs ours: ", w.C_DIM())
+            cv.put(r1 - 1, lx + 30, w.fmt_pct(gap), w.value_color(gap) + w.BOLD)
+            cv.put(
+                r1 - 1,
+                lx + 40,
+                "(Δ = value change if only that input moved to market's)",
+                w.C_DIM(),
+            )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -116,68 +97,67 @@ class ReverseDCFDistributionPanel:
     title = "REVERSE DCF — IMPLIED vs INTRINSIC"
 
     def render(self, cv, r0, r1, c0, c1, sec=None, system_state=None, ticks=0) -> None:
+        """Market-implied growth placed against our own bear/base/bull growth.
+
+        Every point drawn is a real engine output: the reverse-DCF implied
+        growth and the FCFE scenario matrix (growth and probability).
+        """
         rpt = _report(sec)
-        bf = getattr(rpt, "battlefield", None) if rpt else None
-        if bf is None:
-            _need_data(cv, r0, c0)
+        mie = getattr(rpt, "market_implied_engine", None) if rpt else None
+        implied = getattr(mie, "implied", None) if mie else None
+        mkt_g = getattr(implied, "implied_revenue_growth", None) if implied else None
+        intrinsic = getattr(rpt, "intrinsic", None) if rpt else None
+        comps = getattr(intrinsic, "components", None) if intrinsic else None
+        scenarios = comps.get("scenarios") if isinstance(comps, dict) else None
+        if not isinstance(mkt_g, int | float) or not isinstance(scenarios, dict) or not scenarios:
+            _need_data(cv, r0, c0, "Needs reverse-DCF implied growth and FCFE scenarios.")
             return
-        width = c1 - c0
-        bar_w = max(14, width - 24)
 
-        mkt_g = bf.market_growth or 0.0
-        mod_g = bf.intrinsic_growth or 0.0
+        rows = []
+        for name, data in scenarios.items():
+            g = data.get("g") if isinstance(data, dict) else None
+            prob = data.get("prob") if isinstance(data, dict) else None
+            if isinstance(g, int | float):
+                rows.append((str(name), float(g), prob))
+        if not rows:
+            _need_data(cv, r0, c0, "FCFE scenarios carry no growth rates.")
+            return
+        rows.sort(key=lambda t: t[1])
+        rows_all = rows + [("Market-implied", float(mkt_g), None)]
 
-        # Build a discrete growth axis around the two anchors.
-        lo = min(mkt_g, mod_g) - 0.04
-        hi = max(mkt_g, mod_g) + 0.04
-        steps = 7
-        axis = [lo + (hi - lo) * i / (steps - 1) for i in range(steps)]
+        lo = min(g for _, g, _ in rows_all)
+        hi = max(g for _, g, _ in rows_all)
+        span = (hi - lo) or 0.01
+        label_w = 16
+        axis_x = c0 + 1 + label_w + 8
+        axis_w = max(10, c1 - axis_x - 2)
 
-        def band(center, spread=0.025):
-            # crude gaussian-ish weight per axis bucket
-            return [max(0.0, 1.0 - abs(g - center) / (spread * 2.5)) for g in axis]
+        def pos(g: float) -> int:
+            return int(axis_x + round((g - lo) / span * (axis_w - 1)))
 
-        mkt_band = band(mkt_g)
-        mod_band = band(mod_g)
-        mmax = max(max(mkt_band), max(mod_band)) or 1.0
-
-        cv.put(r0, c0 + 1, "MARKET-IMPLIED GROWTH", w.C_RED() + w.BOLD)
+        cv.put(r0, c0 + 1, "GROWTH: OUR SCENARIOS vs MARKET-IMPLIED", w.C_ACCENT() + w.BOLD)
         cv.hline(r0 + 1, c0, c1, style=w.C_DIM())
-        for i, g in enumerate(axis):
+        for i, (name, g, prob) in enumerate(rows_all):
             r = r0 + 2 + i
-            if r > r1 - 1:
+            if r >= r1 - 2:
                 break
-            cv.put(r, c0 + 1, f"{g * 100:5.1f}%", w.C_DIM())
-            cv.put(r, c0 + 8, w.distribution_row(mkt_band[i], mmax, bar_w, "█"), w.C_RED())
+            is_mkt = prob is None
+            col = w.C_RED() if is_mkt else w.C_GREEN()
+            tag = "" if is_mkt else f" {prob * 100:.0f}%" if isinstance(prob, int | float) else ""
+            cv.put(r, c0 + 1, f"{(name + tag)[:label_w]:<{label_w}}", col)
+            cv.put(r, c0 + 1 + label_w, f"{w.fmt_pct(g, 1, signed=False):>7}", w.C_WHITE())
+            cv.put(r, axis_x, "·" * axis_w if w._UNICODE else "." * axis_w, w.C_DIM())
+            cv.put(r, pos(g), "◆" if w._UNICODE else "*", col + w.BOLD)
 
-        # Intrinsic band overlaid in a second column band
-        mid = r0 + 2 + steps + 1
-        if mid < r1 - 1:
-            cv.put(mid, c0 + 1, "INTRINSIC / MODEL GROWTH", w.C_GREEN() + w.BOLD)
-            cv.hline(mid + 1, c0, c1, style=w.C_DIM())
-            for i, g in enumerate(axis):
-                r = mid + 2 + i
-                if r > r1 - 2:
-                    break
-                cv.put(r, c0 + 1, f"{g * 100:5.1f}%", w.C_DIM())
-                glyph = "▒" if w._UNICODE else ":"
-                cv.put(r, c0 + 8, w.distribution_row(mod_band[i], mmax, bar_w, glyph), w.C_GREEN())
-
-        # Alignment score = overlap of the two bands.
-        overlap = sum(min(a, b) for a, b in zip(mkt_band, mod_band))
-        union = sum(max(a, b) for a, b in zip(mkt_band, mod_band)) or 1.0
-        align = overlap / union
-        gap = getattr(bf, "growth_overlap", None)
-        if gap is not None:
-            align = (align + gap) / 2.0  # blend with engine's own overlap if present
-        col = w.C_GREEN() if align > 0.6 else w.C_YELLOW() if align > 0.35 else w.C_RED()
-        cv.put(r1 - 1, c0 + 1, f"Alignment Score: {align * 100:.0f}%", col + w.BOLD)
-        cv.put(
-            r1 - 1,
-            c0 + 26,
-            "(overlap of market vs model growth bands)",
-            w.C_DIM(),
-        )
+        # Where does the market sit relative to our own range?
+        bear, bull = rows[0][1], rows[-1][1]
+        if mkt_g > bull:
+            msg, col = "Market prices in MORE growth than our bull case.", w.C_RED()
+        elif mkt_g < bear:
+            msg, col = "Market prices in LESS growth than our bear case.", w.C_GREEN()
+        else:
+            msg, col = "Market-implied growth sits inside our scenario range.", w.C_YELLOW()
+        cv.put(r1 - 1, c0 + 1, msg[: c1 - c0 - 2], col + w.BOLD)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -299,7 +279,7 @@ class ArbitrationVisualizerPanel:
             obj = getattr(rpt, attr, None)
             if obj is not None:
                 v = getattr(obj, "fair_value", None) or (
-                    obj if isinstance(obj, (int, float)) else None
+                    obj if isinstance(obj, int | float) else None
                 )
                 if v:
                     lenses.append((name, float(v)))
@@ -356,7 +336,10 @@ class ThesisDriftPanel:
         rpt = _report(sec)
         dr = getattr(rpt, "drift_report", None) if rpt else None
         if dr is None:
-            _need_data(cv, r0, c0, "No thesis registered for this security (define YAML bounds).")
+            ticker = getattr(rpt, "ticker", None) or getattr(sec, "ticker", None) or "this security"
+            from iam.thesis.drift import no_thesis_message
+
+            _need_data(cv, r0, c0, no_thesis_message(str(ticker))[: c1 - c0 - 3])
             return
 
         has_drift = bool(getattr(dr, "has_drift", False))
@@ -364,6 +347,14 @@ class ThesisDriftPanel:
         scol = w.C_RED() if has_drift else w.C_GREEN()
         cv.put(r0, c0 + 1, "STATUS: ", w.C_DIM())
         cv.put(r0, c0 + 9, status, scol + w.BOLD)
+        banner = getattr(dr, "source_banner", None)
+        if isinstance(banner, str) and banner:
+            cv.put(
+                r0,
+                c0 + 32,
+                "EXAMPLE THRESHOLDS — not your thesis"[: max(0, c1 - c0 - 33)],
+                w.C_YELLOW() + w.BOLD,
+            )
         cv.hline(r0 + 1, c0, c1, style=w.C_DIM())
 
         breaches = list(getattr(dr, "breaches", []) or [])
@@ -380,7 +371,10 @@ class ThesisDriftPanel:
                     desc = str(b)
                 cv.put(r, c0 + 3, f"• {desc[: (c1 - c0 - 6)]}", w.C_YELLOW())
             degrade = getattr(dr, "degrade_levels", 0)
-            cv.put(r1 - 3, c0 + 1, f"Confidence degradation: -{degrade} level(s)", w.C_RED())
+            if isinstance(banner, str) and banner:
+                cv.put(r1 - 3, c0 + 1, "Example bounds: no effect on the verdict.", w.C_DIM())
+            else:
+                cv.put(r1 - 3, c0 + 1, f"Confidence degradation: -{degrade} level(s)", w.C_RED())
         else:
             cv.put(r0 + 2, c0 + 2, "All registered constraints satisfied.", w.C_GREEN())
 

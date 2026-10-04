@@ -43,7 +43,7 @@ class ImmutableAuditLog:
                 last_line = f.readline().decode()
                 if last_line:
                     last_entry = json.loads(last_line)
-                    return last_entry.get("hash", hashlib.sha256(b"genesis").hexdigest())
+                    return str(last_entry.get("hash", hashlib.sha256(b"genesis").hexdigest()))
         except Exception:
             pass
 

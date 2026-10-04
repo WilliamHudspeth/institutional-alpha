@@ -14,9 +14,7 @@ verify that:
 Both sources are mocked with local, per-test patches (matching the pattern
 used in tests/test_backtest_sources.py) rather than the autouse
 `mock_yf_global` / `mock_stooq_global` fixtures in conftest.py: those global
-fixtures only stub `.info` (not `.history()`) for yfinance, and carry a
-latent `UnboundLocalError` for Stooq (a nested `import urllib.error` inside
-`mock_urlopen` shadows the closed-over `urllib` name), so real contract
+fixtures only stub `.info` (not `.history()`) for yfinance, so real contract
 coverage needs the same explicit per-module patching the rest of the suite
 uses for these two sources.
 """
@@ -107,7 +105,7 @@ def source(request):
             yield cls()
     else:
         with patch(
-            "iam.backtest.sources.stooq_source.urllib.request.urlopen",
+            "urllib.request.urlopen",
             _urlopen_returning(_fake_stooq_csv()),
         ):
             yield cls()
@@ -120,7 +118,7 @@ def all_sources():
         patch("iam.backtest.sources.yfinance_source.yf") as mock_yf,
         patch("iam.backtest.sources.yfinance_source.HAS_YFINANCE", True),
         patch(
-            "iam.backtest.sources.stooq_source.urllib.request.urlopen",
+            "urllib.request.urlopen",
             _urlopen_returning(_fake_stooq_csv()),
         ),
     ):

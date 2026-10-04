@@ -13,6 +13,7 @@ from __future__ import annotations
 import sys
 from typing import Any
 
+from iam.config.settings import get_settings
 from iam.validation import parse_growth_rate
 
 
@@ -236,7 +237,9 @@ def main() -> None:
     growth = get_settings().pipeline.default_forecast_growth
     if g_input:
         try:
-            growth = parse_growth_rate(g_input, default=get_settings().pipeline.default_forecast_growth)
+            growth = parse_growth_rate(
+                g_input, default=get_settings().pipeline.default_forecast_growth
+            )
             from iam.validation import validate_growth_rate
 
             validate_growth_rate(growth, growth_type="forecast")
@@ -244,7 +247,9 @@ def main() -> None:
                 security.qualitative = {}
             security.qualitative["forecast_growth"] = growth
         except ValueError as exc:
-            print(f"Invalid growth input: {exc} — using default {get_settings().pipeline.default_forecast_growth*100}% .")
+            print(
+                f"Invalid growth input: {exc} — using default {get_settings().pipeline.default_forecast_growth * 100}% ."
+            )
 
     # ----- Silent engine runs -----
     synthesis_upside, lens_error = _gather_lens_results(security)
@@ -267,31 +272,17 @@ def main() -> None:
     try:
         from iam.ui.visualization_lab import render_dcf_surface
 
-        print("\n" + render_dcf_surface(security, width=80, height=25))
+        print("\n" + render_dcf_surface(security, width=80, height=25, report=report))
     except Exception as e:
         print(f"\n[Visualization Lab unavailable: {e}]")
 
     # ----- Stage 4b & 4c: Battlefield and Drift reports -----
     if report.battlefield:
         print("\n" + "=" * 80)
-        print(
-            f" VALUATION BATTLEFIELD (Stage 4b) | KEY DISAGREEMENT: {report.battlefield.primary_disagreement.upper()}"
-        )
+        print(" VALUATION BATTLEFIELD (Stage 4b)")
         print("-" * 80)
-        print(
-            f"  • Growth  - Market: {report.battlefield.market_growth * 100:+.1f}% | Intrinsic: {report.battlefield.intrinsic_growth * 100:+.1f}% | Gap: {report.battlefield.growth_gap * 100:+.1f}%"
-        )
-        print(
-            f"  • Margin  - Market: {report.battlefield.market_margin * 100:+.1f}% | Intrinsic: {report.battlefield.intrinsic_margin * 100:+.1f}% | Gap: {report.battlefield.margin_gap * 100:+.1f}%"
-        )
-        print(
-            f"  • ROIC    - Market: {report.battlefield.market_roic * 100:+.1f}% | Intrinsic: {report.battlefield.intrinsic_roic * 100:+.1f}% | Gap: {report.battlefield.roic_gap * 100:+.1f}%"
-        )
-        print(
-            f"  • Overlap - Growth Overlap: {report.battlefield.growth_overlap:.2f} | Alignment Score: {report.battlefield.alignment_score:.0f}/100"
-        )
-        print(f"  • Mismatch Score: {report.battlefield.expectation_mismatch_score:.0f}/100")
-        print(f"  • Interpretation: {report.battlefield._interpretation()}")
+        for line in report.battlefield.summary().split("\n"):
+            print(f"  {line}")
         print("=" * 80)
 
     if report.drift_report:
@@ -300,6 +291,8 @@ def main() -> None:
             f" THESIS DRIFT DETECTOR | STATUS: {'DRIFT BREACH' if report.drift_report.has_drift else 'PASS'}"
         )
         print("-" * 80)
+        if report.drift_report.source_banner:
+            print(f"  ! {report.drift_report.source_banner}")
         if report.drift_report.has_drift:
             print(f"  • Breaches Detected ({len(report.drift_report.breaches)}):")
             for breach in report.drift_report.breaches:
@@ -312,6 +305,10 @@ def main() -> None:
                 f"  • Skipped constraints (missing data): {', '.join(report.drift_report.skipped)}"
             )
         print("=" * 80)
+    else:
+        from iam.thesis.drift import no_thesis_message
+
+        print(f"\n{no_thesis_message(report.ticker)}")
 
     # ----- Business Reality reasoning (diagnostic, non-fatal) -----
     business_reality, br_error = _gather_business_reality(security)
