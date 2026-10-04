@@ -7,7 +7,6 @@ written against a DataSource API that no longer exists. Fakes are injected throu
 
 from __future__ import annotations
 
-import math
 from datetime import datetime
 
 import pandas as pd
@@ -155,8 +154,10 @@ class TestBuildSnapshot:
         )
         snap = build_snapshot(base_security, "2024-01-05", cache_dir=tmp_path)
 
-        assert snap.market.price is not None and math.isnan(snap.market.price)
-        assert snap.market.market_cap is not None and math.isnan(snap.market.market_cap)
+        # Missing is None (repo rule 1), not NaN and never a computed-looking number.
+        assert snap.market.price is None
+        assert snap.market.market_cap is None
+        assert snap.fundamentals.total_debt is None  # was invented as 0.0
 
     def test_preserves_sector_and_industry(self, base_security, tmp_path):
         set_default_fetcher(_fetcher(fake=_FakeSource()))
@@ -194,3 +195,37 @@ class TestSnapshotCache:
         reset_snapshot_cache()
         cache2 = get_snapshot_cache(tmp_path)
         assert cache1 is not cache2
+
+
+class TestNoInventedSnapshotValues:
+    """Bugs found while porting the May tests: missing inputs were replaced by numbers."""
+
+    def test_unset_shares_gives_no_market_cap(self, tmp_path):
+        # Ported from May's "uses_default_shares_when_unset": an unset share count used to
+        # become 1,000,000,000, so price 50 produced a $50bn market cap.
+        sec = Security(ticker="XYZ", fundamentals=Fundamentals(shares_outstanding=None))
+        set_default_fetcher(_fetcher(fake=_FakeSource(price=50.0)))
+        snap = build_snapshot(sec, "2024-01-05", cache_dir=tmp_path)
+        assert snap.market.price == 50.0
+        assert snap.market.market_cap is None
+
+    def test_missing_debt_field_is_none_not_zero(self, base_security, tmp_path):
+        set_default_fetcher(_fetcher(fake=_FakeSource(fundamentals={})))
+        snap = build_snapshot(base_security, "2024-01-05", cache_dir=tmp_path)
+        assert snap.fundamentals.total_debt is None
+
+    def test_total_liabilities_are_not_used_as_debt(self, base_security, tmp_path):
+        # Total liabilities include payables, deferred revenue, etc.; they are not debt.
+        set_default_fetcher(_fetcher(fake=_FakeSource(fundamentals={"Liabilities": 9e9})))
+        snap = build_snapshot(base_security, "2024-01-05", cache_dir=tmp_path)
+        assert snap.fundamentals.total_debt is None
+
+    def test_failed_snapshot_is_not_cached_so_a_later_call_retries(self, base_security, tmp_path):
+        set_default_fetcher(_fetcher(a=_FakeSource(fail_prices=True)))
+        failed = build_snapshot(base_security, "2024-01-05", cache_dir=tmp_path)
+        assert failed.market.price is None
+        assert load_snapshot(base_security.ticker, "2024-01-05", cache_dir=tmp_path) is None
+
+        set_default_fetcher(_fetcher(b=_FakeSource(price=120.0)))
+        retried = build_snapshot(base_security, "2024-01-05", cache_dir=tmp_path)
+        assert retried.market.price == 120.0
