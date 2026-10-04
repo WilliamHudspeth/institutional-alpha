@@ -64,7 +64,14 @@ def sotp_tower_report(security) -> str:
             + [f"SOTP tower: n/a (insufficient data: no debt/equity for {security.ticker})", rule]
         )
 
-    ke = DamodaranEngine().compute_cost_of_equity(segments, d_e)
+    q = security.qualitative or {}
+    if q.get("tax_rate") is not None:
+        tax_rate, tax_source = float(q["tax_rate"]), "supplied"
+    else:
+        from iam.valuation.country_tax import company_marginal_tax
+
+        tax_rate, tax_source = company_marginal_tax(security)
+    ke = DamodaranEngine().compute_cost_of_equity(segments, d_e, tax_rate)
     result = SOTP.compute(segments, ke)
     return "\n".join(
         header
@@ -73,6 +80,7 @@ def sotp_tower_report(security) -> str:
             rule,
             f"\nWeighted Unlevered Beta: {result.weighted_unlevered_beta:.2f}",
             f"Cost of Equity: {ke:.2%}",
+            f"Marginal tax rate: {tax_rate:.2%} ({tax_source})",
             rule,
         ]
     )

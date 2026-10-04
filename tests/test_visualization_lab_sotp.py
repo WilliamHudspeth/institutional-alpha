@@ -61,6 +61,8 @@ def test_real_segments_render_tower_with_cost_of_equity():
     assert "SegmentA" in text and "SegmentB" in text
     assert "Cost of Equity:" in text
     assert "Weighted Unlevered Beta:" in text
+    # The relevering tax is the company's marginal rate, stated with its source (no 21% default).
+    assert "Marginal tax rate: 25.00% (United States statutory tax 25.00%" in text
 
 
 def test_qualitative_de_ratio_is_used():
