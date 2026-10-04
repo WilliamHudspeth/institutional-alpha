@@ -1,10 +1,10 @@
 import math
-import os
 import sys
 
 import numpy as np
 
 from iam.engine.damodaran import DamodaranEngine
+from iam.ui.term import clear_screen
 from iam.valuation.expectations_surface import ExpectationSurface
 from iam.valuation.sensitivity import DCFValuationSurface
 from iam.valuation.sotp import SOTP
@@ -154,7 +154,7 @@ def run_visualization_lab(security):
     dcf_surface.y_min + (dcf_surface.y_max - dcf_surface.y_min) / 2
 
     while True:
-        os.system("cls" if os.name == "nt" else "clear")  # nosec
+        clear_screen()
 
         mode_name, surfaces = modes.get(current_mode, modes["1"])
         scene.surfaces = surfaces
@@ -189,7 +189,7 @@ def run_visualization_lab(security):
         elif ch in ("1", "2", "3"):
             current_mode = ch
         elif ch == "6":
-            os.system("cls" if os.name == "nt" else "clear")  # nosec
+            clear_screen()
             print(sotp_tower_report(security))
             input("Press Enter to continue...")  # pause until keypress
         elif ch == "UP":

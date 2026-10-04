@@ -58,6 +58,7 @@ from iam.ui.research_panels import (
     ThesisDriftPanel,
 )
 from iam.ui.settings_panel import SettingsPanel
+from iam.ui.term import enable_windows_vt
 
 # ── Platform key-input helpers ────────────────────────────────────────────
 if sys.platform == "win32":
@@ -1925,7 +1926,7 @@ class AlphaTerminal:
 
     def start(self) -> None:
         if sys.platform == "win32":
-            os.system("")
+            enable_windows_vt()
             try:
                 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore
             except AttributeError:

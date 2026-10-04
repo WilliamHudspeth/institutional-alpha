@@ -16,6 +16,7 @@ import urllib.parse
 import urllib.request
 
 from iam.data.http import safe_urlopen
+from iam.ui.term import clear_screen
 from iam.validation import parse_growth_rate
 
 
@@ -81,15 +82,10 @@ def print_header() -> None:
 
 def print_menu() -> None:
     """Print the main menu options with persistent console header."""
-    import os
-
     from iam.version import VERSION
 
     # Clear console for immersive dedicated retro terminal experience
-    try:
-        os.system("cls" if os.name == "nt" else "clear")  # nosec
-    except Exception:
-        print("\n" * 3)
+    clear_screen()
 
     print("┌" + "─" * 78 + "┐")
     print("│  ALPHA-TERMINAL // SYSTEM CONSOLE // COGNITIVE MULTI-FACTOR EQUITIES PLATFORM │")
@@ -461,15 +457,10 @@ def run_quick_recommendation(ticker: str) -> None:
 
 def run_settings_menu() -> None:
     """Run the Settings / System Administration submenu."""
-    import os
-
     from iam.config.credentials import configure_interactive, status
 
     while True:
-        try:
-            os.system("cls" if os.name == "nt" else "clear")  # nosec
-        except Exception:
-            print("\n" * 3)
+        clear_screen()
 
         print("┌" + "─" * 78 + "┐")
         print("│  ALPHA-TERMINAL // SETTINGS & SYSTEM ADMINISTRATION                         │")
