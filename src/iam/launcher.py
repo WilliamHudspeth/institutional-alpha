@@ -1,10 +1,10 @@
 """Universal Launcher for Institutional Alpha."""
 
 import argparse
-import os
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 from rich.console import Console
 from rich.live import Live
@@ -13,6 +13,7 @@ from rich.table import Table
 from rich.text import Text
 
 from iam.bootstrap import initialize_system
+from iam.ui.term import clear_screen
 from iam.version import __version__
 
 console = Console()
@@ -42,19 +43,14 @@ def display_welcome_dashboard():
 
 
 def run_diagnostics():
-    """Run and display system diagnostics."""
-    console.print("\n[bold]System Diagnostics[/bold]")
-    console.print("-" * 30)
-
-    diag_table = Table(show_header=False, box=None)
-    diag_table.add_row("Python Version", f"{sys.version.split()[0]}")
-    diag_table.add_row("Operating System", f"{sys.platform}")
-    diag_table.add_row("SQLite Status", "[green]Ready[/green]")
-    diag_table.add_row("Yahoo Finance", "[green]Connected[/green]")
-    diag_table.add_row("Cache Status", "[green]Healthy[/green]")
-
-    console.print(diag_table)
-    input("\nPress Enter to return to menu...")
+    """Run system integrity diagnostics via scripts/verify.py."""
+    console.print("\n[cyan]Running System Diagnostics...[/cyan]")
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    verify_script = repo_root / "scripts" / "verify.py"
+    if verify_script.is_file():
+        subprocess.run([sys.executable, str(verify_script)], check=False)
+    else:
+        console.print(f"\n[bold red]Diagnostics script not found: {verify_script}[/bold red]")
 
 
 def run_demo():
@@ -80,7 +76,7 @@ def run_demo():
 def run_scripts_menu():
     """Sub-menu for specialized analytical and data scripts."""
     while True:
-        os.system("cls" if os.name == "nt" else "clear")  # nosec
+        clear_screen()
         console.print(
             Panel(
                 Text(
@@ -134,7 +130,7 @@ def run_scripts_menu():
 def main_menu():
     """Main interactive menu loop."""
     while True:
-        os.system("cls" if os.name == "nt" else "clear")  # nosec
+        clear_screen()
         display_welcome_dashboard()
 
         console.print("\n[bold cyan]MAIN MENU[/bold cyan]")
@@ -228,8 +224,7 @@ def main_menu():
 
             run_shell()
         elif choice == "D":
-            console.print("\n[cyan]Running System Diagnostics...[/cyan]")
-            os.system(f"{sys.executable} scripts/verify.py")  # nosec
+            run_diagnostics()
             input("\nPress Enter to return to menu...")
         elif choice == "M":
             run_demo()
