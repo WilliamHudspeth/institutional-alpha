@@ -58,7 +58,7 @@ def _scenario_thesis(name: str) -> str:
 def _gather_lens_results(security) -> tuple[float | None, str | None]:
     """Run the multi-lens engine silently. Returns (synthesis_upside, error)."""
     try:
-        from iam.arbitration.reliability_loader import get_reliabilities, is_empirical_calibration
+        from iam.arbitration.reliability_loader import ReliabilityLoader
         from iam.engine.damodaran import DamodaranEngine
         from iam.lenses.expectations_difficulty import ExpectationsDifficultyLens
         from iam.lenses.platform_compounder import PlatformCompounderLens
@@ -71,7 +71,9 @@ def _gather_lens_results(security) -> tuple[float | None, str | None]:
             ExpectationsDifficultyLens().compute(security),
             DamodaranEngine().compute(security),
         ]
-        reliabilities = get_reliabilities() if is_empirical_calibration() else None
+        loader = ReliabilityLoader()
+        loaded = loader.load()
+        reliabilities = loaded if loader.is_empirical() else None
         synthesis = synthesize_lenses(lens_results, reliabilities=reliabilities)
         return synthesis.weighted_implied_move_pct, None
     except Exception as exc:

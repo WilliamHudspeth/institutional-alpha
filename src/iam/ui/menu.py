@@ -163,7 +163,7 @@ def run_valuation_pipeline(ticker: str) -> None:
     print("\n" + "-" * 70)
     print(f"  Fetching {ticker} from Yahoo Finance...")
     try:
-        from iam.arbitration.reliability_loader import get_reliabilities, is_empirical_calibration
+        from iam.arbitration.reliability_loader import ReliabilityLoader
         from iam.data.providers.yfinance_adapter import fetch_security
         from iam.engine.damodaran import DamodaranEngine
         from iam.lenses.expectations_difficulty import ExpectationsDifficultyLens
@@ -216,7 +216,14 @@ def run_valuation_pipeline(ticker: str) -> None:
                 ExpectationsDifficultyLens().compute(security),
                 DamodaranEngine().compute(security),
             ]
-            reliabilities = get_reliabilities() if is_empirical_calibration() else None
+            loader = ReliabilityLoader()
+            loaded = loader.load()
+            reliabilities = loaded if loader.is_empirical() else None
+            if reliabilities is None:
+                print("  Reliabilities: defaults (no valid empirical calibration)")
+                print(f"    {loader.metadata().get('reason', 'reason unknown')}")
+            else:
+                print("  Reliabilities: empirical calibration (composite signal)")
             synthesis = synthesize_lenses(lens_results, reliabilities=reliabilities)
             synthesis_upside = synthesis.weighted_implied_move_pct
         except Exception:
