@@ -23,7 +23,10 @@ from pathlib import Path
 import pandas as pd
 import typer
 
-from iam.backtest.calibration import ic_to_reliability_bayesian
+from iam.backtest.calibration import (
+    build_empirical_calibration_record,
+    serialize_calibration_record,
+)
 from iam.backtest.config import BacktestConfig
 from iam.backtest.ic_runner import ICBacktest, ICBacktestConfig
 from iam.backtest.manifest import BacktestManifest
@@ -132,41 +135,27 @@ def backtest(
     ic_std = results_df["ic"].std()
     n_obs = len(results_df)
 
-    calibration = ic_to_reliability_bayesian(ic_mean, ic_std, n_obs)
     calibration_path = Path("src/iam/arbitration/calibrated_reliabilities_empirical.json")
-
-    import json
+    calibration_data = build_empirical_calibration_record(
+        ic_mean=ic_mean,
+        ic_std=ic_std,
+        n_obs=n_obs,
+        version="v0.4.0-rc1",
+        timestamp=manifest.timestamp,
+        git_sha=manifest.git_sha,
+        period=f"{config.start} to {config.end}",
+        horizon_days=config.horizon_days,
+    )
 
     calibration_path.parent.mkdir(parents=True, exist_ok=True)
-    calibration_data = {
-        "_meta": {
-            "version": "v0.4.0-rc1",
-            "data_source": "empirical",
-            "timestamp": manifest.timestamp,
-            "git_sha": manifest.git_sha,
-        },
-        "source": "Real S&P 100 price data via yfinance → Stooq fallback",
-        "universe": "S&P 100 (static 2024-12-31)",
-        "period": f"{config.start} to {config.end}",
-        "horizon_days": config.horizon_days,
-        "signal": "composite",
-        "empirical_ic": {
-            "mean": ic_mean,
-            "std": ic_std,
-            "n_obs": n_obs,
-        },
-        "bayesian_calibration": {
-            "prior_ic": calibration["prior_ic"],
-            "posterior_ic": calibration["posterior_ic"],
-            "posterior_std": calibration["posterior_std"],
-            "shrinkage_factor": calibration["shrinkage_factor"],
-            "reliability": calibration["reliability"],
-        },
-    }
-
     with open(calibration_path, "w") as f:
-        json.dump(calibration_data, f, indent=2)
+        f.write(serialize_calibration_record(calibration_data))
 
+    if calibration_data["_meta"]["data_source"] != "empirical":
+        typer.echo(
+            f"⚠️  Calibration insufficient: {calibration_data['_meta']['reason']} "
+            "(reliability not set)"
+        )
     typer.echo(f"✓ Calibrated reliabilities written to {calibration_path}")
     typer.echo()
 

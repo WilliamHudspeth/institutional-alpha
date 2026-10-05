@@ -56,7 +56,8 @@ class GroundTruth:
             write_calibration(ic_by_lens)
 
             # Return the mapping for immediate use
-            return {lens: ic_to_reliability(mean_ic) for lens in lenses}
+            rel = ic_to_reliability(mean_ic)
+            return {} if rel is None else {lens: rel for lens in lenses}
 
         except Exception as e:
             logger.error(f"Failed to perform GroundTruth calibration: {e}")
