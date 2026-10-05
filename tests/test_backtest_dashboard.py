@@ -200,5 +200,7 @@ def test_html_pins_chartjs_version():
 def test_cli_dashboard_command_exists():
     result = CliRunner().invoke(app, ["dashboard", "--help"])
     assert result.exit_code == 0
-    assert "--port" in result.output
-    assert "--no-browser" in result.output
+    # CI forces coloured help (Rich splits "--port" with ANSI codes); compare plain text.
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+    assert "--port" in plain
+    assert "--no-browser" in plain
