@@ -1806,7 +1806,12 @@ class TI89Panel(_Panel):
             lens = MLDiagnosticLens()
             res = lens.compute(sec.security) if hasattr(sec, "security") else None
             if res and r0 + 4 + len(lines) < r1:
-                col = "\x1b[31m" if res.confidence < 1.0 else "\x1b[32m"
+                if res.assumptions.get("evaluated", 0.0) == 1.0:
+                    col = (
+                        "\x1b[31m" if res.assumptions.get("is_anomaly", 0.0) == 1.0 else "\x1b[32m"
+                    )
+                else:
+                    col = C_DIM
                 cv.put(r0 + 4 + len(lines), c0 + 2, f"ML Diagnostics: {res.narrative}", col)
         except Exception:
             pass

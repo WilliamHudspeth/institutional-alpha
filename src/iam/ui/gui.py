@@ -647,7 +647,14 @@ def main() -> None:
 
                         lens = MLDiagnosticLens()
                         res = lens.compute(security)
-                        color = "#ff7b72" if res.confidence < 1.0 else "#7ee787"
+                        if res.assumptions.get("evaluated", 0.0) == 1.0:
+                            color = (
+                                "#ff7b72"
+                                if res.assumptions.get("is_anomaly", 0.0) == 1.0
+                                else "#7ee787"
+                            )
+                        else:
+                            color = "#8b949e"
                         st.markdown(
                             f"""
                             <div class="card">

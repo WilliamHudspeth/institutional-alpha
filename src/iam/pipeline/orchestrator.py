@@ -686,11 +686,14 @@ class ValuationPipeline:
             from iam.ml.ml_lens import MLDiagnosticLens
 
             ml_res = MLDiagnosticLens().compute(security)
-            if ml_res.confidence < 1.0:
-                # If fundamentals are anomalous, relative valuation (comps) is less reliable
-                relative_res.confidence *= ml_res.confidence
-                relative_res.notes.append("Confidence reduced due to ML fundamental anomaly.")
-                intrinsic_res.notes.append(f"ML Anomaly Note: {ml_res.narrative}")
+            if ml_res.assumptions.get("evaluated", 0.0) == 1.0:
+                if ml_res.assumptions.get("is_anomaly", 0.0) == 1.0:
+                    # If fundamentals are anomalous, relative valuation (comps) is less reliable
+                    relative_res.confidence *= ml_res.confidence
+                    relative_res.notes.append("Confidence reduced due to ML fundamental anomaly.")
+                    intrinsic_res.notes.append(f"ML Anomaly Note: {ml_res.narrative}")
+            else:
+                intrinsic_res.notes.append(ml_res.narrative)
         except Exception as e:
             logger.warning("ML anomaly check failed: %s", e, exc_info=True)
 
