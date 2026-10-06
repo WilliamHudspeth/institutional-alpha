@@ -64,7 +64,10 @@ class AnomalyDetector:
         """
         Convenience method to check a single sample.
         Returns True if anomaly, False otherwise.
+        Returns None if model is not fitted or sklearn is missing.
         """
+        if not SKLEARN_AVAILABLE or not self.is_fitted:
+            return None
         X = np.array(features).reshape(1, -1)
         pred = self.predict(X)
         return bool(pred[0] == -1)
