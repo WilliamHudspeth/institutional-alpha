@@ -231,3 +231,15 @@ def test_gui_card_html_shows_numbers_and_na():
     html = gui._pe_breakeven_html(None, be, "no EPS", None)
     assert "no EPS" in html and "n/a" in html
     assert "44.1%" in html and f"{_stage1_implied() * 100:.1f}%" in html
+
+
+def test_ke_source_names_caller_supplied_rates_not_consensus():
+    """A caller-supplied Rf/ERP drives Stage 1's Ke; the provenance must say so (Claude review)."""
+    sec = _security()
+    sec.qualitative = {"risk_free_rate": 0.05, "equity_risk_premium": 0.06}
+    report = _run(sec)
+    dec = report.pe_decomposition
+    assert dec is not None
+    assert dec.ke == pytest.approx(report.market_implied_engine.assumptions["discount_rate"])
+    assert "caller-supplied" in dec.ke_source
+    assert "consensus" not in dec.ke_source

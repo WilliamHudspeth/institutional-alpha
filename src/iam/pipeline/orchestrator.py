@@ -784,9 +784,20 @@ class ValuationPipeline:
             ke_s1 = _real(
                 getattr(market_implied_engine_res, "assumptions", None) or {}, "discount_rate"
             )
-            ke_source = (
-                f"Stage 1 consensus Ke (rf: {consensus.rf_source}; ERP: {consensus.erp_source})"
+            # Stage 1 honours caller-supplied rf/ERP over the consensus inputs; label
+            # whichever half actually drove the Ke.
+            q = security.qualitative or {}
+            caller_rf = q.get("risk_free_rate") is not None
+            caller_erp = q.get("equity_risk_premium") is not None
+            # (run() above defaults rf_source / erp_source to "caller-supplied".)
+            rf_label = (
+                (q.get("rf_source") or "caller-supplied") if caller_rf else consensus.rf_source
             )
+            erp_label = (
+                (q.get("erp_source") or "caller-supplied") if caller_erp else consensus.erp_source
+            )
+            kind = "Ke with caller-supplied rates" if caller_rf or caller_erp else "consensus Ke"
+            ke_source = f"Stage 1 {kind} (rf: {rf_label}; ERP: {erp_label})"
         fund = security.fundamentals
         price_s1 = _real(security.market, "price")
         report.pe_decomposition, report.pe_decomposition_note = decompose_pe(
