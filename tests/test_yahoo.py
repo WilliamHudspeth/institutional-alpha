@@ -3,6 +3,9 @@ import sqlite3
 import pytest
 
 from iam.data.providers.yfinance_adapter import RUNTIME_CACHE_PATH, fetch_security
+from tests.no_edgar import no_edgar  # noqa: F401  (fixture used via usefixtures)
+
+pytestmark = pytest.mark.usefixtures("no_edgar")
 
 
 @pytest.fixture(autouse=True)

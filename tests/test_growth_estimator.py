@@ -1,5 +1,7 @@
 """Tests for the questionnaire-based fundamental growth estimator."""
 
+import pytest
+
 from iam.data.security import Fundamentals, MarketData, Security
 from iam.engine.growth_estimator import (
     GrowthQuestionnaire,
@@ -7,6 +9,9 @@ from iam.engine.growth_estimator import (
 )
 from iam.engine.market_implied import MarketImpliedEngine
 from iam.valuation.types import ImpliedExpectations, Method, ValuationResult
+from tests.no_edgar import no_edgar  # noqa: F401  (fixture used via usefixtures)
+
+pytestmark = pytest.mark.usefixtures("no_edgar")
 
 
 def _security(revenue_history: list[float] | None = None) -> Security:

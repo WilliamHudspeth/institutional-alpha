@@ -1,5 +1,7 @@
 """Tests for the v0.4.0-rc1 valuation pipeline."""
 
+import pytest
+
 from iam import Fundamentals, MarketData, Security, ValuationPipeline
 from iam.engine.market_implied import (
     MarketImpliedEngine,
@@ -13,6 +15,9 @@ from iam.valuation import (
     RelativeValuation,
     Triangulator,
 )
+from tests.no_edgar import no_edgar  # noqa: F401  (fixture used via usefixtures)
+
+pytestmark = pytest.mark.usefixtures("no_edgar")
 
 # ---------------------------------------------------------------------------
 # Reverse DCF math

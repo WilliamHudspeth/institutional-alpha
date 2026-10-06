@@ -19,6 +19,9 @@ from iam.data.providers import yfinance_adapter as ya
 from iam.data.providers.yfinance_adapter import YFinanceAdapter
 from iam.data.security import Fundamentals, MarketData, Security
 from iam.valuation.country_tax import company_marginal_tax
+from tests.no_edgar import no_edgar  # noqa: F401  (fixture used via usefixtures)
+
+pytestmark = pytest.mark.usefixtures("no_edgar")
 
 
 def _statement(**rows: float) -> pd.DataFrame:

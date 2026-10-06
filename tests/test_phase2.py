@@ -3,6 +3,8 @@ Damodaran law registry, battlefield scenario rows, and orchestrator attachment."
 
 from unittest.mock import MagicMock
 
+import pytest
+
 from iam.data.macro import (
     RATE_HIKE_SHOCK,
     RECESSION_SHOCK,
@@ -27,6 +29,9 @@ from iam.pipeline.macro_regimes import (
 )
 from iam.thesis.scenarios import ScenarioAssumptions, ScenarioMatrix, ValuationScenario
 from iam.valuation.monte_carlo import MonteCarloDCF
+from tests.no_edgar import no_edgar  # noqa: F401  (fixture used via usefixtures)
+
+pytestmark = pytest.mark.usefixtures("no_edgar")
 
 # ---------------------------------------------------------------------------
 # Fixtures

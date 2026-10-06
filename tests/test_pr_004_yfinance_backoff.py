@@ -1,6 +1,11 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from iam.data.providers.yfinance_adapter import YFinanceAdapter
+from tests.no_edgar import no_edgar  # noqa: F401  (fixture used via usefixtures)
+
+pytestmark = pytest.mark.usefixtures("no_edgar")
 
 
 def test_yfinance_adapter_backoff(caplog):
