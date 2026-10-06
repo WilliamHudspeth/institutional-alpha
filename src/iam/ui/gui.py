@@ -84,6 +84,40 @@ def _extract_discount_rate(report: Any) -> float | None:
         return None
 
 
+def _pe_breakeven_html(dec: Any, be: Any, dec_note: str | None, be_note: str | None) -> str:
+    """HTML for the P/E decomposition and break-even card. Missing values show as n/a."""
+    import html as _html
+
+    def _x(v: float | None) -> str:
+        return "n/a" if v is None else f"{v:.2f}x"
+
+    def g(name: str) -> float | None:
+        return getattr(dec, name, None)
+
+    rows = (
+        f"<tr><td>Commodity P/E (1/Ke)</td><td>{_x(g('commodity_pe'))}</td></tr>"
+        f"<tr><td>Franchise P/E</td><td>{_x(g('franchise_pe'))}</td></tr>"
+        f"<tr><td>Steady-state value / share</td><td>{_fmt_money(g('steady_state_value'))}</td></tr>"
+        f"<tr><td>PVGO share of price</td><td>{_fmt_pct(g('pvgo_share'), 1)}</td></tr>"
+    )
+    dec_html = f"<table>{rows}</table>"
+    if dec is None and dec_note:
+        dec_html += f"<div>{_html.escape(dec_note)}</div>"
+    if be is None:
+        be_html = f"<div>n/a: {_html.escape(be_note or 'break-even unavailable')}</div>"
+    elif not be.contour:
+        be_html = "<div>n/a: no growth in range reaches the price at any margin</div>"
+    else:
+        be_rows = "".join(
+            f"<tr><td>{_fmt_pct(m, 1)}</td><td>{_fmt_pct(gr, 1)}</td></tr>" for m, gr in be.contour
+        )
+        be_html = (
+            "<table><tr><th>Operating margin</th><th>Break-even growth</th></tr>"
+            f"{be_rows}</table>"
+        )
+    return f"<div class='card'>{dec_html}<hr/>{be_html}</div>"
+
+
 def _extract_cost_of_equity(orch_result: Any) -> float | None:
     """Extract the cost of equity (bottom-up, unadjusted) from the orchestrator result dict."""
     if not isinstance(orch_result, dict):
@@ -558,6 +592,23 @@ def main() -> None:
                         st.info(no_thesis_message(report.ticker))
                     else:
                         st.info("Thesis drift metrics unavailable.")
+
+                # Row 3b: P/E decomposition and growth x margin break-even (consensus Ke)
+                st.markdown("---")
+                st.markdown(
+                    "<div class='terminal-header'>"
+                    "🧮 P/E Decomposition & Break-even (consensus Ke)</div>",
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    _pe_breakeven_html(
+                        getattr(report, "pe_decomposition", None),
+                        getattr(report, "breakeven", None),
+                        getattr(report, "pe_decomposition_note", None),
+                        getattr(report, "breakeven_note", None),
+                    ),
+                    unsafe_allow_html=True,
+                )
 
                 # Row 4: TI-89 Projection & Plugins / ML
                 st.markdown("---")

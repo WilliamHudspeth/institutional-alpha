@@ -36,9 +36,11 @@ from iam.valuation import (
     Triangulator,
     ValuationResult,
 )
+from iam.valuation.breakeven import BreakEven, build_breakeven
 from iam.valuation.country_risk import company_erp, us_consensus_erp
 from iam.valuation.country_tax import company_marginal_tax
 from iam.valuation.monte_carlo import MonteCarloDCF, MonteCarloDistribution
+from iam.valuation.pe_decomposition import PEDecomposition, decompose_pe
 
 if TYPE_CHECKING:
     from iam.valuation.justified_premium import JustifiedPremiumResult
@@ -85,6 +87,12 @@ def print_assumption_table(
     )
 
 
+def _real(obj: object, key: str) -> float | None:
+    """A plain number from a mapping or attribute, else None (never a placeholder)."""
+    v = obj.get(key) if isinstance(obj, dict) else getattr(obj, key, None)
+    return float(v) if isinstance(v, int | float) and not isinstance(v, bool) else None
+
+
 @dataclass
 class PipelineReport:
     """The full output of a v0.4.0-rc1 pipeline run."""
@@ -107,6 +115,10 @@ class PipelineReport:
     growth_estimate: GrowthEstimateResult | None = None  # questionnaire-based growth vs. Stage 1
     plugin_lenses: list[LensResult] | None = None  # registered IA_LensPlugin outputs
     plugin_factors: dict[str, dict] | None = None  # registered IA_FactorPlugin outputs
+    pe_decomposition: PEDecomposition | None = None  # commodity vs franchise P/E (consensus Ke)
+    pe_decomposition_note: str | None = None  # why pe_decomposition is None
+    breakeven: BreakEven | None = None  # growth x operating-margin break-even (consensus Ke)
+    breakeven_note: str | None = None  # why breakeven is None
 
     def explain(self, verbose: bool = False) -> str:
         if verbose:
@@ -762,6 +774,44 @@ class ValuationPipeline:
             drift_report=drift_report,
             monte_carlo=monte_carlo_res,
             growth_estimate=growth_estimate_res,
+        )
+
+        # Stage 1 follow-ups at the consensus Ke Stage 1 actually used. Without a consensus
+        # Ke (no regression beta) Stage 1 ran on a flat rate, so neither analysis is offered.
+        ke_s1: float | None = None
+        ke_source = ""
+        if consensus is not None:
+            ke_s1 = _real(
+                getattr(market_implied_engine_res, "assumptions", None) or {}, "discount_rate"
+            )
+            # Stage 1 honours caller-supplied rf/ERP over the consensus inputs; label
+            # whichever half actually drove the Ke.
+            q = security.qualitative or {}
+            caller_rf = q.get("risk_free_rate") is not None
+            caller_erp = q.get("equity_risk_premium") is not None
+            # (run() above defaults rf_source / erp_source to "caller-supplied".)
+            rf_label = (
+                (q.get("rf_source") or "caller-supplied") if caller_rf else consensus.rf_source
+            )
+            erp_label = (
+                (q.get("erp_source") or "caller-supplied") if caller_erp else consensus.erp_source
+            )
+            kind = "Ke with caller-supplied rates" if caller_rf or caller_erp else "consensus Ke"
+            ke_source = f"Stage 1 {kind} (rf: {rf_label}; ERP: {erp_label})"
+        fund = security.fundamentals
+        price_s1 = _real(security.market, "price")
+        report.pe_decomposition, report.pe_decomposition_note = decompose_pe(
+            net_income_ttm=_real(fund, "net_income_ttm"),
+            shares_outstanding=_real(fund, "shares_outstanding"),
+            price=price_s1,
+            ke=ke_s1,
+            ke_source=ke_source,
+        )
+        report.breakeven, report.breakeven_note = build_breakeven(
+            market_implied_engine_res,
+            price=price_s1,
+            base_margin=_real(fund, "operating_margin"),
+            ke=ke_s1,
         )
 
         if monte_carlo_res.percentiles:
