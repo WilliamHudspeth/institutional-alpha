@@ -7,6 +7,7 @@ to the pluggable `fetcher` package (RedundantDataFetcher).
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pandas as pd
@@ -15,6 +16,8 @@ from diskcache import Cache
 from iam.data.fetcher import RedundantDataFetcher
 from iam.data.retry import retry_call
 from iam.data.security import MarketData, Security
+
+logger = logging.getLogger(__name__)
 
 # Global cache singleton
 _snapshot_cache: Cache | None = None
@@ -56,7 +59,7 @@ def _fetch_snapshot_data(
     ticker: str,
     as_of: pd.Timestamp,
     fetcher: RedundantDataFetcher,
-) -> tuple[float, float]:
+) -> tuple[float, float | None]:
     """Fetch price and debt via the provided RedundantDataFetcher.
 
     Args:
@@ -65,10 +68,10 @@ def _fetch_snapshot_data(
         fetcher: RedundantDataFetcher
 
     Returns:
-        Tuple of (price, debt). Debt is 0.0 if unavailable.
+        Tuple of (price, debt). Debt is None if the source has no debt figure.
     """
 
-    def _run() -> tuple[float, float]:
+    def _run() -> tuple[float, float | None]:
         as_of_dt = as_of.to_pydatetime()
         # Fetch a small window of prices to handle weekends/holidays
         start_dt = as_of_dt - pd.Timedelta(days=7)
@@ -84,8 +87,10 @@ def _fetch_snapshot_data(
         price = float(valid_prices.iloc[-1])
 
         fundamentals = fetcher.fetch_fundamentals(ticker, as_of_dt)
-        # Map Liabilities or totalDebt depending on what's available
-        debt = float(fundamentals.get("Liabilities", fundamentals.get("totalDebt", 0.0)))
+        # Only a reported debt figure counts. Total liabilities (payables, deferred
+        # revenue, ...) are not debt, and a missing figure is unknown, not zero.
+        raw_debt = fundamentals.get("totalDebt")
+        debt = float(raw_debt) if raw_debt is not None else None
 
         return price, debt
 
@@ -124,19 +129,18 @@ def build_snapshot(
         return cached
 
     src = fetcher if fetcher is not None else get_default_fetcher()
+    price: float | None
+    debt: float | None
     try:
         price, debt = _fetch_snapshot_data(ticker, as_of_dt, src)
-    except Exception:
-        # Fallback to base or nan
-        price = float("nan")
-        debt = 0.0
+        fetched = True
+    except Exception as e:  # noqa: BLE001 - every source failed; record it, invent nothing
+        logger.warning("Snapshot fetch failed for %s on %s: %s", ticker, as_of, e)
+        price, debt, fetched = None, None, False
 
-    shares = (
-        base.fundamentals.shares_outstanding
-        if base.fundamentals.shares_outstanding
-        else 1_000_000_000
-    )
-    market_cap = price * shares
+    # Market cap needs a real share count; an unknown count is not 1bn shares.
+    shares = base.fundamentals.shares_outstanding
+    market_cap = price * shares if price is not None and shares else None
 
     # Security/Fundamentals are pydantic models (not dataclasses), so
     # dataclasses.replace() would raise TypeError; use model_copy instead.
@@ -147,7 +151,9 @@ def build_snapshot(
         }
     )
 
-    cache[cache_key] = snapshot
+    # Only successful fetches are cached, so a later call can retry a failed date.
+    if fetched:
+        cache[cache_key] = snapshot
     return snapshot
 
 

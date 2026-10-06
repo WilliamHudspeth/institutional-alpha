@@ -140,8 +140,10 @@ The insight: **Build the reasoning, not the numbers.** "How would an analyst thi
 - [x] Assumption validator framework
 
 ### ✅ User Interface
-- [x] Interactive welcome screen (main.py)
-- [x] Multi-lens valuation CLI (run.py)
+- [x] Interactive launcher (`institutional-alpha` → `iam.launcher`; replaces the May-era `main.py`)
+- [x] Text menu with the multi-lens valuation pipeline (`iam-menu` → `iam.ui.menu`; replaces the May-era `run.py`)
+- [x] Full-screen terminal UI (`iam-terminal` / `launch_tui.py [--demo]`) and Streamlit GUI (`launch_gui.py`)
+- [x] Local backtest results dashboard (`python -m iam.backtest.cli dashboard`)
 - [x] Single-ticker analysis (scripts/analyze.py)
 - [x] Backtest harness (test historical factor returns)
 - [x] Professional headers + versioning
