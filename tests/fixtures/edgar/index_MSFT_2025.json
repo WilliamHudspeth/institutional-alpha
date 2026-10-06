@@ -1,0 +1,22 @@
+{
+ "directory": {
+  "name": "/Archives/edgar/data/789019/000095017025100235",
+  "item": [
+   {
+    "name": "FilingSummary.xml",
+    "type": "text.gif",
+    "size": "67405"
+   },
+   {
+    "name": "msft-20250630.xsd",
+    "type": "text.gif",
+    "size": "2066295"
+   },
+   {
+    "name": "msft-20250630_htm.xml",
+    "type": "text.gif",
+    "size": "10533273"
+   }
+  ]
+ }
+}

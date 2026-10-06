@@ -1,0 +1,42 @@
+{
+ "directory": {
+  "name": "/Archives/edgar/data/1364742/000156459021008796",
+  "item": [
+   {
+    "name": "blk-10k_20201231_htm.xml",
+    "type": "text.gif",
+    "size": "8733925"
+   },
+   {
+    "name": "blk-20201231.xsd",
+    "type": "text.gif",
+    "size": "154097"
+   },
+   {
+    "name": "blk-20201231_cal.xml",
+    "type": "text.gif",
+    "size": "108300"
+   },
+   {
+    "name": "blk-20201231_def.xml",
+    "type": "text.gif",
+    "size": "603714"
+   },
+   {
+    "name": "blk-20201231_lab.xml",
+    "type": "text.gif",
+    "size": "1014639"
+   },
+   {
+    "name": "blk-20201231_pre.xml",
+    "type": "text.gif",
+    "size": "888467"
+   },
+   {
+    "name": "FilingSummary.xml",
+    "type": "text.gif",
+    "size": "96094"
+   }
+  ]
+ }
+}

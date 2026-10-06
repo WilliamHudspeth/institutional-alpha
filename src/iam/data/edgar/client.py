@@ -36,6 +36,7 @@ MUTABLE_TTL_SECONDS = 24 * 3600
 
 TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 _DATA_HOST = "https://data.sec.gov"
+_ARCHIVE_HOST = "https://www.sec.gov/Archives/edgar/data"
 
 # transport(url, headers) -> (status_code, body_bytes)
 Transport = Callable[[str, dict[str, str]], tuple[int, bytes]]
@@ -51,6 +52,24 @@ def companyfacts_url(cik: int) -> str:
 
 def submissions_url(cik: int) -> str:
     return f"{_DATA_HOST}/submissions/CIK{int(cik):010d}.json"
+
+
+def submissions_page_url(name: str) -> str:
+    """An older-filings page named in ``submissions.filings.files`` (e.g. ``CIK...-submissions-001.json``)."""
+    return f"{_DATA_HOST}/submissions/{name}"
+
+
+def archive_dir_url(cik: int, accn: str) -> str:
+    """The folder of one filing: ``/Archives/edgar/data/<cik>/<accession without dashes>``."""
+    return f"{_ARCHIVE_HOST}/{int(cik)}/{accn.replace('-', '')}"
+
+
+def archive_index_url(cik: int, accn: str) -> str:
+    return f"{archive_dir_url(cik, accn)}/index.json"
+
+
+def archive_file_url(cik: int, accn: str, name: str) -> str:
+    return f"{archive_dir_url(cik, accn)}/{name}"
 
 
 def resolve_user_agent(explicit: str | None = None) -> str:
@@ -161,3 +180,13 @@ class EdgarClient:
 
     def submissions(self, cik: int) -> Any:
         return self.get_json(submissions_url(cik))
+
+    def submissions_page(self, name: str) -> Any:
+        return self.get_json(submissions_page_url(name))
+
+    def archive_index(self, cik: int, accn: str) -> Any:
+        """A filing's file list. Archives never change once filed, so cached without a TTL."""
+        return self.get_json(archive_index_url(cik, accn), ttl_seconds=None)
+
+    def archive_file(self, cik: int, accn: str, name: str) -> bytes:
+        return self.get_bytes(archive_file_url(cik, accn, name), ttl_seconds=None)
