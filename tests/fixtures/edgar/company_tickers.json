@@ -1,0 +1,22 @@
+{
+ "1": {
+  "cik_str": 320193,
+  "ticker": "AAPL",
+  "title": "Apple Inc."
+ },
+ "3": {
+  "cik_str": 789019,
+  "ticker": "MSFT",
+  "title": "MICROSOFT CORP"
+ },
+ "85": {
+  "cik_str": 2012383,
+  "ticker": "BLK",
+  "title": "BlackRock, Inc."
+ },
+ "2171": {
+  "cik_str": 1280058,
+  "ticker": "BLKB",
+  "title": "BLACKBAUD INC"
+ }
+}
