@@ -34,8 +34,11 @@ Owner: William Hudspeth.
     look-ahead and survivorship bias, because `data/universe/sp100.json` is frozen at 2024-12-31.
   - The data-source decision (FIX_PLAN Q1, memo `docs/ops/ws5-data-source.md`) is pending.
   - WS6 (merging the text front-ends) is pending.
-  - Revenue mix for live tickers is empty until EDGAR geographic segments are wired (ROADMAP), so live
-    tickers fall back to the US ERP and tax rate.
+  - Live tickers get `Security.revenue_mix` from the latest 10-K's geographic revenue
+    (`data/edgar/geography.py`, EDGAR Phase B). The source is in `qualitative["revenue_mix_source"]`.
+    Members that `country_risk` cannot resolve (e.g. AAPL "Other countries", MSFT "Non-US") stay in
+    the mix and lower its coverage; ERP and tax are weighted over the resolved part. With no 10-K
+    mix, live tickers fall back to the US ERP and tax rate. The backtest is not wired yet (Phase C).
 - **Resolved, so don't reintroduce:** Damodaran Law 3 and every cost of equity read Rf from the pipeline. No
   4.3%, 21% or `market_cap or 1.0` defaults remain on the valuation path.
 

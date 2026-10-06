@@ -38,7 +38,7 @@ delivers two roadmap items together on one shared data layer:
   None.
 - SIC code mapped to sector.
 
-**B. Geographic revenue mix**
+**B. Geographic revenue mix** (done: `data/edgar/geography.py`; live adapter wired, snapshots in C)
 - Fetch the latest 10-K instance filed on or before the date. Parse revenue facts on
   `StatementGeographicalAxis` and map members (ISO `country:XX`, plus company-specific members by
   label) to the keys `country_risk` resolves.

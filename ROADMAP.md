@@ -801,19 +801,21 @@ The user should never manually update. Security patches, factor improvements, da
   - Not carried over: `simulate_price_tick` (a random-walk price ticker). It fabricated prices, and
     the TUI now uses real quotes (`deba15a`).
 
-- [ ] **Geographic revenue mix from SEC EDGAR (feeds the blended ERP)**
+- [x] **Geographic revenue mix from SEC EDGAR (feeds the blended ERP)**: done in EDGAR Phase B
+  (`data/edgar/geography.py`, see `docs/EDGAR_PLAN.md`). It reads the 10-K XBRL instance, because
+  companyfacts carries no dimensions. Original plan below.
   The cost of equity weights Damodaran's country and regional ERPs by where a company earns its revenue
   (`valuation/country_risk.company_erp`, following the owner's "On BLK" method). Yahoo has no
   geographic segment data, so `Security.revenue_mix` is empty for live tickers, and they fall back to
   the US ERP.
-  - [ ] Pull geographic revenue from XBRL company facts
+  - [x] Pull geographic revenue from XBRL company facts
     (`RevenueFromContractWithCustomerExcludingAssessedTax` and `Revenues`, broken down by the
     `srt:StatementGeographicalAxis` dimension) through the existing `SecEdgarSource`
     (`data/fetcher.py`). Use the latest 10-K, with point-in-time filing dates for backtests.
-  - [ ] Map filer-specific member names (`country:US`, `us-gaap:NonUsMember`,
+  - [x] Map filer-specific member names (`country:US`, `us-gaap:NonUsMember`,
     custom `EMEA`/`AsiaPacificMember`) to the ERP table's countries and regions. Unmapped members
     are reported as unresolved, never guessed.
-  - [ ] Record provenance on the Security (filing accession number, period, coverage share) and show
+  - [x] (provenance done; GUI display still open) Record provenance on the Security (filing accession number, period, coverage share) and show
     "revenue mix: EDGAR 10-K FY2025, 94% resolved" next to the ERP.
   - [ ] Refresh `data/damodaran/country_erp_*.json` from Damodaran's January and July updates
     (script plus a dated file; the current table is January 2026).
