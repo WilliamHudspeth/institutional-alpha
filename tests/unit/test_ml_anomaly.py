@@ -123,3 +123,56 @@ def test_pipeline_no_lens_penalty():
         report = pipeline.run(sec)
 
         assert "Confidence reduced due to ML fundamental anomaly." not in report.relative.notes
+
+
+def _priced_security():
+    from iam.data.security import Fundamentals, MarketData, Security
+
+    return Security(
+        ticker="RELX",
+        sector="Technology",
+        industry="Software",
+        fundamentals=Fundamentals(
+            revenue_ttm=1_000.0,
+            net_income_ttm=100.0,
+            fcf_ttm=120.0,
+            shares_outstanding=10.0,
+            operating_margin=0.2,
+            total_debt=50.0,
+            cash_and_equivalents=20.0,
+        ),
+        market=MarketData(price=150.0, market_cap=1_500.0, pe_ttm=15.0, ev_ebitda=10.0, beta=1.1),
+    )
+
+
+def test_unavailable_ml_lens_leaves_relative_confidence_untouched():
+    """Claude review: compare against a run with the ML step removed, not just a missing note.
+
+    Before the orchestrator fix, an unavailable lens (confidence 0.0) multiplied relative
+    valuation confidence by 0.
+    """
+    from iam.ml.ml_lens import MLDiagnosticLens
+    from iam.pipeline.orchestrator import ValuationPipeline
+    from iam.valuation.relative import RelativeValuation
+    from iam.valuation.types import Method, ValuationResult
+
+    def _fixed_relative(*_a, **_k):
+        # A known relative result, so the test isolates what the ML step does to it.
+        return ValuationResult(method=Method.RELATIVE, confidence=0.8, notes=[])
+
+    with (
+        patch("iam.data.markets.fetch_live_quote", return_value=None),
+        patch(
+            "iam.data.providers.yfinance_adapter.build_regression_inputs",
+            side_effect=ValueError("offline"),
+        ),
+        patch.object(RelativeValuation, "compute", side_effect=_fixed_relative),
+    ):
+        report = ValuationPipeline().run(_priced_security())
+
+    # The unfitted lens did not evaluate, so it must not touch relative confidence
+    # (the old `confidence < 1.0` rule multiplied it by the lens's 0.0).
+    assert report.relative.confidence == pytest.approx(0.8)
+    assert not any("ML fundamental anomaly" in n for n in report.relative.notes)
+    assert any("not available" in n for n in report.intrinsic.notes)
+    assert MLDiagnosticLens().compute(_priced_security()).assumptions["evaluated"] == 0.0
