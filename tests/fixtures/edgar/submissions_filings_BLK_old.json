@@ -1,0 +1,162 @@
+{
+ "cik": "0001364742",
+ "name": "BlackRock Finance, Inc.",
+ "filings": {
+  "recent": {
+   "accessionNumber": [
+    "0000950170-24-019271"
+   ],
+   "filingDate": [
+    "2024-02-23"
+   ],
+   "reportDate": [
+    "2023-12-31"
+   ],
+   "form": [
+    "10-K"
+   ],
+   "primaryDocument": [
+    "blk-20231231.htm"
+   ]
+  },
+  "files": [
+   {
+    "name": "CIK0001364742-submissions-001.json",
+    "filingFrom": "2024-01-22",
+    "filingTo": "2024-02-01",
+    "filingCount": 2212
+   },
+   {
+    "name": "CIK0001364742-submissions-002.json",
+    "filingFrom": "2023-02-01",
+    "filingTo": "2024-01-21",
+    "filingCount": 2181
+   },
+   {
+    "name": "CIK0001364742-submissions-003.json",
+    "filingFrom": "2022-12-07",
+    "filingTo": "2023-01-31",
+    "filingCount": 2010
+   },
+   {
+    "name": "CIK0001364742-submissions-004.json",
+    "filingFrom": "2022-02-03",
+    "filingTo": "2022-12-06",
+    "filingCount": 2107
+   },
+   {
+    "name": "CIK0001364742-submissions-005.json",
+    "filingFrom": "2022-01-25",
+    "filingTo": "2022-02-02",
+    "filingCount": 2049
+   },
+   {
+    "name": "CIK0001364742-submissions-006.json",
+    "filingFrom": "2021-01-29",
+    "filingTo": "2022-01-24",
+    "filingCount": 2643
+   },
+   {
+    "name": "CIK0001364742-submissions-007.json",
+    "filingFrom": "2020-02-07",
+    "filingTo": "2021-01-28",
+    "filingCount": 2191
+   },
+   {
+    "name": "CIK0001364742-submissions-008.json",
+    "filingFrom": "2020-02-04",
+    "filingTo": "2020-02-06",
+    "filingCount": 2048
+   },
+   {
+    "name": "CIK0001364742-submissions-009.json",
+    "filingFrom": "2019-02-04",
+    "filingTo": "2020-02-03",
+    "filingCount": 2346
+   },
+   {
+    "name": "CIK0001364742-submissions-010.json",
+    "filingFrom": "2018-02-01",
+    "filingTo": "2019-02-03",
+    "filingCount": 2089
+   },
+   {
+    "name": "CIK0001364742-submissions-011.json",
+    "filingFrom": "2017-10-11",
+    "filingTo": "2018-01-31",
+    "filingCount": 2000
+   },
+   {
+    "name": "CIK0001364742-submissions-012.json",
+    "filingFrom": "2017-01-23",
+    "filingTo": "2017-10-10",
+    "filingCount": 2118
+   },
+   {
+    "name": "CIK0001364742-submissions-013.json",
+    "filingFrom": "2016-02-10",
+    "filingTo": "2017-01-22",
+    "filingCount": 2182
+   },
+   {
+    "name": "CIK0001364742-submissions-014.json",
+    "filingFrom": "2015-11-10",
+    "filingTo": "2016-02-09",
+    "filingCount": 2038
+   },
+   {
+    "name": "CIK0001364742-submissions-015.json",
+    "filingFrom": "2015-01-26",
+    "filingTo": "2015-11-09",
+    "filingCount": 2089
+   },
+   {
+    "name": "CIK0001364742-submissions-016.json",
+    "filingFrom": "2014-01-30",
+    "filingTo": "2015-01-25",
+    "filingCount": 2479
+   },
+   {
+    "name": "CIK0001364742-submissions-017.json",
+    "filingFrom": "2013-02-08",
+    "filingTo": "2014-01-29",
+    "filingCount": 2584
+   },
+   {
+    "name": "CIK0001364742-submissions-018.json",
+    "filingFrom": "2012-02-13",
+    "filingTo": "2013-02-07",
+    "filingCount": 2746
+   },
+   {
+    "name": "CIK0001364742-submissions-019.json",
+    "filingFrom": "2011-02-08",
+    "filingTo": "2012-02-12",
+    "filingCount": 2246
+   },
+   {
+    "name": "CIK0001364742-submissions-020.json",
+    "filingFrom": "2010-04-09",
+    "filingTo": "2011-02-07",
+    "filingCount": 2009
+   },
+   {
+    "name": "CIK0001364742-submissions-021.json",
+    "filingFrom": "2010-01-26",
+    "filingTo": "2010-04-08",
+    "filingCount": 2000
+   },
+   {
+    "name": "CIK0001364742-submissions-022.json",
+    "filingFrom": "2006-06-09",
+    "filingTo": "2010-01-25",
+    "filingCount": 1371
+   }
+  ],
+  "recent_window": {
+   "filingFrom": "2024-02-02",
+   "filingTo": "2025-04-04",
+   "filingCount": 1088
+  }
+ }
+}

@@ -127,3 +127,42 @@ before the US rate). Claude's mechanical test scan was clean (conftest untouched
 Remaining 21% tax defaults are outside the valuation path: `valuation/beta.py` (fallback only),
 `engine/damodaran.py`, `valuation/damodaran_defaults.py`, `valuation/expectations_battlefield.py` and
 `ui/visualization_lab.py`.
+
+## EDGAR Phase B: geographic revenue mix (owner request)
+
+Built by a Claude Sonnet subagent (valuation-critical). Claude reviewed it line by line.
+
+- **Method.**
+  - The 10-K comes from the latest filing on or before the date, using the date-aware CIK from Phase A.
+  - The XBRL instance is located via the filing's `index.json`.
+  - Only fiscal-year contexts with exactly one `StatementGeographicalAxis` member count.
+  - Coverage = net members / dimensionless total.
+  - Overlap is resolved only to a provable countries-only or areas-only partition, otherwise None.
+  - `country:XX` maps through a full ISO-2 table, which is tested against both datasets.
+  - Other members go through `resolve_revenue_key`. Unresolved members stay in the mix and are never
+    guessed.
+- **Live adapter.** It fills `revenue_mix` before the marginal tax and records
+  `qualitative["revenue_mix_source"]`. EDGAR failures are recorded, not raised.
+- **Fix.** The security cache now round-trips `revenue_mix`.
+- **Review checks.**
+  - The test diff only adds a module-level `no_edgar` fixture to 11 files. No assertion was changed,
+    and conftest is unchanged.
+  - ISO targets were checked against the ERP and tax files.
+  - XML parsing refuses DOCTYPE and ENTITY before parsing.
+  - 1,848 tests passed and 3 skipped. ruff, mypy and bandit are clean.
+- **Results at 2026-06-30 (fixtures).**
+
+  | Company | Mix | Resolved | ERP | Tax |
+  |---|---|---|---|---|
+  | AAPL | US 36.5%, China 15.5%, Other 48.1% (unresolved) | 52% | 5.37% | 25.0% |
+  | MSFT | US 51.3%, Non-US 48.7% (unresolved) | 51% | 5.21% | 25.0% |
+  | BLK (FY2025 10-K) | Americas 65.9%, Europe 29.6%, Asia Pacific 4.5% | 100% | 5.37% | 25.25% |
+
+  BLK's 5.37% is below the owner's 5.44% because the owner's mix comes from his report, not the
+  10-K's three regions.
+- **Known limits.**
+  - Unresolved residuals ("Other countries", "Non-US") are dropped and the rest renormalised. AAPL's
+    China weight therefore doubles. This is an owner decision.
+  - BLK dates between the CIK change (2024-11-05) and the new entity's first 10-K (2025-02-25) give
+    None.
+  - Each live fetch downloads one 10-K instance of 1 to 11 MB, cached forever under `.cache/edgar`.

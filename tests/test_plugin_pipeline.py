@@ -9,11 +9,16 @@ Covers the Stage 4a plugin bridge in iam.pipeline.orchestrator:
 
 from pathlib import Path
 
+import pytest
+
 from iam.data.security import Fundamentals, MarketData, Security
 from iam.pipeline.orchestrator import ValuationPipeline
 from iam.plugins.examples.fcf_yield_lens import FcfYieldLens
 from iam.plugins.interfaces import IA_FactorPlugin
 from iam.plugins.manager import PluginManager, get_plugin_manager, reset_plugin_manager
+from tests.no_edgar import no_edgar  # noqa: F401  (fixture used via usefixtures)
+
+pytestmark = pytest.mark.usefixtures("no_edgar")
 
 
 def _security(ticker: str = "PLUG") -> Security:

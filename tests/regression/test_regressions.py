@@ -12,11 +12,16 @@ from __future__ import annotations
 import math
 from unittest.mock import MagicMock
 
+import pytest
+
 from iam.data.security import Fundamentals, MarketData, Security
 from iam.factors.earnings_quality import EarningsQualityFactor
 from iam.pipeline import ValuationPipeline
 from iam.pipeline.verdict import VerdictGenerator
 from iam.valuation.types import TriangulationResult
+from tests.no_edgar import no_edgar  # noqa: F401  (fixture used via usefixtures)
+
+pytestmark = pytest.mark.usefixtures("no_edgar")
 
 # --------------------------------------------------------------------------- #
 # 1. Zero revenue

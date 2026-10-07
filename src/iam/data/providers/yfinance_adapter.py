@@ -12,7 +12,7 @@ import logging
 import os
 import shutil
 import sqlite3
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
@@ -22,6 +22,8 @@ from iam.data.retry import retry_call
 from iam.data.security import Fundamentals, MarketData, Security
 
 if TYPE_CHECKING:
+    from iam.data.edgar.client import EdgarClient
+    from iam.data.edgar.geography import GeographicMixResult
     from iam.valuation.multiples_regression import RegressionInputs
 
 logger = logging.getLogger(__name__)
@@ -136,6 +138,7 @@ def _serialize_security(security: Security) -> dict[str, Any]:
         "fundamentals": {k: v for k, v in security.fundamentals.__dict__.items()},
         "market": {k: v for k, v in security.market.__dict__.items()},
         "qualitative": security.qualitative,
+        "revenue_mix": security.revenue_mix,
     }
 
 
@@ -151,6 +154,7 @@ def _deserialize_security(data: dict[str, Any]) -> Security:
         fundamentals=Fundamentals(**fundamentals_data),
         market=MarketData(**market_data),
         qualitative=data.get("qualitative", {}),
+        revenue_mix=data.get("revenue_mix", {}),
     )
 
 
@@ -197,6 +201,31 @@ def effective_tax_rate_from_statement(financials: Any) -> tuple[float | None, st
     if not 0.0 <= rate <= MAX_EFFECTIVE_TAX_RATE:
         return None, f"ratio {rate:.1%} outside [0%, {MAX_EFFECTIVE_TAX_RATE:.0%}]"
     return rate, None
+
+
+def _edgar_revenue_mix(
+    ticker: str, as_of: date, client: EdgarClient | None = None
+) -> GeographicMixResult:
+    """The geographic revenue mix of the latest 10-K filed by ``as_of`` (SEC EDGAR).
+
+    A module-level seam: tests patch this function, so no test reaches the network.
+    """
+    from iam.data.edgar.geography import geographic_mix_as_of
+
+    return geographic_mix_as_of(ticker, as_of, client)
+
+
+def _live_revenue_mix(ticker: str) -> tuple[dict[str, float], str]:
+    """``(revenue_mix, source)``: the 10-K mix, or ``({}, reason)``. Never raises."""
+    try:
+        result = _edgar_revenue_mix(ticker, date.today())
+    except Exception as exc:  # EDGAR trouble must never fail a fetch; the reason is recorded
+        logger.warning("EDGAR revenue mix failed for %s: %s", ticker, exc)
+        return {}, f"EDGAR geographic mix unavailable: {type(exc).__name__}: {exc}"
+    if result.mix is None:
+        reason = result.reason or "no mix and no reason returned"
+        return {}, f"EDGAR geographic mix unavailable: {reason}"
+    return dict(result.mix.mix), result.mix.source()
 
 
 class YFinanceAdapter:
@@ -369,6 +398,11 @@ class YFinanceAdapter:
             fundamentals=f,
             market=m,
             qualitative=qualitative,
+        )
+        # Geographic revenue mix from the latest 10-K (SEC EDGAR); empty, with the reason
+        # recorded, when EDGAR has none. Set before the marginal tax below reads it.
+        security.revenue_mix, security.qualitative["revenue_mix_source"] = _live_revenue_mix(
+            ticker.upper()
         )
         # MARGINAL rate (Damodaran statutory, revenue-weighted once a mix is known): the
         # rate beta relevering (valuation.beta) and the cost of debt read. The effective

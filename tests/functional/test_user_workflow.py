@@ -2,6 +2,9 @@ import pytest
 
 from iam.data.security import Security
 from iam.pipeline.orchestrator import ValuationPipeline
+from tests.no_edgar import no_edgar  # noqa: F401  (fixture used via usefixtures)
+
+pytestmark = pytest.mark.usefixtures("no_edgar")
 
 
 @pytest.mark.functional

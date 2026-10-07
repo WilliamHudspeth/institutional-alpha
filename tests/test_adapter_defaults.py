@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 import yfinance as yf
 
 from iam.data.providers.yfinance_adapter import YFinanceAdapter
@@ -6,6 +7,9 @@ from iam.valuation.adaptive import CompanyProfile
 from iam.valuation.expectations_battlefield import build_distributions
 from iam.valuation.growth_triangulator import TriangulatedGrowth
 from iam.valuation.multiples_regression import predict_multiple
+from tests.no_edgar import no_edgar  # noqa: F401  (fixture used via usefixtures)
+
+pytestmark = pytest.mark.usefixtures("no_edgar")
 
 
 def test_predict_multiple_none_when_input_missing():

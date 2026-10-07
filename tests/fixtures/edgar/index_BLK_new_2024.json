@@ -1,0 +1,22 @@
+{
+ "directory": {
+  "name": "/Archives/edgar/data/2012383/000095017025026584",
+  "item": [
+   {
+    "name": "blk-20241231.xsd",
+    "type": "text.gif",
+    "size": "3340681"
+   },
+   {
+    "name": "blk-20241231_htm.xml",
+    "type": "text.gif",
+    "size": "9382325"
+   },
+   {
+    "name": "FilingSummary.xml",
+    "type": "text.gif",
+    "size": "104727"
+   }
+  ]
+ }
+}

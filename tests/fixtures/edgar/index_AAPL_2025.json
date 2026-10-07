@@ -1,0 +1,42 @@
+{
+ "directory": {
+  "name": "/Archives/edgar/data/320193/000032019325000079",
+  "item": [
+   {
+    "name": "aapl-20250927.xsd",
+    "type": "text.gif",
+    "size": "56313"
+   },
+   {
+    "name": "aapl-20250927_cal.xml",
+    "type": "text.gif",
+    "size": "153156"
+   },
+   {
+    "name": "aapl-20250927_def.xml",
+    "type": "text.gif",
+    "size": "224664"
+   },
+   {
+    "name": "aapl-20250927_htm.xml",
+    "type": "text.gif",
+    "size": "1416841"
+   },
+   {
+    "name": "aapl-20250927_lab.xml",
+    "type": "text.gif",
+    "size": "763631"
+   },
+   {
+    "name": "aapl-20250927_pre.xml",
+    "type": "text.gif",
+    "size": "496062"
+   },
+   {
+    "name": "FilingSummary.xml",
+    "type": "text.gif",
+    "size": "42775"
+   }
+  ]
+ }
+}

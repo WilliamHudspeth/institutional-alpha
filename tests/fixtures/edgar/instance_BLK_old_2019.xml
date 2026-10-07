@@ -1,0 +1,359 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xbrl
+  xmlns="http://www.xbrl.org/2003/instance"
+  xmlns:blk="http://www2.blackrock.com/20191231"
+  xmlns:country="http://xbrl.sec.gov/country/2017-01-31"
+  xmlns:dei="http://xbrl.sec.gov/dei/2019-01-31"
+  xmlns:iso4217="http://www.xbrl.org/2003/iso4217"
+  xmlns:link="http://www.xbrl.org/2003/linkbase"
+  xmlns:srt="http://fasb.org/srt/2019-01-31"
+  xmlns:us-gaap="http://fasb.org/us-gaap/2019-01-31"
+  xmlns:utr="http://www.xbrl.org/2009/utr"
+  xmlns:xbrldi="http://xbrl.org/2006/xbrldi"
+  xmlns:xhtml="http://www.w3.org/1999/xhtml"
+  xmlns:xlink="http://www.w3.org/1999/xlink"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<context id="C_0001364742_20190101_20191231">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+        </entity>
+        <period>
+            <startDate>2019-01-01</startDate>
+            <endDate>2019-12-31</endDate>
+        </period>
+    </context>
+<context id="C_0001364742_20180101_20181231">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+        </entity>
+        <period>
+            <startDate>2018-01-01</startDate>
+            <endDate>2018-12-31</endDate>
+        </period>
+    </context>
+<context id="C_0001364742_20170101_20171231">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+        </entity>
+        <period>
+            <startDate>2017-01-01</startDate>
+            <endDate>2017-12-31</endDate>
+        </period>
+    </context>
+<context id="C_0001364742_20181001_20181231">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+        </entity>
+        <period>
+            <startDate>2018-10-01</startDate>
+            <endDate>2018-12-31</endDate>
+        </period>
+    </context>
+<context id="C_0001364742_srtStatementGeographicalAxis_srtAmericasMember_20190101_20191231">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+            <segment>
+                <xbrldi:explicitMember dimension="srt:StatementGeographicalAxis">srt:AmericasMember</xbrldi:explicitMember>
+            </segment>
+        </entity>
+        <period>
+            <startDate>2019-01-01</startDate>
+            <endDate>2019-12-31</endDate>
+        </period>
+    </context>
+<context id="C_0001364742_srtStatementGeographicalAxis_srtAmericasMember_20180101_20181231">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+            <segment>
+                <xbrldi:explicitMember dimension="srt:StatementGeographicalAxis">srt:AmericasMember</xbrldi:explicitMember>
+            </segment>
+        </entity>
+        <period>
+            <startDate>2018-01-01</startDate>
+            <endDate>2018-12-31</endDate>
+        </period>
+    </context>
+<context id="C_0001364742_srtStatementGeographicalAxis_srtAmericasMember_20170101_20171231">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+            <segment>
+                <xbrldi:explicitMember dimension="srt:StatementGeographicalAxis">srt:AmericasMember</xbrldi:explicitMember>
+            </segment>
+        </entity>
+        <period>
+            <startDate>2017-01-01</startDate>
+            <endDate>2017-12-31</endDate>
+        </period>
+    </context>
+<context id="C_0001364742_srtStatementGeographicalAxis_srtEuropeMember_20190101_20191231">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+            <segment>
+                <xbrldi:explicitMember dimension="srt:StatementGeographicalAxis">srt:EuropeMember</xbrldi:explicitMember>
+            </segment>
+        </entity>
+        <period>
+            <startDate>2019-01-01</startDate>
+            <endDate>2019-12-31</endDate>
+        </period>
+    </context>
+<context id="C_0001364742_srtStatementGeographicalAxis_srtEuropeMember_20180101_20181231">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+            <segment>
+                <xbrldi:explicitMember dimension="srt:StatementGeographicalAxis">srt:EuropeMember</xbrldi:explicitMember>
+            </segment>
+        </entity>
+        <period>
+            <startDate>2018-01-01</startDate>
+            <endDate>2018-12-31</endDate>
+        </period>
+    </context>
+<context id="C_0001364742_srtStatementGeographicalAxis_srtEuropeMember_20170101_20171231">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+            <segment>
+                <xbrldi:explicitMember dimension="srt:StatementGeographicalAxis">srt:EuropeMember</xbrldi:explicitMember>
+            </segment>
+        </entity>
+        <period>
+            <startDate>2017-01-01</startDate>
+            <endDate>2017-12-31</endDate>
+        </period>
+    </context>
+<context id="C_0001364742_srtStatementGeographicalAxis_srtAsiaPacificMember_20190101_20191231">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+            <segment>
+                <xbrldi:explicitMember dimension="srt:StatementGeographicalAxis">srt:AsiaPacificMember</xbrldi:explicitMember>
+            </segment>
+        </entity>
+        <period>
+            <startDate>2019-01-01</startDate>
+            <endDate>2019-12-31</endDate>
+        </period>
+    </context>
+<context id="C_0001364742_srtStatementGeographicalAxis_srtAsiaPacificMember_20180101_20181231">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+            <segment>
+                <xbrldi:explicitMember dimension="srt:StatementGeographicalAxis">srt:AsiaPacificMember</xbrldi:explicitMember>
+            </segment>
+        </entity>
+        <period>
+            <startDate>2018-01-01</startDate>
+            <endDate>2018-12-31</endDate>
+        </period>
+    </context>
+<context id="C_0001364742_srtStatementGeographicalAxis_srtAsiaPacificMember_20170101_20171231">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+            <segment>
+                <xbrldi:explicitMember dimension="srt:StatementGeographicalAxis">srt:AsiaPacificMember</xbrldi:explicitMember>
+            </segment>
+        </entity>
+        <period>
+            <startDate>2017-01-01</startDate>
+            <endDate>2017-12-31</endDate>
+        </period>
+    </context>
+<context id="C_0001364742_20190101_20190331">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+        </entity>
+        <period>
+            <startDate>2019-01-01</startDate>
+            <endDate>2019-03-31</endDate>
+        </period>
+    </context>
+<context id="C_0001364742_20190401_20190630">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+        </entity>
+        <period>
+            <startDate>2019-04-01</startDate>
+            <endDate>2019-06-30</endDate>
+        </period>
+    </context>
+<context id="C_0001364742_20190701_20190930">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+        </entity>
+        <period>
+            <startDate>2019-07-01</startDate>
+            <endDate>2019-09-30</endDate>
+        </period>
+    </context>
+<context id="C_0001364742_20191001_20191231">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+        </entity>
+        <period>
+            <startDate>2019-10-01</startDate>
+            <endDate>2019-12-31</endDate>
+        </period>
+    </context>
+<context id="C_0001364742_20180101_20180331">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+        </entity>
+        <period>
+            <startDate>2018-01-01</startDate>
+            <endDate>2018-03-31</endDate>
+        </period>
+    </context>
+<context id="C_0001364742_20180401_20180630">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+        </entity>
+        <period>
+            <startDate>2018-04-01</startDate>
+            <endDate>2018-06-30</endDate>
+        </period>
+    </context>
+<context id="C_0001364742_20180701_20180930">
+        <entity>
+            <identifier scheme="http://www.sec.gov/CIK">0001364742</identifier>
+        </entity>
+        <period>
+            <startDate>2018-07-01</startDate>
+            <endDate>2018-09-30</endDate>
+        </period>
+    </context>
+<unit id="U_iso4217USD">
+        <measure>iso4217:USD</measure>
+    </unit>
+<dei:AmendmentFlag contextRef="C_0001364742_20190101_20191231" id="F_000001">false</dei:AmendmentFlag>
+<dei:DocumentType contextRef="C_0001364742_20190101_20191231" id="F_000000">10-K</dei:DocumentType>
+<dei:DocumentPeriodEndDate contextRef="C_0001364742_20190101_20191231" id="F_000002">2019-12-31</dei:DocumentPeriodEndDate>
+<us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax
+      contextRef="C_0001364742_20190101_20191231"
+      decimals="-6"
+      id="F_000156"
+      unitRef="U_iso4217USD">14539000000</us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax>
+<us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax
+      contextRef="C_0001364742_20180101_20181231"
+      decimals="-6"
+      id="F_000157"
+      unitRef="U_iso4217USD">14198000000</us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax>
+<us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax
+      contextRef="C_0001364742_20170101_20171231"
+      decimals="-6"
+      id="F_000158"
+      unitRef="U_iso4217USD">13600000000</us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax>
+<us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax
+      contextRef="C_0001364742_20190101_20191231"
+      decimals="-6"
+      id="F_001499"
+      unitRef="U_iso4217USD">14539000000</us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax>
+<us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax
+      contextRef="C_0001364742_20180101_20181231"
+      decimals="-6"
+      id="F_001500"
+      unitRef="U_iso4217USD">14198000000</us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax>
+<us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax
+      contextRef="C_0001364742_20170101_20171231"
+      decimals="-6"
+      id="F_001501"
+      unitRef="U_iso4217USD">13600000000</us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_srtStatementGeographicalAxis_srtAmericasMember_20190101_20191231"
+      decimals="-6"
+      id="F_002144"
+      unitRef="U_iso4217USD">9703000000</us-gaap:RevenuesExcludingInterestAndDividends>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_srtStatementGeographicalAxis_srtAmericasMember_20180101_20181231"
+      decimals="-6"
+      id="F_002145"
+      unitRef="U_iso4217USD">9303000000</us-gaap:RevenuesExcludingInterestAndDividends>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_srtStatementGeographicalAxis_srtAmericasMember_20170101_20171231"
+      decimals="-6"
+      id="F_002146"
+      unitRef="U_iso4217USD">8798000000</us-gaap:RevenuesExcludingInterestAndDividends>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_srtStatementGeographicalAxis_srtEuropeMember_20190101_20191231"
+      decimals="-6"
+      id="F_002147"
+      unitRef="U_iso4217USD">4158000000</us-gaap:RevenuesExcludingInterestAndDividends>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_srtStatementGeographicalAxis_srtEuropeMember_20180101_20181231"
+      decimals="-6"
+      id="F_002148"
+      unitRef="U_iso4217USD">4217000000</us-gaap:RevenuesExcludingInterestAndDividends>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_srtStatementGeographicalAxis_srtEuropeMember_20170101_20171231"
+      decimals="-6"
+      id="F_002149"
+      unitRef="U_iso4217USD">4126000000</us-gaap:RevenuesExcludingInterestAndDividends>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_srtStatementGeographicalAxis_srtAsiaPacificMember_20190101_20191231"
+      decimals="-6"
+      id="F_002150"
+      unitRef="U_iso4217USD">678000000</us-gaap:RevenuesExcludingInterestAndDividends>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_srtStatementGeographicalAxis_srtAsiaPacificMember_20180101_20181231"
+      decimals="-6"
+      id="F_002151"
+      unitRef="U_iso4217USD">678000000</us-gaap:RevenuesExcludingInterestAndDividends>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_srtStatementGeographicalAxis_srtAsiaPacificMember_20170101_20171231"
+      decimals="-6"
+      id="F_002152"
+      unitRef="U_iso4217USD">676000000</us-gaap:RevenuesExcludingInterestAndDividends>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_20190101_20191231"
+      decimals="-6"
+      id="F_002153"
+      unitRef="U_iso4217USD">14539000000</us-gaap:RevenuesExcludingInterestAndDividends>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_20180101_20181231"
+      decimals="-6"
+      id="F_002154"
+      unitRef="U_iso4217USD">14198000000</us-gaap:RevenuesExcludingInterestAndDividends>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_20170101_20171231"
+      decimals="-6"
+      id="F_002155"
+      unitRef="U_iso4217USD">13600000000</us-gaap:RevenuesExcludingInterestAndDividends>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_20190101_20190331"
+      decimals="-6"
+      id="F_002164"
+      unitRef="U_iso4217USD">3346000000</us-gaap:RevenuesExcludingInterestAndDividends>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_20190401_20190630"
+      decimals="-6"
+      id="F_002165"
+      unitRef="U_iso4217USD">3524000000</us-gaap:RevenuesExcludingInterestAndDividends>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_20190701_20190930"
+      decimals="-6"
+      id="F_002166"
+      unitRef="U_iso4217USD">3692000000</us-gaap:RevenuesExcludingInterestAndDividends>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_20191001_20191231"
+      decimals="-6"
+      id="F_002167"
+      unitRef="U_iso4217USD">3977000000</us-gaap:RevenuesExcludingInterestAndDividends>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_20180101_20180331"
+      decimals="-6"
+      id="F_002200"
+      unitRef="U_iso4217USD">3583000000</us-gaap:RevenuesExcludingInterestAndDividends>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_20180401_20180630"
+      decimals="-6"
+      id="F_002201"
+      unitRef="U_iso4217USD">3605000000</us-gaap:RevenuesExcludingInterestAndDividends>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_20180701_20180930"
+      decimals="-6"
+      id="F_002202"
+      unitRef="U_iso4217USD">3576000000</us-gaap:RevenuesExcludingInterestAndDividends>
+<us-gaap:RevenuesExcludingInterestAndDividends
+      contextRef="C_0001364742_20181001_20181231"
+      decimals="-6"
+      id="F_002203"
+      unitRef="U_iso4217USD">3434000000</us-gaap:RevenuesExcludingInterestAndDividends>
+</xbrl>
