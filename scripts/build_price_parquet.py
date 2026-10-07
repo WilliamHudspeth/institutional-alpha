@@ -61,27 +61,30 @@ def build_prices(
     errors = []
     source_counts: dict[str, int] = {}
 
-    for ticker in typer.progressbar(tickers, label="Downloading", show_pos=True, show_percent=True):
-        try:
-            df = chain.download_history(ticker, start, end_with_horizon)
-        except Exception as e:
-            if verbose:
-                typer.echo(f"      {ticker}: {e}")
-            errors.append((ticker, f"unexpected error: {e}"))
-            continue
-        if df is None or df.empty or "Close" not in df.columns:
-            errors.append((ticker, "no data from any source"))
-            continue
-        used = chain.last_used or "unknown"
-        source_counts[used] = source_counts.get(used, 0) + 1
-        out = pd.DataFrame(
-            {
-                "date": df["Date"].dt.strftime("%Y-%m-%d"),
-                "ticker": ticker,
-                "close": df["Close"].astype(float),
-            }
-        ).dropna(subset=["close"])
-        rows.extend(out.to_dict("records"))
+    with typer.progressbar(
+        tickers, label="Downloading", show_pos=True, show_percent=True
+    ) as progress:
+        for ticker in progress:
+            try:
+                df = chain.download_history(ticker, start, end_with_horizon)
+            except Exception as e:
+                if verbose:
+                    typer.echo(f"      {ticker}: {e}")
+                errors.append((ticker, f"unexpected error: {e}"))
+                continue
+            if df is None or df.empty or "Close" not in df.columns:
+                errors.append((ticker, "no data from any source"))
+                continue
+            used = chain.last_used or "unknown"
+            source_counts[used] = source_counts.get(used, 0) + 1
+            out = pd.DataFrame(
+                {
+                    "date": df["Date"].dt.strftime("%Y-%m-%d"),
+                    "ticker": ticker,
+                    "close": df["Close"].astype(float),
+                }
+            ).dropna(subset=["close"])
+            rows.extend(out.to_dict("records"))
 
     if not rows:
         typer.echo("✗ No price data downloaded from any source", err=True)
@@ -123,7 +126,9 @@ def build_prices(
     df_pl = df_pl.with_columns(pl.col(f"fwd_ret_{horizon}d").alias("fwd_ret"))
 
     # Filter to evaluation period (exclude forward period)
-    df_pl = df_pl.filter(pl.col("date") <= end)
+    # polars will not compare a Date column with a string; parse --end first.
+    end_date = datetime.strptime(end, "%Y-%m-%d").date()
+    df_pl = df_pl.filter(pl.col("date") <= end_date)
 
     typer.echo(f"   ✓ {len(df_pl)} rows with forward returns")
 
