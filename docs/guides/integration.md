@@ -293,7 +293,9 @@ def main():
     analysis = Orchestrator().value_security(security)
     print(analysis["recommendation"])
     report = ValuationPipeline().run(security)
-    verdict = report.final_verdict.rating if report.final_verdict else "HOLD"
+    if report.final_verdict is None:
+        raise SystemExit(f"{ticker}: insufficient data for a verdict")
+    verdict = report.final_verdict.rating
     
     # 2. Create thesis from the security's current price
     thesis = ThesisBuilder(ticker, "Microsoft", security.market.price).build()
