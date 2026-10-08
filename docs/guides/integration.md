@@ -15,15 +15,18 @@ This guide shows how to combine all terminal layers into a cohesive workflow:
 Your existing pipeline produces individual security analysis:
 
 ```python
-from iam.integration.orchestrator import run_full_pipeline
+from iam.data.providers.yfinance_adapter import fetch_security
+from iam.integration.orchestrator import Orchestrator
 
-result = run_full_pipeline("MSFT")
+security = fetch_security("MSFT")
+result = Orchestrator().value_security(security)
 # Returns: {
-#     "verdict": "BUY",
-#     "pwev": 520.0,
-#     "scenarios": [{"name": "Bull", "prob": 0.20, ...}],
-#     "signals": {...}
+#     "ticker": "MSFT",
+#     "model_result": ModelResult(...),   # cost-of-equity baseline with provenance
+#     "risk_profile": EquityRiskProfile(...),
+#     "recommendation": "Moderate cost of equity; balanced risk/return",
 # }
+print(f"Cost of equity: {result['model_result'].value:.2%}")
 ```
 
 ### Step 2: Load into Thesis System
@@ -270,7 +273,9 @@ loader.load_security_async(
 """Complete institutional terminal workflow."""
 
 from datetime import datetime
-from iam.integration.orchestrator import run_full_pipeline
+from iam.data.providers.yfinance_adapter import fetch_security
+from iam.integration.orchestrator import Orchestrator
+from iam.pipeline.orchestrator import ValuationPipeline
 from iam.thesis.bayesian.thesis import ThesisBuilder
 from iam.thesis.bayesian.evidence import Evidence, ScenarioLikelihood
 from iam.thesis.bayesian.updater import BayesianUpdater
@@ -284,15 +289,19 @@ def main():
     ticker = "MSFT"
     
     # 1. Get individual security analysis
-    analysis = run_full_pipeline(ticker)
+    security = fetch_security(ticker)
+    analysis = Orchestrator().value_security(security)
+    print(analysis["recommendation"])
+    report = ValuationPipeline().run(security)
+    verdict = report.final_verdict.rating if report.final_verdict else "HOLD"
     
-    # 2. Create thesis from analysis
-    thesis = ThesisBuilder(ticker, "Microsoft", analysis["price"]).build()
+    # 2. Create thesis from the security's current price
+    thesis = ThesisBuilder(ticker, "Microsoft", security.market.price).build()
     
     # 3. Update with earnings evidence
     earnings_evidence = Evidence(
         type="EARNINGS_BEAT",
-        description=f"EPS beat by {analysis.get('eps_beat_pct', 5)}%",
+        description="EPS beat consensus",
         likelihoods={
             "Bear Case": ScenarioLikelihood(0.2),
             "Base Case": ScenarioLikelihood(0.6),
@@ -312,8 +321,8 @@ def main():
         ticker=ticker,
         name="Microsoft",
         quantity=100,
-        entry_price=analysis["price"] * 0.95,
-        current_price=analysis["price"],
+        entry_price=security.market.price,
+        current_price=security.market.price,
         weight=0.30,
         conviction=conviction
     )
@@ -321,14 +330,16 @@ def main():
     portfolio = Portfolio(positions=[position])
     
     # 5. Analyze portfolio
+    # Factor scores come from your factor model (dict of factor -> score).
+    factor_scores: dict[str, float] = {}
     exposures = PortfolioAnalyzer.compute_factor_exposures(
-        portfolio, {"MSFT": analysis["factors"]}
+        portfolio, {"MSFT": factor_scores}
     )
     
     # 6. Generate portfolio verdict
     recommendation = PortfolioVerdictEngine.generate_verdict(
         portfolio,
-        {"MSFT": analysis["verdict"]},
+        {"MSFT": verdict},
         {"concentration": 0.30, "volatility": 0.18},
         exposures.net_factor_exposure
     )
@@ -339,7 +350,7 @@ def main():
     print(terminal.render())
     
     # 8. Add visualizations
-    prices = analysis.get("price_history", [])
+    prices = list(reversed(security.market.price_history))  # oldest first
     if prices:
         print(f"\nPrice Trend: {Sparkline.line(prices)}")
         print(f"Direction: {Sparkline.trend(prices)}")

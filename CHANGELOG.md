@@ -12,9 +12,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **SEC EDGAR point-in-time layer** (`src/iam/data/edgar/`): rate-limited cached client, date-aware CIK resolution, fundamentals as of a date with per-field provenance, SIC to sector mapping, and the geographic revenue mix from the latest 10-K (`geography.py`). Live tickers now take `Security.revenue_mix` from it.
 - **Valuation Battlefield attribution** (`src/iam/pipeline/battlefield.py`) computes attribution from the actual FCFE model.
 - Documentation reorganised into `docs/` sections (methodology, guides, research, development) with an index.
-- **Legal & Institutional Compliance** (Phase 1.5b) — canonical disclaimer text in `iam.compliance.disclaimers`, embedded in the HTML report footer, CSV export trailer, and the Streamlit UI footer. Consolidated `docs/legal/` down to one Privacy Policy and one Terms of Service (removed generic duplicate drafts). Added `docs/legal/MODEL_GOVERNANCE.md` documenting the existing governance/audit trail (`iam.governance`, `iam.audit`, `iam.compliance.audit`) — what's logged, retention, and the change-control process.
-- **Research Governance** (`src/iam/governance/`) — Phase 3 hypothesis registry, factor inclusion/exclusion audit trail, model change log, and assumption override tracking (with expiry). Persists through the existing `iam.audit.AuditLogger` convention; every write also emits an audit event. Standalone-callable (not yet wired into pipeline call sites). 11 tests in `tests/test_governance.py`.
-- **Institutional Exports** (`src/iam/reports/`) — Phase 3 HTML research report (`render_html_report`, stdlib-only) and CSV export (`render_csv_export`, satisfies "Excel-compatible" without a new dependency). PDF export (`render_pdf_summary`) intentionally raises `NotImplementedError` recommending `fpdf2` rather than installing a PDF library unasked. 4 tests in `tests/test_reports.py`.
+- **Legal & Institutional Compliance** — canonical disclaimer text in `iam.compliance.disclaimers`, embedded in the HTML report footer, CSV export trailer, and the Streamlit UI footer. Consolidated `docs/legal/` down to one Privacy Policy and one Terms of Service (removed generic duplicate drafts). Added `docs/legal/MODEL_GOVERNANCE.md` documenting the existing governance/audit trail (`iam.governance`, `iam.audit`, `iam.compliance.audit`) — what's logged, retention, and the change-control process.
+- **Research Governance** (`src/iam/governance/`) — hypothesis registry, factor inclusion/exclusion audit trail, model change log, and assumption override tracking (with expiry). Persists through the existing `iam.audit.AuditLogger` convention; every write also emits an audit event. Standalone-callable (not yet wired into pipeline call sites). 11 tests in `tests/test_governance.py`.
+- **Institutional Exports** (`src/iam/reports/`) — HTML research report (`render_html_report`, stdlib-only) and CSV export (`render_csv_export`, satisfies "Excel-compatible" without a new dependency). PDF export (`render_pdf_summary`) intentionally raises `NotImplementedError` recommending `fpdf2` rather than installing a PDF library unasked. 4 tests in `tests/test_reports.py`.
 - **SOTP Integration Test Suite**: Wrote `tests/test_orchestrator_sotp.py` to verify segment-level Sum-of-the-Parts (SOTP) validation calculations inside the orchestrator flow.
 
 ### Changed
@@ -29,7 +29,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **SOTP Test Assertions**: Fixed numeric precision comparisons in `test_sotp_beta_expanded.py` by converting python memory identity checks (`is float("inf")`) to value equality checks (`== float("inf")`).
 
 
-- **Damodaran Laws Constraint Layer** (`src/iam/laws/`) — Phase 2.5 reasoning engine
+- **Damodaran Laws Constraint Layer** (`src/iam/laws/`) — reasoning engine
   - `DamodaranLawRegistry`: evaluates all five laws against the assumptions Stage 3 actually used, as theory-first consistency checks that flag fragile analyses rather than inventing numbers
   - LAW 1 — narrative must match numbers (high growth + expanding margins demands a moat narrative; contracting margins reads as a reinvestment story)
   - LAW 2 — growth requires reinvestment (`g = ROIC × reinvestment_rate`; explicit rate, 1 − FCF/NI estimate, or market-implied fallback)
@@ -46,35 +46,35 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - Stage 7 verdict degrades the confidence band on large conviction drift (≥ 0.25 one level, ≥ 0.50 two levels)
   - Graceful fallback to the original flat-shock behavior when the elasticity profile is unmeasurable
 
-- **Monte Carlo DCF Engine** (`src/iam/valuation/monte_carlo.py`) — Phase 2 probabilistic valuation layer
+- **Monte Carlo DCF Engine** (`src/iam/valuation/monte_carlo.py`) — probabilistic valuation layer
   - Samples joint assumption space (growth, discount rate, operating margin) from independent normals around analyst base case
   - `MonteCarloDCF.run()` returns a `MonteCarloDistribution` with percentiles, median fair value, P(upside), and effective sample count
   - Missing inputs degrade confidence rather than raising; draws where model fails to converge are dropped, not clamped
   - Reproducible via explicit `seed` parameter; standard deviations are module constants (overridable per security)
 
-- **Valuation Battlefield output** (`src/iam/pipeline/battlefield.py`, `src/iam/valuation/expectations_battlefield.py`) — Phase 2.5 disagreement-first thesis surface
+- **Valuation Battlefield output** (`src/iam/pipeline/battlefield.py`, `src/iam/valuation/expectations_battlefield.py`) — disagreement-first thesis surface
   - Surfaces Bull / Bear / Market-implied / Intrinsic theses side-by-side with structured disagreement map
   - Labels the single key disagreement per name (growth, margins, moat duration, or terminal value)
   - Replaces the "one fair value" framing; tested in `tests/test_battlefield.py`
 
-- **Thesis Drift Detection** (`src/iam/thesis/drift.py`) — Phase 2.5 registered-constraint monitoring
+- **Thesis Drift Detection** (`src/iam/thesis/drift.py`) — registered-constraint monitoring
   - `DriftDetector.evaluate()` checks registered assumptions (margins, ROIC, reinvestment, balance sheet, macro regime) against current security state
   - `ConstraintBreach` dataclass with direction, magnitude, severity, and a human-readable `.describe()`
   - `DriftReport.degrade_levels()` returns how many conviction bands to drop (capped so verdict never falls below LOW)
   - Wired into `ValuationPipeline.run()` and `VerdictGenerator` for real-time conviction decay
 
-- **DynamicFactorWeighter regime detection** (`src/iam/analytics/regime.py`, `src/iam/engine/composite.py`) — Phase 2 factor weighting system
+- **DynamicFactorWeighter regime detection** (`src/iam/analytics/regime.py`, `src/iam/engine/composite.py`) — factor weighting system
   - `RegimeDetector.detect()` classifies macro environment into 6 regimes (INFLATIONARY, DISINFLATIONARY, RECESSIONARY, EXPANSIONARY, RISK_OFF, RISK_ON)
   - `RegimeWeights` dispatch per-factor multipliers (0.3×–2.0×) to adjust composite scoring dynamically
   - Wired into composite scoring pipeline for regime-aware weight adjustment
 
-- **CI/CD Pipeline** (`.github/workflows/`) — Phase 1 automated quality assurance
+- **CI/CD Pipeline** (`.github/workflows/`) — automated quality assurance
   - 8 workflow files: `ci.yml`, `tests.yml`, `lint-type-check.yml`, `security-audit.yml`, `release-drafter.yml`, `release.yml`, `codeql.yml`, `pr-title.yml`
   - Bandit security linting, mypy type checking, ruff linting/format on every PR
   - Coverage enforcement at 85% fail-under; Codecov upload for trend tracking
   - Full spec in `docs/development/ci-cd.md`
 
-- **Phase 0.5 Testing Infrastructure** — contract tests, property-based testing, benchmarking, coverage
+- **Testing Infrastructure** — contract tests, property-based testing, benchmarking, coverage
   - `tests/test_contracts.py` (230 lines): verifies all data sources implement the same `DataSource` interface
   - `tests/test_input_validation.py`: 6 property-based tests using `hypothesis` for growth/WACC/sanity-check edge cases
   - `tests/performance/test_benchmarks.py`: pytest-benchmark SLA assertions (cache lookup <1ms, pipeline <10s)

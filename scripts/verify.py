@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Verification and diagnostic script for Institutional Alpha.
-Designed to be the primary quality-control gate for AI coding assistants and developers.
+Designed to be the primary quality-control gate.
 """
 
 import ast

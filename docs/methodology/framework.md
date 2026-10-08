@@ -78,8 +78,6 @@ Some businesses have a feedback loop between share price and fundamentals. High 
 - reinforce the narrative that pulls in capital,
 - strengthen network effects via reinvestment.
 
-NVIDIA, Tesla, Palantir, Coinbase — these all benefit from reflexivity in ways that don't show up in a normal DCF. Ignoring this factor systematically underprices them.
-
 ### Crowding
 
 The same fundamental setup is worth less if everyone owns it. Crowded longs:
