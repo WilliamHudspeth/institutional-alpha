@@ -1,6 +1,6 @@
 # Portfolio Layer Guide
 
-The portfolio layer transforms the alpha terminal from single-security analysis into institutional multi-holding portfolio management. This guide covers composition, analytics, optimization, and verdicts.
+The portfolio layer extends the terminal from single-security analysis to multi-holding portfolios. This guide covers composition, analytics, optimization, and verdicts.
 
 ## Overview
 
@@ -447,12 +447,3 @@ Run them:
 python examples/portfolio_example.py
 python examples/portfolio_integration_example.py
 ```
-
-## Next Steps
-
-Future enhancements:
-- **Portfolio Optimization**: Mean-variance efficient frontier
-- **Options Analytics**: Volatility surface and Greeks
-- **Smart Rebalancing**: Tax-aware rebalancing logic
-- **Scenario Analysis**: Stress test portfolio under market conditions
-- **Trade Execution**: Integration with order management systems

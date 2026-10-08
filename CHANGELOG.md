@@ -7,12 +7,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ## [Unreleased]
 
 ### Added
-- **Legal & Institutional Compliance** (Phase 1.5b) — canonical disclaimer text in `iam.compliance.disclaimers`, embedded in the HTML report footer, CSV export trailer, and the Streamlit UI footer. Consolidated `docs/legal/` down to one Privacy Policy and one Terms of Service (removed generic duplicate drafts). Added `docs/legal/MODEL_GOVERNANCE.md` documenting the existing governance/audit trail (`iam.governance`, `iam.audit`, `iam.compliance.audit`) — what's logged, retention, and the change-control process.
-- **Research Governance** (`src/iam/governance/`) — Phase 3 hypothesis registry, factor inclusion/exclusion audit trail, model change log, and assumption override tracking (with expiry). Persists through the existing `iam.audit.AuditLogger` convention; every write also emits an audit event. Standalone-callable (not yet wired into pipeline call sites). 11 tests in `tests/test_governance.py`.
-- **Institutional Exports** (`src/iam/reports/`) — Phase 3 HTML research report (`render_html_report`, stdlib-only) and CSV export (`render_csv_export`, satisfies "Excel-compatible" without a new dependency). PDF export (`render_pdf_summary`) intentionally raises `NotImplementedError` recommending `fpdf2` rather than installing a PDF library unasked. 4 tests in `tests/test_reports.py`.
+- **Bottom-up cost of equity.** Intrinsic valuation and the reference WACC use Rf plus the Damodaran industry beta relevered at the current D/E, times a revenue-weighted ERP (`src/iam/data/ground_truth.py`). Stage 1 keeps the consensus Ke (regression beta and US ERP).
+- **Country reference data.** Damodaran country ERP and marginal tax tables under `src/iam/data/reference/` (January and April 2026 ERP, April 2026 tax). The newest dated file is the default; `IAM_COUNTRY_ERP_FILE` and `IAM_COUNTRY_TAX_FILE` override it. Country ERPs average the rating- and CDS-based figures, regions are GDP-weighted and the revenue mix is renormalised (`country_risk.py`, `country_tax.py`).
+- **SEC EDGAR point-in-time layer** (`src/iam/data/edgar/`): rate-limited cached client, date-aware CIK resolution, fundamentals as of a date with per-field provenance, SIC to sector mapping, and the geographic revenue mix from the latest 10-K (`geography.py`). Live tickers now take `Security.revenue_mix` from it.
+- **Valuation Battlefield attribution** (`src/iam/pipeline/battlefield.py`) computes attribution from the actual FCFE model.
+- Documentation reorganised into `docs/` sections (methodology, guides, research, development) with an index.
+- **Legal & Institutional Compliance** — canonical disclaimer text in `iam.compliance.disclaimers`, embedded in the HTML report footer, CSV export trailer, and the Streamlit UI footer. Consolidated `docs/legal/` down to one Privacy Policy and one Terms of Service (removed generic duplicate drafts). Added `docs/legal/MODEL_GOVERNANCE.md` documenting the existing governance/audit trail (`iam.governance`, `iam.audit`, `iam.compliance.audit`) — what's logged, retention, and the change-control process.
+- **Research Governance** (`src/iam/governance/`) — hypothesis registry, factor inclusion/exclusion audit trail, model change log, and assumption override tracking (with expiry). Persists through the existing `iam.audit.AuditLogger` convention; every write also emits an audit event. Standalone-callable (not yet wired into pipeline call sites). 11 tests in `tests/test_governance.py`.
+- **Institutional Exports** (`src/iam/reports/`) — HTML research report (`render_html_report`, stdlib-only) and CSV export (`render_csv_export`, satisfies "Excel-compatible" without a new dependency). PDF export (`render_pdf_summary`) intentionally raises `NotImplementedError` recommending `fpdf2` rather than installing a PDF library unasked. 4 tests in `tests/test_reports.py`.
 - **SOTP Integration Test Suite**: Wrote `tests/test_orchestrator_sotp.py` to verify segment-level Sum-of-the-Parts (SOTP) validation calculations inside the orchestrator flow.
 
 ### Changed
+- Terminal growth is capped at Rf in every DCF engine, and Damodaran Law 3 and all costs of equity read Rf from the pipeline.
+- Marginal tax comes from the country statutory rates weighted by revenue mix and is used for beta relevering and the after-tax cost of debt. The effective tax rate (`Fundamentals.effective_tax_rate`) feeds the multiples regression.
 - **SOTP.compute() Wiring Fix**: Corrected the orchestrator integration in `src/iam/pipeline/orchestrator.py` where a `Security` object was previously passed instead of the required `segments` list and dynamically computed `cost_of_equity` from `DamodaranEngine`. Wrote a wrapper to translate the resulting `SOTPResult` into a standard `ValuationResult` to maintain downstream pipeline compatibility.
 - **Pydantic-Mypy Plugin Configuration**: Enabled `pydantic.mypy` plugin in `pyproject.toml` to natively resolve configuration instantiation type errors. Cleaned up remaining strict type errors to achieve 0 `mypy` issues.
 - **GitHub Actions python-package.yml Updates**:
@@ -22,7 +29,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **SOTP Test Assertions**: Fixed numeric precision comparisons in `test_sotp_beta_expanded.py` by converting python memory identity checks (`is float("inf")`) to value equality checks (`== float("inf")`).
 
 
-- **Damodaran Laws Constraint Layer** (`src/iam/laws/`) — Phase 2.5 reasoning engine
+- **Damodaran Laws Constraint Layer** (`src/iam/laws/`) — reasoning engine
   - `DamodaranLawRegistry`: evaluates all five laws against the assumptions Stage 3 actually used, as theory-first consistency checks that flag fragile analyses rather than inventing numbers
   - LAW 1 — narrative must match numbers (high growth + expanding margins demands a moat narrative; contracting margins reads as a reinvestment story)
   - LAW 2 — growth requires reinvestment (`g = ROIC × reinvestment_rate`; explicit rate, 1 − FCF/NI estimate, or market-implied fallback)
@@ -30,7 +37,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - LAW 4 — excess returns fade (`excess_return_fade_path()` glide curves; flags/violates decade-long flat-growth moat assumptions)
   - LAW 5 — risk is not double-counted (elevated WACC + haircut growth, or depressed WACC + heroic growth)
   - `LawReport.conviction_multiplier` degrades the Stage 7 confidence band; every law check lands in the pipeline summary, `explain()`, and verdict notes
-  - Full spec in `docs/damodaran_laws.md`; 37 unit tests in `tests/test_damodaran_laws.py`
+  - Full spec in `docs/methodology/damodaran-laws.md`; 37 unit tests in `tests/test_damodaran_laws.py`
 
 - **Elasticity-Aware Macro Overlay** (`src/iam/pipeline/macro.py`) — wires the Durability + Elasticity Scoring Layer (v0.5 Engine #6) into the live pipeline
   - The overlay gate now scales the raw rate shock by the measured rate elasticity: duration-bound businesses trigger re-pricing on smaller raw moves
@@ -39,35 +46,35 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - Stage 7 verdict degrades the confidence band on large conviction drift (≥ 0.25 one level, ≥ 0.50 two levels)
   - Graceful fallback to the original flat-shock behavior when the elasticity profile is unmeasurable
 
-- **Monte Carlo DCF Engine** (`src/iam/valuation/monte_carlo.py`) — Phase 2 probabilistic valuation layer
+- **Monte Carlo DCF Engine** (`src/iam/valuation/monte_carlo.py`) — probabilistic valuation layer
   - Samples joint assumption space (growth, discount rate, operating margin) from independent normals around analyst base case
   - `MonteCarloDCF.run()` returns a `MonteCarloDistribution` with percentiles, median fair value, P(upside), and effective sample count
   - Missing inputs degrade confidence rather than raising; draws where model fails to converge are dropped, not clamped
   - Reproducible via explicit `seed` parameter; standard deviations are module constants (overridable per security)
 
-- **Valuation Battlefield output** (`src/iam/pipeline/battlefield.py`, `src/iam/valuation/expectations_battlefield.py`) — Phase 2.5 disagreement-first thesis surface
+- **Valuation Battlefield output** (`src/iam/pipeline/battlefield.py`, `src/iam/valuation/expectations_battlefield.py`) — disagreement-first thesis surface
   - Surfaces Bull / Bear / Market-implied / Intrinsic theses side-by-side with structured disagreement map
   - Labels the single key disagreement per name (growth, margins, moat duration, or terminal value)
   - Replaces the "one fair value" framing; tested in `tests/test_battlefield.py`
 
-- **Thesis Drift Detection** (`src/iam/thesis/drift.py`) — Phase 2.5 registered-constraint monitoring
+- **Thesis Drift Detection** (`src/iam/thesis/drift.py`) — registered-constraint monitoring
   - `DriftDetector.evaluate()` checks registered assumptions (margins, ROIC, reinvestment, balance sheet, macro regime) against current security state
   - `ConstraintBreach` dataclass with direction, magnitude, severity, and a human-readable `.describe()`
   - `DriftReport.degrade_levels()` returns how many conviction bands to drop (capped so verdict never falls below LOW)
   - Wired into `ValuationPipeline.run()` and `VerdictGenerator` for real-time conviction decay
 
-- **DynamicFactorWeighter regime detection** (`src/iam/analytics/regime.py`, `src/iam/engine/composite.py`) — Phase 2 factor weighting system
+- **DynamicFactorWeighter regime detection** (`src/iam/analytics/regime.py`, `src/iam/engine/composite.py`) — factor weighting system
   - `RegimeDetector.detect()` classifies macro environment into 6 regimes (INFLATIONARY, DISINFLATIONARY, RECESSIONARY, EXPANSIONARY, RISK_OFF, RISK_ON)
   - `RegimeWeights` dispatch per-factor multipliers (0.3×–2.0×) to adjust composite scoring dynamically
   - Wired into composite scoring pipeline for regime-aware weight adjustment
 
-- **CI/CD Pipeline** (`.github/workflows/`) — Phase 1 automated quality assurance
+- **CI/CD Pipeline** (`.github/workflows/`) — automated quality assurance
   - 8 workflow files: `ci.yml`, `tests.yml`, `lint-type-check.yml`, `security-audit.yml`, `release-drafter.yml`, `release.yml`, `codeql.yml`, `pr-title.yml`
   - Bandit security linting, mypy type checking, ruff linting/format on every PR
   - Coverage enforcement at 85% fail-under; Codecov upload for trend tracking
-  - Full spec in `docs/CI-CD.md` (228 lines)
+  - Full spec in `docs/development/ci-cd.md`
 
-- **Phase 0.5 Testing Infrastructure** — contract tests, property-based testing, benchmarking, coverage
+- **Testing Infrastructure** — contract tests, property-based testing, benchmarking, coverage
   - `tests/test_contracts.py` (230 lines): verifies all data sources implement the same `DataSource` interface
   - `tests/test_input_validation.py`: 6 property-based tests using `hypothesis` for growth/WACC/sanity-check edge cases
   - `tests/performance/test_benchmarks.py`: pytest-benchmark SLA assertions (cache lookup <1ms, pipeline <10s)
@@ -81,9 +88,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - `overfitting.py`: Combinatorial Symmetric Cross-Validation (CSCV) to calculate the Probability of Backtest Overfitting (PBO).
   - `cpcv.py`: Combinatorial Purged Cross-Validation (CPCV) split generation with strict purging and embargoing bounds.
   - Integration with `ic_runner.py` and `weight_optimizer.py` to seamlessly report Deflated Sharpe Ratio (DSR) using actual optimization iteration counts.
-
-### Changed
-
 - `PipelineReport` carries two new audit fields: `law_report` and `stress_response`
 - `VerdictGenerator.generate()` accepts optional `law_report` and `stress_response` and downgrades the confidence band on law violations/flags and macro conviction drift
 - Removed stale "framework stub / NotImplementedError" status notes from the (fully implemented) `iam.elasticity` modules
@@ -146,10 +150,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - `ParallelWorkflow`: Coordinates multi-step async workflows
 
 - **Comprehensive Documentation**
-  - `ARCHITECTURE.md` (499 lines): 6-layer architecture, phase roadmap, integration patterns, validation gates
-  - `PORTFOLIO_GUIDE.md` (458 lines): Portfolio usage, analytics methods, position sizing, rebalancing strategies
-  - `INTEGRATION_GUIDE.md` (438 lines): End-to-end workflows from individual securities to portfolio verdicts
-  - `README_SYSTEM.md` (469 lines): Quick start, architecture overview, component reference, configuration guide
+  - `docs/architecture.md`: 6-layer architecture, phase roadmap, integration patterns, validation gates
+  - `docs/methodology/portfolio.md`: Portfolio usage, analytics methods, position sizing, rebalancing strategies
+  - `docs/guides/integration.md`: End-to-end workflows from individual securities to portfolio verdicts
+  - `docs/getting-started.md`: Quick start, architecture overview, component reference, configuration guide
   - `config.example.yml`: Example configuration with factor weights, terminal settings, async parameters
 
 - **Working Examples** (6+ new examples)
@@ -165,10 +169,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Expectations Difficulty / ROIC Difficulty Factor**: Fully implemented `_roic_difficulty` sub-component inside `ExpectationsDifficultyFactor` (`src/iam/factors/expectations_difficulty.py`).
 - **YFinance Live Data Adapter**: Integrated a fully robust, null-safe live Yahoo Finance data provider (`src/iam/data/providers/yfinance_adapter.py`) with clean error handling for quarterly balance sheet and income statement parsing.
 - **Local Platform Auditor (`scripts/verify.py`)**: Designed and integrated a local repository integrity validation tool to perform file-by-file syntax checking (handling U+FEFF BOM characters), detect git conflict markers, run ruff linter/formatting checks, verify mypy type safety, and verify pytest suites with a clean terminal status dashboard.
-- **AI Working Notes Onboarding (`AI.md`)**: Renamed and generalized the old `CLAUDE.md` to `AI.md` to establish universal guidelines for all AI coding assistants (specifically referencing both Claude and Antigravity) with dedicated audit instructions.
-
-### Changed
-
 - **Architecture**: Transitioned from monolithic terminal (1k+ LOC) to modular panel system (50–100 LOC per panel) with event-driven composition and immutable state management.
 - **Data loading**: Synchronous-only architecture replaced with `AsyncDataLoader` using ThreadPoolExecutor; UI shows progressive updates and loading states.
 - **Portfolio construction**: From subjective allocation to data-driven `PositionSizer` with conviction-based, risk-based, and return-based sizing tied to security verdicts.
@@ -176,8 +176,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Factor weighting**: Fixed weights replaced with macro-regime-aware `RegimeWeights` applying 0.3x to 2.0x multipliers per factor per regime.
 - **Risk transparency**: Portfolio risk now quantifiable via VaR, correlations, concentration metrics, and factor exposures via `PortfolioAnalyzer`.
 
-### Fixed
+### Removed
+- Hard-coded 4.3% risk-free, 21% tax and `market_cap or 1.0` defaults on the valuation path. Missing inputs now produce `None` or an explicit insufficient-data state.
 
+### Known issues
+- The ML lens is never fitted, and the IC backtest has no valid result (`n_obs: 0`). See [ROADMAP.md](ROADMAP.md).
+
+### Fixed
 - **Yahoo Finance Indentation & Duplicate Blocks**: Removed duplicate and malformed cash flow parsing blocks in `yfinance_adapter.py`'s `except Exception` clause and formatted all code with strict 4-space indentation.
 - **Type Checking Compliance**: Resolved Mypy union and operand type-checking errors in `src/iam/valuation/fcfe_dcf.py` and `synthesis.py` by introducing explicit nullability handling and type annotations.
 - **Mypy Type-Safety Corrections**: Debugged and resolved type union errors and undefined name warnings inside `src/iam/thesis/bayesian/evidence.py` and `src/iam/backtest/manifest.py`.
@@ -263,7 +268,7 @@ Hardened backtest stack with documentation, UI, and project-structure refinement
 - Updated architecture tree to surface `sources/`, `config.py`, `manifest.py`, `cli.py`. Added `pip install -e ".[backtest]"` and a CLI quick-start (`python -m iam.backtest.cli backtest`).
 - **RELEASES.md** rewrite. Release matrix at top showing current → stable history. v0.4.0-rc1 section documents what shipped, why, and the gates that promote it to v0.4.0. v0.3.6-rc marked as rolled into v0.4.0-rc1.
 - **CHANGELOG.md** rewrite to strict Keep-a-Changelog format with Added / Changed / Fixed sections. v0.4.0-rc1 Fixed section explicitly names the three bugs caught by testing.
-- **AI.md** architecture map expanded so an agent landing fresh in the repo immediately knows where everything lives: `scripts/`, `docs/`, `data/` subdirectories all enumerated with one-line purposes.
+- Contributor notes: the architecture map now lists `scripts/`, `docs/` and `data/` subdirectories and what lives in each.
 - Cross-references updated everywhere to point at the new `docs/` and `scripts/` paths.
 
 ### User interface (terminal)
@@ -305,9 +310,9 @@ Root used to contain 3 markdown docs, 3 utility scripts, a results CSV, two SQLi
 | `analyze.py` | `scripts/analyze.py` |
 | `quick_recommend.py` | `scripts/quick_recommend.py` |
 | `backtest_runner.py` | `scripts/backtest_runner.py` |
-| `ARCHITECTURE.md` | `docs/ARCHITECTURE.md` |
-| `REAL_DATA_BACKTEST_STRATEGY.md` | `docs/REAL_DATA_BACKTEST_STRATEGY.md` |
-| `v0.3.5_BACKTEST_POST.md` | `docs/v0.3.5_BACKTEST_POST.md` |
+| `ARCHITECTURE.md` | `docs/architecture.md` |
+| `REAL_DATA_BACKTEST_STRATEGY.md` | `docs/research/backtest.md` |
+| `v0.3.5_BACKTEST_POST.md` | folded into `docs/research/backtest.md` |
 | `seed_cache.sqlite` | `data/cache/seed_cache.sqlite` (still tracked) |
 | `iam_cache.sqlite` | `data/cache/iam_cache.sqlite` (now gitignored) |
 | `backtest_results_v0.3.5.csv` | `data/results/backtest_results_v0.3.5.csv` |
@@ -330,7 +335,7 @@ This keeps the Seed Database Strategy (v0.3.0) intact — new clones still get a
 
 **Root after cleanup** contains only project-config and onboarding:
 - Entries: `main.py`, `run.py`
-- Onboarding: `README.md`, `RELEASES.md`, `CHANGELOG.md`, `ROADMAP.md`, `CONTRIBUTING.md`, `AI.md`, `LICENSE`
+- Onboarding: `README.md`, `RELEASES.md`, `CHANGELOG.md`, `ROADMAP.md`, `CONTRIBUTING.md`, `LICENSE`
 - Config: `pyproject.toml`, `.gitignore`
 - Code: `src/`, `tests/`, `scripts/`, `examples/`, `docs/`, `data/`
 
@@ -345,7 +350,7 @@ Real-data backtest infrastructure. Rolled into v0.4.0-rc1.
 - **Stooq Data Loader** (`src/iam/backtest/data_loader.py`): `StooqDataLoader` class with parquet caching, SHA256 integrity tracking, manifest system; `get_or_download_sp100_prices()` convenience function.
 - **Statistical helpers** (`src/iam/backtest/metrics.py`): `rolling_ic_stability()` (12-month rolling drift), `statistical_significance()` (t-stat + p-value), `newey_west_se()` (simplified autocorrelation correction). Note: the rigorous statsmodels version arrived in v0.4.0-rc1.
 - **Safe reliability loader** (`src/iam/arbitration/reliability_loader.py`): `ReliabilityLoader` with `data_source` detection. Refuses to use synthetic calibration in production; falls back to institutional defaults (0.70 per signal).
-- **Strategy document** (`docs/REAL_DATA_BACKTEST_STRATEGY.md`): three-phase plan with validation gates.
+- **Strategy document** (`docs/research/backtest.md`): three-phase plan with validation gates.
 
 ### Changed
 
@@ -388,7 +393,7 @@ Architecture audit and version metadata.
 
 ### Added
 
-- `docs/ARCHITECTURE.md`: 400+ line system audit (71 modules, dependency rules, validation gates)
+- `docs/architecture.md`: 400+ line system audit (71 modules, dependency rules, validation gates)
 - `RELEASES.md`: comprehensive release history baseline
 - Updated `README.md`: v0.3.4 status, mentions backtest harness
 

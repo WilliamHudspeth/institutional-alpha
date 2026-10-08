@@ -1,14 +1,8 @@
-# Data Sources — Free by Design
+# Data Sources
 
-Institutional Alpha is built to run on **entirely free data**. You can clone the
-repo and run a full backtest without paying for anything and, for most of the
-stack, without even creating an account. This is a core project principle, not
-an afterthought: the free, open core must "just work."
-
-Most of the pipeline needs **no API key at all**. Two optional premium feeds
-(FMP and Tiingo) have *perpetual free tiers* — adding their free keys simply
-promotes them ahead of the keyless sources for higher-quality fundamentals. They
-are never required.
+The project runs on free data by default. No API key is required for the keyless chain, and
+two optional providers (FMP and Tiingo) have perpetual free tiers. Adding their keys promotes
+them ahead of the keyless sources. They are never required.
 
 ---
 
@@ -23,9 +17,9 @@ the run's audit trail.
 |------|--------|-------------|--------|-------|
 | PREMIUM | Financial Modeling Prep | Free key | prices, debt, fundamentals, history | 250 requests/day free |
 | PREMIUM | Tiingo | Free key | prices, history | ~50 requests/hour free (EOD) |
-| OFFICIAL | SEC EDGAR | **No key** | fundamentals, debt (point-in-time) | Official filings, 10 req/sec |
-| COMMUNITY | Yahoo (yfinance) | **No key** | prices, debt, fundamentals, history | Primary keyless source |
-| FALLBACK | Stooq | **No key** | prices, history | Price-only CSV, last resort |
+| OFFICIAL | SEC EDGAR | No key | fundamentals, debt (point-in-time) | Official filings, 10 req/sec |
+| COMMUNITY | Yahoo (yfinance) | No key | prices, debt, fundamentals, history | Primary keyless source |
+| FALLBACK | Stooq | No key | prices, history | Price-only CSV, last resort |
 
 Because routing is capability-aware, a fundamentals request (e.g. total debt) is
 **only** sent to sources that actually provide fundamentals — it never silently
@@ -47,7 +41,7 @@ python -m iam.config.credentials
 
 It walks through each source, shows where to get the free key, and saves your
 entries. Keys are stored in `~/.institutional-alpha/credentials.json` with
-owner-only (0600) permissions — **never in the repo**, so they are never
+owner-only (0600) permissions — never in the repo, so they are never
 committed. You can re-run the wizard anytime to update or clear a key.
 
 Resolution order for every source: an explicit value in code, then the
@@ -70,7 +64,7 @@ SEC EDGAR is free and requires no signup. The SEC only asks that automated
 requests identify themselves with a descriptive **User-Agent** containing your
 name and an email, so they can contact you if a script misbehaves.
 
-- Provide a contact string such as `Will Hudspeth will@example.com`.
+- Provide a contact string such as `Your Name you@example.com`.
 - Fair-access limit: **10 requests/second** (the client throttles below this).
 - Coverage: official US filings, XBRL fundamentals, history back to ~1994.
 - Why it matters: EDGAR is filtered on the actual **filing date**, so a snapshot
@@ -114,7 +108,7 @@ fallback used when Yahoo is throttled. Nothing to configure.
 ```python
 from iam.config.credentials import status
 for name, info in status().items():
-    mark = "✓" if info["configured"] else "—"
+    mark = "ok" if info["configured"] else "--"
     print(f"{mark} {info['label']}  [{info['source']}]  {info['free_tier']}")
 ```
 
@@ -129,3 +123,37 @@ Every backtest can record which tiers actually served the run. When a request
 falls back to a lower tier, the manifest flags it (`_meta.degraded_data`) and
 lists the degraded fields, so a run that leaned on a weaker free source is
 visible and reproducible rather than silent.
+
+---
+
+## Local cache
+
+Fetched data is cached on disk with a time-to-live (7 days by default) and requests back off
+exponentially when a provider throttles. `data/cache/seed_cache.sqlite` is a tracked warm-start
+cache; `data/cache/iam_cache.sqlite` is the runtime cache and is ignored by git. The redundant
+fetcher in `src/iam/data/fetcher.py` and `scripts/data_fetcher_reference.py` prefetch prices and
+SEC fundamentals for offline use.
+
+## Extending
+
+New backtest sources implement the `DataSource` contract in
+`src/iam/backtest/sources/base.py` (`fetch_price`, `fetch_debt`, `download_history`,
+`is_available`) and compose into the fallback chain without changes to snapshots or the runner.
+A source that fails must raise `DataSourceError`; it must not return a plausible default. Document
+key requirements and rate limits in the module docstring and mock the network in tests.
+
+## Reference data
+
+Damodaran's country tables are bundled in `src/iam/data/reference/` and are not fetched at run
+time.
+
+| File | Content |
+|---|---|
+| `country_erp_2026-04.json` | Country and regional equity risk premiums |
+| `country_tax_2026-04.json` | Country marginal tax rates |
+| `country_erp_2026-01.json` | Earlier ERP table, kept for reproducibility |
+
+The newest dated file is the default. Point to another with the environment variables
+`IAM_COUNTRY_ERP_FILE` and `IAM_COUNTRY_TAX_FILE`. Damodaran publishes updates in January and
+July; refresh the files then and add them under a new date rather than overwriting. Usage is
+described in [cost of capital](methodology/cost-of-capital.md).

@@ -567,5 +567,5 @@ def test_to_fundamentals_leaves_unsourced_fields_unset():
     f, _ = to_fundamentals(fundamentals_from_companyfacts(facts_doc({REV: []}), D(2024, 3, 1)))
     assert f.revenue_ttm is None
     assert f.revenue_history == []
-    assert f.gross_margin is None  # not an EDGAR field in Phase A
+    assert f.gross_margin is None  # not an EDGAR field in the facts parser
     assert f.ebitda_ttm is None

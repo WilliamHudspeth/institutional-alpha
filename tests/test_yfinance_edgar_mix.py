@@ -1,4 +1,4 @@
-"""Live adapter: ``Security.revenue_mix`` comes from the 10-K geographic mix (Phase B).
+"""Live adapter: ``Security.revenue_mix`` comes from the 10-K geographic mix.
 
 Offline: yfinance is faked and the EDGAR provider ``_edgar_revenue_mix`` is patched in every
 test (or driven through recorded fixtures). Nothing here reaches the network.
@@ -20,7 +20,7 @@ from iam.valuation.country_tax import company_marginal_tax
 from tests.edgar.geo_helpers import geo_routes
 from tests.edgar.helpers import FixtureTransport
 
-US_ONLY_TAX = 0.25  # Damodaran's United States rate in the shipped dataset (CLAUDE.md)
+US_ONLY_TAX = 0.25  # Damodaran's United States rate in the shipped dataset
 
 
 def _mix(shares: dict[str, float]) -> GeographicMix:

@@ -1,6 +1,6 @@
-# The Valuation Pipeline (v0.4.0-rc1)
+# The Valuation Pipeline
 
-> **Status:** v0.4.0-rc1 implements all 7 stages.
+All seven stages are implemented in 0.4.0-rc1 (`src/iam/pipeline/orchestrator.py`). Empirical validation of the resulting signal is still pending; see [backtest](../research/backtest.md).
 
 ## Motivation
 
@@ -22,13 +22,11 @@ Stage 6: Macro Re-overlay  → Re-run only the names whose verdict actually chan
 Stage 7: Verdict           → Buy/hold/sell + confidence + peer-relative ranking.
 ```
 
-All seven stages are the valuation core and ship in v0.4.0-rc1.
-
 ## Stage 1 — Reverse DCF
 
 The anchor. Instead of forecasting cash flows and discounting them, take the **current price as given** and solve for the operating performance that justifies it.
 
-Mechanically: a two-stage Gordon-growth FCFE model. Discount rate, terminal growth, and explicit-forecast years are assumptions (defaults: 9%, 2.5%, 10y). Bisection solves for the high-growth-period CAGR that makes the discounted stream equal to the market price.
+Mechanically: a two-stage Gordon-growth FCFE model. The discount rate is the consensus cost of equity (Rf + regression beta x US ERP; see [cost of capital](cost-of-capital.md)). When the security has no beta, the consensus rate is not built, the engine's documented 9% constant applies and the result notes that CAPM was skipped. Terminal growth is capped at Rf; the explicit forecast runs 10 years by default. Bisection solves for the high-growth-period CAGR that makes the discounted stream equal to the market price.
 
 The output is not a verdict — it's a *thesis statement* the rest of the pipeline tests. "The market is implicitly assuming this company grows FCFE at 21% for ten years." Now we can ask whether that's plausible.
 

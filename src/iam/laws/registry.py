@@ -1,8 +1,7 @@
 """Damodaran Laws constraint layer (v0.5 reasoning engine).
 
 Theory-first consistency checks that *flag fragile analyses* rather than
-inventing numbers (ROADMAP, "Damodaran Laws — Theory-First Consistency
-Checks"):
+inventing numbers:
 
   * **LAW 1 — Narrative must match numbers.** High growth + expanding margins
     is a competitive-moat story that needs an explanation; high growth +

@@ -5,7 +5,7 @@ title: "feat(factors): add "
 labels: research
 ---
 
-<!-- See docs/COMMUNITY_CONTRIBUTIONS.md#1-factor-proposals before filing -->
+<!-- See CONTRIBUTING.md (factor proposals) before filing -->
 
 ## What does this factor measure?
 

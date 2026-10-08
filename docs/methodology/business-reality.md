@@ -1,7 +1,5 @@
 # Business Reality Engine
 
-**Engine #3 of the Seven-Engine architecture** (see `ROADMAP.md`).
-
 The Business Reality Engine is a *theory-first reasoning layer*, not an alpha
 factor. Where the valuation lenses ask *"what is it worth?"*, this engine asks
 the Damodaran **Business Reality** question:

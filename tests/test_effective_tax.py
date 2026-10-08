@@ -165,7 +165,7 @@ def test_relevering_and_wacc_ignore_the_effective_rate():
 
 
 def test_nan_tax_provision_falls_through_to_income_tax_expense():
-    """AGY review (gemini-3.8-flash): a NaN first label must not stop the search."""
+    """A NaN first label must not stop the search."""
     latest, older = pd.Timestamp("2025-12-31"), pd.Timestamp("2024-12-31")
     fin = pd.DataFrame(
         {latest: [float("nan"), 2.5, 10.0], older: [1.0, 1.0, 5.0]},

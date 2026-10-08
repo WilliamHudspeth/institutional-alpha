@@ -256,7 +256,7 @@ CORE_CONCEPTS = [
             "Posterior = Likelihood(evidence|thesis) * Prior / Evidence_marginal. Forces "
             "quantification of belief updates."
         ),
-        implementation="src/iam/backtest/runner.py → thesis engine (Phase 3.2)",
+        implementation="src/iam/backtest/runner.py → thesis engine",
         tags=["probability", "posterior", "priors"],
         difficulty="advanced",
         prerequisites=[],

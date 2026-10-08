@@ -1,6 +1,6 @@
 """A failed data fetch must stop the GUI valuation, never value an empty Security.
 
-CLAUDE.md defect: "The GUI values an empty Security when a fetch fails."
+Regression: "The GUI values an empty Security when a fetch fails."
 """
 
 from __future__ import annotations

@@ -33,7 +33,7 @@ BLK_MIX = {
     "australia": 0.015,
     "asia": 0.015,
 }
-# Claude's independent check of the owner's mix.
+# Independent check of the reference mix.
 BLK_COMPONENTS = {
     "United States": 0.2500,
     "Canada": 0.2614,
@@ -210,7 +210,7 @@ def test_tax_loader_does_not_disturb_the_erp_loader():
 
 
 def test_unresolvable_revenue_mix_falls_back_to_home_country_before_us():
-    """AGY review (gemini-3.8-flash): zero coverage must try country_iso before the US rate."""
+    """Zero coverage must try country_iso before the US rate."""
     from iam.data.security import Security
     from iam.valuation.country_tax import company_marginal_tax, load_country_tax
 

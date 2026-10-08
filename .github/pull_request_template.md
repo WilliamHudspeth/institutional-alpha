@@ -1,51 +1,28 @@
-## Description
+## Summary
 
-<!-- Provide a brief description of the changes in this PR -->
+<!-- What changes and why. -->
 
-## Type of Change
+## Type
 
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to change)
-- [ ] Documentation update
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Breaking change
+- [ ] Documentation
 
-## Related Issues
-
-Closes #<!-- issue number -->
-
-## Changes Made
-
-<!-- List the specific changes made in this PR -->
-
-- 
-- 
-- 
+Closes #
 
 ## Testing
 
-<!-- Describe the testing you've done to verify the changes -->
-
-- [ ] Unit tests added/updated
-- [ ] Integration tests added/updated
-- [ ] Manual testing performed
+- [ ] Tests added or updated; a bug fix includes a test that fails without the fix
+- [ ] No test was weakened, skipped or loosened
+- [ ] Tests do not use the network
 
 ## Checklist
 
-- [ ] Code follows the project's style guidelines
-- [ ] All tests pass locally (`pytest -v`)
-- [ ] Type checking passes (`mypy src/`)
-- [ ] Linting passes (`ruff check src/`)
-- [ ] No new warnings introduced
-- [ ] Documentation updated if needed
-- [ ] Commit messages are clear and descriptive
-- [ ] No unrelated changes included
-
-## Performance Impact
-
-<!-- If applicable, describe any performance implications -->
-
-None / <!-- describe impact -->
-
-## Additional Notes
-
-<!-- Any additional context or notes for reviewers -->
+- [ ] `ruff check src tests` and `ruff format --check src tests` pass
+- [ ] `python -m mypy src/ --ignore-missing-imports` passes
+- [ ] `bandit -r src -ll --skip B311` passes
+- [ ] `pytest --cov=src/iam --cov-fail-under=85` passes
+- [ ] No fabricated defaults: missing data is `None` or an explicit "insufficient data" state
+- [ ] Documentation and `CHANGELOG.md` updated if behaviour changed
+- [ ] PR title follows [Conventional Commits](../docs/development/commit-conventions.md)

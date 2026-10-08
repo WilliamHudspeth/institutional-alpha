@@ -1,4 +1,4 @@
-"""Point-in-time geographic revenue mix from the 10-K XBRL instance (Phase B).
+"""Point-in-time geographic revenue mix from the 10-K XBRL instance.
 
 Real recorded filings are replayed through an injected transport (no network). Rules the
 recordings do not exercise (second dimension, overlap, eliminations, conflicting duplicates,

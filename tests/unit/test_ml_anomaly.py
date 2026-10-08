@@ -146,7 +146,7 @@ def _priced_security():
 
 
 def test_unavailable_ml_lens_leaves_relative_confidence_untouched():
-    """Claude review: compare against a run with the ML step removed, not just a missing note.
+    """Review follow-up: compare against a run with the ML step removed, not just a missing note.
 
     Before the orchestrator fix, an unavailable lens (confidence 0.0) multiplied relative
     valuation confidence by 0.

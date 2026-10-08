@@ -5,8 +5,7 @@ direction. The existing macro overlay (``iam.pipeline.macro``) applies uniform
 rate/growth shocks and gates on the size of the move. It does not reason about
 *why* a specific business is fragile. This layer fixes that.
 
-The theory (see ROADMAP.md, "The Core Enhancement: Theory-First Stress
-Testing"):
+The theory is theory-first stress testing:
 
   * **Durability** (0..1) — what fraction of cash flows persist if growth
     stalls? Recurring, sticky revenue is durable; transactional/cyclical

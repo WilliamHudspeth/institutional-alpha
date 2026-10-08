@@ -55,10 +55,8 @@ def main():
     stats = runner.compute_statistics()
     factor_stats = runner.compute_factor_statistics()
 
-    with open(
-        "C:/Users/wshb/.gemini/antigravity/brain/ea6a265f-ffd3-4097-a02a-f8d8b1b0ed3d/ic_backtest_report.md",
-        "w",
-    ) as f:
+    report_path = ic_config.results_dir / "ic_backtest_report.md"
+    with open(report_path, "w") as f:
         f.write("# Empirical IC Backtest Report (v0.5.0)\n\n")
         f.write("## Overview\n")
         f.write("- **Universe**: S&P 100\n")

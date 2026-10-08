@@ -129,7 +129,7 @@ def test_dcf_surface_takes_pipeline_assumptions(report):
 
 
 def test_no_grid_without_high_growth_years():
-    """The horizon is an engine input like the others: no silent 10-year fallback (AGY A1)."""
+    """The horizon is an engine input like the others: no silent 10-year fallback."""
     a = {"high_growth": 0.1, "discount_rate": 0.09, "terminal_growth": 0.025, "roe": 0.15}
     intrinsic = types.SimpleNamespace(components={"base_ni_per_share": 5.0}, assumptions=a)
     assert build_value_grid(types.SimpleNamespace(intrinsic=intrinsic)) is None

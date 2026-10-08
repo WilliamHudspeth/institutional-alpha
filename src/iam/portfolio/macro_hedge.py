@@ -7,7 +7,7 @@ Hedge sizing is driven by the **portfolio's aggregate elasticity profile**
 (weighted average of position-level elasticities from
 :class:`iam.elasticity.ElasticityScorer`), not generic textbook rules.
 This makes it consistent with the rest of the codebase's theory-first
-design (see :mod:`iam.elasticity` and ``docs/business_reality.md``).
+design (see :mod:`iam.elasticity` and ``docs/methodology/business-reality.md``).
 """
 
 from __future__ import annotations

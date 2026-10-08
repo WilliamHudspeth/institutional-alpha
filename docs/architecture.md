@@ -1,7 +1,24 @@
 # System Architecture — institutional-alpha
 
-This document describes the actual structure of the codebase as of July 2026, grounded in
-`src/iam/`. It is not aspirational — every claim cites a file path.
+This document describes the structure of the codebase as of release candidate 0.4.0-rc1, taken
+from `src/iam/`. Claims cite file paths.
+
+## Design principles
+
+1. **Factors are orthogonal.** Each factor measures one thing. Valuation, quality and sentiment are
+   not blended inside a single factor.
+2. **Everything is auditable.** A composite score decomposes into per-factor contributions and
+   penalty terms. There are no opaque aggregations.
+3. **Data sources are pluggable.** Model code accepts fundamentals as inputs and does not fetch
+   them. Providers sit behind adapters.
+4. **No magic constants.** Default weights are explicit and documented. A missing input is `None`
+   or an explicit "insufficient data" state. Nothing that looks computed is invented: no silent
+   defaults for tax rates, discount rates or share counts.
+5. **Dependencies stay minimal.** numpy and pandas are the baseline; anything else needs a reason.
+
+Conventions: Python 3.10+, type hints on public APIs, docstring style as in `src/iam/`, and at
+least one test for every new factor or pipeline stage. Read-only mappings are typed `Mapping`
+rather than `dict`, and `float | None` values are narrowed before arithmetic.
 
 ---
 
@@ -319,5 +336,5 @@ yield curve slope, PMI direction, dollar strength), each mapped to [-1, 1] via r
 
 ---
 
-*This document was generated from code survey, not from ROADMAP.md or design documents.*
-*For design principles, see `docs/ai.md`. For framework rationale, see `docs/framework.md`.*
+See also: [framework](methodology/framework.md) for the rationale behind these principles and
+[factors](methodology/factors.md) for the factor definitions.

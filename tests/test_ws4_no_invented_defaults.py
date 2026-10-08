@@ -1,4 +1,4 @@
-"""WS4: invented defaults must not reach the screen.
+"""Invented defaults must not reach the screen.
 
 Silent fills (``x or 0.10``) become None / flagged; documented model
 assumptions stay but are labelled with their source.
