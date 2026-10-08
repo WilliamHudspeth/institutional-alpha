@@ -1,4 +1,4 @@
-"""F9 Visualization Lab SOTP tower must never value invented segments (CLAUDE.md rule 1)."""
+"""F9 Visualization Lab SOTP tower must never value invented segments (no fabricated values)."""
 
 from __future__ import annotations
 

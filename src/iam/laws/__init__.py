@@ -2,7 +2,7 @@
 
 Theory-first consistency checks that flag fragile analyses instead of
 inventing numbers. See :mod:`iam.laws.registry` for the five laws and
-``docs/damodaran_laws.md`` for the full specification.
+``docs/methodology/damodaran-laws.md`` for the full specification.
 """
 
 from __future__ import annotations

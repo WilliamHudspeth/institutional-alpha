@@ -6,7 +6,7 @@ A typical public valuation model — DCF, multiples, maybe a comparables overlay
 
 > Is this asset cheap or expensive?
 
-That's a useful question, but it's not the question elite discretionary and systematic funds are actually asking. They're asking at least six more:
+That's a useful question, but it's not the only question a professional investor asks. At least six more matter:
 
 - **Cheap for what reason?** A statistically cheap stock with collapsing margins is not the same opportunity as a statistically cheap stock with stable cash flows.
 - **Cheap relative to what regime?** A 15× P/E is generous in one rate environment and punitive in another.
@@ -108,7 +108,7 @@ The framework is designed to be extended into a **Bayesian updating engine**. In
 posterior = prior * likelihood_ratio
 ```
 
-This is what separates frameworks that get re-derived quarterly from frameworks that learn. The current scaffold stops short of this — it's on the roadmap and would be a great contribution.
+This is what separates frameworks that get re-derived quarterly from frameworks that learn. The thesis engine in `src/iam/thesis/bayesian/` implements this update for scenario probabilities; learning from realised outcomes is not implemented.
 
 ## What this framework is not
 

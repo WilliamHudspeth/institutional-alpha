@@ -16,7 +16,7 @@ injected transport and never use the network.
 
 Trimming (values and metadata are untouched, rows are only removed):
 
-* companyfacts keeps only the concepts the Phase A parser reads: `Revenues`,
+* companyfacts keeps only the concepts the facts parser reads: `Revenues`,
   `RevenueFromContractWithCustomerExcludingAssessedTax`, `SalesRevenueNet`, `NetIncomeLoss`,
   `OperatingIncomeLoss`, `NetCashProvidedByUsedInOperatingActivities`,
   `PaymentsToAcquirePropertyPlantAndEquipment`, `LongTermDebt`, `LongTermDebtNoncurrent`,
@@ -30,7 +30,7 @@ Facts later than the recording date do not exist, so tests that need "as of" dat
 2026-06-30 (and older). Re-recording changes the latest facts, so expected values in
 `tests/edgar/test_facts.py` are pinned to these files, not to live EDGAR.
 
-## Phase B: geographic revenue mix (10-K XBRL instances)
+## Geographic revenue mix (10-K XBRL instances)
 
 Recorded on **2026-10-06** with the same User-Agent and rate (about 5 requests per second).
 Real SEC responses, trimmed; values are untouched.

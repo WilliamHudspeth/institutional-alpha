@@ -2,7 +2,7 @@
 
 **Effective Date:** 2026-07-05
 **Product:** Institutional Alpha
-**Scope:** ROADMAP.md Phase 1.5b, "Model Governance" and "Internal Audit Trail"
+**Scope:** Model governance and the internal audit trail
 
 ---
 
@@ -58,10 +58,9 @@ reconstructed after the fact. In practice:
   is no longer active so `get_assumption_overrides(active_only=True)` stays
   accurate.
 
-This mirrors ROADMAP.md's checklist ("any model update requires
-documentation, testing, approval") without requiring a separate ticketing
+This follows the rule that any model update requires documentation, testing and approval, without requiring a separate ticketing
 system — the `ticket_ref` field is there if you already have one (GitHub PR,
-Jira, Multica `HUD-NNN`), but recording a change with just a rationale is
+Jira), but recording a change with just a rationale is
 sufficient for a solo/small-team operation.
 
 ## 3. Retention

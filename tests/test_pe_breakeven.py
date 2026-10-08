@@ -234,7 +234,7 @@ def test_gui_card_html_shows_numbers_and_na():
 
 
 def test_ke_source_names_caller_supplied_rates_not_consensus():
-    """A caller-supplied Rf/ERP drives Stage 1's Ke; the provenance must say so (Claude review)."""
+    """A caller-supplied Rf/ERP drives Stage 1's Ke; the provenance must say so."""
     sec = _security()
     sec.qualitative = {"risk_free_rate": 0.05, "equity_risk_premium": 0.06}
     report = _run(sec)

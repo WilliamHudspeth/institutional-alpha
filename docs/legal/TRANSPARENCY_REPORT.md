@@ -22,7 +22,7 @@ Transparency reports will be published with each minor/major release (approximat
 
 | Area | Status |
 |------|--------|
-| **Model validation** | Backtesting infrastructure exists (`src/iam/backtest/`); IC calibration runs are manual |
+| **Model validation** | Backtesting infrastructure exists (`src/iam/backtest/`); no valid empirical IC result yet (see docs/research/backtest.md) |
 | **Factor weights** | Default weights documented in `src/iam/engine/composite.py:32–43`; no production calibration data yet |
 | **Stress tests** | Elasticity module (`src/iam/elasticity/`) implements macro shock scenarios; no automated regime backtests |
 | **Issue tracking** | GitHub Issues for bugs/features; no formal SLA published |

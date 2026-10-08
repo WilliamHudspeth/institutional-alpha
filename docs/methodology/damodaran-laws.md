@@ -2,7 +2,6 @@
 
 **Module**: `src/iam/laws/`
 **Status**: Implemented and wired into the valuation pipeline
-**Roadmap**: Phase 2.5 — Reasoning-Engine Evolution ("Damodaran Laws constraint layer")
 
 ---
 
@@ -82,7 +81,7 @@ glide path: the rate the model should be converging toward.
 ### LAW 5 — Risk is not double-counted
 
 Risk lives in the cash flows **or** the discount rate, never both. The check
-compares the WACC against the platform baseline (9%) and forecast growth
+compares the WACC against the platform baseline (a 9% module constant) and forecast growth
 against the historical revenue CAGR (≥ 3 observations):
 
 - WACC > baseline + 2pp **and** growth > 5pp below history → FLAG

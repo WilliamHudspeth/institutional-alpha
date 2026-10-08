@@ -5,7 +5,7 @@ title: "feat(backtest): add "
 labels: research
 ---
 
-<!-- See docs/COMMUNITY_CONTRIBUTIONS.md#2-data-source-adapters before filing -->
+<!-- See CONTRIBUTING.md (data source adapters) before filing -->
 
 ## Source
 

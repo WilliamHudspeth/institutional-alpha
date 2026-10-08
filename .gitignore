@@ -99,3 +99,13 @@ Thumbs.db
 
 # PyInstaller
 *.spec
+
+# Coverage artefacts
+coverage.xml
+
+# Local editor/assistant notes (not part of the project)
+CLAUDE.md
+.claude/
+.agents/
+AGENTS.md
+GEMINI.md

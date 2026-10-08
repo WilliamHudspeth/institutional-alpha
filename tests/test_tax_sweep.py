@@ -230,7 +230,7 @@ def test_site6_expectations_battlefield_na_for_unknown_tax_rate():
     assert "Intrinsic: n/a" in summary_text
 
 
-# --- Claude review follow-ups -------------------------------------------------
+# --- Review follow-ups -------------------------------------------------
 
 
 def _sotp_security(shares):

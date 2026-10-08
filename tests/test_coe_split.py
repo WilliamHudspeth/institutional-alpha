@@ -232,7 +232,7 @@ def test_fcfe_bottom_up_path_caps_at_profile_rf():
     assert res.assumptions["terminal_growth"] == pytest.approx(RF)
 
 
-# ------------------------------------------------- AGY review follow-ups (gemini)
+# ------------------------------------------------- Review follow-ups
 def test_pipeline_caps_stage1_terminal_growth_at_the_consensus_rf():
     """No caller override: Stage 1's cap must use the consensus Rf passed by the orchestrator."""
     sec = _blk_like()

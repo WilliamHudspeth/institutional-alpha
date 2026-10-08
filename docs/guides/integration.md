@@ -126,7 +126,7 @@ exposures = PortfolioAnalyzer.compute_factor_exposures(
 
 # Check for crowding
 if exposures.factor_crowding["quality"] > 0.75:
-    print("⚠ Crowded in quality factor - diversify")
+    print("Warning: crowded in quality factor - diversify")
 
 # Compute risk
 var_95 = PortfolioAnalyzer.compute_portfolio_var(
@@ -393,46 +393,3 @@ python main.py
 - Component-specific loggers for debugging
 - Performance metrics for optimization
 - Structured logs for analysis
-
-## Next Steps
-
-1. **Integrate with Main.py**
-   - Replace monolithic terminal with panel-based rendering
-   - Add async data loading from market sources
-   - Wire event bus for live updates
-
-2. **Add Market Data Integration**
-   - Real-time price feeds
-   - Earnings calendar events
-   - News sentiment feeds
-
-3. **Enhance Bayesian Engine**
-   - Track evidence history
-   - Compute confidence evolution
-   - Generate thesis evolution report
-
-4. **Portfolio Optimization**
-   - Mean-variance efficient frontier
-   - Risk budgeting
-   - Constraint satisfaction
-
-5. **Research Synthesis**
-   - Generate investment memos
-   - Summarize thesis and risks
-   - Quantified scenarios to narrative
-
-## Architecture Benefits
-
-- **Modularity**: Each layer can be developed/tested independently
-- **Scalability**: Async + event-driven design prevents bottlenecks
-- **Clarity**: Clear separation of concerns
-- **Testability**: Immutable state + pure functions
-- **Extensibility**: Easy to add new panels, evidence types, visualizations
-- **Observability**: Structured logging + event history
-
-This integration enables an institutional-grade research platform with:
-- Formal Bayesian reasoning
-- Multi-security portfolio management
-- Real-time responsive UI
-- Professional data visualization
-- Audit trail of decisions

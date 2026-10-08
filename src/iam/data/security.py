@@ -170,7 +170,7 @@ class Security(BaseModel):
     ``qualitative`` is a free-form dict for user-supplied inputs that don't
     belong in structured financial data: reflexivity scores, runway estimates,
     FCFE forecast assumptions, SOTP segments, etc. Keys are documented in
-    docs/factors.md.
+    docs/methodology/factors.md.
 
     ``revenue_mix`` is optional: a dict mapping region/country codes to revenue
     weights. Used by GroundTruthProvider for blended ERP calculation.
