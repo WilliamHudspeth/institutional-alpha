@@ -1,6 +1,6 @@
-"""Pydantic models for Research Governance (Phase 3).
+"""Pydantic models for research governance.
 
-Covers the four governance capabilities from ROADMAP.md Phase 3:
+Covers four governance capabilities:
 1. Research hypothesis registry
 2. Factor inclusion/exclusion audit trail
 3. Model change logs

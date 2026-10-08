@@ -1,7 +1,7 @@
 """CSV Export (Excel-compatible).
 
-A plain CSV satisfies ROADMAP.md's "Excel-compatible outputs" bullet without
-adding a pandas/openpyxl dependency — Excel opens CSV natively.
+A plain CSV is Excel-compatible without adding a pandas/openpyxl dependency,
+since Excel opens CSV natively.
 """
 
 from __future__ import annotations

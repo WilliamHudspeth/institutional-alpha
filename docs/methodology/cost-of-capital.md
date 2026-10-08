@@ -97,7 +97,7 @@ The newest dated file is the default. Override with `IAM_COUNTRY_ERP_FILE` and
 
 ## Reference check
 
-For a BlackRock-like profile, the pipeline is expected to produce:
+Worked example for a BlackRock-like profile (April 2026 reference data):
 
 | Quantity | Value |
 |---|---|
@@ -106,4 +106,5 @@ For a BlackRock-like profile, the pipeline is expected to produce:
 | Relevered beta | 0.691 |
 | Bottom-up Ke | 8.06% |
 
-Related tests: `tests/test_country_tax.py`, `tests/test_gui_ke_card.py`.
+Related tests: `tests/test_country_erp_2026_04.py` (ERP), `tests/test_country_tax.py` and
+`tests/test_gui_ke_card.py` (relevered beta).

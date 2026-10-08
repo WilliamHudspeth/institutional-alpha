@@ -15,8 +15,7 @@ Report it privately through the repository's Security tab ("Report a vulnerabili
 the maintainer through the address on the GitHub profile. Include the affected version, steps to
 reproduce, and the impact you see.
 
-Reports are acknowledged within 24 hours for confirmed vulnerabilities and within a week
-otherwise. If a report is accepted, a fix is released out of band (see
+This is a single-maintainer project, so response times are best effort. If a report is accepted, a fix is released out of band (see
 [releasing](docs/development/releasing.md)) and credited in the release notes unless you ask
 otherwise. If it is declined, you will get the reason.
 

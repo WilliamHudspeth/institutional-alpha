@@ -30,7 +30,7 @@ from iam.factors import (
 
 logger = logging.getLogger(__name__)
 
-# Default weights derived from the framework writeup (docs/framework.md).
+# Default weights derived from the framework writeup (docs/methodology/framework.md).
 # Override these by passing a custom dict to ``score(...)``.
 DEFAULT_WEIGHTS: dict[str, float] = {
     "expectations_difficulty": 0.22,

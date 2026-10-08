@@ -1,4 +1,4 @@
-"""Canonical disclaimer text for Institutional Alpha (ROADMAP Phase 1.5b).
+"""Canonical disclaimer text for Institutional Alpha.
 
 Single source of truth for the disclaimer language required on every score,
 report, and export. Import these constants rather than restating the text —
@@ -14,7 +14,7 @@ SHORT_DISCLAIMER = (
     "Model outputs are subject to error; past performance does not guarantee future results."
 )
 
-#: The five standard disclosure lines from ROADMAP.md Phase 1.5b, in order.
+#: The five standard disclosure lines, in order.
 DISCLAIMER_LINES: tuple[str, ...] = (
     "This is not investment advice.",
     "Past performance does not guarantee future results.",

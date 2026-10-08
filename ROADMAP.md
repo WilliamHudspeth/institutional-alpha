@@ -17,7 +17,7 @@ empirically: the IC backtest has produced no usable result (see
 | Portfolio analytics, sizing and verdicts | Implemented |
 | Backtest harness with pluggable sources and research-integrity statistics | Implemented, no valid result yet |
 | Point-in-time SEC EDGAR fundamentals and 10-K geographic revenue mix | Implemented for live tickers |
-| Tests | 1,573 pass, 2 skip (environment-only); coverage about 86.7%, CI gate 85% |
+| Tests | About 1,850 tests; CI enforces 85% line coverage |
 
 Static checks (ruff, mypy, bandit) pass on the 0.4.0-rc1 code.
 
@@ -32,8 +32,9 @@ Static checks (ruff, mypy, bandit) pass on the 0.4.0-rc1 code.
   10-K; backtest snapshots do not.
 - **Revenue-mix coverage.** Members the country tables cannot resolve (for example "Other
   countries") stay in the mix and lower coverage. Without a 10-K mix the US ERP and tax rate apply.
-- **Data-source decision pending.** The choice of primary source for historical financials is
-  described in [data source options](docs/research/data-source-options.md).
+- **Historical financials.** SEC EDGAR is the chosen point-in-time source (see
+  [data source options](docs/research/data-source-options.md)); wiring it into the backtest is
+  the main 0.4.0 task.
 - **Text front-ends not consolidated.** Several terminal interfaces coexist in `src/iam/ui/`.
 - **Data scope.** Yahoo Finance is the default live source and has gaps and delays. Coverage is
   US-listed equities. There is no real-time data.
