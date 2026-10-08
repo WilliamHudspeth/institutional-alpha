@@ -10,8 +10,7 @@ These mirror the conventions of ``iam.elasticity.types`` and
     ``LawStatus.NOT_EVALUATED`` so callers can distinguish "passed" from
     "couldn't look".
 
-The layer's job (ROADMAP, "Damodaran Laws — Theory-First Consistency
-Checks") is to *flag fragile analyses*, not to invent numbers. A FLAG means
+The layer's job is to *flag fragile analyses*, not to invent numbers. A FLAG means
 "this combination of assumptions needs an explanation"; a VIOLATION means
 "this combination is internally inconsistent with valuation theory".
 """

@@ -2,8 +2,7 @@
 
 The original overlay applied uniform rate/growth shocks and gated purely on
 the size of the rate move. This version reasons about *why* a specific
-business is fragile (ROADMAP, "The Core Enhancement: Theory-First Stress
-Testing"): it scales the raw macro shock by the business's measured rate and
+business is fragile: it scales the raw macro shock by the business's measured rate and
 growth elasticity before gating and re-pricing, and runs the
 ``DurabilityStressEngine`` to estimate how far conviction should drift.
 
