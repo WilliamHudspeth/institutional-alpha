@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 from scipy.optimize import Bounds, minimize
+from scipy.stats import rankdata
 
 from iam.backtest.cpcv import get_cpcv_splits
 from iam.backtest.multiple_testing import deflated_sharpe_ratio
@@ -122,6 +123,16 @@ class WeightOptimizerConfig:
     max_iter: int = 500
     tol: float = 1e-6
     regularization_penalty: float = 0.05
+    # Forward-return horizon in periods (months for monthly dates). Training
+    # labels end ``horizon_months`` after their date, so the last
+    # ``horizon_months - 1`` training dates overlap the first test label and are
+    # purged. 1 means non-overlapping returns: nothing is purged.
+    horizon_months: int = 1
+    # Bootstrap: seed for reproducibility and moving-block length. Overlapping
+    # forward returns are autocorrelated, so a block length of at least
+    # ``horizon_months`` keeps that dependence inside each resampled block.
+    random_state: int | None = None
+    block_length: int = 1
 
 
 @dataclass
@@ -166,6 +177,24 @@ class RegimeResult:
     weight_names: list[str]
 
 
+def _rank(x: np.ndarray) -> np.ndarray:
+    """Average-tie ranks, so a Pearson correlation on them is a Spearman correlation."""
+    return np.asarray(rankdata(x, method="average"), dtype=float)
+
+
+def _rank_ic(composite: np.ndarray, rets: np.ndarray) -> float:
+    """Spearman rank IC between a composite score and forward returns (NaN if undefined).
+
+    Names with a missing score or return are dropped pairwise, so one NaN does not
+    void the whole date.
+    """
+    ok = np.isfinite(composite) & np.isfinite(rets)
+    composite, rets = composite[ok], rets[ok]
+    if len(rets) < 2 or np.std(composite) == 0 or np.std(rets) == 0:
+        return float("nan")
+    return float(np.corrcoef(_rank(composite), _rank(rets))[0, 1])
+
+
 def _objective(
     weights: np.ndarray,
     factor_scores_list: list[np.ndarray],
@@ -173,7 +202,13 @@ def _objective(
     Sigma: np.ndarray | None = None,
     regularization_penalty: float = 0.05,
 ) -> float:
-    """Negative average IC across all dates + weight variance penalty."""
+    """Negative average IC across all dates + weight variance penalty.
+
+    ``returns_list`` is expected to hold per-date *ranked* returns (see
+    ``optimize_weights``): ranking the composite itself would make the objective
+    piecewise constant in ``weights``, so the smooth surrogate is the correlation
+    of the composite with ranked returns.
+    """
     ics = []
     for scores, rets in zip(factor_scores_list, returns_list):
         if len(rets) < 2:
@@ -229,13 +264,17 @@ def optimize_weights(
 
     x0 = prior_weights.copy()
 
+    # Fit against ranked returns so the objective targets rank IC (what the
+    # backtest reports), not a Pearson IC that a few outlier returns dominate.
+    ranked_returns_list = [_rank(r) if len(r) >= 2 else r for r in returns_list]
+
     bounds = Bounds(0.0, 1.0)
     constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]
 
     res = minimize(
         _objective,
         x0,
-        args=(factor_scores_list, returns_list, Sigma, regularization_penalty),
+        args=(factor_scores_list, ranked_returns_list, Sigma, regularization_penalty),
         method="SLSQP",
         bounds=bounds,
         constraints=constraints,
@@ -293,6 +332,12 @@ class WalkForwardOptimizer:
                 + self.config.test_window_months
             ]
 
+            # Purge training dates whose forward-return window reaches into the
+            # test period; otherwise the test labels leak into training.
+            purge = max(0, self.config.horizon_months - 1)
+            if purge:
+                train_dates = train_dates[:-purge]
+
             train_scores = [
                 factor_scores_by_date[d] for d in train_dates if d in factor_scores_by_date
             ]
@@ -315,16 +360,8 @@ class WalkForwardOptimizer:
             ]
             test_rets = [returns_by_date[d] for d in test_dates if d in returns_by_date]
 
-            ics = []
-            for scores, rets in zip(test_scores, test_rets):
-                if len(rets) < 2:
-                    continue
-                comp = scores @ w_opt
-                if np.std(comp) == 0 or np.std(rets) == 0:
-                    continue
-                ic = np.corrcoef(comp, rets)[0, 1]
-                if not np.isnan(ic):
-                    ics.append(ic)
+            ics = [_rank_ic(scores @ w_opt, rets) for scores, rets in zip(test_scores, test_rets)]
+            ics = [ic for ic in ics if not np.isnan(ic)]
 
             if ics:
                 window_oos_ics.append(float(np.mean(ics)))
@@ -353,16 +390,8 @@ class WalkForwardOptimizer:
                 continue
             s = factor_scores_by_date[d]
             r = returns_by_date[d]
-            if len(r) < 2 or np.std(r) == 0:
-                perf_matrix[i, :] = np.nan
-                continue
-
             for j, w in enumerate(window_weights):
-                comp = s @ w
-                if np.std(comp) == 0:
-                    perf_matrix[i, j] = np.nan
-                else:
-                    perf_matrix[i, j] = np.corrcoef(comp, r)[0, 1]
+                perf_matrix[i, j] = _rank_ic(s @ w, r)
 
         # Compute PBO (we need an even number of partitions, min 2)
         valid_rows = ~np.isnan(perf_matrix).all(axis=1)
@@ -437,12 +466,15 @@ class BootstrapStability:
         n = len(dates)
         weights = []
 
-        # Use a local RandomState for reproducible bootstrap if seeded globally,
-        # but standard random choice works fine too.
-        rng = np.random.RandomState()
+        rng = np.random.default_rng(self.config.random_state)
+        block = int(min(max(1, self.config.block_length), n))
+        n_blocks = -(-n // block)  # ceil
 
         for _ in range(self.config.n_bootstrap):
-            idx = rng.choice(n, size=n, replace=True)
+            # Moving-block bootstrap: resample contiguous runs of dates so the
+            # autocorrelation from overlapping forward returns is preserved.
+            starts = rng.integers(0, n - block + 1, size=n_blocks)
+            idx = np.concatenate([np.arange(st, st + block) for st in starts])[:n]
             sampled_dates = [dates[i] for i in idx]
 
             scores = [factor_scores_by_date[d] for d in sampled_dates if d in factor_scores_by_date]
@@ -607,16 +639,8 @@ class CPCVOptimizer:
             ]
             test_rets = [returns_by_date[d] for d in test_dates if d in returns_by_date]
 
-            ics = []
-            for scores, rets in zip(test_scores, test_rets):
-                if len(rets) < 2:
-                    continue
-                comp = scores @ w_opt
-                if np.std(comp) == 0 or np.std(rets) == 0:
-                    continue
-                ic = np.corrcoef(comp, rets)[0, 1]
-                if not np.isnan(ic):
-                    ics.append(ic)
+            ics = [_rank_ic(scores @ w_opt, rets) for scores, rets in zip(test_scores, test_rets)]
+            ics = [ic for ic in ics if not np.isnan(ic)]
 
             if ics:
                 path_oos_ics.append(float(np.mean(ics)))

@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import numpy as np
 import pandas as pd
 
@@ -363,3 +365,108 @@ class TestCovarianceRegularizedOptimization:
             f"High regularization should produce more uniform weights. "
             f"var_low={var_low:.6f}, var_high={var_high:.6f}"
         )
+
+
+class TestRankIcObjective:
+    def test_outlier_return_does_not_drive_weights(self):
+        """The fit targets rank IC: one extreme return must not flip the factor choice."""
+        rng = np.random.RandomState(7)
+        scores_list, rets_list = [], []
+        for _ in range(24):
+            scores = rng.randn(40, 2)
+            rets = 0.5 * scores[:, 0] + rng.randn(40) * 0.5
+            # One huge return on the name with the highest factor-1 score
+            rets[np.argmax(scores[:, 1])] = 50.0
+            scores_list.append(scores)
+            rets_list.append(rets)
+
+        w = optimize_weights(scores_list, rets_list, shrinkage_lambda=1.0)
+
+        assert w[0] > w[1]
+
+
+class TestWalkForwardPurge:
+    def test_overlapping_labels_are_purged_from_training(self):
+        """With h-month labels, the last h-1 training dates never reach the optimizer."""
+        rng = np.random.RandomState(0)
+        dates = pd.date_range("2020-01-31", periods=18, freq="ME").tolist()
+        scores_by_date = {d: rng.randn(30, 2) for d in dates}
+        rets_by_date = {d: scores_by_date[d][:, 0] + rng.randn(30) for d in dates}
+        config = WeightOptimizerConfig(
+            n_factors=2, train_window_months=12, test_window_months=6, horizon_months=3
+        )
+
+        seen: list[list[int]] = []
+        from iam.backtest import weight_optimizer as wo
+
+        real = wo.optimize_weights
+        position = {id(scores_by_date[d]): i for i, d in enumerate(dates)}
+
+        def spy(train_scores, train_rets, **kwargs):
+            seen.append([position[id(s)] for s in train_scores])
+            return real(train_scores, train_rets, **kwargs)
+
+        with patch.object(wo, "optimize_weights", side_effect=spy):
+            WalkForwardOptimizer(config).run(dates, scores_by_date, rets_by_date)
+
+        # Test window starts at index 12; labels span (t, t+3], so dates 10 and 11
+        # overlap it and must go. The oldest dates stay.
+        assert seen == [list(range(10))]
+
+    def test_default_horizon_purges_nothing(self):
+        assert WeightOptimizerConfig().horizon_months == 1
+
+
+class TestBlockBootstrap:
+    def _data(self):
+        rng = np.random.RandomState(3)
+        dates = pd.date_range("2020-01-31", periods=24, freq="ME").tolist()
+        scores_by_date = {d: rng.randn(30, 2) for d in dates}
+        rets_by_date = {d: 0.5 * scores_by_date[d][:, 0] + rng.randn(30) for d in dates}
+        return dates, scores_by_date, rets_by_date
+
+    def test_seeded_bootstrap_is_reproducible(self):
+        dates, s, r = self._data()
+        config = WeightOptimizerConfig(n_factors=2, n_bootstrap=5, random_state=11, block_length=3)
+        a = BootstrapStability(config).run(dates, s, r)
+        b = BootstrapStability(config).run(dates, s, r)
+        np.testing.assert_allclose(a.bootstrap_weights, b.bootstrap_weights)
+
+    def test_resamples_contiguous_blocks_of_full_length(self):
+        dates, s, r = self._data()
+        position = {id(s[d]): i for i, d in enumerate(dates)}
+        drawn: list[list[int]] = []
+        from iam.backtest import weight_optimizer as wo
+
+        real = wo.optimize_weights
+
+        def spy(scores, rets, **kwargs):
+            drawn.append([position[id(x)] for x in scores])
+            return real(scores, rets, **kwargs)
+
+        config = WeightOptimizerConfig(n_factors=2, n_bootstrap=4, random_state=5, block_length=5)
+        with patch.object(wo, "optimize_weights", side_effect=spy):
+            BootstrapStability(config).run(dates, s, r)
+
+        for idx in drawn:
+            assert len(idx) == len(dates)
+            for start in range(0, len(idx), 5):
+                block = idx[start : start + 5]
+                assert block == list(range(block[0], block[0] + len(block)))
+
+    def test_block_length_longer_than_sample_is_clamped(self):
+        dates, s, r = self._data()
+        config = WeightOptimizerConfig(
+            n_factors=2, n_bootstrap=3, random_state=1, block_length=1000
+        )
+        res = BootstrapStability(config).run(dates, s, r)
+        assert res.status == "success"
+        assert np.isclose(res.robust_weights.sum(), 1.0)
+
+
+def test_rank_ic_drops_missing_names_pairwise():
+    from iam.backtest.weight_optimizer import _rank_ic
+
+    comp = np.array([1.0, 2.0, 3.0, 4.0, np.nan])
+    rets = np.array([0.1, 0.2, np.nan, 0.4, 0.5])
+    assert np.isclose(_rank_ic(comp, rets), 1.0)
