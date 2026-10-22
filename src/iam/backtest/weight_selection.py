@@ -237,7 +237,7 @@ def candidate_equal(ctx: CandidateContext) -> np.ndarray:
     positive = np.isfinite(means) & (means > 0)
     if not positive.any():
         return np.array(ctx.prior, dtype=float)
-    return positive / positive.sum()
+    return np.asarray(positive / positive.sum(), dtype=float)
 
 
 def candidate_shrunk_icir(ctx: CandidateContext) -> np.ndarray:
