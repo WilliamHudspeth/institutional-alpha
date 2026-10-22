@@ -49,9 +49,9 @@ It is a plan. No empirical result exists yet; nothing here changes a default.
 |---|---|---|---|
 | The macro regime factor has the same value for every stock on a date | `factors/macro_regime.py` | Its cross-sectional IC is undefined, and its 5% weight shifts every composite equally. It changes no ranking, only the absolute level that verdict thresholds read | Phase 3 (time-series test) |
 | Regime weight multipliers target a `momentum` key that is not a factor, and the adjusted weights are not renormalised | `engine/composite.py` (`_REGIME_WEIGHT_MAP`) | Half of each regime adjustment does nothing; the other half changes the composite's scale by regime | Phase 3 |
-| DSR counts SLSQP function evaluations as trials | `WalkForwardOptimizer.run` | Function evaluations are not independent strategies. The deflation is arbitrary, not merely conservative | Phase 2 (trial ledger) |
-| PBO candidates are window-fitted weights scored on periods that include their own training data | `WalkForwardOptimizer.run` | PBO measures something closer to weight drift than selection overfitting | Phase 2 (PBO over the candidate set) |
-| Shrinkage toward the prior is fixed at 0.7 | `WeightOptimizerConfig.shrinkage_lambda` | Shrinkage should depend on how noisy the IC estimates are | Phase 2 (empirical Bayes) |
+| DSR counts SLSQP function evaluations as trials | `WalkForwardOptimizer.run` | Function evaluations are not independent strategies. The deflation is arbitrary, not merely conservative | Superseded for weight selection: `backtest/weight_selection.py` takes the trial count from the ledger. `WalkForwardOptimizer` still uses evaluations and should not be used to select weights |
+| PBO candidates are window-fitted weights scored on periods that include their own training data | `WalkForwardOptimizer.run` | PBO measures something closer to weight drift than selection overfitting | Superseded for weight selection: the horse race computes PBO over the candidate set on out-of-sample ICs only |
+| Shrinkage toward the prior is fixed at 0.7 | `WeightOptimizerConfig.shrinkage_lambda` | Shrinkage should depend on how noisy the IC estimates are | Superseded for weight selection: candidates C and D use per-factor empirical-Bayes data weights (`empirical_bayes_data_weight`) |
 | `effective()` multiplies a factor's value by its confidence | `factors/base.py` | Missing data pulls a factor toward zero, so its IC partly measures data coverage | Phase 1 (report IC on value and on effective value) |
 | Sector-neutral IC needs more than 5 names per sector | `metrics.ic_sector_neutral` | In a 100-name universe several sectors drop out | Phase 1 (use a 300 to 500 name universe) |
 | The reliability map `0.5 + 5 x IC` is arbitrary | `backtest/calibration.py` | Reliabilities are not tied to forecast accuracy | Phase 4 |
@@ -225,6 +225,14 @@ beat 1/N out of sample when samples are short. With about 120 months, the realis
 removing factors with a persistently wrong sign and small tilts, not a new weight vector. A null
 result (all candidates statistically tied) is a valid outcome and should be published as such.
 
+**Implementation.** `run_horse_race` in `backtest/weight_selection.py` implements candidates
+A to D, the haircut, the empirical-Bayes data weight (capped at 0.7) and the selection rule below.
+Every candidate is refitted inside each CPCV training fold, with purge and embargo of h months,
+and scored on the test fold. PBO and SPA are computed from the out-of-sample IC of each candidate
+on each date. On synthetic panels it replaces a deliberately wrong prior in every seed tried and
+never promotes a challenger when no factor carries signal. Candidate E plugs in through the
+`candidates` argument once the Track B loaders exist.
+
 **Selection rule.** Promote a challenger over A only if, in the development period, its CPCV
 out-of-sample mean IC beats A on at least 70% of paths, PBO over the candidate set is below 0.5,
 and SPA rejects "no candidate beats A" at 10%. Then confirm once on the holdout.
@@ -319,6 +327,10 @@ configuration hash and development-period result. The ledger feeds the trial cou
 and the candidate matrix for PBO. Hand edits to `DEFAULT_WEIGHTS` count as trials. Without the
 ledger, no reported significance can be trusted.
 
+`TrialLedger` in `backtest/weight_selection.py` implements this as an append-only JSONL file.
+`n_trials()` counts distinct configuration hashes, so re-running an identical specification is
+not a new trial, and `file_hash()` gives the hash to record in the run manifest.
+
 ## 8. Phases
 
 | Phase | Scope | Depends on |
@@ -327,7 +339,7 @@ ledger, no reported significance can be trusted.
 | 1a | Track B loaders: JKP US factor returns, OSAP portfolios, French factors, Damodaran `histimpl.xls`; map engine factors to JKP factors | None |
 | 1b | Damodaran vintage loader (1999 onward, header-based parsing, cached with hashes) | None |
 | 1c | Universe from EDGAR, delisting dates from Form 25/15, free prices (Stooq, yfinance), PIT snapshots carrying EDGAR fundamentals (Phase C/D in [backtest](backtest.md)); coverage report split by later-delisted versus surviving names | None |
-| 2 | Rung 1 and Rung 2: factor term structures, candidate horse race including the Track B candidate, empirical-Bayes shrinkage, trial ledger, PBO over candidates, DSR from the ledger, three survivorship cases | Phases 1a and 1c |
+| 2 | Rung 1 and Rung 2: factor term structures, candidate horse race including the Track B candidate, empirical-Bayes shrinkage, trial ledger, PBO over candidates, DSR from the ledger, three survivorship cases. The statistical machinery (candidates A to D, shrinkage, ledger, PBO, SPA, DSR, selection rule) is implemented in `backtest/weight_selection.py`; running it needs the Phase 1 data | Phases 1a and 1c |
 | 3 | Rungs 3 and 4: penalties and macro regime; fix the regime map | Phase 2 |
 | 4 | Rungs 5 to 7: reliabilities, valuation-engine tests, verdict and band calibration | Phases 1b and 2 |
 | 5 | Open the holdout once; write `calibrated_reliabilities_empirical.json` and any new weights with `data_source: empirical`, or publish the null result | Phases 2 to 4 |
