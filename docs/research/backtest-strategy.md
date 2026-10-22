@@ -24,7 +24,12 @@ It is a plan. No empirical result exists yet; nothing here changes a default.
    BUY/HOLD/SELL verdicts and confidence bands.
 4. **Lock a holdout.** Develop on 2010-2019, then evaluate once on 2020-2026. Record every
    specification tried in a trial ledger so the deflated Sharpe ratio counts trials honestly.
-5. **Fix the estimator defects first.** This change fixes four defects in the optimizer and the IC
+5. **Use free data only, in two tracks.** No free source has complete prices for delisted US
+   stocks, so the stock-level backtest of the engine's own code (Track A) carries some
+   survivorship bias. It is bounded, not ignored, and checked against free factor returns built by
+   academics from CRSP, which include delisted stocks (Track B). Damodaran's archived annual
+   datasets supply point-in-time industry inputs for the valuation engines. See Section 3.
+6. **Fix the estimator defects first.** This change fixes four defects in the optimizer and the IC
    runner (listed below). The remaining ones are listed with the phase that resolves them.
 
 ## 1. Audit of the current calibration code
@@ -78,15 +83,75 @@ hurt the out-of-sample IC of the measurable part, there is no evidence they add 
 
 ## 3. Data plan
 
-| Need | Recommended source | Notes |
+The plan uses free sources only. Paid survivorship-free price feeds (Sharadar, EODHD, Norgate)
+were considered and set aside; if one is added later, it slots into Track A as a `PREMIUM` tier
+in `backtest/sources/tiers.py` and the bias bounds below can be dropped.
+
+### Two tracks
+
+- **Track A: the engine's own factors, stock by stock.** Rebuild each backtestable factor from
+  EDGAR and free prices and measure its rank IC. This is the only way to test the code as written,
+  but free prices miss many delisted names, so its results carry survivorship bias.
+- **Track B: published factor returns, survivorship-free.** Jensen, Kelly and Pedersen (JKP),
+  Chen and Zimmermann (Open Source Asset Pricing) and Kenneth French publish long-short factor
+  returns built from CRSP and Compustat, including delisted stocks and delisting returns. They do
+  not test the engine's code, but they give an unbiased, decades-long estimate of how each
+  factor family behaves. Track B sets the priors and the sanity checks for Track A.
+
+A Track A result is trusted only where it agrees in sign with the matching Track B factor over the
+same period. A disagreement is reported as a likely implementation or survivorship problem, not as
+a discovery.
+
+### Sources
+
+| Need | Free source | Notes |
 |---|---|---|
 | Universe | EDGAR companyfacts (filed dates) or the SEC Financial Statement Data Sets: the top 500 filers by trailing revenue at each month-end, including filers that later delisted | Do **not** use the XBRL `frames` API: it returns the latest-filed value per period, so restatements leak backwards. XBRL coverage starts with 2009 filings, so begin in 2010 |
 | Cross-check universe | `fja05680/sp500` historical S&P 500 membership (1996 onward) | Post-2019 updates are manual from Wikipedia; map tickers to CIK because tickers are reused |
-| Prices, including delisted | Sharadar Prices (about $39/month, delisted names from 1997) or EODHD (about $20/month, delisted EOD history) | Free sources (Stooq, yfinance, Tiingo free tier) miss most delisted names. Measure and report coverage per date, as Phase D in [backtest](backtest.md) requires |
-| Delisting returns | Use the vendor's final price; when the last return is missing, apply a delisting-return convention by delisting reason (performance delistings around -30%, following Shumway 1997) and show results with and without it | The -30% figure is a literature convention, to be checked against the paper before use |
+| Delisting dates and reasons | EDGAR Form 25 and Form 15 filings by CIK; Alpha Vantage `LISTING_STATUS` (free key) as a cross-check | Tells Track A which universe names left and when, even when no price exists |
+| Prices (Track A) | Stooq bulk US daily file (`stooq_source.py` exists), then yfinance | Neither is survivorship-free. Before any IC is computed, measure the share of each month's universe with a price, split by names that later delisted and names that survived |
+| Delisting returns (Track A) | No free source. Use the last free price when one exists; otherwise bound the bias (below) | Shumway (1997) estimates about -30% for NYSE/AMEX performance delistings, and Shumway and Warther (1999) about -55% on Nasdaq; check both against the papers before use |
+| Factor returns (Track B) | JKP Global Factor Data (`jkpfactors.com`): US, 153 factors and 13 themes, monthly, capped value weighted | Free download of factor returns; stock-level data needs WRDS and is not used |
+| Factor returns (Track B) | Open Source Asset Pricing portfolio returns (`pip install openassetpricing`) | Firm-level signals are keyed by CRSP PERMNO, which cannot be mapped to tickers without CRSP, so use the portfolio files only |
+| Market and controls | Kenneth French Data Library: market, SMB, HML, RMW, CMA, momentum, 49 industry portfolios | Survivorship-free market return for Rung 4; controls for Rung 6 |
 | Fundamentals | Existing `fundamentals_as_of(cik, date)` in `src/iam/data/edgar/` | Use the filing date, not the period end. Add a lag of one trading day after `filed` |
 | Macro | ALFRED vintages (`realtime_start`/`realtime_end`) for DFII10, T10Y2Y | FRED's ICE BofA HY OAS series (BAMLH0A0HYM2) only carries three years of history since April 2026. Use Moody's BAA10Y as a credit proxy. ISM PMI left FRED in 2016 and is licensed |
-| Damodaran inputs | Archived annual vintages from the Damodaran data archive | A backtest at date T must use the vintage published before T |
+| Equity risk premium | Damodaran `histimpl.xls`: implied ERP, annual from 1960 and monthly from September 2008 | A free, forward-looking valuation signal for Rung 4 |
+| Industry inputs | Damodaran archived annual datasets, 1999 onward, at `pc/archives/<name><YY>.xls` (for example `margin10.xls`, `wacc12.xls`, `vebitda15.xls`, `betas05.xls`, `fundgr10.xls`) | See "Damodaran vintages" below |
+
+### Bounding survivorship bias in Track A
+
+Run every Track A statistic three ways and report all three:
+
+1. **Drop:** names without a price are excluded (the biased, optimistic case).
+2. **Last price:** delisted names with a free price history keep it up to the last trade, with a
+   delisting return of zero after it.
+3. **Penalised:** names that delisted for performance reasons (per Form 25 or the listing-status
+   reason) get the Shumway delisting return for the month they left, even with no price.
+
+A factor is accepted only if its sign and significance hold in all three. The coverage gate in
+Section 6 applies to case 1; if fewer than 75% of a month's names that later delisted have
+prices, the result is labelled "survivorship-biased" wherever it is shown.
+
+### Damodaran vintages
+
+Damodaran updates most datasets once a year, in early January, with market data as of
+31 December and accounting data from the trailing twelve months available then. His usage rules
+state there are "no strings attached", and `src/iam/data/damodaran.py` already loads the current
+files. For backtesting:
+
+- A date T in calendar year Y uses the vintage for year Y (published early January Y). Treat it as
+  available from 15 January Y; dates from 1 to 14 January use the year Y-1 vintage.
+- Industry inputs (unlevered beta, cost of capital, operating margin, sales-to-capital,
+  reinvestment rate, fundamental growth, EV/EBITDA, EV/sales, P/E) come from that vintage. This
+  gives `intrinsic_value` a `forecast_growth` derived without analysts, and gives
+  `relative_value` a second peer benchmark next to medians computed from the universe.
+- Damodaran's industry groups are his own. Reuse the sector-to-industry mapping already in
+  `find_industry_unlevered_beta`, and record unmapped names as missing rather than defaulting.
+- File layouts change across years. The parser must locate columns by header text and fail
+  loudly when a header is missing, rather than read by position.
+- Cache each vintage under `data/reference/damodaran/<year>/` with its download date and SHA-256 in
+  the manifest, so a run can be reproduced if a file is later revised.
 
 ## 4. Experimental design
 
@@ -125,7 +190,8 @@ For each factor and each sub-component (for example the four leverage-penalty we
 
 ### Rung 2: composite factor weights
 
-A pre-registered set of four candidates, all non-negative and summing to one:
+A pre-registered set of four candidates (five if the Track B check below adds E), all non-negative
+and summing to one:
 
 | Candidate | Definition |
 |---|---|
@@ -140,6 +206,16 @@ The sampling variance of a factor's mean IC is σ² = HAC variance / T. The weig
 Efron and Morris 1975). This replaces the fixed `shrinkage_lambda = 0.7`. Cap the data weight at
 0.7 so that no factor's weight is driven entirely by one sample.
 
+**Track B prior check.** Map each backtestable factor to its nearest JKP factors (for example
+intrinsic_value to "Intrinsic value-to-market" and "Free cash flow-to-price", quality to the
+"Quality minus Junk" and profitability factors, earnings_quality to the accruals theme,
+sentiment's momentum part to "Price momentum t-12 to t-1"). Over 1963 to 2009, before the
+Track A sample starts, compute each mapped factor's Sharpe ratio and the correlations between
+them. If the hand-set priors rank factors very differently from this evidence, add a fifth
+candidate, **E. Track B weights**: weights proportional to the 1963-2009 Sharpe ratios of the
+mapped factors, shrunk to the prior with the same λ. Because it is fitted on data that ends before
+Track A begins, it adds one trial to the ledger, not a search.
+
 **Haircut.** Before comparing with the prior, multiply in-sample ICs of factors taken from the
 literature (value, quality, momentum, accruals) by 0.5. McLean and Pontiff (2016) find portfolio
 returns are 26% lower out of sample and 58% lower after publication across 97 predictors.
@@ -147,10 +223,10 @@ returns are 26% lower out of sample and 58% lower after publication across 97 pr
 **Expectation.** DeMiguel, Garlappi and Uppal (2009) show estimated mean-variance weights rarely
 beat 1/N out of sample when samples are short. With about 120 months, the realistic gain is
 removing factors with a persistently wrong sign and small tilts, not a new weight vector. A null
-result (A, B, C and D statistically tied) is a valid outcome and should be published as such.
+result (all candidates statistically tied) is a valid outcome and should be published as such.
 
 **Selection rule.** Promote a challenger over A only if, in the development period, its CPCV
-out-of-sample mean IC beats A on at least 70% of paths, PBO over the four candidates is below 0.5,
+out-of-sample mean IC beats A on at least 70% of paths, PBO over the candidate set is below 0.5,
 and SPA rejects "no candidate beats A" at 10%. Then confirm once on the holdout.
 
 ### Rung 3: penalties
@@ -165,8 +241,10 @@ of the wrong sign. Leverage and fragility are testable; execution risk is not.
 
 The regime factor has no cross-sectional variation, so it cannot be judged by IC.
 
-- **As a level shift:** test whether the regime score predicts the forward return of the
-  universe (time-series regression with Hodrick or Newey-West errors and out-of-sample R² per
+- **As a level shift:** test whether the regime score predicts the forward excess return of the
+  market, using the French market factor rather than the Track A universe so the test is
+  survivorship-free. Damodaran's implied ERP is a second free predictor and a benchmark the regime
+  score should beat (time-series regression with Hodrick or Newey-West errors and out-of-sample R² per
   Campbell and Thompson 2008). If it does not, set its additive weight to zero; it only distorts
   verdict thresholds.
 - **As a weight modifier:** test one split only (for example stress versus normal credit) and
@@ -194,6 +272,11 @@ For FCFE DCF, reverse DCF, relative valuation and SOTP, compute (V - P) / P at e
 3. Fama-MacBeth of forward returns on log(V/P) with controls for book-to-market, size and momentum,
    to see whether the engine adds information beyond simple value.
 
+Engine inputs at each date come from the Damodaran vintage for that year (Section 3), never the
+current files. Also run each engine once with the current-year Damodaran inputs applied to every
+date: the gap between the two runs measures how much look-ahead the live defaults would have
+added.
+
 The triangulator currently weights methods equally (`valuation/triangulator.py`). Use these
 results to decide whether a method should be down-weighted, with the same horse race as Rung 2
 (equal weight versus shrunk inverse-error weights).
@@ -220,7 +303,8 @@ These extend the gates in [backtest](backtest.md#validation-gates).
 
 | Gate | Criterion |
 |---|---|
-| Coverage | At least 75% of universe names have prices and the core EDGAR fields at each date; coverage per date is published |
+| Coverage | At least 75% of universe names have prices and the core EDGAR fields at each date; coverage per date is published, separately for names that later delisted |
+| Survivorship | Sign and significance hold in the drop, last-price and penalised cases (Section 3), and agree in sign with the matching Track B factor |
 | Significance | Newey-West t with at least h-1 lags above 2.0 for a factor with a prior economic rationale, above 3.0 for anything selected by search (Harvey, Liu and Zhu 2016) |
 | Multiple testing | Holm or BH across factors with the effective number of tests (`multiple_testing.py`) |
 | Overfitting | PBO below 0.5 across the candidate set; DSR above 0.95 using the trial count from the ledger, reported at nominal and clustered trial counts |
@@ -240,10 +324,12 @@ ledger, no reported significance can be trusted.
 | Phase | Scope | Depends on |
 |---|---|---|
 | 0 | Estimator fixes listed in Section 1 (this change) | None |
-| 1 | Survivorship-free universe from EDGAR, delisted prices, PIT snapshots carrying EDGAR fundamentals (Phase C/D in [backtest](backtest.md)); per-factor coverage report | Price vendor decision |
-| 2 | Rung 1 and Rung 2: factor term structures, candidate horse race, empirical-Bayes shrinkage, trial ledger, PBO over candidates, DSR from the ledger | Phase 1 |
+| 1a | Track B loaders: JKP US factor returns, OSAP portfolios, French factors, Damodaran `histimpl.xls`; map engine factors to JKP factors | None |
+| 1b | Damodaran vintage loader (1999 onward, header-based parsing, cached with hashes) | None |
+| 1c | Universe from EDGAR, delisting dates from Form 25/15, free prices (Stooq, yfinance), PIT snapshots carrying EDGAR fundamentals (Phase C/D in [backtest](backtest.md)); coverage report split by later-delisted versus surviving names | None |
+| 2 | Rung 1 and Rung 2: factor term structures, candidate horse race including the Track B candidate, empirical-Bayes shrinkage, trial ledger, PBO over candidates, DSR from the ledger, three survivorship cases | Phases 1a and 1c |
 | 3 | Rungs 3 and 4: penalties and macro regime; fix the regime map | Phase 2 |
-| 4 | Rungs 5 to 7: reliabilities, valuation-engine tests, verdict and band calibration | Phase 2 |
+| 4 | Rungs 5 to 7: reliabilities, valuation-engine tests, verdict and band calibration | Phases 1b and 2 |
 | 5 | Open the holdout once; write `calibrated_reliabilities_empirical.json` and any new weights with `data_source: empirical`, or publish the null result | Phases 2 to 4 |
 | Ongoing | Live out-of-sample IC tracking with drift alerts against the frozen weights | Phase 5 |
 
@@ -259,6 +345,10 @@ Figures marked (v) were checked against the published abstract for this document
   overlapping observations. *Journal of Business Finance and Accounting* 38, 657-683.
 - Campbell, J. and Thompson, S. (2008). Predicting excess stock returns out of sample. *Review of
   Financial Studies*.
+- Chen, A. and Zimmermann, T. (2022). Open source cross-sectional asset pricing. *Critical Finance
+  Review* 27(2), 207-264. Data: openassetpricing.com (October 2025 release, v2.0.0).
+- Damodaran, A. Data archive, pages.stern.nyu.edu/~adamodar. Annual update, latest 9 January 2026;
+  sources Bloomberg, Morningstar, Capital IQ and Compustat (v).
 - DeMiguel, V., Garlappi, L. and Uppal, R. (2009). Optimal versus naive diversification. *Review of
   Financial Studies*.
 - Efron, B. and Morris, C. (1975). Data analysis using Stein's estimator and its generalizations.
@@ -283,6 +373,8 @@ Figures marked (v) were checked against the published abstract for this document
 - Newey, W. and West, K. (1987). A simple, positive semi-definite, heteroskedasticity and
   autocorrelation consistent covariance matrix. *Econometrica*.
 - Shumway, T. (1997). The delisting bias in CRSP data. *Journal of Finance*.
+- Shumway, T. and Warther, V. (1999). The delisting bias in CRSP's Nasdaq data and its
+  implications for the size effect. *Journal of Finance*.
 - Welch, I. and Goyal, A. (2008). A comprehensive look at the empirical performance of equity
   premium prediction. *Review of Financial Studies*.
 - White, H. (2000). A reality check for data snooping. *Econometrica*.
