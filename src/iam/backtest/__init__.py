@@ -48,6 +48,13 @@ from .weight_optimizer import (
     format_weights_report,
     optimize_weights,
 )
+from .weight_selection import (
+    HorseRaceResult,
+    TrialLedger,
+    empirical_bayes_data_weight,
+    format_horse_race_report,
+    run_horse_race,
+)
 
 __all__ = [
     # Config & manifest
@@ -101,8 +108,11 @@ __all__ = [
     "correct_factor_tests",
     "deflated_sharpe_ratio",
     "effective_num_tests",
-    "probabilistic_sharpe_ratiocorrect_factor_tests",
-    "deflated_sharpe_ratio",
-    "effective_num_tests",
     "probabilistic_sharpe_ratio",
+    # Weight horse race
+    "TrialLedger",
+    "HorseRaceResult",
+    "run_horse_race",
+    "format_horse_race_report",
+    "empirical_bayes_data_weight",
 ]
