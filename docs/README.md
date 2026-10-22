@@ -23,6 +23,7 @@
 ## Research
 
 - [Backtest](research/backtest.md): status of the empirical validation and the plan.
+- [Backtest strategy](research/backtest-strategy.md): how the backtest will calibrate weights, thresholds and reliabilities.
 - [Data source options](research/data-source-options.md): FMP and SEC EDGAR compared.
 
 ## Development

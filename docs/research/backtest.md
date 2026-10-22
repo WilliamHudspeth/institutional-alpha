@@ -82,6 +82,9 @@ A real run counts as valid only if it passes these gates.
 
 ## Next steps
 
+The full calibration plan, including which factors can be backtested, the weight-estimation
+horse race and the acceptance gates, is in [backtest strategy](backtest-strategy.md).
+
 1. Complete Phase C and re-run the IC backtest with real fundamentals.
 2. Decide on Phase D and report price coverage for delisted names.
 3. Measure IC at 21, 63, 126 and 252 days.

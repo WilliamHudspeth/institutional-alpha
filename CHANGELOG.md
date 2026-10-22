@@ -7,6 +7,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ## [Unreleased]
 
 ### Added
+- **Backtest calibration strategy** (`docs/research/backtest-strategy.md`): which factors can be backtested from point-in-time data, a pre-registered weight horse race with empirical-Bayes shrinkage, separate tests for the macro factor, valuation engines and verdicts, and a trial ledger for overfitting statistics.
 - **Bottom-up cost of equity.** Intrinsic valuation and the reference WACC use Rf plus the Damodaran industry beta relevered at the current D/E, times a revenue-weighted ERP (`src/iam/data/ground_truth.py`). Stage 1 keeps the consensus Ke (regression beta and US ERP).
 - **Country reference data.** Damodaran country ERP and marginal tax tables under `src/iam/data/reference/` (January and April 2026 ERP, April 2026 tax). The newest dated file is the default; `IAM_COUNTRY_ERP_FILE` and `IAM_COUNTRY_TAX_FILE` override it. Country ERPs average the rating- and CDS-based figures, regions are GDP-weighted and the revenue mix is renormalised (`country_risk.py`, `country_tax.py`).
 - **SEC EDGAR point-in-time layer** (`src/iam/data/edgar/`): rate-limited cached client, date-aware CIK resolution, fundamentals as of a date with per-field provenance, SIC to sector mapping, and the geographic revenue mix from the latest 10-K (`geography.py`). Live tickers now take `Security.revenue_mix` from it.
@@ -18,6 +19,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **SOTP Integration Test Suite**: Wrote `tests/test_orchestrator_sotp.py` to verify segment-level Sum-of-the-Parts (SOTP) validation calculations inside the orchestrator flow.
 
 ### Changed
+- **Weight optimizer targets rank IC and purges overlap** (`backtest/weight_optimizer.py`): fits against ranked returns and evaluates out of sample with Spearman IC; walk-forward purges the last `horizon_months - 1` training dates; the bootstrap is a seeded moving-block bootstrap (`random_state`, `block_length`).
+- **Newey-West lags follow the horizon** (`backtest/ic_runner.py`): at least `h - 1` lags for h-month returns; a series too short for the window reports an undefined t-stat instead of p = 1.0.
 - Terminal growth is capped at Rf in every DCF engine, and Damodaran Law 3 and all costs of equity read Rf from the pipeline.
 - Marginal tax comes from the country statutory rates weighted by revenue mix and is used for beta relevering and the after-tax cost of debt. The effective tax rate (`Fundamentals.effective_tax_rate`) feeds the multiples regression.
 - **SOTP.compute() Wiring Fix**: Corrected the orchestrator integration in `src/iam/pipeline/orchestrator.py` where a `Security` object was previously passed instead of the required `segments` list and dynamically computed `cost_of_equity` from `DamodaranEngine`. Wrote a wrapper to translate the resulting `SOTPResult` into a standard `ValuationResult` to maintain downstream pipeline compatibility.
