@@ -20,6 +20,7 @@ beats the prior" at 10%. Every candidate evaluated is recorded in a
 from __future__ import annotations
 
 import hashlib
+import itertools
 import json
 import logging
 import subprocess
@@ -32,6 +33,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from iam.backtest.calibration import _json_safe
 from iam.backtest.cpcv import get_cpcv_splits
 from iam.backtest.metrics import newey_west_se_rigorous
 from iam.backtest.multiple_testing import deflated_sharpe_ratio
@@ -59,6 +61,14 @@ SPA_ALPHA = 0.10
 
 PRIOR = "prior"
 
+# Bump when a candidate's definition changes, so the ledger counts it as a new trial.
+CANDIDATE_VERSION = 2
+
+# Below these, a race is refused rather than run: a date with a handful of names
+# gives a rank IC of +/-1, and a few months cannot support CPCV.
+MIN_NAMES_PER_DATE = 20
+MIN_DATES = 36
+
 
 # --------------------------------------------------------------------------- #
 # Trial ledger
@@ -70,14 +80,21 @@ def _config_hash(config: dict[str, Any]) -> str:
     return hashlib.sha256(payload).hexdigest()[:16]
 
 
-def _git_sha() -> str | None:
+def _git(*args: str) -> str | None:
     try:
         out = subprocess.check_output(  # nosec B603 B607 - fixed argv, no shell
-            ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
+            ["git", *args], cwd=Path(__file__).parent, stderr=subprocess.DEVNULL
         )
         return out.decode().strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
         return None
+
+
+def _git_state() -> tuple[str | None, bool | None]:
+    """(HEAD SHA, whether the working tree has uncommitted changes) of this checkout."""
+    sha = _git("rev-parse", "HEAD")
+    status = _git("status", "--porcelain")
+    return sha, (bool(status) if status is not None else None)
 
 
 class TrialLedger:
@@ -99,9 +116,11 @@ class TrialLedger:
         config: dict[str, Any],
         result: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        sha, dirty = _git_state()
         record = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "git_sha": _git_sha(),
+            "git_sha": sha,
+            "git_dirty": dirty,
             "config_hash": _config_hash(config),
             "kind": kind,
             "name": name,
@@ -110,7 +129,9 @@ class TrialLedger:
         }
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with open(self.path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(record, sort_keys=True, default=str) + "\n")
+            # Strict JSON: NaN/inf become null.
+            f.write(json.dumps(_json_safe(record), sort_keys=True, default=str, allow_nan=False))
+            f.write("\n")
         return record
 
     def records(self) -> list[dict[str, Any]]:
@@ -190,6 +211,8 @@ def empirical_bayes_data_weight(
 def project_to_simplex(v: np.ndarray) -> np.ndarray:
     """Euclidean projection onto {w >= 0, sum(w) = 1} (Duchi et al. 2008)."""
     v = np.asarray(v, dtype=float)
+    if not np.all(np.isfinite(v)):
+        raise ValueError("cannot project a vector with NaN or inf onto the simplex")
     u = np.sort(v)[::-1]
     css = np.cumsum(u)
     idx = np.arange(1, len(v) + 1)
@@ -233,7 +256,7 @@ def candidate_prior(ctx: CandidateContext) -> np.ndarray:
 
 
 def candidate_equal(ctx: CandidateContext) -> np.ndarray:
-    means = np.nanmean(ctx.ic, axis=0) if len(ctx.ic) else np.full(len(ctx.prior), np.nan)
+    means, _ = ic_mean_and_se(ctx.ic, ctx.nw_lags)
     positive = np.isfinite(means) & (means > 0)
     if not positive.any():
         return np.array(ctx.prior, dtype=float)
@@ -246,7 +269,7 @@ def candidate_shrunk_icir(ctx: CandidateContext) -> np.ndarray:
     sds = np.nanstd(ctx.ic, axis=0, ddof=1)
     with np.errstate(divide="ignore", invalid="ignore"):
         icir = np.where(sds > 0, means / sds, np.nan)
-    data_w = empirical_bayes_data_weight(means, ses * ctx.haircut)
+    data_w = empirical_bayes_data_weight(means, ses)
     return _blend(data_w, _normalise(icir), ctx.prior)
 
 
@@ -256,14 +279,17 @@ def candidate_shrunk_iccov(ctx: CandidateContext) -> np.ndarray:
     usable = np.isfinite(means)
     if usable.sum() < 2 or len(ctx.ic) < 2:
         return np.array(ctx.prior, dtype=float)
-    sigma = ledoit_wolf_shrinkage(ctx.ic[:, usable] * ctx.haircut[usable])
+    # The haircut discounts the expected IC, not its noise: scaling the IC series
+    # before estimating Sigma would cancel it (Sigma^-1 would undo the scaling).
+    sigma = ledoit_wolf_shrinkage(ctx.ic[:, usable])
     raw = np.zeros(len(means))
     try:
         raw[usable] = np.linalg.solve(sigma, means[usable])
     except np.linalg.LinAlgError:
         raw[usable] = np.linalg.lstsq(sigma, means[usable], rcond=None)[0]
-    signal = project_to_simplex(raw) if np.any(raw > 0) else None
-    data_w = empirical_bayes_data_weight(means, ses * ctx.haircut)
+    # A near-singular covariance (very short training folds) can return inf/NaN.
+    signal = project_to_simplex(raw) if np.all(np.isfinite(raw)) and np.any(raw > 0) else None
+    data_w = empirical_bayes_data_weight(means, ses)
     return _blend(data_w, signal, ctx.prior)
 
 
@@ -280,6 +306,59 @@ CANDIDATES: dict[str, Callable[[CandidateContext], np.ndarray]] = {
 # --------------------------------------------------------------------------- #
 
 
+def cpcv_paths(n_dates: int, n_groups: int, k_test_groups: int) -> list[list[tuple[int, int]]]:
+    """Recombine CPCV splits into backtest paths (Lopez de Prado 2018, ch. 12).
+
+    Splits follow ``get_cpcv_splits``: groups are ``np.array_split`` of the dates and
+    test sets are ``itertools.combinations`` of groups in order. Each group is tested
+    in C(n-1, k-1) splits; path p takes the p-th of those for every group, so each
+    path covers every date exactly once. Returns, per path, ``(split, group)`` pairs.
+    """
+    combos = list(itertools.combinations(range(n_groups), k_test_groups))
+    occurrences = {g: [s for s, c in enumerate(combos) if g in c] for g in range(n_groups)}
+    n_paths = len(occurrences[0]) if n_dates >= n_groups else 0
+    return [[(occurrences[g][p], g) for g in range(n_groups)] for p in range(n_paths)]
+
+
+def select_winner(
+    path_ic: dict[str, list[float]],
+    pbo: float | None,
+    spa_pvalue: float | None,
+) -> tuple[str, bool, dict[str, float], list[str]]:
+    """Apply the selection rule. Returns (winner, promoted, win_fraction, reasons).
+
+    A challenger is promoted only if it beats the prior on at least
+    ``MIN_PATH_WIN_FRACTION`` of paths, PBO is below ``MAX_PBO`` and the SPA p-value
+    is below ``SPA_ALPHA``. Otherwise the prior is kept, with the reasons.
+    """
+    prior_paths = np.array(path_ic[PRIOR], dtype=float)
+    win_fraction: dict[str, float] = {}
+    for n, ics in path_ic.items():
+        if n == PRIOR:
+            continue
+        p = np.array(ics, dtype=float)
+        ok = np.isfinite(p) & np.isfinite(prior_paths)
+        win_fraction[n] = float(np.mean(p[ok] > prior_paths[ok])) if ok.any() else 0.0
+
+    eligible = [n for n, w in win_fraction.items() if w >= MIN_PATH_WIN_FRACTION]
+    if not eligible:
+        return (
+            PRIOR,
+            False,
+            win_fraction,
+            [f"no challenger beat the prior on at least {MIN_PATH_WIN_FRACTION:.0%} of paths"],
+        )
+    best = max(eligible, key=lambda n: float(np.nanmean(path_ic[n])))
+    reasons = []
+    if pbo is None or not pbo < MAX_PBO:
+        reasons.append(f"PBO {pbo} is not below {MAX_PBO}")
+    if spa_pvalue is None or not spa_pvalue < SPA_ALPHA:
+        reasons.append(f"SPA p-value {spa_pvalue} is not below {SPA_ALPHA}")
+    if reasons:
+        return PRIOR, False, win_fraction, reasons
+    return best, True, win_fraction, [f"{best} beat the prior on {win_fraction[best]:.0%} of paths"]
+
+
 @dataclass
 class HorseRaceResult:
     status: str
@@ -290,13 +369,18 @@ class HorseRaceResult:
     candidate_names: list[str]
     path_oos_ic: dict[str, list[float]]  # mean OOS IC per CPCV path
     win_fraction: dict[str, float]  # share of paths beating the prior
-    oos_ic_by_date: pd.DataFrame  # (T, N) OOS rank IC, averaged across paths covering each date
+    oos_ic_by_path: list[pd.DataFrame]  # per path: (T, N) OOS rank IC, each date once
     full_sample_weights: dict[str, np.ndarray]
-    pbo: float | None = None
-    spa_pvalue: float | None = None
-    dsr: float | None = None
+    pbo: float | None = None  # median over paths
+    spa_pvalue: float | None = None  # median over paths
+    dsr: float | None = None  # median over paths
     n_trials: int | None = None
     extras: dict[str, Any] = field(default_factory=dict)
+
+
+def _median(values: list[float]) -> float | None:
+    finite = [v for v in values if v is not None and np.isfinite(v)]
+    return float(np.median(finite)) if finite else None
 
 
 def run_horse_race(
@@ -309,6 +393,8 @@ def run_horse_race(
     horizon_months: int = 1,
     n_groups: int = 6,
     k_test_groups: int = 2,
+    min_names_per_date: int = MIN_NAMES_PER_DATE,
+    min_dates: int = MIN_DATES,
     literature_factors: Iterable[str] = LITERATURE_FACTORS,
     candidates: dict[str, Callable[[CandidateContext], np.ndarray]] | None = None,
     ledger: TrialLedger | None = None,
@@ -318,9 +404,12 @@ def run_horse_race(
     """Run the pre-registered candidate horse race over the development period.
 
     ``factor_scores_by_date[d]`` is an (n_d, K) array of factor scores in
-    ``factor_names`` order (rank-normalise them within each date first);
+    ``factor_names`` order, centred within each date (rank-normalise them first): a
+    missing score is treated as neutral (0) when forming a composite.
     ``returns_by_date[d]`` holds the matching h-month forward returns. Monthly dates
-    are assumed: purge and embargo are both ``horizon_months`` months.
+    are assumed: purge and embargo are both ``horizon_months`` months. Dates with
+    fewer than ``min_names_per_date`` usable returns are dropped, and fewer than
+    ``min_dates`` remaining dates is a failure, not a result.
     """
     cands = dict(candidates or CANDIDATES)
     if PRIOR not in cands:
@@ -336,11 +425,17 @@ def run_horse_race(
     if prior_n is None or len(prior) != k:
         raise ValueError("prior_weights must give a positive weight vector over factor_names")
 
-    dates = sorted(d for d in dates if d in factor_scores_by_date and d in returns_by_date)
+    dates = sorted(
+        d
+        for d in dates
+        if d in factor_scores_by_date
+        and d in returns_by_date
+        and int(np.isfinite(returns_by_date[d]).sum()) >= min_names_per_date
+    )
     haircut = haircut_vector(factor_names, literature_factors)
     nw_lags = max(3, horizon_months - 1)
 
-    def _empty(status: str) -> HorseRaceResult:
+    def _failed(status: str) -> HorseRaceResult:
         return HorseRaceResult(
             status=status,
             winner=PRIOR,
@@ -350,89 +445,95 @@ def run_horse_race(
             candidate_names=names,
             path_oos_ic={},
             win_fraction={},
-            oos_ic_by_date=pd.DataFrame(columns=names),
+            oos_ic_by_path=[],
             full_sample_weights={PRIOR: prior_n},
         )
 
-    try:
-        gap_days = 31 * horizon_months
-        splits = get_cpcv_splits(
-            dates,
-            n_groups=n_groups,
-            k_test_groups=k_test_groups,
-            purge_days=gap_days,
-            embargo_days=gap_days,
+    if len(dates) < max(min_dates, n_groups):
+        return _failed(
+            f"failed: {len(dates)} usable dates (each with at least {min_names_per_date} "
+            f"names); at least {max(min_dates, n_groups)} are required"
         )
-    except ValueError as e:
-        return _empty(f"failed: {e}")
 
+    gap_days = 31 * horizon_months
+    splits = get_cpcv_splits(
+        dates,
+        n_groups=n_groups,
+        k_test_groups=k_test_groups,
+        purge_days=gap_days,
+        embargo_days=gap_days,
+    )
+    groups = np.array_split(np.arange(len(dates)), n_groups)
     ic_all = factor_ic_matrix(dates, factor_scores_by_date, returns_by_date)
 
-    path_ic: dict[str, list[float]] = {n: [] for n in names}
-    sums = np.zeros((len(dates), len(names)))
-    counts = np.zeros((len(dates), len(names)))
-
+    # oos[s][j, i]: OOS rank IC of candidate j on date i, from split s.
+    oos: list[np.ndarray] = []
     for train_idx, test_idx in splits:
-        if len(train_idx) < 2:
-            continue
-        ctx = CandidateContext(
-            ic=ic_all[train_idx], prior=prior_n, haircut=haircut, nw_lags=nw_lags
+        pred = np.full((len(names), len(dates)), np.nan)
+        if len(train_idx) >= 2:
+            ctx = CandidateContext(
+                ic=ic_all[train_idx], prior=prior_n, haircut=haircut, nw_lags=nw_lags
+            )
+            for j, n in enumerate(names):
+                w = cands[n](ctx)
+                for i in test_idx:
+                    d = dates[i]
+                    composite = np.nan_to_num(factor_scores_by_date[d], nan=0.0) @ w
+                    pred[j, i] = _rank_ic(composite, returns_by_date[d])
+        oos.append(pred)
+
+    paths = cpcv_paths(len(dates), n_groups, k_test_groups)
+    index = pd.DatetimeIndex(dates)
+    path_frames: list[pd.DataFrame] = []
+    for path in paths:
+        series = np.full((len(dates), len(names)), np.nan)
+        for s, g in path:
+            series[groups[g], :] = oos[s][:, groups[g]].T
+        path_frames.append(pd.DataFrame(series, index=index, columns=names))
+
+    path_ic = {n: [float(f[n].mean()) for f in path_frames] for n in names}
+    if not any(np.isfinite(path_ic[PRIOR])):
+        return _failed(
+            "failed: no finite out-of-sample IC; check for missing factor scores or returns"
         )
-        fold_ics: dict[str, list[float]] = {}
-        for j, n in enumerate(names):
-            w = cands[n](ctx)
-            per_date = []
-            for i in test_idx:
-                d = dates[i]
-                ic = _rank_ic(factor_scores_by_date[d] @ w, returns_by_date[d])
-                per_date.append(ic)
-                if np.isfinite(ic):
-                    sums[i, j] += ic
-                    counts[i, j] += 1
-            fold_ics[n] = per_date
-        for n in names:
-            vals = [v for v in fold_ics[n] if np.isfinite(v)]
-            path_ic[n].append(float(np.mean(vals)) if vals else float("nan"))
 
-    with np.errstate(invalid="ignore"):
-        oos = np.where(counts > 0, sums / np.maximum(counts, 1), np.nan)
-    oos_df = pd.DataFrame(oos, index=pd.DatetimeIndex(dates), columns=names)
-
-    prior_paths = np.array(path_ic[PRIOR])
-    win_fraction = {}
-    for n in names:
-        if n == PRIOR:
-            continue
-        p = np.array(path_ic[n])
-        ok = np.isfinite(p) & np.isfinite(prior_paths)
-        win_fraction[n] = float(np.mean(p[ok] > prior_paths[ok])) if ok.any() else 0.0
-
-    # Overfitting statistics over the candidate set.
-    clean = oos_df.dropna()
-    pbo = None
-    n_part = min(16, len(clean) // 2)
-    n_part -= n_part % 2
-    if n_part >= 2 and clean.shape[1] >= 2:
-        pbo = probability_of_backtest_overfitting(clean.to_numpy(), n_partitions=n_part)
-
+    # Overfitting statistics per path, summarised by the median.
     challengers = [n for n in names if n != PRIOR]
-    spa_p = None
-    if challengers and len(clean) > 1:
-        spa = superior_predictive_ability(
-            clean[challengers].to_numpy(),
-            clean[PRIOR].to_numpy(),
-            block_prob=1.0 / max(horizon_months, 1),
-            n_boot=spa_n_boot,
-            seed=seed,
-        )
-        spa_p = spa["spa_pvalue"]
+    pbos, spa_ps = [], []
+    for f in path_frames:
+        clean = f.dropna()
+        n_part = min(16, len(clean) // 2)
+        n_part -= n_part % 2
+        if n_part >= 2 and clean.shape[1] >= 2:
+            pbos.append(probability_of_backtest_overfitting(clean.to_numpy(), n_part))
+        if challengers and len(clean) > 1:
+            spa = superior_predictive_ability(
+                clean[challengers].to_numpy(),
+                clean[PRIOR].to_numpy(),
+                block_prob=1.0 / (2 * max(horizon_months, 1)),
+                n_boot=spa_n_boot,
+                seed=seed,
+            )
+            spa_ps.append(spa["spa_pvalue"])
+    pbo, spa_p = _median(pbos), _median(spa_ps)
 
-    # Full-sample weights, for reporting and as the frozen spec if promoted.
+    winner, promoted, win_fraction, reasons = select_winner(path_ic, pbo, spa_p)
+
     full_ctx = CandidateContext(ic=ic_all, prior=prior_n, haircut=haircut, nw_lags=nw_lags)
     full_weights = {n: cands[n](full_ctx) for n in names}
 
-    # Ledger: one trial per candidate method, plus the DSR from the ledger count.
+    def _ir(n: str) -> float:
+        irs = []
+        for f in path_frames:
+            col = f[n].dropna()
+            if len(col) > 2 and col.std(ddof=1) > 0:
+                irs.append(float(col.mean() / col.std(ddof=1)))
+        return float(np.median(irs)) if irs else float("nan")
+
+    oos_ir = {n: _ir(n) for n in names}
+
     n_trials = len(names)
+    trial_irs = [v for v in oos_ir.values() if np.isfinite(v)]
     if ledger is not None:
         for n in names:
             ledger.append(
@@ -440,51 +541,53 @@ def run_horse_race(
                 name=n,
                 config={
                     "candidate": n,
+                    "candidate_version": CANDIDATE_VERSION,
                     "factor_names": factor_names,
                     "prior": prior_n.round(6).tolist(),
                     "horizon_months": horizon_months,
                     "n_groups": n_groups,
                     "k_test_groups": k_test_groups,
+                    "min_names_per_date": min_names_per_date,
+                    "nw_lags": nw_lags,
+                    "max_data_weight": MAX_DATA_WEIGHT,
+                    "literature_haircut": LITERATURE_HAIRCUT,
                     "literature_factors": sorted(set(literature_factors)),
-                    "period": [str(dates[0].date()), str(dates[-1].date())] if dates else None,
+                    "period": [str(dates[0].date()), str(dates[-1].date())],
                 },
                 result={
-                    "mean_path_oos_ic": float(np.nanmean(path_ic[n])) if path_ic[n] else None,
+                    "mean_path_oos_ic": float(np.nanmean(path_ic[n])),
+                    "oos_ir": oos_ir[n],
                     "win_fraction_vs_prior": win_fraction.get(n),
                     "weights": full_weights[n].round(6).tolist(),
                 },
             )
         n_trials = max(n_trials, ledger.n_trials())
+        # Dispersion of Sharpe ratios across every distinct trial on record, not
+        # just this run's handful of correlated candidates.
+        latest: dict[str, float] = {}
+        for r in ledger.records():
+            ir = r.get("result", {}).get("oos_ir")
+            if isinstance(ir, int | float) and np.isfinite(ir):
+                latest[r["config_hash"]] = float(ir)
+        if len(latest) >= 2:
+            trial_irs = list(latest.values())
 
-    # Selection rule.
-    eligible = [n for n in challengers if win_fraction.get(n, 0.0) >= MIN_PATH_WIN_FRACTION]
-    reasons: list[str] = []
-    winner = PRIOR
-    promoted = False
-    if not eligible:
-        reasons.append(
-            f"no challenger beat the prior on at least {MIN_PATH_WIN_FRACTION:.0%} of CPCV paths"
-        )
-    else:
-        best = max(eligible, key=lambda n: float(np.nanmean(path_ic[n])))
-        if pbo is None or pbo >= MAX_PBO:
-            reasons.append(f"PBO {pbo} is not below {MAX_PBO}")
-        if spa_p is None or spa_p >= SPA_ALPHA:
-            reasons.append(f"SPA p-value {spa_p} is not below {SPA_ALPHA}")
-        if not reasons:
-            winner, promoted = best, True
-            reasons.append(f"{best} beat the prior on {win_fraction[best]:.0%} of paths")
-
-    dsr = None
-    series = clean[winner] if winner in clean else pd.Series(dtype=float)
-    if len(series) > 2 and series.std(ddof=1) > 0:
-        irs = clean.mean() / clean.std(ddof=1)
-        dsr = deflated_sharpe_ratio(
-            observed_sr=float(series.mean() / series.std(ddof=1)),
-            n_obs=len(series),
-            n_trials=n_trials,
-            var_trials=float(np.nanvar(irs.to_numpy(), ddof=1)) if len(irs) > 1 else 0.0,
-        )
+    # DSR per path for the selected spec. Overlapping h-month labels leave about
+    # T/h independent observations.
+    dsrs = []
+    var_trials = float(np.var(trial_irs, ddof=1)) if len(trial_irs) > 1 else 0.0
+    for f in path_frames:
+        col = f[winner].dropna()
+        n_obs = len(col) // max(horizon_months, 1)
+        if n_obs > 2 and col.std(ddof=1) > 0:
+            dsrs.append(
+                deflated_sharpe_ratio(
+                    observed_sr=float(col.mean() / col.std(ddof=1)),
+                    n_obs=n_obs,
+                    n_trials=n_trials,
+                    var_trials=var_trials,
+                )
+            )
 
     return HorseRaceResult(
         status="success",
@@ -495,12 +598,13 @@ def run_horse_race(
         candidate_names=names,
         path_oos_ic=path_ic,
         win_fraction=win_fraction,
-        oos_ic_by_date=oos_df,
+        oos_ic_by_path=path_frames,
         full_sample_weights=full_weights,
         pbo=pbo,
         spa_pvalue=spa_p,
-        dsr=dsr,
+        dsr=_median(dsrs),
         n_trials=n_trials,
+        extras={"oos_ir": oos_ir, "n_dates": len(dates), "n_paths": len(paths)},
     )
 
 

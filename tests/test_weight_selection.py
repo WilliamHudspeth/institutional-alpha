@@ -1,9 +1,11 @@
 import json
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 import pytest
 
+from iam.backtest import weight_selection as ws
 from iam.backtest.weight_selection import (
     MAX_DATA_WEIGHT,
     PRIOR,
@@ -11,11 +13,15 @@ from iam.backtest.weight_selection import (
     TrialLedger,
     candidate_equal,
     candidate_prior,
+    candidate_shrunk_iccov,
+    candidate_shrunk_icir,
+    cpcv_paths,
     empirical_bayes_data_weight,
     format_horse_race_report,
     haircut_vector,
     project_to_simplex,
     run_horse_race,
+    select_winner,
 )
 
 FACTORS = ["signal", "noise_a", "noise_b"]
@@ -189,3 +195,135 @@ def test_backtest_package_exports_resolve():
     missing = [n for n in bt.__all__ if not hasattr(bt, n)]
     assert missing == []
     assert len(bt.__all__) == len(set(bt.__all__))
+
+
+class TestSelectionGates:
+    PATHS = {PRIOR: [0.01] * 5, "c": [0.05] * 5}
+
+    def test_all_gates_pass(self):
+        winner, promoted, wins, _ = select_winner(self.PATHS, pbo=0.1, spa_pvalue=0.01)
+        assert (winner, promoted, wins["c"]) == ("c", True, 1.0)
+
+    @pytest.mark.parametrize("pbo, spa_p", [(0.5, 0.01), (0.9, 0.01), (None, 0.01)])
+    def test_pbo_gate_blocks(self, pbo, spa_p):
+        winner, promoted, _, reasons = select_winner(self.PATHS, pbo=pbo, spa_pvalue=spa_p)
+        assert (winner, promoted) == (PRIOR, False)
+        assert any("PBO" in r for r in reasons)
+
+    @pytest.mark.parametrize("spa_p", [0.10, 0.5, None])
+    def test_spa_gate_blocks(self, spa_p):
+        winner, promoted, _, reasons = select_winner(self.PATHS, pbo=0.1, spa_pvalue=spa_p)
+        assert (winner, promoted) == (PRIOR, False)
+        assert any("SPA" in r for r in reasons)
+
+    def test_win_fraction_gate_blocks(self):
+        paths = {PRIOR: [0.01] * 5, "c": [0.05, 0.05, 0.05, 0.0, 0.0]}  # 60% of paths
+        winner, promoted, wins, _ = select_winner(paths, pbo=0.0, spa_pvalue=0.0)
+        assert (winner, promoted) == (PRIOR, False)
+        assert wins["c"] == pytest.approx(0.6)
+
+
+class TestCpcvPaths:
+    def test_six_groups_two_test_gives_five_full_paths(self):
+        paths = cpcv_paths(60, 6, 2)
+        assert len(paths) == 5
+        for path in paths:
+            assert sorted(g for _, g in path) == list(range(6))
+        used = [pair for path in paths for pair in path]
+        assert len(used) == len(set(used)) == 15 * 2  # each (split, group) used once
+
+    def test_race_paths_cover_every_date_once(self):
+        dates, scores, rets = _panel(n_months=48)
+        res = run_horse_race(dates, scores, rets, FACTORS, np.ones(3), spa_n_boot=100)
+        assert len(res.oos_ic_by_path) == 5
+        for frame in res.oos_ic_by_path:
+            assert len(frame) == 48
+            assert frame.notna().all().all()
+
+
+class TestLeakageAndHaircut:
+    @pytest.mark.parametrize("h", [1, 3, 12])
+    def test_purge_and_embargo_span_the_horizon(self, h):
+        dates, scores, rets = _panel(n_months=96)
+        real = ws.get_cpcv_splits
+        captured = {}
+
+        def spy(*args, **kwargs):
+            captured.update(kwargs)
+            return real(*args, **kwargs)
+
+        with patch.object(ws, "get_cpcv_splits", side_effect=spy):
+            run_horse_race(
+                dates, scores, rets, FACTORS, np.ones(3), horizon_months=h, spa_n_boot=50
+            )
+        assert captured["purge_days"] >= 28 * h
+        assert captured["embargo_days"] >= 28 * h
+
+    @pytest.mark.parametrize("candidate", [candidate_shrunk_icir, candidate_shrunk_iccov])
+    def test_haircut_shrinks_literature_factor_weight(self, candidate):
+        rng = np.random.default_rng(4)
+        ic = rng.normal([0.04, 0.03, -0.01], 0.02, size=(60, 3))
+        prior = np.ones(3) / 3
+        plain = candidate(CandidateContext(ic=ic, prior=prior, haircut=np.ones(3), nw_lags=3))
+        cut = candidate(
+            CandidateContext(ic=ic, prior=prior, haircut=np.array([0.5, 1, 1]), nw_lags=3)
+        )
+        assert cut[0] < plain[0]
+
+
+class TestRobustness:
+    def test_short_sample_is_refused_not_crashed(self):
+        dates, scores, rets = _panel(n_months=8)
+        res = run_horse_race(dates, scores, rets, FACTORS, np.ones(3))
+        assert res.status.startswith("failed")
+
+    def test_singular_covariance_gives_finite_weights(self):
+        ic = np.array([[0.1, 0.1, 0.1], [0.1, 0.1, 0.1]])
+        ctx = CandidateContext(ic=ic, prior=np.ones(3) / 3, haircut=np.ones(3), nw_lags=3)
+        w = candidate_shrunk_iccov(ctx)
+        assert np.all(np.isfinite(w)) and np.isclose(w.sum(), 1.0)
+
+    def test_simplex_rejects_non_finite(self):
+        with pytest.raises(ValueError):
+            project_to_simplex(np.array([np.inf, 1.0]))
+
+    def test_thin_cross_sections_are_dropped(self):
+        dates, scores, rets = _panel(n_months=96, n_stocks=3)
+        res = run_horse_race(dates, scores, rets, FACTORS, np.ones(3))
+        assert res.status.startswith("failed")
+        assert not res.promoted
+
+    def test_missing_factor_scores_do_not_void_the_race(self):
+        dates, scores, rets = _panel(n_months=60)
+        for d in dates:
+            scores[d] = scores[d].copy()
+            scores[d][:, 2] = np.nan
+        res = run_horse_race(dates, scores, rets, FACTORS, np.ones(3), spa_n_boot=100)
+        assert res.status == "success"
+        assert all(np.isfinite(v) for v in res.path_oos_ic[PRIOR])
+
+    def test_all_missing_returns_is_a_failure(self):
+        dates, scores, rets = _panel(n_months=60)
+        rets = {d: np.full_like(r, np.nan) for d, r in rets.items()}
+        res = run_horse_race(dates, scores, rets, FACTORS, np.ones(3))
+        assert res.status.startswith("failed")
+
+
+class TestLedgerStrictness:
+    def test_nan_results_are_written_as_null(self, tmp_path):
+        path = tmp_path / "ledger.jsonl"
+        TrialLedger(path).append("weight_candidate", "a", {"x": 1}, {"ic": float("nan")})
+        line = path.read_text().splitlines()[0]
+        assert "NaN" not in line
+        assert json.loads(line, parse_constant=lambda c: pytest.fail(c))["result"]["ic"] is None
+
+    def test_spec_changes_are_new_trials(self, tmp_path):
+        dates, scores, rets = _panel(n_months=48)
+        ledger = TrialLedger(tmp_path / "ledger.jsonl")
+        run_horse_race(dates, scores, rets, FACTORS, np.ones(3), ledger=ledger, spa_n_boot=50)
+        with patch.object(ws, "MAX_DATA_WEIGHT", 0.5):
+            run_horse_race(dates, scores, rets, FACTORS, np.ones(3), ledger=ledger, spa_n_boot=50)
+        assert ledger.n_trials() == 8
+        record = ledger.records()[0]
+        assert {"git_dirty", "config_hash"} <= set(record)
+        assert record["config"]["candidate_version"] == ws.CANDIDATE_VERSION
