@@ -153,6 +153,44 @@ files. For backtesting:
 - Cache each vintage under `data/reference/damodaran/<year>/` with its download date and SHA-256 in
   the manifest, so a run can be reproduced if a file is later revised.
 
+### Track B loaders
+
+`src/iam/backtest/track_b/` holds the Phase 1a loaders. Every file goes through
+`DownloadCache` (default `.cache/track_b/`), which stores the URL, download time and SHA-256 of
+each file and returns them from `provenance()` for the run manifest.
+
+| Module | Source and output |
+|---|---|
+| `jkp.py` | `[usa]_[all_factors]_[monthly]_[vw_cap].zip` and `all_themes` from `jkpfactors-data.s3.amazonaws.com/public/`. Long format, decimal returns. Returns are already signed by each factor's `direction`, so every factor's long-run mean is expected to be positive |
+| `osap.py` | `PredictorPortsFull.csv` for a release (default 202510). The optional `openassetpricing` package (`pip install -e ".[osap]"`) only looks up the Google Drive link. Returns are converted from percent; portfolio `LS` is the signed long-short |
+| `french.py` | Fama-French five factors, momentum and 49 industry portfolios. Tables are split by date width (`YYYYMM`, `YYYY`, `YYYYMMDD`) rather than by title; -99.99 and -999 become missing; returns become decimals |
+| `damodaran_erp.py` | `histimpl.xls` (annual from 1960, usable from 15 January of the next year) and `ERPbymonth.xlsx` (monthly from September 2008, usable 7 days after the 1st, an assumption). Columns are found by header text. One monthly row (September 2024) is stored as text, and the parser reads it |
+| `factor_map.py` | Links each backtestable engine factor to JKP factors with the engine's own direction on the characteristic. The sign used is that direction times JKP's, so a link where the engine disagrees with the literature (`leverage_penalty` on debt-to-market) shows up as a negative return rather than being hidden |
+
+First measurement, US capped value-weighted, July 1963 to December 2009 (558 months; sentiment
+542). These are annualised Sharpe ratios of the equal-weighted signed links, before any haircut:
+
+| Engine factor | Sharpe | Matching JKP theme | Note |
+|---|---|---|---|
+| earnings_quality | 0.93 | accruals 0.88 | |
+| quality | 0.70 | quality 0.67 | |
+| intrinsic_value | 0.66 | value 0.40 | |
+| relative_value | 0.54 | value 0.40 | Market-wide sorts; the engine is sector-relative |
+| sentiment | 0.47 | momentum 0.43 | Momentum and surprise only; no revisions data |
+| fragility_penalty | 0.40 | | Earnings-to-price only |
+| expectations_difficulty | 0.37 | | Proxy (equity duration, book-to-market) |
+| leverage_penalty | 0.11 | low_leverage 0.01 | Debt-to-market link is -0.03 |
+
+Two things for Rung 1 and Rung 2 follow. First, the hand-set priors rank these factors very
+differently: `earnings_quality` has the highest Track B Sharpe but a prior weight of 0.04, and
+`expectations_difficulty` has the lowest of the non-penalty factors but the largest prior weight
+(0.22), though its link is only a proxy. That meets the condition for adding candidate E.
+Second, the Track B returns of `intrinsic_value`, `relative_value`, `expectations_difficulty` and
+`fragility_penalty` correlate 0.85 to 0.95 over the window. They are all value bets at the
+long-short level. `leverage_penalty` correlates -0.79 to -0.87 with the same four, so at this
+level it is largely a bet against value. Whether the engine's own scores are equally redundant
+is a Track A question (the 0.8 rule in Rung 1), but it should be expected.
+
 ## 4. Experimental design
 
 - **Dates:** month-ends from 2010-01 to the latest month with a complete 12-month forward return.
@@ -237,7 +275,10 @@ not its noise. The race refuses to run on fewer than 36 usable dates or on dates
 replaced a deliberately wrong prior in 10 of 10 seeds (also with a weak signal, rank IC about
 0.1) and promoted a challenger on pure noise in 3 of 40 seeds at both h = 1 and h = 6, so the
 gates together hold the false-promotion rate near the 10% SPA level, not far below it. Candidate E
-plugs in through the `candidates` argument once the Track B loaders exist.
+is `track_b.factor_map.make_track_b_candidate`, passed through the `candidates` argument: it
+re-allocates the prior mass of the mapped factors by their positive 1963-2009 Sharpe ratios,
+leaves unmapped factors at their prior, and shrinks the result to the prior with the same
+empirical-Bayes data weight as candidate C.
 
 **Selection rule.** Promote a challenger over A only if, in the development period, its CPCV
 out-of-sample mean IC beats A on at least 70% of paths, PBO over the candidate set is below 0.5,
@@ -342,7 +383,7 @@ not a new trial, and `file_hash()` gives the hash to record in the run manifest.
 | Phase | Scope | Depends on |
 |---|---|---|
 | 0 | Estimator fixes listed in Section 1 (this change) | None |
-| 1a | Track B loaders: JKP US factor returns, OSAP portfolios, French factors, Damodaran `histimpl.xls`; map engine factors to JKP factors | None |
+| 1a | Track B loaders: JKP US factor returns, OSAP portfolios, French factors, Damodaran `histimpl.xls`; map engine factors to JKP factors. Done in `backtest/track_b/` (see "Track B loaders" in Section 3) | None |
 | 1b | Damodaran vintage loader (1999 onward, header-based parsing, cached with hashes) | None |
 | 1c | Universe from EDGAR, delisting dates from Form 25/15, free prices (Stooq, yfinance), PIT snapshots carrying EDGAR fundamentals (Phase C/D in [backtest](backtest.md)); coverage report split by later-delisted versus surviving names | None |
 | 2 | Rung 1 and Rung 2: factor term structures, candidate horse race including the Track B candidate, empirical-Bayes shrinkage, trial ledger, PBO over candidates, DSR from the ledger, three survivorship cases. The statistical machinery (candidates A to D, shrinkage, ledger, PBO, SPA, DSR, selection rule) is implemented in `backtest/weight_selection.py`; running it needs the Phase 1 data | Phases 1a and 1c |
