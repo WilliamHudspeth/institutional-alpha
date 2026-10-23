@@ -228,10 +228,16 @@ result (all candidates statistically tied) is a valid outcome and should be publ
 **Implementation.** `run_horse_race` in `backtest/weight_selection.py` implements candidates
 A to D, the haircut, the empirical-Bayes data weight (capped at 0.7) and the selection rule below.
 Every candidate is refitted inside each CPCV training fold, with purge and embargo of h months,
-and scored on the test fold. PBO and SPA are computed from the out-of-sample IC of each candidate
-on each date. On synthetic panels it replaces a deliberately wrong prior in every seed tried and
-never promotes a challenger when no factor carries signal. Candidate E plugs in through the
-`candidates` argument once the Track B loaders exist.
+and scored on the test fold. The 15 splits (6 groups, 2 test groups) are recombined into the 5
+backtest paths, each covering every date once; the 70% rule counts paths, and PBO, SPA (stationary
+bootstrap with mean block 2h) and DSR (about T/h observations, trial dispersion from the ledger)
+are computed per path and summarised by the median. The haircut discounts the expected IC only,
+not its noise. The race refuses to run on fewer than 36 usable dates or on dates with fewer than
+20 names, and missing factor scores count as neutral. On synthetic 96-month, 60-name panels it
+replaced a deliberately wrong prior in 10 of 10 seeds (also with a weak signal, rank IC about
+0.1) and promoted a challenger on pure noise in 3 of 40 seeds at both h = 1 and h = 6, so the
+gates together hold the false-promotion rate near the 10% SPA level, not far below it. Candidate E
+plugs in through the `candidates` argument once the Track B loaders exist.
 
 **Selection rule.** Promote a challenger over A only if, in the development period, its CPCV
 out-of-sample mean IC beats A on at least 70% of paths, PBO over the candidate set is below 0.5,
