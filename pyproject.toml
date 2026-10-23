@@ -52,7 +52,12 @@ backtest = [
     "pandas>=2.0",
     "numpy>=1.24",
     "scipy>=1.10",
+    # Track B: Damodaran histimpl.xls (xlrd) and ERPbymonth.xlsx (openpyxl)
+    "xlrd>=2.0",
+    "openpyxl>=3.1",
 ]
+# Track B OSAP download links; pulls in wrds and a Postgres driver, so kept separate.
+osap = ["openassetpricing>=0.0.2"]
 test = [
     "pytest>=7.0",
     "pytest-cov",
@@ -69,6 +74,8 @@ test = [
     "typer>=0.9.0",
     "pydantic>=2.0.0",
     "yfinance>=0.2",
+    "xlrd>=2.0",
+    "openpyxl>=3.1",
 ]
 
 [project.urls]

@@ -57,7 +57,7 @@ date-aware or overridable. `src/iam/data/edgar/cik.py` handles this.
 | A | Point-in-time fundamentals layer: client with declared User-Agent, rate limit under 10 requests/s, on-disk cache, offline fixtures, CIK resolution, `fundamentals_as_of(cik, date)`, SIC to sector. Code in `src/iam/data/edgar/`. | Implemented |
 | B | Geographic revenue mix from the latest 10-K (`src/iam/data/edgar/geography.py`). Feeds `Security.revenue_mix` for live tickers. | Implemented for live tickers |
 | C | Backtest wiring: snapshots take point-in-time fundamentals and revenue mix from A and B; the universe loader stops inventing sector and shares; run the IC backtest and report `n_obs`, coverage per date and the result. | Not started |
-| D | Survivorship: build a point-in-time "largest N by revenue" universe from EDGAR `frames`, including companies that later delisted. Price coverage of delisted tickers is the constraint (yfinance lacks most, Stooq covers some). Coverage is to be measured and reported. | Decision pending |
+| D | Survivorship: build a point-in-time "largest N by revenue" universe from EDGAR companyfacts (not `frames`, which leaks restatements), including companies that later delisted. Free data only: Stooq and yfinance prices, with the bias bounded three ways and checked against survivorship-free published factor returns, as set out in [backtest strategy](backtest-strategy.md#3-data-plan). Coverage is measured and reported. | Planned (free sources) |
 
 Rules for all phases: missing values are `None` with a reason, every EDGAR-derived value records
 its provenance, and tests run without network access.
@@ -82,8 +82,11 @@ A real run counts as valid only if it passes these gates.
 
 ## Next steps
 
+The full calibration plan, including which factors can be backtested, the weight-estimation
+horse race and the acceptance gates, is in [backtest strategy](backtest-strategy.md).
+
 1. Complete Phase C and re-run the IC backtest with real fundamentals.
-2. Decide on Phase D and report price coverage for delisted names.
+2. Build Phase D from free sources and report price coverage for delisted names.
 3. Measure IC at 21, 63, 126 and 252 days.
 4. Run factor attribution one factor at a time and check pairwise correlation (above 0.80 means
    redundancy).

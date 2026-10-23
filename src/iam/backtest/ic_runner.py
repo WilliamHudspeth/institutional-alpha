@@ -331,7 +331,21 @@ class ICBacktest:
             icir = mean_ic / std_ic if std_ic > 0 else float("nan")
             n = len(ic_series)
 
-            t_stat, p_value, _ = newey_west_se_rigorous(ic_series, nlags=self.config.nw_lags)
+            # Monthly IC on h-month forward returns is MA(h-1) by construction, so
+            # the HAC window must cover at least h-1 lags.
+            nlags = max(self.config.nw_lags, h - 1)
+            t_stat, p_value, _ = newey_west_se_rigorous(ic_series, nlags=nlags)
+            if np.isnan(t_stat):
+                # Too few observations for the HAC window: the test is undefined,
+                # not insignificant, so do not report p = 1.0.
+                p_value = float("nan")
+                logger.warning(
+                    "Horizon %dm: %d IC observations is too few for %d Newey-West lags; "
+                    "t-stat not reported",
+                    h,
+                    n,
+                    nlags,
+                )
 
             stats[h] = {
                 "mean_ic": mean_ic,

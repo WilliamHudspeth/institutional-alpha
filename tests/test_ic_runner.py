@@ -114,3 +114,40 @@ def test_ic_runner(mock_score, mock_build_snapshot):
     f_stats = runner.compute_factor_statistics()
     assert not f_stats.empty
     assert "quality" in f_stats.index
+
+
+def test_newey_west_lags_cover_return_overlap():
+    """Monthly IC on h-month returns is MA(h-1): HAC lags must be at least h-1."""
+    securities = _make_test_securities(5)
+    price_block = _make_test_price_block([s.ticker for s in securities], ["2020-01-31"])
+    runner = ICBacktest(securities, price_block, ICBacktestConfig(horizons=[1, 12], nw_lags=3))
+    idx = pd.date_range("2018-01-31", periods=40, freq="ME")
+    ics = pd.Series(np.random.RandomState(0).normal(0.02, 0.1, 40), index=idx)
+    runner.results = {1: pd.DataFrame({"ic": ics}), 12: pd.DataFrame({"ic": ics})}
+
+    lags_used: dict[int, int] = {}
+    from iam.backtest import ic_runner as icr
+
+    real = icr.newey_west_se_rigorous
+
+    def spy(series, nlags):
+        lags_used[len(lags_used)] = nlags
+        return real(series, nlags=nlags)
+
+    with patch.object(icr, "newey_west_se_rigorous", side_effect=spy):
+        runner.compute_statistics()
+
+    assert lags_used == {0: 3, 1: 11}
+
+
+def test_too_short_series_for_hac_window_reports_undefined_not_insignificant():
+    securities = _make_test_securities(5)
+    price_block = _make_test_price_block([s.ticker for s in securities], ["2020-01-31"])
+    runner = ICBacktest(securities, price_block, ICBacktestConfig(horizons=[12], nw_lags=3))
+    idx = pd.date_range("2018-01-31", periods=10, freq="ME")
+    runner.results = {12: pd.DataFrame({"ic": np.linspace(0.0, 0.1, 10)}, index=idx)}
+
+    stats = runner.compute_statistics()[12]
+
+    assert np.isnan(stats["t_stat"])
+    assert np.isnan(stats["p_value"])
