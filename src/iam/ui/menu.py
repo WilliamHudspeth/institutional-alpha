@@ -17,7 +17,7 @@ import urllib.request
 
 from iam.data.http import safe_urlopen
 from iam.ui.term import clear_screen
-from iam.validation import parse_growth_rate
+from iam.validation import parse_growth_rate, validate_growth_rate
 
 
 def fmt_pct_or_na(value: float | None, digits: int = 2) -> str:
@@ -405,8 +405,9 @@ def run_quick_recommendation(ticker: str) -> None:
         )
         if growth_input:
             try:
-                g = float(growth_input)
-                forecast_growth = g / 100 if g > 1 else g
+                # Same parser and bounds as the full pipeline: "1" means 1%, "-5" means -5%.
+                forecast_growth = parse_growth_rate(growth_input, default=default_growth)
+                validate_growth_rate(forecast_growth, growth_type="forecast")
                 security.qualitative["forecast_growth"] = forecast_growth
                 security.qualitative["forecast_growth_source"] = "user"
                 security.qualitative.pop("forecast_growth_path", None)

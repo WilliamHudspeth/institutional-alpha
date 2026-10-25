@@ -34,6 +34,23 @@ class TestPercentageParser:
         """Empty input should use default."""
         assert parse_percentage_input("", default=0.08) == 0.08
 
+    def test_percentage_one_is_one_percent(self):
+        """'1' is 1%, not 100% (only values above 1 used to be divided)."""
+        assert parse_percentage_input("1") == pytest.approx(0.01)
+
+    def test_percentage_negative_whole_number(self):
+        """'-5' is -5%, not -500%."""
+        assert parse_percentage_input("-5") == pytest.approx(-0.05)
+
+    def test_percentage_negative_decimal(self):
+        """'-0.05' stays -5%."""
+        assert parse_percentage_input("-0.05") == pytest.approx(-0.05)
+
+    def test_percentage_sign(self):
+        """A '%' sign always means percent, even below 1."""
+        assert parse_percentage_input("1.5%") == pytest.approx(0.015)
+        assert parse_percentage_input("0.5 %") == pytest.approx(0.005)
+
     def test_percentage_invalid_input(self):
         """Invalid input should raise ValueError."""
         with pytest.raises(ValueError):
