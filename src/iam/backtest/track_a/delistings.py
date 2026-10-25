@@ -11,7 +11,7 @@ delisting returns.
 from __future__ import annotations
 
 import re
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ET  # nosec B405 - input is screened for DOCTYPE/ENTITY first
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 from typing import Any
@@ -266,10 +266,12 @@ def is_common_class(description: str | None) -> bool | None:
 
 def parse_form25_xml(data: bytes, accession: str, filed: pd.Timestamp | str) -> Form25:
     """Parse an EDGAR Form 25 XML primary document."""
-    if b"<!DOCTYPE" in data.upper():
-        raise TrackADataError(f"Form 25 XML {accession} contains a disallowed DOCTYPE declaration")
+    # Same screen as the 10-K instance parser in iam.data.edgar.geography: a Form 25 never
+    # declares a DOCTYPE or entities, so one that does is refused before it is parsed.
+    if re.search(rb"<!\s*(DOCTYPE|ENTITY)", data, re.IGNORECASE):
+        raise TrackADataError(f"Form 25 XML {accession} declares a DOCTYPE/ENTITY; refused")
     try:
-        root = ET.fromstring(data)
+        root = ET.fromstring(data)  # nosec B314 - DOCTYPE/ENTITY refused above
     except ET.ParseError as exc:
         raise TrackADataError(f"Malformed Form 25 XML for {accession}: {exc}") from exc
 

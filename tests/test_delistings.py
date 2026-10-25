@@ -110,6 +110,12 @@ def test_parse_form25_xml_refuses_doctype() -> None:
     bad = b'<?xml version="1.0"?><!DOCTYPE foo><notificationOfRemoval></notificationOfRemoval>'
     with pytest.raises(TrackADataError, match="DOCTYPE"):
         parse_form25_xml(bad, "0001-22-000001", "2022-01-01")
+    entity = b'<?xml version="1.0"?><!ENTITY x "y"><notificationOfRemoval/>'
+    with pytest.raises(TrackADataError, match="ENTITY"):
+        parse_form25_xml(entity, "0001-22-000002", "2022-01-01")
+    lower = b'<?xml version="1.0"?><!doctype foo><notificationOfRemoval/>'
+    with pytest.raises(TrackADataError):
+        parse_form25_xml(lower, "0001-22-000003", "2022-01-01")
 
 
 @pytest.mark.parametrize(
