@@ -106,10 +106,10 @@ a discovery.
 
 | Need | Free source | Notes |
 |---|---|---|
-| Universe | EDGAR companyfacts (filed dates) or the SEC Financial Statement Data Sets: the top 500 filers by trailing revenue at each month-end, including filers that later delisted | Do **not** use the XBRL `frames` API: it returns the latest-filed value per period, so restatements leak backwards. XBRL coverage starts with 2009 filings, so begin in 2010 |
+| Universe | EDGAR companyfacts (filed dates), bulk `companyfacts.zip`: the top 500 listed filers by public float (`dei:EntityPublicFloat`) at each month-end, including filers that later delisted; trailing revenue as the robustness ranking | Do **not** use the XBRL `frames` API: it returns the latest-filed value per period, so restatements leak backwards. XBRL coverage starts with 2009 filings, so begin in 2010. Why float rather than revenue: see "Track A builders" |
 | Cross-check universe | `fja05680/sp500` historical S&P 500 membership (1996 onward) | Post-2019 updates are manual from Wikipedia; map tickers to CIK because tickers are reused |
 | Delisting dates and reasons | EDGAR Form 25 and Form 15 filings by CIK; Alpha Vantage `LISTING_STATUS` (free key) as a cross-check | Tells Track A which universe names left and when, even when no price exists |
-| Prices (Track A) | Stooq bulk US daily file (`stooq_source.py` exists), then yfinance | Neither is survivorship-free. Before any IC is computed, measure the share of each month's universe with a price, split by names that later delisted and names that survived |
+| Prices (Track A) | yfinance; Stooq when reachable | Neither is survivorship-free. As of October 2026 Stooq's CSV export returns a bot-check page instead of data (`stooq_source.py` gets no prices), and yfinance has no history for delisted symbols (TWTR, LEH, JCP checked). Before any IC is computed, measure the share of each month's universe with a price, split by names that later delisted and names that survived |
 | Delisting returns (Track A) | No free source. Use the last free price when one exists; otherwise bound the bias (below) | Shumway (1997) estimates about -30% for NYSE/AMEX performance delistings, and Shumway and Warther (1999) about -55% on Nasdaq; check both against the papers before use |
 | Factor returns (Track B) | JKP Global Factor Data (`jkpfactors.com`): US, 153 factors and 13 themes, monthly, capped value weighted | Free download of factor returns; stock-level data needs WRDS and is not used |
 | Factor returns (Track B) | Open Source Asset Pricing portfolio returns (`pip install openassetpricing`) | Firm-level signals are keyed by CRSP PERMNO, which cannot be mapped to tickers without CRSP, so use the portfolio files only |
@@ -117,7 +117,7 @@ a discovery.
 | Fundamentals | Existing `fundamentals_as_of(cik, date)` in `src/iam/data/edgar/` | Use the filing date, not the period end. Add a lag of one trading day after `filed` |
 | Macro | ALFRED vintages (`realtime_start`/`realtime_end`) for DFII10, T10Y2Y | FRED's ICE BofA HY OAS series (BAMLH0A0HYM2) only carries three years of history since April 2026. Use Moody's BAA10Y as a credit proxy. ISM PMI left FRED in 2016 and is licensed |
 | Equity risk premium | Damodaran `histimpl.xls`: implied ERP, annual from 1960 and monthly from September 2008 | A free, forward-looking valuation signal for Rung 4 |
-| Industry inputs | Damodaran archived annual datasets, 1999 onward, at `pc/archives/<name><YY>.xls` (for example `margin10.xls`, `wacc12.xls`, `vebitda15.xls`, `betas05.xls`, `fundgr10.xls`) | See "Damodaran vintages" below |
+| Industry inputs | Damodaran archived annual datasets at `pc/archives/<name><YY>.xls` (for example `margin10.xls`, `wacc12.xls`, `vebitda15.xls`, `betas05.xls`, `fundgr10.xls`); `YY` is the data year, so the vintage published in January 2000 is `betas99.xls` | See "Damodaran vintages" below |
 
 ### Bounding survivorship bias in Track A
 
@@ -142,6 +142,14 @@ files. For backtesting:
 
 - A date T in calendar year Y uses the vintage for year Y (published early January Y). Treat it as
   available from 15 January Y; dates from 1 to 14 January use the year Y-1 vintage.
+- **Archive file names carry the data year, not the publication year.** `betas24.xls` holds data
+  at the end of 2024 and its "Date updated" cell reads 2025-01-05; every dated archive file from
+  2013 to 2024 follows this (files before 2013 carry no date). So the vintage published in
+  January Y is file `Y-1`, and the current files are the vintage published this January. Reading
+  the suffix as the publication year would use every file a year before it existed.
+- Damodaran replaced his Value Line-based industry list with his own in the vintages published in
+  January 2014 and 2015: 116 older names are not in the current list of 94. A reviewed crosswalk
+  maps each old name to one current industry or to none (see "Track A builders").
 - Industry inputs (unlevered beta, cost of capital, operating margin, sales-to-capital,
   reinvestment rate, fundamental growth, EV/EBITDA, EV/sales, P/E) come from that vintage. This
   gives `intrinsic_value` a `forecast_growth` derived without analysts, and gives
@@ -190,6 +198,72 @@ Second, the Track B returns of `intrinsic_value`, `relative_value`, `expectation
 long-short level. `leverage_penalty` correlates -0.79 to -0.87 with the same four, so at this
 level it is largely a bet against value. Whether the engine's own scores are equally redundant
 is a Track A question (the 0.8 rule in Rung 1), but it should be expected.
+
+### Track A builders (Phases 1b and 1c)
+
+`src/iam/backtest/track_a/` holds the stock-by-stock builders. Every rule below has a test, and
+each was checked on live EDGAR and Damodaran data on 2026-10-25.
+
+| Module | What it does |
+|---|---|
+| `damodaran_vintages.py` | Vintage choice by publication year (15 January rule), archive URL with the data-year suffix, sheet and header detection (header row 0 to 18; "Industry Name" or, in 2014, "Industry"), column aliases with prefix matching and first-match for duplicated columns. All 208 archive files (8 datasets, 1999-2024) parse; 2013 margin and 1999-2000 capex lack one optional column each |
+| `industry_crosswalk.py` | 116 pre-2015 industry names to current ones. GLM 5.3 Flash and Gemini 4 Argon proposed mappings independently and agreed on 100; a reviewer overrode 4 agreed entries (the three electric-utility regions belong in Power, which both had missed; Drugstore has no single target) and decided the 16 disagreements; 20 names map to none. Vintages published 2010-2013 then cover 73-74 of the 94 current industries; the rest (REIT splits, Green & Renewable Energy, Software (Entertainment) and others) did not exist and stay missing. Several old industries merging into one are averaged by number of firms |
+| `universe.py` | Monthly top 500 by public float, with trailing revenue recorded for every member and available as the alternative ranking. Positive float filed within 456 days required; reported zeros ignored (AT&T's 10-K filed March 2011 states 0 between $146.6B and $186.1B years). Delisted names leave from the effective date. No merging of "duplicate" filers on matching numbers (see below) |
+| `delistings.py` | Filing list from `submissions`, Form 25 XML parsing, class filter, classification by `ruleProvision`: 12d2-2(a)(3) merger, (a)(1)/(a)(2) redemption, (b) exchange removal (performance), (c) voluntary, or transfer when an 8-A12B follows; an 8-K item 1.03 (bankruptcy) overrides. Shumway returns by exchange |
+| `tickers.py` | Point-in-time ticker hints from filing document names (`twtr-20211231.htm`, `leh-20071130.xml`); companyfacts carries no ticker |
+| `bulk.py` | Streamed download of `companyfacts.zip` (1.4 GB) with a SHA-256 record, and a reader |
+| `coverage.py` | Monthly price coverage of the full universe, split into later-delisted and surviving names; the gate uses the worse group |
+
+**Why public float, not revenue.** Public float is the market value of common equity held by
+non-affiliates, reported on every 10-K cover as of the second fiscal quarter end. It is the free,
+survivorship-safe counterpart of the float-adjusted market cap that Russell and S&P rank on
+(Russell also reconstitutes once a year), and it needs no price. Ranking on revenue depends on
+the tag a filer used (ExxonMobil's 10-Ks before 2012 carry no standard revenue tag, so a revenue
+universe drops the largest US company for two years) and over-weights low-margin distributors.
+On a 30-company live sample the two rankings shared a median of 90% of the top 20. The AGY review
+proposed this change.
+
+**Decisions taken from live data**, each now a test:
+
+- Matching numbers do not identify duplicate filers. Verizon and Wells Fargo both reported a public
+  float of exactly $156.3B as of 30 June 2023, and Amazon's revenue was within 0.5% of Verizon's
+  for the same quarter; an earlier rule dropped both. A registrant subsidiary that files with its
+  parent reports no positive float, so the float rule already removes it.
+- Form 25 class descriptions often attach a rights plan to the common stock ("and associated
+  Preferred Stock Purchase Rights"); that is still the common class. Structured products named
+  after the common stock (Citigroup's "Tangible Dividend Enhanced Common Stock (T-DECS)", 2012)
+  and ETNs are not.
+- The terminal delisting skips transfers between exchanges and reorganisations: a merger,
+  redemption or unknown event after which the same CIK keeps filing 10-K/10-Q reports, or lists a
+  class within 30 days, is a holding-company reorganisation or change of state, not a delisting.
+  Bankruptcy and voluntary delistings stay terminal even when filings continue. Events less than
+  120 days old are flagged "provisional" (ExxonMobil's Form 25 of 2 July 2026 is one).
+- A delisting inside a long horizon counts as covered only if the price series reaches within 30
+  days of it.
+- Penalised case: Cboe listings take -30%; an unknown exchange takes -55%, so no performance
+  delisting silently drops out.
+
+**Classification check on known cases:** Twitter 2022 merger (rule (a)(3), with PREM14A and
+DEFM14A); Hertz, J.C. Penney and Lehman performance on NYSE (-30%); Frontier performance on Nasdaq
+(-55%); PepsiCo (NYSE to Nasdaq, 2017) and Apple no common delisting. Every result is correct.
+
+**Kept on purpose.** The delisting category reads filings up to 30 days after the Form 25 (and the
+reorganisation test 120 days); it only sets the return in the month a stock leaves and whether the
+security kept trading, never a signal, as with CRSP's delisting codes. The universe pre-filter
+reads all filing dates but only decides which small filers appear in the exclusion log.
+
+**Not done yet.**
+
+- The full run on `companyfacts.zip` (top 500, 2010 onward) and its coverage report.
+- A price layer: with Stooq blocked and yfinance lacking delisted names, coverage of later-delisted
+  names will be close to zero from free sources. Candidates to test, not yet verified: a free
+  Tiingo API key (`tiingo_source.py` exists) and Stooq's bulk download if it is reachable by hand.
+  The choice needs a decision because a key is no longer zero-configuration.
+- Successor links: when a holding-company reorganisation moves the listing to a new CIK, the new
+  CIK enters the universe only when it files its first 10-K (BlackRock 2024 is covered by the
+  override table in `iam/data/edgar/cik.py`).
+- Ticker hints before 2019 need one `index.json` request per filing (`hint_from_index`).
+- Point-in-time snapshots carrying EDGAR fundamentals (Phase C).
 
 ## 4. Experimental design
 
@@ -384,8 +458,8 @@ not a new trial, and `file_hash()` gives the hash to record in the run manifest.
 |---|---|---|
 | 0 | Estimator fixes listed in Section 1 (this change) | None |
 | 1a | Track B loaders: JKP US factor returns, OSAP portfolios, French factors, Damodaran `histimpl.xls`; map engine factors to JKP factors. Done in `backtest/track_b/` (see "Track B loaders" in Section 3) | None |
-| 1b | Damodaran vintage loader (1999 onward, header-based parsing, cached with hashes) | None |
-| 1c | Universe from EDGAR, delisting dates from Form 25/15, free prices (Stooq, yfinance), PIT snapshots carrying EDGAR fundamentals (Phase C/D in [backtest](backtest.md)); coverage report split by later-delisted versus surviving names | None |
+| 1b | Damodaran vintage loader (1999 onward, header-based parsing, cached with hashes). Done in `backtest/track_a/damodaran_vintages.py` with the industry crosswalk | None |
+| 1c | Universe from EDGAR, delisting dates from Form 25/15, free prices (Stooq, yfinance), PIT snapshots carrying EDGAR fundamentals (Phase C/D in [backtest](backtest.md)); coverage report split by later-delisted versus surviving names. Started in `backtest/track_a/`: universe, delistings, ticker hints, bulk reader and coverage report are built; the full 500-name run, the price layer and the PIT snapshots are not (see "Track A builders") | None |
 | 2 | Rung 1 and Rung 2: factor term structures, candidate horse race including the Track B candidate, empirical-Bayes shrinkage, trial ledger, PBO over candidates, DSR from the ledger, three survivorship cases. The statistical machinery (candidates A to D, shrinkage, ledger, PBO, SPA, DSR, selection rule) is implemented in `backtest/weight_selection.py`; running it needs the Phase 1 data | Phases 1a and 1c |
 | 3 | Rungs 3 and 4: penalties and macro regime; fix the regime map | Phase 2 |
 | 4 | Rungs 5 to 7: reliabilities, valuation-engine tests, verdict and band calibration | Phases 1b and 2 |
