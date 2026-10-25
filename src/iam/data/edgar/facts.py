@@ -655,14 +655,14 @@ def to_fundamentals(ef: EdgarFundamentals) -> tuple[Fundamentals, dict[str, Any]
     """Map to the engine's ``Fundamentals`` plus a JSON-serialisable provenance dict.
 
     Missing values stay ``None`` (or ``[]`` for history lists); the reason is in the
-    provenance. ``Fundamentals`` has no equity field, so equity appears in provenance only.
+    provenance.
     """
     values: dict[str, Any] = {}
     for name in FIELD_NAMES:
         fv: FieldValue = getattr(ef, name)
         if name == "equity":
-            continue
-        if name in ("revenue_history", "roic_history"):
+            values["book_equity"] = fv.value
+        elif name in ("revenue_history", "roic_history"):
             values[name] = list(fv.value) if fv.value is not None else []
         else:
             values[name] = fv.value

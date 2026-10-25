@@ -322,7 +322,25 @@ class YFinanceAdapter:
             shares_outstanding=shares_outstanding,
             gross_margin=self._get_numeric(info, "grossMargins"),
             operating_margin=self._get_numeric(info, "operatingMargins"),
+            payout_ratio=self._get_numeric(info, "payoutRatio"),
         )
+
+        # Extract book equity from balance sheet
+        try:
+            bs = yt.balance_sheet
+            if bs is not None and not bs.empty:
+                for eq_label in (
+                    "Stockholders Equity",
+                    "Common Stock Equity",
+                    "Total Equity Gross Minority Interest",
+                ):
+                    if eq_label in bs.index:
+                        eq_val = bs.loc[eq_label].iloc[0]
+                        if pd.notnull(eq_val):
+                            f.book_equity = float(eq_val)
+                            break
+        except Exception as e:
+            logger.warning(f"Failed to parse balance sheet for {ticker}: {e}")
 
         # Extract cash flow statements (Working Capital, SBC, Capex)
         try:
@@ -377,15 +395,15 @@ class YFinanceAdapter:
         if f.fcf_ttm is not None and m.market_cap is not None and m.market_cap > 0:
             m.fcf_yield = f.fcf_ttm / m.market_cap
 
-        qualitative: dict[str, Any] = {
-            "payout": self._get_numeric(info, "payoutRatio"),
-            "roe": self._get_numeric(info, "returnOnEquity"),
-            "roa": self._get_numeric(info, "returnOnAssets"),
-            "roic": None,
-        }
-
         effective, why_not = effective_tax_rate_from_statement(financials)
         f.effective_tax_rate = effective
+
+        qualitative: dict[str, Any] = {
+            "payout": f.payout_ratio,
+            "roe": self._get_numeric(info, "returnOnEquity"),
+            "roa": self._get_numeric(info, "returnOnAssets"),
+            "roic": estimate_roic(f),
+        }
         qualitative["defaulted_inputs"] = (
             [] if effective is not None else [f"effective_tax_rate: {why_not}"]
         )
@@ -427,12 +445,14 @@ class YFinanceAdapter:
         region: str = "US",
         g_eps: float | None = None,
         g: float | None = None,
+        roic: float | None = None,
     ) -> RegressionInputs:
         """Build Damodaran regression inputs from Yahoo Finance data."""
         from iam.valuation.multiples_regression import Region, RegressionInputs
 
         # Try to use caching via fetch
         defaulted: list[str] = []
+        fetched_roic: float | None = None
         try:
             security = self.fetch(ticker)
             market_cap = security.market.market_cap
@@ -441,7 +461,7 @@ class YFinanceAdapter:
             oper_margin = security.fundamentals.operating_margin
             payout = security.qualitative.get("payout")
             roe = security.qualitative.get("roe")
-            roic = security.qualitative.get("roic")
+            fetched_roic = security.qualitative.get("roic")
             tax_rate = security.fundamentals.effective_tax_rate
             tax_security = security
         except Exception:
@@ -454,12 +474,14 @@ class YFinanceAdapter:
             oper_margin = self._get_numeric(info, "operatingMargins")
             payout = self._get_numeric(info, "payoutRatio")
             roe = self._get_numeric(info, "returnOnEquity")
-            roic = None
+            fetched_roic = None
             try:
                 tax_rate = effective_tax_rate_from_statement(yt.financials)[0]
             except Exception:
                 tax_rate = None
             tax_security = Security(ticker=ticker.upper())
+
+        roic_used = roic if roic is not None else fetched_roic
 
         if tax_rate is None:
             # No effective rate: fall back to the MARGINAL rate, labelled with its source.
@@ -483,7 +505,7 @@ class YFinanceAdapter:
             payout=float(payout) if payout is not None else None,
             roe=float(roe) if roe is not None else None,
             g=float(g) if g is not None else None,
-            roic=float(roic) if roic is not None else None,
+            roic=float(roic_used) if roic_used is not None else None,
             dfr=float(dfr) if dfr is not None else None,
             oper_margin=float(oper_margin) if oper_margin is not None else None,
             tax_rate=float(tax_rate) if tax_rate is not None else None,
@@ -515,6 +537,23 @@ def build_regression_inputs(
     region: str = "US",
     g_eps: float | None = None,
     g: float | None = None,
+    roic: float | None = None,
 ) -> RegressionInputs:
     """Build regression inputs for valuation models."""
-    return YFinanceAdapter().build_regression_inputs(ticker, region, g_eps, g)
+    return YFinanceAdapter().build_regression_inputs(ticker, region, g_eps, g, roic=roic)
+
+
+def estimate_roic(f: Fundamentals) -> float | None:
+    """Estimate TTM return on invested capital (NOPAT / invested capital)."""
+    if f.revenue_ttm is None or f.operating_margin is None or f.book_equity is None:
+        return None
+    tax = (
+        min(max(float(f.effective_tax_rate), 0.0), 0.35)
+        if f.effective_tax_rate is not None
+        else 0.21
+    )
+    nopat = f.revenue_ttm * f.operating_margin * (1.0 - tax)
+    invested_capital = f.book_equity + (f.total_debt or 0.0) - (f.cash_and_equivalents or 0.0)
+    if nopat <= 0 or invested_capital <= 0:
+        return None
+    return nopat / invested_capital

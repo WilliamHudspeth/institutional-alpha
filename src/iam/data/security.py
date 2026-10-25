@@ -102,6 +102,9 @@ class Fundamentals(BaseModel):
     # relevering and the after-tax cost of debt use the MARGINAL rate instead.
     effective_tax_rate: float | None = None
 
+    # Dividends / net income, trailing (decimal). Retention = 1 - payout feeds equity growth.
+    payout_ratio: float | None = None
+
     # Stock-based compensation
     sbc_ttm: float | None = None
     change_in_working_capital: float | None = None
@@ -109,6 +112,9 @@ class Fundamentals(BaseModel):
     # Balance sheet
     total_debt: float | None = None
     cash_and_equivalents: float | None = None
+    # Common shareholders' equity at book value (latest balance sheet). Used for ROE and
+    # invested capital in the growth engine (iam.growth).
+    book_equity: float | None = None
     current_ratio: float | None = None
     interest_expense_ttm: float | None = None
     debt_maturity_within_24m: float | None = None
