@@ -21,6 +21,7 @@ from collections.abc import Sequence
 
 from iam.data.security import Security
 from iam.valuation.beta import get_yahoo_beta
+from iam.valuation.equity_returns import company_roe
 from iam.valuation.types import ImpliedExpectations, Method, ValuationResult
 
 # Reasonable defaults; can be overridden via Security or call-site.
@@ -57,8 +58,13 @@ def _present_value_two_stage(
     g_terminal: float,
     r: float,
     roe: float,
+    roe_terminal: float | None = None,
 ) -> float:
-    """PV per share of a two-stage FCFE stream."""
+    """PV per share of a two-stage FCFE stream.
+
+    ``roe`` prices reinvestment in the high-growth years; ``roe_terminal`` (default: the
+    same) prices it in the terminal value.
+    """
     if r <= g_terminal:
         # Terminal growth must be below discount rate for the model to converge.
         return float("inf")
@@ -66,7 +72,8 @@ def _present_value_two_stage(
     # Enforce Equity Reinvestment Rate (ERR) constraint: ERR = g / ROE
     # Cap ERR at 1.0 (100%) to prevent negative cash flows in high growth
     err_high = min(g_high / roe, 1.0) if roe > 0 else 1.0
-    err_term = min(g_terminal / roe, 1.0) if roe > 0 else 1.0
+    roe_t = roe if roe_terminal is None else roe_terminal
+    err_term = min(g_terminal / roe_t, 1.0) if roe_t > 0 else 1.0
 
     pv = 0.0
     ni_t = base_ni
@@ -95,11 +102,12 @@ def _solve_implied_growth(
     hi: float = 0.60,
     tol: float = 1e-4,
     max_iter: int = 80,
+    roe_terminal: float | None = None,
 ) -> float | None:
     """Bisection: find g_high such that PV(...) == target_price."""
 
-    pv_lo = _present_value_two_stage(base_ni, lo, n, g_terminal, r, roe)
-    pv_hi = _present_value_two_stage(base_ni, hi, n, g_terminal, r, roe)
+    pv_lo = _present_value_two_stage(base_ni, lo, n, g_terminal, r, roe, roe_terminal)
+    pv_hi = _present_value_two_stage(base_ni, hi, n, g_terminal, r, roe, roe_terminal)
 
     if pv_lo > target_price:
         # Even at the lowest growth, the model says the stock is worth more
@@ -112,7 +120,7 @@ def _solve_implied_growth(
 
     for _ in range(max_iter):
         mid = (lo + hi) / 2
-        pv_mid = _present_value_two_stage(base_ni, mid, n, g_terminal, r, roe)
+        pv_mid = _present_value_two_stage(base_ni, mid, n, g_terminal, r, roe, roe_terminal)
         if abs(pv_mid - target_price) / target_price < tol:
             return mid
         if pv_mid < target_price:
@@ -150,7 +158,15 @@ class ReverseDCF:
         confidence = 1.0
 
         ni = f.net_income_ttm if f.net_income_ttm and f.net_income_ttm > 0 else f.fcf_ttm
-        roe = qualitative.get("forecast_roe", self.roe)
+        # The company's own normalised ROE prices reinvestment through the high-growth
+        # years; the terminal value uses the market ROE (iam.valuation.equity_returns).
+        equity_return = company_roe(security, default=self.roe)
+        roe = equity_return.roe
+        roe_terminal = equity_return.terminal(self.roe)
+        notes.append(
+            f"reinvestment priced at ROE {roe:.1%} ({equity_return.source}), "
+            f"{roe_terminal:.1%} in the terminal value"
+        )
 
         # CAPM discount rate (opt-in): if risk_free_rate and equity_risk_premium
         # are supplied, compute cost of equity from Yahoo beta.  Otherwise use
@@ -194,6 +210,7 @@ class ReverseDCF:
             g_terminal=g_terminal,
             r=r,
             roe=roe,
+            roe_terminal=roe_terminal,
         )
 
         if implied_g is None:
@@ -277,20 +294,28 @@ def _present_value_path(
     growth_path: Sequence[float],
     g_terminal: float,
     r: float,
-    roe: float,
+    roe: float | Sequence[float],
+    roe_terminal: float | None = None,
 ) -> float:
-    """PV per share of a multi-year FCFE growth path followed by terminal growth."""
+    """PV per share of a multi-year FCFE growth path followed by terminal growth.
+
+    ``roe`` is one rate or one per path year; ``roe_terminal`` defaults to the last.
+    """
     if r <= g_terminal:
         return float("inf")
 
-    err_term = min(max(g_terminal / roe, 0.0), 1.0) if roe > 0 else 1.0
+    roes = [float(roe)] * len(growth_path) if isinstance(roe, int | float) else list(roe)
+    if len(roes) != len(growth_path):
+        raise ValueError("roe path must have one rate per growth-path year")
+    roe_t = roes[-1] if roe_terminal is None else roe_terminal
+    err_term = min(max(g_terminal / roe_t, 0.0), 1.0) if roe_t > 0 else 1.0
 
     pv = 0.0
     ni_t = base_ni
     n = len(growth_path)
-    for t, g_t in enumerate(growth_path, 1):
+    for t, (g_t, roe_y) in enumerate(zip(growth_path, roes, strict=True), 1):
         ni_t = ni_t * (1.0 + g_t)
-        err_t = min(max(g_t / roe, 0.0), 1.0) if roe > 0 else 1.0
+        err_t = min(max(g_t / roe_y, 0.0), 1.0) if roe_y > 0 else 1.0
         fcfe_t = ni_t * (1.0 - err_t)
         pv += fcfe_t / ((1.0 + r) ** t)
 

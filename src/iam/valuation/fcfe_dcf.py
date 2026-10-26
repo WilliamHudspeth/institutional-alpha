@@ -19,6 +19,7 @@ from typing import TypedDict
 from iam.data.ground_truth import GroundTruthProvider
 from iam.data.security import Security
 from iam.valuation.beta import get_custom_beta_for_intrinsic
+from iam.valuation.equity_returns import company_roe
 from iam.valuation.reverse_dcf import (
     _present_value_path,
     _present_value_two_stage,
@@ -185,6 +186,21 @@ class FCFEDCF:
         if base_path is not None:
             notes.append("growth path from the growth engine (years 1-5 flat, fade over 6-10)")
 
+        # Reinvestment is priced at the company's own normalised ROE, fading to the market ROE
+        # over years 6-10 and in the terminal value (iam.valuation.equity_returns). Explicit
+        # assumptions passed by the caller keep their single ROE.
+        roe_terminal: float | None = None
+        roe_path: list[float] | None = None
+        if assumptions is None:
+            equity_return = company_roe(security, default=self.defaults.roe)
+            base_a.roe = equity_return.roe
+            roe_terminal = equity_return.terminal(self.defaults.roe)
+            roe_path = equity_return.path(years=base_a.high_growth_years, terminal=roe_terminal)
+            notes.append(
+                f"reinvestment priced at ROE {base_a.roe:.1%} ({equity_return.source}), "
+                f"fading to {roe_terminal:.1%} by year {base_a.high_growth_years}"
+            )
+
         def _bear_g(g: float) -> float:
             return g * 0.60 if g >= 0 else g * 1.40
 
@@ -247,7 +263,8 @@ class FCFEDCF:
                         growth_path=scenario_paths[s["name"]],
                         g_terminal=s["tv_g"],
                         r=s["wacc"],
-                        roe=base_a.roe,
+                        roe=roe_path if roe_path is not None else base_a.roe,
+                        roe_terminal=roe_terminal,
                     )
                 else:
                     target = _present_value_two_stage(
@@ -257,6 +274,7 @@ class FCFEDCF:
                         n=base_a.high_growth_years,
                         r=s["wacc"],
                         roe=base_a.roe,
+                        roe_terminal=roe_terminal,
                     )
                 upside = (target / m.price) - 1 if m.price > 0 else 0
 
@@ -330,6 +348,7 @@ class FCFEDCF:
                 "high_growth_years": float(base_a.high_growth_years),
                 "discount_rate": base_a.discount_rate,
                 "roe": base_a.roe,
+                "roe_terminal": roe_terminal if roe_terminal is not None else base_a.roe,
             },
             notes=notes,
             verdict_text="\n".join(verdict_lines),
