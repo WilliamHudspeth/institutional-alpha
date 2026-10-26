@@ -58,10 +58,17 @@ class QualityFactor(Factor):
         # --- Balance sheet strength (light proxy; full version in leverage penalty) ---
         if f.ebitda_ttm and f.total_debt is not None and f.cash_and_equivalents is not None:
             net_debt = f.total_debt - f.cash_and_equivalents
-            nd_ebitda = net_debt / f.ebitda_ttm if f.ebitda_ttm else None
-            if nd_ebitda is not None:
+            if f.ebitda_ttm > 0:
                 # negative net debt (cash > debt) is best
+                nd_ebitda = net_debt / f.ebitda_ttm
                 components["balance_sheet_strength"] = self.clamp(-(nd_ebitda - 1.0) / 2.0)
+            elif net_debt > 0:
+                # Net debt with negative EBITDA: nothing services it. Dividing would flip the
+                # sign and score this the strongest balance sheet.
+                components["balance_sheet_strength"] = -1.0
+                notes.append("Negative EBITDA with net debt: weakest balance-sheet score.")
+            else:
+                notes.append("Negative EBITDA: net debt / EBITDA not meaningful (net cash).")
 
         # --- Dilution control (shares trend) ---
         if len(f.shares_outstanding_history) >= 3:

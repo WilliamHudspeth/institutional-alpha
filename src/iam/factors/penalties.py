@@ -32,8 +32,23 @@ class FragilityPenalty(PenaltyFactor):
 
         pe = m.pe_forward if m.pe_forward is not None else m.pe_ttm
 
+        # No earnings under the price: the most fragile multiple, not a zero penalty (a
+        # negative PEG would clamp to 0).
+        if pe is not None and pe <= 0:
+            return FactorContribution(
+                name=self.name,
+                value=1.0,
+                confidence=0.6,
+                components={"pe": pe},
+                notes=["P/E not positive: price rests entirely on future earnings."],
+            )
+
         # Normalized growth — use trailing revenue CAGR as a proxy
-        if len(f.revenue_history) >= 3 and f.revenue_history[-1] > 0:
+        if (
+            len(f.revenue_history) >= 3
+            and f.revenue_history[-1] > 0
+            and f.revenue_history[0] > 0  # a negative ratio's root is complex
+        ):
             cagr = (f.revenue_history[0] / f.revenue_history[-1]) ** (
                 1 / (len(f.revenue_history) - 1)
             ) - 1

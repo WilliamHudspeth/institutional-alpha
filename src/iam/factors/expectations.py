@@ -114,7 +114,8 @@ class ExpectationsDifficultyFactor(Factor):
     def _margin_difficulty(self, security: Security):
         """Uses peak historical operating margin as the ceiling."""
         f = security.fundamentals
-        if not f.operating_margin_history or not f.operating_margin:
+        # A loss-making margin is not "easy expectations"; the ratio would score it +1.
+        if not f.operating_margin_history or not f.operating_margin or f.operating_margin <= 0:
             return None
         peak = max(f.operating_margin_history)
         if peak <= 0:

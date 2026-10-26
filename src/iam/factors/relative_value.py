@@ -18,22 +18,34 @@ class RelativeValueFactor(Factor):
         m = security.market
 
         # EV/EBITDA vs sector median
-        if m.ev_ebitda is not None and m.sector_ev_ebitda_median:
+        # A negative multiple (losses) is not "cheaper than peers": skip it.
+        if (
+            m.ev_ebitda is not None
+            and m.ev_ebitda > 0
+            and m.sector_ev_ebitda_median is not None
+            and m.sector_ev_ebitda_median > 0
+        ):
             ratio = m.ev_ebitda / m.sector_ev_ebitda_median
             # ratio < 1 means cheaper than peers
             components["ev_ebitda_vs_sector"] = self.clamp(-(ratio - 1.0))
         else:
             confidence *= 0.8
+            if m.ev_ebitda is not None and m.ev_ebitda <= 0:
+                notes.append("EV/EBITDA not positive (negative EBITDA): not compared to peers.")
 
-        # P/E vs own 10y range (percentile)
-        if m.pe_ttm is not None and len(m.pe_history) >= 24:
-            sorted_pes = sorted(m.pe_history)
+        # P/E vs own 10y range (percentile), positive P/Es only: a loss-year P/E would sit
+        # below every positive one and score as the cheapest ever.
+        positive_pes = [x for x in m.pe_history if x > 0]
+        if m.pe_ttm is not None and m.pe_ttm > 0 and len(positive_pes) >= 24:
+            sorted_pes = sorted(positive_pes)
             below = sum(1 for x in sorted_pes if x < m.pe_ttm)
             percentile = below / len(sorted_pes)
             # 0th pct = cheap (+1), 100th = expensive (-1)
             components["pe_own_percentile"] = self.clamp(1 - 2 * percentile)
         else:
             confidence *= 0.85
+            if m.pe_ttm is not None and m.pe_ttm <= 0:
+                notes.append("P/E not positive (losses): own-history percentile skipped.")
 
         # FCF yield vs peers
         if m.fcf_yield is not None and m.peer_fcf_yields:
