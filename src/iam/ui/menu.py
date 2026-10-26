@@ -17,7 +17,7 @@ import urllib.request
 
 from iam.data.http import safe_urlopen
 from iam.ui.term import clear_screen
-from iam.validation import parse_growth_rate
+from iam.validation import parse_growth_rate, validate_growth_rate
 
 
 def fmt_pct_or_na(value: float | None, digits: int = 2) -> str:
@@ -166,23 +166,25 @@ def run_valuation_pipeline(ticker: str) -> None:
         from iam.arbitration.reliability_loader import ReliabilityLoader
         from iam.data.providers.yfinance_adapter import fetch_security
         from iam.engine.damodaran import DamodaranEngine
+        from iam.growth.apply import ensure_growth_profile
         from iam.lenses.expectations_difficulty import ExpectationsDifficultyLens
         from iam.lenses.platform_compounder import PlatformCompounderLens
         from iam.lenses.rate_sensitive import RateSensitiveLens
         from iam.lenses.synthesis import synthesize_lenses
         from iam.pipeline.orchestrator import ValuationPipeline
+        from iam.valuation.fcfe_dcf import FCFEDCF
 
         security = fetch_security(ticker)
         print(f"  ✓ {security.name or ticker} loaded")
         print()
 
-        # Optional growth override
-        from iam.valuation.fcfe_dcf import FCFEDCF
-
-        default_growth = FCFEDCF().defaults.high_growth
+        profile = ensure_growth_profile(security, compute_implied=True)
+        default_growth = (
+            profile.dcf.value if profile.dcf.value is not None else FCFEDCF().defaults.high_growth
+        )
         g_input = safe_input(
             "  Forecast growth (e.g. 13 or 0.13 for 13%) "
-            f"[Enter for model default {default_growth:.0%}]: ",
+            f"[Enter for growth engine estimate {default_growth:.1%}]: ",
             default="",
         )
         forecast_growth = default_growth
@@ -194,11 +196,16 @@ def run_valuation_pipeline(ticker: str) -> None:
 
                 validate_growth_rate(forecast_growth, growth_type="forecast")
                 security.qualitative["forecast_growth"] = forecast_growth
+                security.qualitative["forecast_growth_source"] = "user"
+                security.qualitative.pop("forecast_growth_path", None)
                 growth_from_user = True
                 print(f"  Using forecast growth: {forecast_growth:.1%}\n")
             except ValueError as e:
                 forecast_growth = default_growth
-                print(f"  Invalid input: {e} — using model default.\n")
+                print(f"  Invalid input: {e} — using growth engine estimate.\n")
+
+        print(profile.summary())
+        print()
 
         # Print Assumption Table
         print(format_assumption_lines(security.qualitative, forecast_growth, growth_from_user))
@@ -379,22 +386,33 @@ def run_quick_recommendation(ticker: str) -> None:
 
     try:
         from iam.data.providers.yfinance_adapter import fetch_security
+        from iam.growth.apply import ensure_growth_profile
         from iam.pipeline.orchestrator import ValuationPipeline
+        from iam.valuation.fcfe_dcf import FCFEDCF
 
         security = fetch_security(ticker)
         print(f"  ✓ {security.name or ticker} loaded\n")
 
+        profile = ensure_growth_profile(security, compute_implied=True)
+        default_growth = (
+            profile.dcf.value if profile.dcf.value is not None else FCFEDCF().defaults.high_growth
+        )
+
         # Get forecast growth
-        growth_input = safe_input("  Forecast growth [press Enter for 8%]: ", default="")
-        forecast_growth = 0.08
+        growth_input = safe_input(
+            f"  Forecast growth [press Enter for growth engine estimate {default_growth:.1%}]: ",
+            default="",
+        )
         if growth_input:
             try:
-                g = float(growth_input)
-                forecast_growth = g / 100 if g > 1 else g
+                # Same parser and bounds as the full pipeline: "1" means 1%, "-5" means -5%.
+                forecast_growth = parse_growth_rate(growth_input, default=default_growth)
+                validate_growth_rate(forecast_growth, growth_type="forecast")
+                security.qualitative["forecast_growth"] = forecast_growth
+                security.qualitative["forecast_growth_source"] = "user"
+                security.qualitative.pop("forecast_growth_path", None)
             except ValueError:
-                print("  ⚠ Invalid input, using 8%\n")
-
-        security.qualitative["forecast_growth"] = forecast_growth
+                print(f"  ⚠ Invalid input, using {default_growth:.1%}\n")
 
         # Run pipeline
         print("  ⏳ Analyzing...\n")
@@ -424,18 +442,7 @@ def run_quick_recommendation(ticker: str) -> None:
         print()
 
         # Interpretation
-        if rating == "STRONG_BUY":
-            print("  🔥 High conviction! Stock is deeply undervalued with strong fundamentals.\n")
-        elif rating == "BUY":
-            print("  🟢 Stock appears undervalued with >15% potential upside\n")
-        elif rating == "SPECULATIVE_BUY":
-            print(
-                "  🟣 Speculative Buy: Intrinsic value is high, but market expectations are also very rich.\n"
-            )
-        elif rating == "SELL":
-            print("  🔴 Stock appears overvalued with >10% potential downside\n")
-        else:
-            print("  🟡 Stock appears fairly valued within -10% to +15% range\n")
+        print(f"  {rating_interpretation(rating)}\n")
 
         if report.battlefield:
             # Shift the summary slightly right for alignment if needed, or just print
@@ -562,3 +569,23 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n  Unexpected error: {e}")
         sys.exit(1)
+
+
+def rating_interpretation(rating: str) -> str:
+    """Return the one-line explanation printed under the recommendation box."""
+    # No numeric bands here: the arbitration and legacy paths use different thresholds, so the
+    # text names the direction and leaves the size to the upside printed above it.
+    if rating in ("STRONG BUY", "STRONG_BUY"):
+        return "🔥 Stock appears clearly undervalued on the blended estimate."
+    if rating in ("BUY", "MODEST BUY"):
+        return "🟢 Stock appears undervalued on the blended estimate."
+    if rating in ("SPECULATIVE_BUY", "SPECULATIVE BUY"):
+        return (
+            "🟣 Speculative Buy: Intrinsic value is high, "
+            "but market expectations are also very rich."
+        )
+    if rating in ("HOLD / NEUTRAL", "HOLD"):
+        return "🟡 Stock appears fairly valued on the blended estimate."
+    if rating in ("MIXED (REDUCED EXPECTED RETURN)", "SELL", "HIGH RISK SELL"):
+        return "🔴 Stock appears overvalued on the blended estimate."
+    return "⚪ Valuation is inconclusive due to insufficient or conflicting signals."

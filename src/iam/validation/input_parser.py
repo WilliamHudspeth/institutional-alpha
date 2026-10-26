@@ -5,10 +5,12 @@ def parse_percentage_input(user_input: str, default: float | None = None) -> flo
     """
     Safely convert human percentage input to decimal format.
 
-    Handles both percentage notation (13) and decimal notation (0.13).
+    Handles both percentage notation (13) and decimal notation (0.13). A value with a "%"
+    sign, or of magnitude 1 or more, is a percentage: "1" is 1%, "-5" is -5%, "1.5%" is 1.5%.
+    A value below 1 in magnitude without "%" is a decimal: "0.13" is 13%.
 
     Args:
-        user_input: User-provided string (e.g., "13", "0.13", "")
+        user_input: User-provided string (e.g., "13", "0.13", "-5", "1.5%", "")
         default: Default value if input is empty (e.g., 0.08 for 8%)
 
     Returns:
@@ -24,12 +26,15 @@ def parse_percentage_input(user_input: str, default: float | None = None) -> flo
             raise ValueError("No input provided and no default specified")
         return default
 
+    is_percent = user_input.endswith("%")
+    number = user_input[:-1].strip() if is_percent else user_input
     try:
-        value = float(user_input)
+        value = float(number)
     except ValueError:
         raise ValueError(f"Cannot parse '{user_input}' as a number")
 
-    if value > 1:
+    # "1" used to read as 100% and "-5" as -500% (only values above 1 were divided).
+    if is_percent or abs(value) >= 1:
         value /= 100
 
     return value

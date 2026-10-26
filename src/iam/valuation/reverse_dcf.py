@@ -17,6 +17,8 @@ thesis the rest of the pipeline tests.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from iam.data.security import Security
 from iam.valuation.beta import get_yahoo_beta
 from iam.valuation.types import ImpliedExpectations, Method, ValuationResult
@@ -268,3 +270,33 @@ class ReverseDCF:
             base
             + f" — substantially above what the business has ever delivered ({vs_max:.0%} of peak)."
         )
+
+
+def _present_value_path(
+    base_ni: float,
+    growth_path: Sequence[float],
+    g_terminal: float,
+    r: float,
+    roe: float,
+) -> float:
+    """PV per share of a multi-year FCFE growth path followed by terminal growth."""
+    if r <= g_terminal:
+        return float("inf")
+
+    err_term = min(max(g_terminal / roe, 0.0), 1.0) if roe > 0 else 1.0
+
+    pv = 0.0
+    ni_t = base_ni
+    n = len(growth_path)
+    for t, g_t in enumerate(growth_path, 1):
+        ni_t = ni_t * (1.0 + g_t)
+        err_t = min(max(g_t / roe, 0.0), 1.0) if roe > 0 else 1.0
+        fcfe_t = ni_t * (1.0 - err_t)
+        pv += fcfe_t / ((1.0 + r) ** t)
+
+    ni_n_plus_1 = ni_t * (1.0 + g_terminal)
+    fcfe_n_plus_1 = ni_n_plus_1 * (1.0 - err_term)
+    terminal_value = fcfe_n_plus_1 / (r - g_terminal)
+    pv += terminal_value / ((1.0 + r) ** n)
+
+    return pv

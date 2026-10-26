@@ -42,10 +42,14 @@ def _lens_card(label: str, result) -> str:
 def _law_section(law_report) -> str:
     if law_report is None or not (law_report.flags or law_report.violations):
         return ""
+    # LawCheck carries number, name and narrative (iam.laws.types).
     violation_rows = "".join(
-        f"<li>{_esc(c.law_name)}: {_esc(c.message)}</li>" for c in law_report.violations
+        f"<li>Law {c.number} ({_esc(c.name)}): {_esc(c.narrative)}</li>"
+        for c in law_report.violations
     )
-    flag_rows = "".join(f"<li>{_esc(c.law_name)}: {_esc(c.message)}</li>" for c in law_report.flags)
+    flag_rows = "".join(
+        f"<li>Law {c.number} ({_esc(c.name)}): {_esc(c.narrative)}</li>" for c in law_report.flags
+    )
     out = ""
     if violation_rows:
         out += f'<div class="law-violations"><h3>Damodaran Law Violations</h3><ul>{violation_rows}</ul></div>'

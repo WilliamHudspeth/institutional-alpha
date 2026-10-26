@@ -97,10 +97,21 @@ class Fundamentals(BaseModel):
     incremental_roic: float | None = None
     accruals_ratio: float | None = None  # Sloan accrual ratio
 
+    # Aligned fiscal-year histories for normalised fundamental growth (most-recent-first)
+    nopat_history: list[float] = Field(default_factory=list)  # most-recent-first
+    reinvestment_history: list[float] = Field(default_factory=list)  # most-recent-first
+    invested_capital_history: list[float] = Field(default_factory=list)  # most-recent-first
+    net_income_history: list[float] = Field(default_factory=list)  # most-recent-first
+    equity_payout_history: list[float] = Field(default_factory=list)  # most-recent-first
+    book_equity_history: list[float] = Field(default_factory=list)  # most-recent-first
+
     # Effective tax rate = tax provision / pretax income, latest fiscal year (None if
     # unavailable). Used for operating cash flows and the multiples regression; beta
     # relevering and the after-tax cost of debt use the MARGINAL rate instead.
     effective_tax_rate: float | None = None
+
+    # Dividends / net income, trailing (decimal). Retention = 1 - payout feeds equity growth.
+    payout_ratio: float | None = None
 
     # Stock-based compensation
     sbc_ttm: float | None = None
@@ -109,6 +120,9 @@ class Fundamentals(BaseModel):
     # Balance sheet
     total_debt: float | None = None
     cash_and_equivalents: float | None = None
+    # Common shareholders' equity at book value (latest balance sheet). Used for ROE and
+    # invested capital in the growth engine (iam.growth).
+    book_equity: float | None = None
     current_ratio: float | None = None
     interest_expense_ttm: float | None = None
     debt_maturity_within_24m: float | None = None

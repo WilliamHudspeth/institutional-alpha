@@ -13,6 +13,7 @@ from iam.engine.growth_estimator import (
     QuestionnaireGrowthEngine,
 )
 from iam.engine.market_implied import ConsensusInputs, MarketImpliedEngine
+from iam.growth import GrowthProfile, ensure_growth_profile
 from iam.laws import DamodaranLawRegistry
 from iam.laws.types import LawReport
 from iam.lenses.base import LensResult
@@ -113,6 +114,7 @@ class PipelineReport:
     monte_carlo: MonteCarloDistribution | None = None  # sampled fair-value distribution
     justified_premium: JustifiedPremiumResult | None = None  # Relative Reality gap
     growth_estimate: GrowthEstimateResult | None = None  # questionnaire-based growth vs. Stage 1
+    growth_profile: GrowthProfile | None = None
     plugin_lenses: list[LensResult] | None = None  # registered IA_LensPlugin outputs
     plugin_factors: dict[str, dict] | None = None  # registered IA_FactorPlugin outputs
     pe_decomposition: PEDecomposition | None = None  # commodity vs franchise P/E (consensus Ke)
@@ -138,6 +140,12 @@ class PipelineReport:
             lines.append(f"> Verdict: {self.market_implied_engine.verdict_text}")
             lines.append(f"> Confidence: {self.market_implied_engine.confidence:.2f}")
             lines.append("")
+
+            if self.growth_profile:
+                lines.append("### Growth")
+                for g_line in self.growth_profile.summary().splitlines():
+                    lines.append(f"> {g_line}")
+                lines.append("")
 
             if self.growth_estimate:
                 lines.append("### Questionnaire Growth Estimate (Fundamental vs. Reverse DCF)")
@@ -212,6 +220,12 @@ class PipelineReport:
         lines.append(f"  {self.market_implied_engine.verdict_text}")
         lines.append(f"  confidence: {self.market_implied_engine.confidence:.2f}")
         lines.append("")
+
+        if self.growth_profile:
+            lines.append("Growth")
+            for g_line in self.growth_profile.summary().splitlines():
+                lines.append(f"  {g_line}")
+            lines.append("")
 
         if self.growth_estimate:
             lines.append(
@@ -575,6 +589,23 @@ class ValuationPipeline:
         if consensus is None:
             market_implied_engine_res.notes.append("CAPM skipped for lack of beta.")
 
+        growth_profile: GrowthProfile | None = None
+        try:
+            stage_rf = self._stage_risk_free(security)[0]
+            cached_profile = security.qualitative.get("growth_profile")
+            force_profile = (
+                isinstance(cached_profile, GrowthProfile)
+                and cached_profile.expectations.value is None
+            )
+            growth_profile = ensure_growth_profile(
+                security,
+                engine_result=market_implied_engine_res,
+                risk_free_rate=stage_rf,
+                force=force_profile,
+            )
+        except Exception as e:
+            logger.warning("Failed to build growth profile for %s: %s", security.ticker, e)
+
         # Stage 1b: Questionnaire-based fundamental growth, contrasted against
         # Stage 1's market-implied growth (opt-in — only runs when the caller
         # supplies a completed questionnaire).
@@ -590,8 +621,14 @@ class ValuationPipeline:
         # Stage 2: Relative Valuation
         from iam.data.providers.yfinance_adapter import build_regression_inputs
 
+        q = security.qualitative or {}
         try:
-            reg_inputs = build_regression_inputs(security.ticker)
+            reg_inputs = build_regression_inputs(
+                security.ticker,
+                g_eps=q.get("relative_growth_eps"),
+                g=q.get("relative_growth_revenue"),
+                roic=q.get("roic"),
+            )
         except Exception:
             reg_inputs = None
         relative_res = self.relative.compute(security, regression_inputs=reg_inputs)
@@ -777,6 +814,7 @@ class ValuationPipeline:
             drift_report=drift_report,
             monte_carlo=monte_carlo_res,
             growth_estimate=growth_estimate_res,
+            growth_profile=growth_profile,
         )
 
         # Stage 1 follow-ups at the consensus Ke Stage 1 actually used. Without a consensus
