@@ -21,6 +21,7 @@ from iam.growth.estimators import (
     historical_operating_income,
     historical_revenue,
     market_implied,
+    normalised_fundamental,
 )
 from iam.growth.types import GrowthAssignment, GrowthEstimate, GrowthProfile
 
@@ -28,6 +29,13 @@ DCF_YEARS = 10
 NEAR_TERM_YEARS = 5
 DCF_BOUNDS: tuple[float, float] = (-0.10, 0.35)
 ANALYST_HORIZON_PENALTY = 2.0
+# Which inputs set the DCF rate: "blend" (all, precision-weighted), "replace_fundamental"
+# (normalised fundamental instead of the single-year one) or "anchor" (normalised alone,
+# shrunk to the base rate; falls back to the blend when it is not usable). Point-in-time
+# EDGAR backtest (80 large caps x 9 dates, 2012-2025, realised 3y revenue growth):
+# replace_fundamental MAE 6.84 pts / rank corr 0.34, the previous blend 6.97 / 0.33,
+# anchor 7.52 / 0.11, so the normalised estimate informs the blend but does not replace it.
+DCF_GROWTH_MODE = "replace_fundamental"
 
 
 def fade_path(
@@ -120,6 +128,7 @@ def build_growth_profile(
     est_rev = historical_revenue(security)
     est_op = historical_operating_income(security)
     est_fund = fundamental(security)
+    est_norm_fund = normalised_fundamental(security)
     est_analyst = analyst_forward(security)
 
     if market_implied_value is not None or engine_result is not None or compute_implied:
@@ -141,15 +150,35 @@ def build_growth_profile(
         "historical_revenue": est_rev,
         "historical_operating_income": est_op,
         "fundamental": est_fund,
+        "normalised_fundamental": est_norm_fund,
         "analyst_forward": est_analyst,
         "market_implied": est_implied,
     }
 
     inflate = {"analyst_forward": ANALYST_HORIZON_PENALTY}
 
+    blend_methods: tuple[str, ...] = (
+        "historical_revenue",
+        "historical_operating_income",
+        "fundamental",
+        "normalised_fundamental",
+        "analyst_forward",
+    )
+    if DCF_GROWTH_MODE == "replace_fundamental":
+        dcf_methods: tuple[str, ...] = (
+            "historical_revenue",
+            "historical_operating_income",
+            "normalised_fundamental",
+            "analyst_forward",
+        )
+    elif DCF_GROWTH_MODE == "anchor":
+        dcf_methods = ("normalised_fundamental",) if est_norm_fund.ok else blend_methods
+    else:
+        dcf_methods = blend_methods
+
     dcf_raw = _combine(
         estimates,
-        ("historical_revenue", "historical_operating_income", "fundamental", "analyst_forward"),
+        dcf_methods,
         base,
         valuation="dcf",
         inflate=inflate,

@@ -61,9 +61,17 @@ def ensure_growth_profile(
     # which reads asset-light firms (FCF above net income) as reinvesting nothing. Hand it the
     # reconciled (capex - D&A + change in working capital) / NOPAT rate when the fundamental
     # estimator had the full reconciliation (no approximation note), never over another value.
+    # The multi-year normalised rate (sum of reinvestment / sum of NOPAT) is preferred.
+    normalised = profile.estimates.get("normalised_fundamental")
     fundamental = profile.estimates.get("fundamental")
+    if normalised is not None and normalised.ok and "reinvestment_rate" in normalised.inputs:
+        fundamental = normalised
     rr = fundamental.inputs.get("reinvestment_rate") if fundamental is not None else None
-    reconciled = fundamental is not None and fundamental.ok and not fundamental.notes
+    reconciled = (
+        fundamental is not None
+        and fundamental.ok
+        and (fundamental is normalised or not fundamental.notes)
+    )
     ours = q.get("reinvestment_rate_source") == "growth engine"
     if rr is not None and reconciled and ("reinvestment_rate" not in q or ours):
         q["reinvestment_rate"] = rr

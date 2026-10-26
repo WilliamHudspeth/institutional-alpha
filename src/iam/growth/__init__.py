@@ -19,6 +19,7 @@ from iam.growth.estimators import (
     historical_operating_income,
     historical_revenue,
     market_implied,
+    normalised_fundamental,
 )
 from iam.growth.profile import build_growth_profile, fade_path
 from iam.growth.types import GrowthAssignment, GrowthEstimate, GrowthProfile
@@ -38,4 +39,5 @@ __all__ = [
     "historical_operating_income",
     "historical_revenue",
     "market_implied",
+    "normalised_fundamental",
 ]

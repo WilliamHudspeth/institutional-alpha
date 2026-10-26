@@ -25,6 +25,9 @@ MODEL_ERROR: dict[str, float] = {
     "historical_operating_income": 0.06,
     "fundamental": 0.06,
     "fundamental_approx": 0.08,
+    # Empirical: unbiased (-0.3 pts) but 10 pts mean absolute error vs realised 3y growth
+    # in the point-in-time backtest, with ~no rank correlation (book ROIC distortions).
+    "normalised_fundamental": 0.12,
     "analyst_forward": 0.10,
 }
 
@@ -334,4 +337,166 @@ def market_implied(
         horizon_years=10,
         confidence=conf,
         inputs={"implied_growth": float(implied)},
+    )
+
+
+def normalised_fundamental(security: Security) -> GrowthEstimate:
+    """Estimate 5-year normalised fundamental growth (Damodaran growth lectures)."""
+    method = "normalised_fundamental"
+    f = security.fundamentals
+    sector = security.sector or ""
+
+    if "Financial" in sector:
+        ni_hist = f.net_income_history or []
+        payout_hist = f.equity_payout_history or []
+        be_hist = f.book_equity_history or []
+        limit = min(len(ni_hist), len(payout_hist), max(0, len(be_hist) - 1))
+        usable_fin: list[tuple[float, float, float]] = []
+        for i in range(limit):
+            ni_i = ni_hist[i]
+            pay_i = payout_hist[i]
+            be_prev = be_hist[i + 1]
+            if ni_i is None or pay_i is None or be_prev is None or be_prev <= 0:
+                break
+            usable_fin.append((float(ni_i), float(pay_i), float(be_prev)))
+            if len(usable_fin) == MAX_YEARS:
+                break
+
+        n = len(usable_fin)
+        if n < 3:
+            return GrowthEstimate(
+                method=method,
+                value=None,
+                std_error=None,
+                horizon_years=5,
+                confidence=0.0,
+                reason="At least 3 years with net income, payout, and positive beginning equity are required.",
+            )
+
+        sum_ni = sum(x[0] for x in usable_fin)
+        if sum_ni <= 0:
+            return GrowthEstimate(
+                method=method,
+                value=None,
+                std_error=None,
+                horizon_years=5,
+                confidence=0.0,
+                reason="cumulative net income not positive",
+            )
+
+        sum_payout = sum(x[1] for x in usable_fin)
+        sum_be = sum(x[2] for x in usable_fin)
+        roe_bar = sum_ni / sum_be
+        retention = _clamp(1.0 - sum_payout / sum_ni, 0.0, 1.0)
+        value = _clamp(retention * roe_bar, -0.10, 0.40)
+
+        roes = [ni_i / be_i for ni_i, _, be_i in usable_fin]
+        sd_roe = statistics.stdev(roes) if len(roes) >= 2 else 0.0
+        std_error = math.sqrt(MODEL_ERROR[method] ** 2 + ((retention * sd_roe) ** 2) / n)
+        confidence = _clamp(1.0 - std_error / 0.25, 0.1, 1.0)
+        return GrowthEstimate(
+            method=method,
+            value=value,
+            std_error=std_error,
+            horizon_years=5,
+            confidence=confidence,
+            inputs={
+                "retention": retention,
+                "roe_normalised": roe_bar,
+                "n_years": n,
+            },
+        )
+
+    nopat_hist = f.nopat_history or []
+    reinv_hist = f.reinvestment_history or []
+    ic_hist = f.invested_capital_history or []
+    limit = min(len(nopat_hist), len(reinv_hist), max(0, len(ic_hist) - 1))
+    usable_op: list[tuple[float, float, float]] = []
+    for i in range(limit):
+        nopat_i = nopat_hist[i]
+        reinv_i = reinv_hist[i]
+        ic_prev = ic_hist[i + 1]
+        if nopat_i is None or reinv_i is None or ic_prev is None or ic_prev <= 0:
+            break
+        usable_op.append((float(nopat_i), float(reinv_i), float(ic_prev)))
+        if len(usable_op) == MAX_YEARS:
+            break
+
+    n = len(usable_op)
+    if n < 3:
+        return GrowthEstimate(
+            method=method,
+            value=None,
+            std_error=None,
+            horizon_years=5,
+            confidence=0.0,
+            reason="At least 3 years with NOPAT, reinvestment, and positive beginning invested capital are required.",
+        )
+
+    sum_nopat = sum(x[0] for x in usable_op)
+    if sum_nopat <= 0:
+        return GrowthEstimate(
+            method=method,
+            value=None,
+            std_error=None,
+            horizon_years=5,
+            confidence=0.0,
+            reason="cumulative NOPAT not positive",
+        )
+
+    rr = _clamp(sum(x[1] for x in usable_op) / sum_nopat, -0.5, 1.0)
+    roics = [nopat_i / ic_i for nopat_i, _, ic_i in usable_op]
+    roic_bar_raw = statistics.median(roics)
+    if roic_bar_raw <= 0:
+        return GrowthEstimate(
+            method=method,
+            value=None,
+            std_error=None,
+            horizon_years=5,
+            confidence=0.0,
+            reason="normalised ROIC not positive",
+        )
+
+    roic_bar = _clamp(roic_bar_raw, 0.0, 0.60)
+    roic_now = _clamp(roics[0], 0.0, 0.60)
+    g_reinv = rr * roic_bar
+
+    notes: list[str] = []
+    if roic_now > 0:
+        g_eff_annual = _clamp((roic_bar / roic_now) ** (1.0 / 3.0) - 1.0, -0.15, 0.15)
+        g_eff = g_eff_annual * (3.0 / 5.0)
+    else:
+        g_eff = 0.0
+        notes.append("current ROIC not positive; no efficiency term")
+
+    if roic_bar < 0.08:
+        notes.append(
+            "normalised ROIC below a typical cost of capital: this growth adds little value"
+        )
+
+    value = _clamp(g_reinv + g_eff, -0.10, 0.40)
+
+    sd_roic = statistics.stdev(roics) if len(roics) >= 2 else 0.0
+    rrs = [_clamp(reinv_i / nopat_i, -1.0, 2.0) for nopat_i, reinv_i, _ in usable_op if nopat_i > 0]
+    sd_rr = statistics.stdev(rrs) if len(rrs) >= 2 else 0.0
+    std_error = math.sqrt(
+        MODEL_ERROR[method] ** 2 + ((rr * sd_roic) ** 2) / n + ((roic_bar * sd_rr) ** 2) / n
+    )
+    confidence = _clamp(1.0 - std_error / 0.25, 0.1, 1.0)
+
+    return GrowthEstimate(
+        method=method,
+        value=value,
+        std_error=std_error,
+        horizon_years=5,
+        confidence=confidence,
+        inputs={
+            "reinvestment_rate": rr,
+            "roic_normalised": roic_bar,
+            "roic_now": roic_now,
+            "g_reinvestment": g_reinv,
+            "g_efficiency": g_eff,
+            "n_years": n,
+        },
+        notes=tuple(notes),
     )

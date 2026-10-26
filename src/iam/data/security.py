@@ -97,6 +97,14 @@ class Fundamentals(BaseModel):
     incremental_roic: float | None = None
     accruals_ratio: float | None = None  # Sloan accrual ratio
 
+    # Aligned fiscal-year histories for normalised fundamental growth (most-recent-first)
+    nopat_history: list[float] = Field(default_factory=list)  # most-recent-first
+    reinvestment_history: list[float] = Field(default_factory=list)  # most-recent-first
+    invested_capital_history: list[float] = Field(default_factory=list)  # most-recent-first
+    net_income_history: list[float] = Field(default_factory=list)  # most-recent-first
+    equity_payout_history: list[float] = Field(default_factory=list)  # most-recent-first
+    book_equity_history: list[float] = Field(default_factory=list)  # most-recent-first
+
     # Effective tax rate = tax provision / pretax income, latest fiscal year (None if
     # unavailable). Used for operating cash flows and the multiples regression; beta
     # relevering and the after-tax cost of debt use the MARGINAL rate instead.

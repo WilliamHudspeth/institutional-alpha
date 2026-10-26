@@ -52,7 +52,40 @@ from datetime import date
 from typing import Any
 
 from iam.data.edgar.client import EdgarClient
+from iam.data.rd import RD_LIFE_YEARS, capitalise_rd
 from iam.data.security import Fundamentals
+
+NORMALISED_HISTORY_YEARS = 6
+# US federal statutory rate, used for a fiscal year whose tax / pretax ratio is unusable.
+MARGINAL_TAX_RATE = 0.21
+CAPEX_TAGS = ("PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets")
+RD_TAGS = (
+    "ResearchAndDevelopmentExpense",
+    "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost",
+)
+# How far a prior fiscal year end may sit from "one year earlier" (52/53-week calendars).
+RD_YEAR_TOLERANCE_DAYS = 40
+EQUITY_TAGS = (
+    "StockholdersEquity",
+    "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+)
+CASH_TAGS = (
+    "CashAndCashEquivalentsAtCarryingValue",
+    "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
+    "Cash",
+)
+DA_TAGS = (
+    "DepreciationDepletionAndAmortization",
+    "DepreciationAndAmortization",
+    "DepreciationAmortizationAndAccretionNet",
+    "Depreciation",
+)
+ACQUISITION_TAGS = ("PaymentsToAcquireBusinessesNetOfCashAcquired",)
+WORKING_CAPITAL_TAGS = ("IncreaseDecreaseInOperatingCapital",)
+DIVIDEND_TAGS = ("PaymentsOfDividends", "PaymentsOfDividendsCommonStock")
+BUYBACK_TAGS = ("PaymentsForRepurchaseOfCommonStock",)
+OPERATING_HISTORY_KEYS = ("nopat_history", "reinvestment_history", "invested_capital_history")
+EQUITY_HISTORY_KEYS = ("net_income_history", "equity_payout_history", "book_equity_history")
 
 ACCEPTED_FORMS = frozenset({"10-K", "10-K/A", "10-KT", "10-Q", "10-Q/A"})
 ANNUAL_FORMS = frozenset({"10-K", "10-K/A", "10-KT"})
@@ -179,6 +212,223 @@ class EdgarFundamentals:
     shares_outstanding: FieldValue = field(default_factory=FieldValue)
     equity: FieldValue = field(default_factory=FieldValue)
     roic_history: FieldValue = field(default_factory=FieldValue)
+    operating_history: FieldValue = field(default_factory=FieldValue)
+    equity_history: FieldValue = field(default_factory=FieldValue)
+
+
+def _equity_history(doc: dict[str, Any], as_of: date) -> FieldValue:
+    ni_by_end = _annual_by_end(doc, ("NetIncomeLoss",), as_of)
+    if not ni_by_end:
+        return _missing("equity_history: no NetIncomeLoss fiscal-year facts")
+    div_by_end = _annual_by_end(doc, DIVIDEND_TAGS, as_of)
+    bb_by_end = _annual_by_end(doc, BUYBACK_TAGS, as_of)
+    eq_facts = _usd(doc, "StockholdersEquity", as_of)
+
+    ends = sorted(ni_by_end, reverse=True)
+    if _stale(ends[0], as_of):
+        return _missing(f"equity_history: stale, latest fiscal year ended {ends[0]}")
+
+    ni_list: list[float] = []
+    payout_list: list[float] = []
+    be_list: list[float] = []
+    sources: list[Provenance] = []
+    prev_end: date | None = None
+    first_missing: str | None = None
+
+    for end in ends:
+        if len(ni_list) >= NORMALISED_HISTORY_YEARS:
+            break
+        if prev_end is not None and (prev_end - end).days > HISTORY_MAX_GAP_DAYS:
+            break
+        ni = ni_by_end[end]
+        equity = _latest_instant(eq_facts, as_of, end)
+        if equity is None:
+            first_missing = first_missing or f"missing StockholdersEquity at {end}"
+            break
+        div = div_by_end.get(end)
+        bb = bb_by_end.get(end)
+        ni_list.append(ni.val)
+        payout_list.append(
+            (div.val if div is not None else 0.0) + (bb.val if bb is not None else 0.0)
+        )
+        be_list.append(equity.val)
+        prev_end = end
+
+        tag_ = f"eq:{end.isoformat()}"
+        sources += [ni.prov(f"{tag_}:ni"), equity.prov(f"{tag_}:equity")]
+        if div is not None:
+            sources.append(div.prov(f"{tag_}:div"))
+        if bb is not None:
+            sources.append(bb.prov(f"{tag_}:buyback"))
+
+    if not ni_list:
+        return _missing(f"equity_history: {first_missing or 'no complete fiscal year'}")
+    return FieldValue(
+        {
+            "net_income_history": ni_list,
+            "equity_payout_history": payout_list,
+            "book_equity_history": be_list,
+        },
+        None,
+        "NetIncomeLoss",
+        "aligned fiscal-year net income, equity payout and book equity (most recent first)",
+        ends[0].isoformat(),
+        tuple(sources),
+    )
+
+
+def _operating_history(doc: dict[str, Any], as_of: date) -> FieldValue:
+    op_by_end = _annual_by_end(doc, ("OperatingIncomeLoss",), as_of)
+    # Filers without an operating-income line: EBIT = pretax income + interest expense.
+    pretax_by_end = _annual_by_end(doc, PRETAX_TAGS, as_of)
+    interest_by_end = _annual_by_end(doc, ("InterestExpense",), as_of)
+    if not op_by_end and not pretax_by_end:
+        return _missing("operating_history: no operating or pretax income fiscal-year facts")
+    capex_by_end = _annual_by_end(doc, CAPEX_TAGS, as_of)
+    da_by_end = _annual_by_end(doc, DA_TAGS, as_of)
+    acq_by_end = _annual_by_end(doc, ACQUISITION_TAGS, as_of)
+    wc_by_end = _annual_by_end(doc, WORKING_CAPITAL_TAGS, as_of)
+    tax_by_end = {t.end: (t, p) for t, p in _tax_pairs(doc, as_of)}
+    eq_facts = [_usd(doc, tag, as_of) for tag in EQUITY_TAGS]
+    cash_facts = [_usd(doc, tag, as_of) for tag in CASH_TAGS]
+
+    ends = sorted(set(op_by_end) | set(pretax_by_end), reverse=True)
+    if _stale(ends[0], as_of):
+        return _missing(f"operating_history: stale, latest fiscal year ended {ends[0]}")
+
+    nopat: list[float] = []
+    reinv: list[float] = []
+    ic: list[float] = []
+    sources: list[Provenance] = []
+    used_ends: list[date] = []
+    prev_end: date | None = None
+    first_missing: str | None = None
+
+    for end in ends:
+        if len(nopat) >= NORMALISED_HISTORY_YEARS:
+            break
+        if prev_end is not None and (prev_end - end).days > HISTORY_MAX_GAP_DAYS:
+            break
+        opinc = op_by_end.get(end)
+        if opinc is not None:
+            ebit, ebit_facts = opinc.val, [opinc.prov(f"op:{end.isoformat()}:opinc")]
+        else:
+            pre, intr = pretax_by_end[end], interest_by_end.get(end)
+            ebit = pre.val + (intr.val if intr is not None else 0.0)
+            ebit_facts = [pre.prov(f"op:{end.isoformat()}:pretax_ebit")]
+            if intr is not None:
+                ebit_facts.append(intr.prov(f"op:{end.isoformat()}:interest"))
+        pair = tax_by_end.get(end)
+        rate = _rate(*pair)[0] if pair is not None else None
+        if rate is None:  # loss year: no tax on negative income; odd or missing: marginal
+            rate = 0.0 if ebit <= 0 else MARGINAL_TAX_RATE
+        capex = capex_by_end.get(end)
+        da = da_by_end.get(end)
+        if capex is None or da is None:
+            missing_tag = "capex" if capex is None else "D&A"
+            first_missing = first_missing or f"missing {missing_tag} for {end}"
+            break
+        equity = next(
+            (e for e in (_latest_instant(f, as_of, end) for f in eq_facts) if e is not None),
+            None,
+        )
+        cash = next(
+            (c for c in (_latest_instant(f, as_of, end) for f in cash_facts) if c is not None),
+            None,
+        )
+        debt = _debt(doc, as_of, at_end=end)
+        if equity is None or cash is None:
+            first_missing = first_missing or f"missing equity or cash at {end}"
+            break
+        debt_value = debt.value if debt.value is not None else 0.0  # no debt line: debt-free
+
+        acq = acq_by_end.get(end)
+        wc = wc_by_end.get(end)
+        nopat.append(ebit * (1.0 - rate))
+        reinv.append(
+            capex.val
+            - da.val
+            + (acq.val if acq is not None else 0.0)
+            + (wc.val if wc is not None else 0.0)
+        )
+        ic.append(equity.val + debt_value - cash.val)
+        prev_end = end
+        used_ends.append(end)
+
+        tag_ = f"op:{end.isoformat()}"
+        sources += ebit_facts
+        if pair is not None:
+            sources += [pair[0].prov(f"{tag_}:tax"), pair[1].prov(f"{tag_}:pretax")]
+        sources += [
+            capex.prov(f"{tag_}:capex"),
+            da.prov(f"{tag_}:da"),
+            equity.prov(f"{tag_}:equity"),
+            cash.prov(f"{tag_}:cash"),
+        ]
+        if acq is not None:
+            sources.append(acq.prov(f"{tag_}:acq"))
+        if wc is not None:
+            sources.append(wc.prov(f"{tag_}:wc"))
+        sources += [Provenance(**{**s.to_dict(), "role": f"{tag_}:debt"}) for s in debt.sources]
+
+    if not nopat:
+        return _missing(f"operating_history: {first_missing or 'no complete fiscal year'}")
+
+    # Capitalise R&D for filers that report it (a year without the line counts as zero).
+    rd_by_end = _annual_by_end(doc, RD_TAGS, as_of)
+    if rd_by_end:
+
+        def rd_years_before(end: date, k: int) -> _Fact | None:
+            target = end.toordinal() - round(365.25 * k)
+            return next(
+                (
+                    f
+                    for e, f in rd_by_end.items()
+                    if abs(e.toordinal() - target) <= RD_YEAR_TOLERANCE_DAYS
+                ),
+                None,
+            )
+
+        for i, end in enumerate(used_ends):
+            window = [rd_years_before(end, k) for k in range(RD_LIFE_YEARS + 1)]
+            delta, asset = capitalise_rd([f.val if f is not None else 0.0 for f in window])[0]
+            nopat[i] += delta
+            reinv[i] += delta
+            ic[i] += asset
+            sources += [
+                f.prov(f"op:{end.isoformat()}:rd_minus_{k}y")
+                for k, f in enumerate(window)
+                if f is not None
+            ]
+
+    return FieldValue(
+        {
+            "nopat_history": nopat,
+            "reinvestment_history": reinv,
+            "invested_capital_history": ic,
+        },
+        None,
+        "OperatingIncomeLoss",
+        "aligned fiscal-year NOPAT = EBIT x (1 - tax rate; 0 in a loss year, 21% when the ratio is "
+        "unusable), reinvestment = capex - D&A + acquisitions + working capital increase, invested "
+        "capital = equity + debt (0 if no debt line) - cash; EBIT = OperatingIncomeLoss, else "
+        "pretax income + interest expense; R&D capitalised over "
+        f"{RD_LIFE_YEARS} years when reported (most recent first)",
+        ends[0].isoformat(),
+        tuple(sources),
+    )
+
+
+def _annual_by_end(doc: dict[str, Any], tags: tuple[str, ...], as_of: date) -> dict[date, _Fact]:
+    """Fiscal-year facts keyed by period end date; first matching tag in ``tags`` wins per year."""
+    by_end: dict[date, _Fact] = {}
+    for tag in tags:
+        for (_, end), fact in sorted(
+            _annual_facts(doc, tag, as_of).items(), key=lambda kv: (kv[1].filed, kv[1].accn)
+        ):
+            if end not in by_end or fact.tag == by_end[end].tag:
+                by_end[end] = fact
+    return by_end
 
 
 @dataclass(frozen=True)
@@ -637,6 +887,8 @@ def fundamentals_from_companyfacts(doc: dict[str, Any], as_of: date | str) -> Ed
         shares_outstanding=_shares(doc, when),
         equity=_instant_field(doc, "StockholdersEquity", when),
         roic_history=_roic_history(doc, when),
+        operating_history=_operating_history(doc, when),
+        equity_history=_equity_history(doc, when),
     )
 
 
@@ -667,6 +919,16 @@ def to_fundamentals(ef: EdgarFundamentals) -> tuple[Fundamentals, dict[str, Any]
         else:
             values[name] = fv.value
     prov: dict[str, Any] = {name: getattr(ef, name).to_dict() for name in FIELD_NAMES}
+    for group_attr, keys in (
+        ("operating_history", OPERATING_HISTORY_KEYS),
+        ("equity_history", EQUITY_HISTORY_KEYS),
+    ):
+        group_fv: FieldValue = getattr(ef, group_attr)
+        group_dict = group_fv.to_dict()
+        group_val = group_fv.value or {}
+        for k in keys:
+            values[k] = list(group_val.get(k, ()))
+            prov[k] = group_dict
     prov["_meta"] = {
         "source": "SEC EDGAR companyfacts",
         "cik": ef.cik,

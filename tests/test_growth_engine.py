@@ -233,10 +233,11 @@ class TestProfile:
             roic_history=[0.20],
         )
         p = build_growth_profile(sec, market_implied_value=0.15)
+        # The single-year fundamental rate is out of the DCF (the multi-year normalised one
+        # replaces it; this fixture has no multi-year histories) but still feeds relative g.
         assert set(p.dcf.sources) == {
             "historical_revenue",
             "historical_operating_income",
-            "fundamental",
             "analyst_forward",
         }
         assert set(p.relative_revenue.sources) == {"historical_revenue", "fundamental"}

@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, cast
 import pandas as pd
 import yfinance as yf
 
+from iam.data.rd import capitalise_rd
 from iam.data.retry import retry_call
 from iam.data.security import Fundamentals, MarketData, Security
 
@@ -326,6 +327,7 @@ class YFinanceAdapter:
         )
 
         # Extract book equity from balance sheet
+        bs = cf = None
         try:
             bs = yt.balance_sheet
             if bs is not None and not bs.empty:
@@ -397,6 +399,11 @@ class YFinanceAdapter:
 
         effective, why_not = effective_tax_rate_from_statement(financials)
         f.effective_tax_rate = effective
+        try:
+            for name, values in annual_histories(financials, bs, cf, effective).items():
+                setattr(f, name, values)
+        except Exception as e:
+            logger.warning(f"Failed to parse annual histories for {ticker}: {e}")
 
         qualitative: dict[str, Any] = {
             "payout": f.payout_ratio,
@@ -557,3 +564,100 @@ def estimate_roic(f: Fundamentals) -> float | None:
     if nopat <= 0 or invested_capital <= 0:
         return None
     return nopat / invested_capital
+
+
+def annual_histories(
+    financials: Any,
+    balance_sheet: Any,
+    cashflow: Any,
+    tax_fallback: float | None = None,
+) -> dict[str, list[float]]:
+    """Aligned fiscal-year histories (most-recent-first, capped at 6) from yfinance frames."""
+    out: dict[str, list[float]] = {
+        "nopat_history": [],
+        "reinvestment_history": [],
+        "invested_capital_history": [],
+        "net_income_history": [],
+        "equity_payout_history": [],
+        "book_equity_history": [],
+    }
+
+    def _cols(df: Any) -> list[Any]:
+        if df is None or getattr(df, "empty", True):
+            return []
+        try:
+            return sorted(df.columns, reverse=True)
+        except Exception:
+            return list(df.columns)
+
+    def _cell(df: Any, col: Any, *labels: str) -> float | None:
+        if df is None or getattr(df, "empty", True) or col not in df.columns:
+            return None
+        for label in labels:
+            if label in df.index:
+                val = df.loc[label, col]
+                if pd.notnull(val):
+                    return float(val)
+        return None
+
+    fin_cols = _cols(financials)
+    fallback = (
+        float(tax_fallback)
+        if tax_fallback is not None and 0.0 <= tax_fallback <= MAX_EFFECTIVE_TAX_RATE
+        else 0.21
+    )
+
+    for col in fin_cols:
+        if len(out["nopat_history"]) >= 6:
+            break
+        oi = _cell(financials, col, "Operating Income")
+        capex = _cell(cashflow, col, "Capital Expenditure")
+        da = _cell(cashflow, col, "Depreciation And Amortization")
+        eq = _cell(
+            balance_sheet,
+            col,
+            "Stockholders Equity",
+            "Common Stock Equity",
+            "Total Equity Gross Minority Interest",
+        )
+        debt = _cell(balance_sheet, col, "Total Debt")
+        cash = _cell(balance_sheet, col, "Cash And Cash Equivalents")
+        if None in (oi, capex, da, eq, debt, cash):
+            break
+        tr = _cell(financials, col, "Tax Rate For Calcs")
+        tax = tr if tr is not None and 0.0 <= tr <= MAX_EFFECTIVE_TAX_RATE else fallback
+        acq = abs(_cell(cashflow, col, "Purchase Of Business") or 0.0)
+        wc = -(_cell(cashflow, col, "Change In Working Capital") or 0.0)
+        out["nopat_history"].append(float(oi) * (1.0 - tax))  # type: ignore[arg-type]
+        out["reinvestment_history"].append(abs(float(capex)) - float(da) + acq + wc)  # type: ignore[arg-type]
+        out["invested_capital_history"].append(float(eq) + float(debt) - float(cash))  # type: ignore[arg-type]
+
+    # Capitalise R&D (iam.data.rd). yfinance has about four fiscal years, so the earliest
+    # years' amortisation sees fewer prior years and the asset is understated there.
+    rd = [_cell(financials, col, "Research And Development") or 0.0 for col in fin_cols]
+    if any(rd):
+        for i, (delta, asset) in enumerate(capitalise_rd(rd)[: len(out["nopat_history"])]):
+            out["nopat_history"][i] += delta
+            out["reinvestment_history"][i] += delta
+            out["invested_capital_history"][i] += asset
+
+    for col in fin_cols:
+        if len(out["net_income_history"]) >= 6:
+            break
+        ni = _cell(financials, col, "Net Income")
+        eq = _cell(
+            balance_sheet,
+            col,
+            "Stockholders Equity",
+            "Common Stock Equity",
+            "Total Equity Gross Minority Interest",
+        )
+        if ni is None or eq is None:
+            break
+        div = abs(_cell(cashflow, col, "Cash Dividends Paid") or 0.0)
+        bb = abs(_cell(cashflow, col, "Repurchase Of Capital Stock") or 0.0)
+        out["net_income_history"].append(float(ni))
+        out["equity_payout_history"].append(div + bb)
+        out["book_equity_history"].append(float(eq))
+
+    return out
